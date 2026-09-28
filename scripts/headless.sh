@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
 #
-# Run a command that drives Electron, on a machine that may not be able to.
+# Run a command that drives Electron, the same way everywhere.
 #
 # Two things stand between a checkout and any of those: an Electron this machine
-# can execute, and a screen to draw on. A developer's desktop has both and this
-# script does nothing. A headless runner has neither, and without this each
-# caller would carry the same two workarounds — `xvfb-run` around the command,
-# and on NixOS an `ELECTRON_EXEC_PATH` pointing somewhere the npm download is
-# not.
+# can execute, and a screen to draw on. A headless runner has neither, and
+# without this each caller would carry the same two workarounds — `xvfb-run`
+# around the command, and on NixOS an `ELECTRON_EXEC_PATH` pointing somewhere
+# the npm download is not.
+#
+# A desktop has both, and the screen it has is the wrong one: see `on_desktop`.
+# So the screen is this script's either way, and a suite that passes here passes
+# on the runner for the same reasons.
 #
 # Both callers need both. `test:app` drives a real window through the DevTools
 # protocol; `screenshots` renders off screen and still needs a display to do it,
@@ -47,10 +50,22 @@ usable_electron() {
   return 1
 }
 
-# A session to draw in. Either kind will do — nothing here looks at the window,
-# and what does drives it through the DevTools protocol rather than the desktop.
-has_display() {
-  [ -n "${DISPLAY-}${WAYLAND_DISPLAY-}" ]
+# A screen of this script's own, rather than the desktop's.
+#
+# Nothing here looks at the window — the suite drives it through the DevTools
+# protocol — and a window on somebody's desktop is drawn under that desktop's
+# rules: Chromium throttles rendering for a window that is occluded or not
+# focused, the compositor decides when a frame lands, and another application
+# can take the focus mid-run. Each of those arrives as a screen that is late
+# rather than wrong, which is a test that fails on a machine and passes on the
+# next. So the window is drawn where none of that reaches it, and the run is
+# the same one CI makes.
+#
+# `ROMMIX_ON_DISPLAY=1` puts it back on the desktop, for the one case this
+# cannot serve: watching what the suite is doing to a window that will not
+# behave. `npm run dev` is the way to look at the application itself.
+on_desktop() {
+  [ -n "${ROMMIX_ON_DISPLAY-}" ] && [ -n "${DISPLAY-}${WAYLAND_DISPLAY-}" ]
 }
 
 # Asked for once, up front, so the run happens inside a single shell rather than
@@ -63,7 +78,7 @@ if [ -z "${ROMMIX_HEADLESS_PROVISIONED-}" ]; then
   # server it starts is not in it. A distribution ships them together and this
   # asks for neither; a profile with only the wrapper in it would otherwise get
   # as far as starting a server that is not there.
-  if ! has_display && { ! command -v xvfb-run || ! command -v Xvfb; } >/dev/null 2>&1; then
+  if ! on_desktop && { ! command -v xvfb-run || ! command -v Xvfb; } >/dev/null 2>&1; then
     wanted+=(nixpkgs#xvfb-run nixpkgs#xorg.xorgserver)
   fi
 
@@ -110,10 +125,10 @@ unset ELECTRON_RUN_AS_NODE
 # kills a process that has gone and returns *that* status rather than the
 # command's — a green run reported as a failure, in the one place that decides
 # whether a tag is cut.
-if has_display; then
+if on_desktop; then
+  echo "==> Drawing on this desktop, as ROMMIX_ON_DISPLAY asks"
   window=()
 else
-  echo "==> No display; drawing into Xvfb"
   window=(xvfb-run -a --server-args="-screen 0 1920x1080x24")
 fi
 
