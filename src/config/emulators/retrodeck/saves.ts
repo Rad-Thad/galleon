@@ -54,7 +54,7 @@ function cardEmulator(component: string, reason: Text): ComponentSaves {
   })
 }
 
-const RETRODECK_COMPONENTS: Readonly<Record<string, ComponentSaves>> = {
+export const RETRODECK_COMPONENTS: Readonly<Record<string, ComponentSaves>> = {
   pcsx2: cardEmulator('pcsx2', 'saves.retrodeckPcsx2'),
   duckstation: cardEmulator('duckstation', 'saves.retrodeckDuckstation'),
 
@@ -227,11 +227,10 @@ function coreForCommand(ctx: ComponentContext, label: string | null): string | n
  * report. Every system absent from here defaults to a core inside RetroArch,
  * which is the large majority of them and needs no entry.
  */
-const RETRODECK_DEFAULT_COMPONENT: Readonly<Record<string, string>> = {
+export const RETRODECK_DEFAULT_COMPONENT: Readonly<Record<string, string>> = {
   gc: 'dolphin',
   wii: 'dolphin',
   triforce: 'dolphin',
-  primehack: 'primehack',
   ps2: 'pcsx2',
   ps3: 'rpcs3',
   psp: 'ppsspp',
@@ -257,7 +256,7 @@ const RETRODECK_DEFAULT_COMPONENT: Readonly<Record<string, string>> = {
  * unrecognised label in practice *is* a core — there are hundreds of those and
  * a fixed handful of components.
  */
-const COMPONENT_BY_LABEL: Readonly<Record<string, string>> = {
+export const COMPONENT_BY_LABEL: Readonly<Record<string, string>> = {
   pcsx2: 'pcsx2',
   duckstation: 'duckstation',
   dolphin: 'dolphin',

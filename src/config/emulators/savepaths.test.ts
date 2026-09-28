@@ -9,10 +9,16 @@ import {
   SWITCH_FOLDERS
 } from './emudeck/saves.ts'
 import { example } from './example/index.ts'
+import {
+  COMPONENT_BY_LABEL,
+  RETRODECK_COMPONENTS,
+  RETRODECK_DEFAULT_COMPONENT
+} from './retrodeck/saves.ts'
 import { retroarch } from './retroarch/index.ts'
 import { retrodeck } from './retrodeck/index.ts'
 import { shadps4 } from './shadps4/index.ts'
 import { EMULATORS } from './index.ts'
+import { isKnownSystem } from '../systems.ts'
 import type { EmulatorDescriptor } from './types.ts'
 import type { SaveContext, SaveEnvironment, SavePaths } from './savepaths.ts'
 import { createI18n, localize } from '@shared/i18n'
@@ -1331,4 +1337,52 @@ test('the Switch emulators are described as a NAND rather than as save files', (
   for (const folder of Object.keys(SWITCH_FOLDERS)) {
     assert.equal(folder in FOLDERS, false, `${folder} is described twice, in two shapes`)
   }
+})
+
+/**
+ * RetroDECK's own tables against each other.
+ *
+ * The same hazard as above, for the frontend that indexes by component rather
+ * than by folder. `RETRODECK_DEFAULT_COMPONENT` is keyed by ES-DE system and
+ * `COMPONENT_BY_LABEL` by ES-DE command label, and each answers with a row of
+ * `RETRODECK_COMPONENTS`: a key that is no system is a row nothing can reach,
+ * and a value naming no row falls through to the libretro shape — which for a
+ * per-game-id emulator like PPSSPP syncs a folder belonging to no game in
+ * particular.
+ */
+
+test('every system RetroDECK keeps a default component for is one ES-DE has', () => {
+  // `retroDeckComponent` looks this table up by the system it was handed, so a
+  // key that names no system is a default that can never be read.
+  for (const system of Object.keys(RETRODECK_DEFAULT_COMPONENT)) {
+    assert.ok(isKnownSystem(system), `${system} is no ES-DE system, so nothing looks it up`)
+  }
+})
+
+test('every component RetroDECK can choose has a save layout of its own', () => {
+  for (const [system, component] of Object.entries(RETRODECK_DEFAULT_COMPONENT)) {
+    assert.ok(
+      component in RETRODECK_COMPONENTS,
+      `${system} defaults to ${component}, which is described nowhere`
+    )
+  }
+  for (const [label, component] of Object.entries(COMPONENT_BY_LABEL)) {
+    assert.ok(
+      component in RETRODECK_COMPONENTS,
+      `the label ${label} names ${component}, which is described nowhere`
+    )
+  }
+})
+
+test('every RetroDECK save layout is one a command label reaches', () => {
+  // The reverse direction: a component ES-DE never names in a command is a
+  // layout no game can be resolved through.
+  const reachable = new Set(Object.values(COMPONENT_BY_LABEL))
+  assert.deepEqual(
+    Object.keys(RETRODECK_COMPONENTS)
+      .filter((component) => !reachable.has(component))
+      .sort(),
+    [],
+    'a save layout no label reaches: name it in COMPONENT_BY_LABEL, or drop the row'
+  )
 })

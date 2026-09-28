@@ -6,20 +6,6 @@ the work that remains, with the reason each was not done at the time.
 
 ## Left open
 
-- [ ] **Save-table rows no launcher reaches** — `retrodeck/saves.ts` (`primehack`,
-      `triforce`, `tanodragon`) and `emudeck/saves.ts` (`vita3k.sh`, `Vita3K`,
-      `primehack`, `suyu`). Reported as dead code, but they read as prepared rather
-      than dead: `emuDeckSaveFolder` falls back to the script's own name, so each row
-      wires itself up the moment an `EMUDECK_LAUNCHERS` entry exists. Deleting them
-      removes correct knowledge; adding the launchers asserts that EmuDeck ships
-      those emulators under script names nothing here has verified. `primehack` in
-      `retrodeck/saves.ts` is the one clear exception, not being an ES-DE system at
-      all, so nothing can ever key on it. The hazard actually worth closing is the
-      reverse one, and it is silent: the lookup is a bare `Record` falling back to
-      `standard(root)`, so a launcher added without a `FOLDERS` entry resolves to
-      `perRom(<root>/saves)` and uploads one game's shared card under another game's
-      id. That wants the binding test below rather than a deletion.
-
 - [ ] **`src/main/safepath.ts:26` — containment is lexical only.** A directory
       symlink already inside a system folder, routine on EmuDeck, plus a RomM
       `file_name` of `disc/.bashrc` passes `safeJoin` and is written through. The gap
