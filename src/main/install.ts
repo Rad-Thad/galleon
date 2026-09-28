@@ -124,7 +124,7 @@ export async function unpack(
   // `targetPath` came through `Library.plan`, which has already refused a name
   // that leaves the system folder; the staging name is derived here and gets
   // the same check.
-  const staged = safeJoin(systemDir, rom.fs_name_no_ext)
+  const staged = await safeJoin(systemDir, rom.fs_name_no_ext)
   if (!staged) {
     log.error('install', 'refused a name that leaves the system folder', undefined, {
       romId: rom.id,

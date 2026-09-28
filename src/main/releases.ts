@@ -188,7 +188,8 @@ export async function installAsset(
    * to refuse here — this is a single program file, and the two staging
    * renames below assume it sits directly in the directory they move.
    */
-  const destination = basename(asset.name) === asset.name ? safeJoin(staging, asset.name) : null
+  const destination =
+    basename(asset.name) === asset.name ? await safeJoin(staging, asset.name) : null
   if (!destination) {
     await rm(staging, { recursive: true, force: true })
     throw new Error(t('error.assetNotRunnable', { asset: asset.name }))

@@ -610,7 +610,7 @@ export class BiosManager {
 
     // The name is the server's, and it decides where the file is written. One
     // that climbs out of the BIOS folder is refused rather than followed.
-    const destination = safeJoin(dir, firmware.file_name)
+    const destination = await safeJoin(dir, firmware.file_name)
     if (!destination) {
       log.error('bios', 'refused a firmware name that leaves its folder', undefined, {
         firmwareId,

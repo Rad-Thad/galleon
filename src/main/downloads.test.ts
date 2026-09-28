@@ -290,18 +290,29 @@ async function settled(downloads: DownloadManager, romId: number): Promise<Downl
 }
 
 describe('the queue', () => {
-  test('asking twice for the same game does not queue it twice', () => {
+  test('asking twice for the same game does not queue it twice', async () => {
     const { downloads } = manager()
 
-    downloads.enqueue(rom())
-    downloads.enqueue(rom())
+    await downloads.enqueue(rom())
+    await downloads.enqueue(rom())
 
     assert.equal(downloads.items.filter((item) => item.romId === 1).length, 1)
   })
 
-  test('cancelling marks the item rather than dropping it off the screen', () => {
+  test('two presses of the same button are one transfer, not two rows', async () => {
+    // Planning reads the disk, so a second ask can arrive while the first is
+    // still working one out. Both find nothing queued; without a second look
+    // the later one replaces the row the transfer on the wire reports into.
     const { downloads } = manager()
-    downloads.enqueue(rom())
+
+    await Promise.all([downloads.enqueue(rom()), downloads.enqueue(rom())])
+
+    assert.equal(downloads.items.filter((item) => item.romId === 1).length, 1)
+  })
+
+  test('cancelling marks the item rather than dropping it off the screen', async () => {
+    const { downloads } = manager()
+    await downloads.enqueue(rom())
 
     downloads.cancel(1)
 
@@ -310,7 +321,7 @@ describe('the queue', () => {
 
   test('clearing finished items leaves whatever is still moving', async () => {
     const { downloads } = manager()
-    downloads.enqueue(rom())
+    await downloads.enqueue(rom())
     downloads.cancel(1)
 
     downloads.clearFinished()
@@ -344,7 +355,7 @@ describe('a download that runs to the end', () => {
         if (items.some((item) => item.state === 'done' || item.state === 'error')) resolve()
       })
     })
-    downloads.enqueue(rom())
+    await downloads.enqueue(rom())
     await finished
 
     const installed = store.getInstalled(1)
@@ -376,7 +387,7 @@ describe('changing the order of the queue', () => {
 
   test('a promoted transfer takes the place of the one on the wire', async () => {
     const { downloads } = manager({ contents: '0123456789' })
-    for (const game of three()) downloads.enqueue(game)
+    for (const game of three()) await downloads.enqueue(game)
 
     downloads.promote(3)
 
@@ -400,7 +411,7 @@ describe('changing the order of the queue', () => {
      * pressed to bring it back, and whether it starts again from nothing.
      */
     const made = manager({ contents: '0123456789', breakAfter: 4, roms: library() })
-    for (const game of three()) made.downloads.enqueue(game)
+    for (const game of three()) await made.downloads.enqueue(game)
     const allDone = new Promise<void>((resolve) => {
       made.downloads.on('update', (items: DownloadItem[]) => {
         if (items.length === 3 && items.every((item) => item.state === 'done')) resolve()
@@ -424,7 +435,7 @@ describe('changing the order of the queue', () => {
     // Nothing to pick up afterwards, so overtaking it would cost everything it
     // has fetched. The promoted game takes the turn after instead.
     const { downloads } = manager({ contents: '0123456789', ranges: false })
-    for (const game of three()) downloads.enqueue(game)
+    for (const game of three()) await downloads.enqueue(game)
 
     downloads.promote(3)
 
@@ -461,10 +472,10 @@ describe('changing the order of the queue', () => {
     await made.downloads.restorePending()
 
     const [one, two] = three()
-    made.downloads.enqueue(one)
-    made.downloads.enqueue(two)
+    await made.downloads.enqueue(one)
+    await made.downloads.enqueue(two)
     // Behind everything else waiting, rather than back into the place it held.
-    made.downloads.enqueue(rom({ id: 9, fs_name: 'Nine.md', fs_name_no_ext: 'Nine' }))
+    await made.downloads.enqueue(rom({ id: 9, fs_name: 'Nine.md', fs_name_no_ext: 'Nine' }))
     assert.deepEqual(
       made.downloads.items.map((item) => `${item.romId}:${item.state}`),
       ['1:downloading', '2:queued', '9:queued']
@@ -490,7 +501,7 @@ describe('changing the order of the queue', () => {
      * it forward.
      */
     const made = manager({ contents: '0123456789', roms: library() })
-    for (const game of three()) made.downloads.enqueue(game)
+    for (const game of three()) await made.downloads.enqueue(game)
     made.downloads.pause(3)
 
     made.downloads.promote(3)
@@ -506,7 +517,7 @@ describe('changing the order of the queue', () => {
     // Nothing gave way, so nothing would have reached it: `promote` is the only
     // thing that starts the queue here.
     const made = manager({ contents: '0123456789', roms: library() })
-    made.downloads.enqueue(three()[0])
+    await made.downloads.enqueue(three()[0])
     made.downloads.pause(1)
     await settled(made.downloads, 1)
 
@@ -517,7 +528,7 @@ describe('changing the order of the queue', () => {
 
   test('the one already next is left alone, and so is anything not waiting', async () => {
     const { downloads } = manager({ contents: '0123456789' })
-    for (const game of three()) downloads.enqueue(game)
+    for (const game of three()) await downloads.enqueue(game)
     const before = downloads.items.map((item) => item.romId)
 
     // On the wire rather than waiting, so there is nothing to bring forward.
@@ -555,7 +566,7 @@ describe('a game RomM holds zipped', () => {
       zip: { 'Advance Wars (Europe).gba': '0123456789' }
     })
 
-    downloads.enqueue(zipped())
+    await downloads.enqueue(zipped())
     const item = await settled(downloads, 1)
 
     assert.equal(item.state, 'done')
@@ -572,7 +583,7 @@ describe('a game RomM holds zipped', () => {
       if (row && seen.at(-1) !== row.state) seen.push(row.state)
     })
 
-    downloads.enqueue(zipped())
+    await downloads.enqueue(zipped())
     await settled(downloads, 1)
 
     /**
@@ -609,7 +620,7 @@ describe('a game RomM holds zipped', () => {
       if (row && seen.at(-1) !== row.state) seen.push(row.state)
     })
 
-    downloads.enqueue(rom({ md5_hash: '781e5e245d69b566979b86e28d23f2c7' }))
+    await downloads.enqueue(rom({ md5_hash: '781e5e245d69b566979b86e28d23f2c7' }))
     await settled(downloads, 1)
 
     assert.deepEqual(seen, ['queued', 'downloading', 'checking', 'installing', 'done'])
@@ -618,7 +629,7 @@ describe('a game RomM holds zipped', () => {
   test('one that unpacks to bytes RomM does not hold is refused, and goes', async () => {
     const made = manager({ zip: { 'Advance Wars (Europe).gba': 'not that game at all' } })
 
-    made.downloads.enqueue(zipped())
+    await made.downloads.enqueue(zipped())
     const item = await settled(made.downloads, 1)
 
     assert.equal(item.state, 'error')
@@ -655,7 +666,7 @@ describe('an arcade game', () => {
       zip: { '201-c1.c1': 'the graphics rom' }
     })
 
-    downloads.enqueue(romset())
+    await downloads.enqueue(romset())
     const item = await settled(downloads, 1)
 
     assert.equal(item.state, 'done')
@@ -673,7 +684,7 @@ describe('an arcade game', () => {
       if (row && seen.at(-1) !== row.state) seen.push(row.state)
     })
 
-    downloads.enqueue(romset())
+    await downloads.enqueue(romset())
     await settled(downloads, 1)
 
     // Nor checking: RomM hashed the dumps inside the archive, and the archive
@@ -686,7 +697,7 @@ describe('a download that is interrupted', () => {
   test('what arrived is kept, and the row waits to be finished rather than failing', async () => {
     const { downloads, store, root } = manager({ contents: '0123456789', breakAfter: 4 })
 
-    downloads.enqueue(rom())
+    await downloads.enqueue(rom())
     const item = await settled(downloads, 1)
 
     assert.equal(item.state, 'paused')
@@ -704,7 +715,7 @@ describe('a download that is interrupted', () => {
   test('a transfer that never delivered anything is an error, not something to resume', async () => {
     const { downloads, store } = manager({ contents: '0123456789', breakAfter: 0 })
 
-    downloads.enqueue(rom())
+    await downloads.enqueue(rom())
     const item = await settled(downloads, 1)
 
     assert.equal(item.state, 'error')
@@ -714,10 +725,10 @@ describe('a download that is interrupted', () => {
 
   test('asking for the game again continues it rather than starting over', async () => {
     const { downloads, store, resumed } = manager({ contents: '0123456789', breakAfter: 4 })
-    downloads.enqueue(rom())
+    await downloads.enqueue(rom())
     await settled(downloads, 1)
 
-    downloads.enqueue(rom())
+    await downloads.enqueue(rom())
     const item = await settled(downloads, 1)
 
     assert.equal(item.state, 'done')
@@ -729,12 +740,12 @@ describe('a download that is interrupted', () => {
 
   test('a ROM the server has replaced since is fetched again, not appended to', async () => {
     const { downloads, store, resumed } = manager({ contents: '0123456789', breakAfter: 4 })
-    downloads.enqueue(rom())
+    await downloads.enqueue(rom())
     await settled(downloads, 1)
 
     // A better dump, uploaded under the same id: a different file name, so the
     // bytes on disk are not this ROM's.
-    downloads.enqueue(rom({ fs_name: 'Sonic the Hedgehog (USA) (Rev 1).md' }))
+    await downloads.enqueue(rom({ fs_name: 'Sonic the Hedgehog (USA) (Rev 1).md' }))
     await settled(downloads, 1)
 
     assert.deepEqual(resumed, [false, false])
@@ -743,13 +754,13 @@ describe('a download that is interrupted', () => {
 
   test('the same ROM reported at a slightly different size is still the same ROM', async () => {
     const { downloads, resumed } = manager({ contents: '0123456789', breakAfter: 4 })
-    downloads.enqueue(rom())
+    await downloads.enqueue(rom())
     await settled(downloads, 1)
 
     // RomM derives `fs_size_bytes` rather than storing it, and answers with a
     // figure a few hundred bytes different from one call to the next. Treating
     // that as a different file threw the partial away every time.
-    downloads.enqueue(rom({ fs_size_bytes: 511 }))
+    await downloads.enqueue(rom({ fs_size_bytes: 511 }))
     const item = await settled(downloads, 1)
 
     assert.equal(item.state, 'done')
@@ -758,7 +769,7 @@ describe('a download that is interrupted', () => {
 
   test('cancelling is what throws the part-downloaded file away', async () => {
     const { downloads, store, root } = manager({ contents: '0123456789', breakAfter: 4 })
-    downloads.enqueue(rom())
+    await downloads.enqueue(rom())
     await settled(downloads, 1)
 
     await downloads.cancel(1)
@@ -771,7 +782,7 @@ describe('a download that is interrupted', () => {
 
   test('clearing the finished ones leaves it alone: it has not finished', async () => {
     const { downloads } = manager({ contents: '0123456789', breakAfter: 4 })
-    downloads.enqueue(rom())
+    await downloads.enqueue(rom())
     await settled(downloads, 1)
 
     downloads.clearFinished()
@@ -786,7 +797,7 @@ describe('a download that is interrupted', () => {
 describe('after a restart', () => {
   test('an interrupted download is back in the list, at the size on disk', async () => {
     const { downloads, store, root } = manager({ contents: '0123456789', breakAfter: 4 })
-    downloads.enqueue(rom())
+    await downloads.enqueue(rom())
     await settled(downloads, 1)
 
     // A second manager over the same root is what a restart looks like from
@@ -810,7 +821,7 @@ describe('after a restart', () => {
 
   test('a partial the user deleted by hand is forgotten rather than offered', async () => {
     const { downloads, store, root } = manager({ contents: '0123456789', breakAfter: 4 })
-    downloads.enqueue(rom())
+    await downloads.enqueue(rom())
     await settled(downloads, 1)
     rmSync(join(root, 'roms', 'genesis', 'Sonic the Hedgehog (USA).md.part'))
 
@@ -828,7 +839,7 @@ describe('after a restart', () => {
 
   test('resuming after a restart continues the file rather than starting over', async () => {
     const { downloads, store } = manager({ contents: '0123456789', breakAfter: 4 })
-    downloads.enqueue(rom())
+    await downloads.enqueue(rom())
     await settled(downloads, 1)
 
     // The restart: a new manager over the same root, told to pick up what was
@@ -840,7 +851,7 @@ describe('after a restart', () => {
       new Library(store, client, cache(client), () => null)
     )
     await next.restorePending()
-    next.enqueue(rom())
+    await next.enqueue(rom())
     const item = await settled(next, 1)
 
     assert.equal(item.state, 'done')
@@ -874,7 +885,7 @@ describe('after a restart', () => {
       client,
       new Library(store, client, cache(client), () => null)
     )
-    killed.enqueue(rom())
+    await killed.enqueue(rom())
     await new Promise((resolve) => setTimeout(resolve, 20))
 
     const { client: next, resumed } = fakeClient({ contents: '0123456789', roms: { 1: rom() } })
@@ -889,7 +900,7 @@ describe('after a restart', () => {
     assert.equal(restored.state, 'paused')
     assert.equal(restored.receivedBytes, 4)
 
-    restarted.enqueue(rom())
+    await restarted.enqueue(rom())
     assert.equal((await settled(restarted, 1)).state, 'done')
     assert.deepEqual(resumed, [true])
   })
@@ -906,8 +917,8 @@ describe('after a restart', () => {
       roms: { 1: rom(), 2: second }
     })
 
-    downloads.enqueue(rom())
-    downloads.enqueue(second)
+    await downloads.enqueue(rom())
+    await downloads.enqueue(second)
     await settled(downloads, 1)
     await settled(downloads, 2)
 
@@ -932,7 +943,7 @@ describe('after a restart', () => {
       roms: { 1: rom() }
     })
     const { store } = stopped
-    stopped.downloads.enqueue(rom())
+    await stopped.downloads.enqueue(rom())
     await settled(stopped.downloads, 1)
     assert.equal(store.pending[0].stoppedAs, 'stalled')
 
@@ -946,8 +957,8 @@ describe('after a restart', () => {
     const second = rom({ id: 2, fs_name: 'Streets of Rage (USA).md' })
     const { downloads } = manager({ contents: '0123456789', roms: { 1: rom(), 2: second } })
 
-    downloads.enqueue(rom())
-    downloads.enqueue(second)
+    await downloads.enqueue(rom())
+    await downloads.enqueue(second)
     downloads.pause(2)
 
     // Stopping was the answer, not the problem. A queue that undid it the
@@ -965,7 +976,7 @@ describe('after a restart', () => {
       roms: { 1: rom() }
     })
 
-    downloads.enqueue(rom())
+    await downloads.enqueue(rom())
     await settled(downloads, 1)
 
     // An unsafe name and a refused hash are not the network, and coming back
@@ -1006,7 +1017,7 @@ describe('after a restart', () => {
     try {
       const library = new Library(store, client, cache(client), () => null)
       const downloads = new DownloadManager(store, client, library)
-      downloads.enqueue(rom())
+      await downloads.enqueue(rom())
       const item = await settled(downloads, 1)
 
       assert.equal(item.state, 'error')
@@ -1028,7 +1039,7 @@ describe('after a restart', () => {
       roms: {}
     })
 
-    downloads.enqueue(rom())
+    await downloads.enqueue(rom())
     await settled(downloads, 1)
     assert.equal(downloads.items[0].state, 'stalled')
 
@@ -1047,8 +1058,8 @@ describe('after a restart', () => {
       breakReason: UnreachableError,
       roms: { 1: rom(), 2: second }
     })
-    stopped.downloads.enqueue(rom())
-    stopped.downloads.enqueue(second)
+    await stopped.downloads.enqueue(rom())
+    await stopped.downloads.enqueue(second)
     await settled(stopped.downloads, 1)
     await settled(stopped.downloads, 2)
 
@@ -1073,7 +1084,7 @@ describe('after a restart', () => {
     // RomMix stopped between the last byte landing and the record being
     // cleared: the game is installed, and the record is the only thing left.
     const { downloads, store } = manager({ contents: '0123456789' })
-    downloads.enqueue(rom())
+    await downloads.enqueue(rom())
     await settled(downloads, 1)
     store.setPending({
       romId: 1,
@@ -1102,7 +1113,7 @@ describe('after a restart', () => {
 
   test('restoring twice does not put the same transfer in the list twice', async () => {
     const { downloads, store } = manager({ contents: '0123456789', breakAfter: 4 })
-    downloads.enqueue(rom())
+    await downloads.enqueue(rom())
     await settled(downloads, 1)
 
     const { client } = fakeClient()
@@ -1154,7 +1165,7 @@ describe('pausing on purpose', () => {
       new Library(store, client, cache(client), () => null)
     )
 
-    downloads.enqueue(rom())
+    await downloads.enqueue(rom())
     await new Promise((resolve) => setTimeout(resolve, 20))
     downloads.pause(1)
     const item = await settled(downloads, 1)
@@ -1198,8 +1209,8 @@ describe('pausing on purpose', () => {
       client,
       new Library(store, client, cache(client), () => null)
     )
-    downloads.enqueue(rom())
-    downloads.enqueue(second)
+    await downloads.enqueue(rom())
+    await downloads.enqueue(second)
 
     downloads.pause(2)
 
@@ -1212,7 +1223,7 @@ describe('pausing on purpose', () => {
 
   test('pausing something that is not moving does nothing at all', async () => {
     const { downloads } = manager({ contents: '0123456789' })
-    downloads.enqueue(rom())
+    await downloads.enqueue(rom())
     await settled(downloads, 1)
 
     downloads.pause(1)
@@ -1232,7 +1243,7 @@ describe('a ROM the server cannot send in pieces', () => {
       ranges: false
     })
 
-    downloads.enqueue(rom())
+    await downloads.enqueue(rom())
     const item = await settled(downloads, 1)
 
     assert.equal(item.state, 'error')
@@ -1247,7 +1258,7 @@ describe('a ROM the server cannot send in pieces', () => {
   test('one that arrives whole is recorded like any other', async () => {
     const { downloads, store } = manager({ contents: '0123456789', ranges: false })
 
-    downloads.enqueue(rom())
+    await downloads.enqueue(rom())
     const item = await settled(downloads, 1)
 
     assert.equal(item.state, 'done')
@@ -1278,7 +1289,7 @@ describe('a game fetched one file at a time', () => {
   test('the files land in the game folder, with nothing to unpack', async () => {
     const { downloads, store, root } = manager({ perFile: true })
 
-    downloads.enqueue(multi())
+    await downloads.enqueue(multi())
     const item = await settled(downloads, 2)
 
     assert.equal(item.state, 'done')
@@ -1310,7 +1321,7 @@ describe('a game fetched one file at a time', () => {
       { id: 2, rom_id: 2, file_name: 'disc.cue', file_size_bytes: 8 }
     ] as RommRom['files']
 
-    downloads.enqueue(escaping)
+    await downloads.enqueue(escaping)
     const item = await settled(downloads, 2)
 
     // Nothing arrived, so there is nothing to resume and this is an error
@@ -1342,7 +1353,7 @@ describe('a game fetched one file at a time', () => {
       { id: 2, rom_id: 2, file_name: 'disc.cue', file_size_bytes: 8 }
     ] as RommRom['files']
 
-    downloads.enqueue(escaping)
+    await downloads.enqueue(escaping)
     await settled(downloads, 2)
     downloads.cancel(2)
     // The removal is asynchronous; the row reaching `cancelled` is what says it
@@ -1365,7 +1376,7 @@ describe('a game fetched one file at a time', () => {
      */
     const { downloads, store, root } = manager({ perFile: true, corruptFile: 2 })
 
-    downloads.enqueue(multi())
+    await downloads.enqueue(multi())
     const item = await settled(downloads, 2)
 
     assert.equal(item.state, 'paused')
@@ -1385,7 +1396,7 @@ describe('a game fetched one file at a time', () => {
     // not failing, so it says only that it is paused.
     const { downloads } = manager({ perFile: true, breakAfter: 4 })
 
-    downloads.enqueue(multi())
+    await downloads.enqueue(multi())
     const item = await settled(downloads, 2)
 
     assert.equal(item.state, 'paused')
@@ -1400,7 +1411,7 @@ describe('a game fetched one file at a time', () => {
       if (row) seen.push(row.receivedBytes)
     })
 
-    downloads.enqueue(multi())
+    await downloads.enqueue(multi())
     await settled(downloads, 2)
 
     // Never goes backwards, and ends at the sum of the three.
@@ -1419,7 +1430,7 @@ describe('a game fetched one file at a time', () => {
       if (row) named.push(row.currentFile)
     })
 
-    downloads.enqueue(multi())
+    await downloads.enqueue(multi())
     const item = await settled(downloads, 2)
 
     assert.deepEqual(
@@ -1433,7 +1444,7 @@ describe('a game fetched one file at a time', () => {
   test('a transfer that stops naming no file at all', async () => {
     const { downloads } = manager({ perFile: true, breakAfter: 4 })
 
-    downloads.enqueue(multi())
+    await downloads.enqueue(multi())
     const item = await settled(downloads, 2)
 
     assert.equal(item.state, 'paused')
@@ -1467,7 +1478,7 @@ describe('a game fetched one file at a time', () => {
       } as unknown as EmulatorState
     })
 
-    made.downloads.enqueue(multi())
+    await made.downloads.enqueue(multi())
     const item = await settled(made.downloads, 2)
 
     assert.equal(item.state, 'done')
@@ -1499,7 +1510,7 @@ describe('a game fetched one file at a time', () => {
       totalBytes: 104
     })
 
-    downloads.enqueue(multi())
+    await downloads.enqueue(multi())
     await settled(downloads, 2)
 
     // Two fetched, the third left alone.
@@ -1530,7 +1541,7 @@ describe('a game fetched one file at a time', () => {
 
   test('cancelling takes the folder as well as the files in it', async () => {
     const { downloads, store, root } = manager({ perFile: true, breakAfter: 4 })
-    downloads.enqueue(multi())
+    await downloads.enqueue(multi())
     await settled(downloads, 2)
     const dir = join(root, 'roms', 'psx', 'Castlevania - Symphony of the Night (Europe)')
     assert.equal(existsSync(dir), true)
@@ -1685,7 +1696,7 @@ describe('the room on the drive', () => {
   test('a game no disk could hold is refused before the transfer starts', async () => {
     const { downloads, root } = manager()
 
-    downloads.enqueue(rom({ fs_size_bytes: IMMENSE }))
+    await downloads.enqueue(rom({ fs_size_bytes: IMMENSE }))
     const item = await settled(downloads, 1)
 
     assert.equal(item.state, 'error')
@@ -1700,7 +1711,7 @@ describe('the room on the drive', () => {
     // those would be the reason they cannot be downloaded at all.
     const { downloads } = manager()
 
-    downloads.enqueue(rom({ fs_size_bytes: 0 }))
+    await downloads.enqueue(rom({ fs_size_bytes: 0 }))
 
     assert.equal((await settled(downloads, 1)).state, 'done')
   })
@@ -1735,7 +1746,7 @@ describe('the room on the drive', () => {
     })
     await downloads.restorePending()
 
-    downloads.enqueue(rom({ fs_size_bytes: total }))
+    await downloads.enqueue(rom({ fs_size_bytes: total }))
 
     assert.equal((await settled(downloads, 1)).state, 'done')
   })

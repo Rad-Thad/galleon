@@ -307,35 +307,35 @@ describe('which copies still count', () => {
 })
 
 describe('planning where a download goes', () => {
-  test('a shared library is RomMix own tree, under the ES-DE system name', () => {
+  test('a shared library is RomMix own tree, under the ES-DE system name', async () => {
     const { library, root } = manager()
 
-    const planned = library.plan(rom())
+    const planned = await library.plan(rom())
 
     assert.equal(planned.system, 'genesis')
     assert.equal(planned.path, join(root, 'roms', 'genesis', 'Sonic the Hedgehog (USA).md'))
   })
 
-  test('a platform RomMix cannot map is refused, and names the platform', () => {
+  test('a platform RomMix cannot map is refused, and names the platform', async () => {
     const { library } = manager()
 
-    assert.throws(
+    await assert.rejects(
       () => library.plan(rom({ platform_slug: 'invented', platform_fs_slug: 'invented' })),
       (cause: RommError) =>
         cause instanceof RommError && /Sega Mega Drive|invented/.test(cause.message)
     )
   })
 
-  test('per-emulator storage with nothing installed refuses rather than guessing', () => {
+  test('per-emulator storage with nothing installed refuses rather than guessing', async () => {
     const { library } = manager({ shared: false, emulator: null })
 
-    assert.throws(() => library.plan(rom()), RommError)
+    await assert.rejects(() => library.plan(rom()), RommError)
   })
 
-  test('a multi-file game is planned as a directory of its own', () => {
+  test('a multi-file game is planned as a directory of its own', async () => {
     const { library, root } = manager()
 
-    const planned = library.plan(
+    const planned = await library.plan(
       rom({
         has_multiple_files: true,
         fs_name: 'Final Fantasy VII',
@@ -469,7 +469,7 @@ describe('adopting what is already on disk', () => {
         if (items.some((item) => item.state === 'done' || item.state === 'error')) resolve()
       })
     })
-    made.downloads.enqueue(rom())
+    await made.downloads.enqueue(rom())
     await finished
     writeFileSync(join(dir, 'Streets of Rage (USA).md'), '0'.repeat(32))
 
@@ -535,7 +535,7 @@ describe('where a game would go', () => {
      */
     const made = manager({ emulator: emulator({ roms: '' }), shared: false })
 
-    assert.throws(() => made.library.plan(rom()), /does not know where/i)
+    await assert.rejects(() => made.library.plan(rom()), /does not know where/i)
   })
 })
 
@@ -655,16 +655,16 @@ describe('a name from the server that would leave the system folder', () => {
       ...fields
     })
 
-  test('a download of it is refused rather than planned', () => {
+  test('a download of it is refused rather than planned', async () => {
     const { library } = manager()
 
-    assert.throws(() => library.plan(climbing()), RommError)
+    await assert.rejects(() => library.plan(climbing()), RommError)
   })
 
-  test('a multi-file game with such a name is refused too', () => {
+  test('a multi-file game with such a name is refused too', async () => {
     const { library } = manager()
 
-    assert.throws(() => library.plan(climbing({ has_multiple_files: true })), RommError)
+    await assert.rejects(() => library.plan(climbing({ has_multiple_files: true })), RommError)
   })
 
   test('adoption passes over it rather than recording something outside', async () => {
@@ -676,11 +676,11 @@ describe('a name from the server that would leave the system folder', () => {
     assert.equal(store.getInstalled(1), undefined)
   })
 
-  test('an ordinary name is unaffected', () => {
+  test('an ordinary name is unaffected', async () => {
     const { library, root } = manager()
 
     assert.equal(
-      library.plan(rom()).path,
+      (await library.plan(rom())).path,
       join(root, 'roms', 'genesis', 'Sonic the Hedgehog (USA).md')
     )
   })

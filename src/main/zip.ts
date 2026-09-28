@@ -43,7 +43,7 @@ const deflate = promisify(deflateRaw)
  * defaults staying as they are, and because "the reader happens to check" is
  * not where a path traversal defence belongs.
  */
-function entryTarget(root: string, entryName: string): string | null {
+async function entryTarget(root: string, entryName: string): Promise<string | null> {
   // Only an archive's names need this: a backslash is a separator inside a zip
   // written on Windows and an ordinary character in a Linux filename, so the
   // substitution belongs here rather than in the containment rule.
@@ -107,37 +107,42 @@ export async function extractZip(zipPath: string, destDir: string): Promise<stri
 
       zipfile.readEntry()
       zipfile.on('entry', (entry) => {
-        const target = entryTarget(root, entry.fileName)
-        if (!target) {
-          // Refuse the entry and carry on with the rest. Only reachable for a
-          // name yauzl's own validation let through — it rejects the ordinary
-          // traversal forms first, and that aborts the archive — so anything
-          // arriving here is a shape nobody anticipated and worth a line.
-          log.warn('zip', 'refused an entry pointing outside the destination', {
-            archive: zipPath,
-            entry: entry.fileName
-          })
-          zipfile.readEntry()
-          return
-        }
-
-        if (entry.fileName.endsWith('/')) {
-          mkdir(target, { recursive: true })
-            .then(() => zipfile.readEntry())
-            .catch(fail)
-          return
-        }
-
-        zipfile.openReadStream(entry, (streamErr, stream) => {
-          if (streamErr || !stream) return fail(streamErr ?? new Error(t('error.badZipEntry')))
-          mkdir(dirname(target), { recursive: true })
-            .then(() => pipeline(stream, createWriteStream(target)))
-            .then(() => {
-              written.push(target)
+        // The containment check reads the filesystem, so the handler is a
+        // promise chain like the writes below it rather than straight-line
+        // code. `readEntry` is what asks for the next entry, and every path
+        // out of here either calls it or fails the archive.
+        void entryTarget(root, entry.fileName)
+          .then((target) => {
+            if (!target) {
+              // Refuse the entry and carry on with the rest. Only reachable
+              // for a name yauzl's own validation let through — it rejects the
+              // ordinary traversal forms first, and that aborts the archive —
+              // so anything arriving here is a shape nobody anticipated and
+              // worth a line.
+              log.warn('zip', 'refused an entry pointing outside the destination', {
+                archive: zipPath,
+                entry: entry.fileName
+              })
               zipfile.readEntry()
+              return
+            }
+
+            if (entry.fileName.endsWith('/')) {
+              return mkdir(target, { recursive: true }).then(() => zipfile.readEntry())
+            }
+
+            zipfile.openReadStream(entry, (streamErr, stream) => {
+              if (streamErr || !stream) return fail(streamErr ?? new Error(t('error.badZipEntry')))
+              mkdir(dirname(target), { recursive: true })
+                .then(() => pipeline(stream, createWriteStream(target)))
+                .then(() => {
+                  written.push(target)
+                  zipfile.readEntry()
+                })
+                .catch(fail)
             })
-            .catch(fail)
-        })
+          })
+          .catch(fail)
       })
     })
   })

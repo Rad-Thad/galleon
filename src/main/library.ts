@@ -118,14 +118,14 @@ export class Library extends EventEmitter {
    * Work out where a ROM should land. Returns the target path plus whether it
    * needs to be unpacked into a directory of its own.
    */
-  plan(rom: RommRom): {
+  async plan(rom: RommRom): Promise<{
     dir: string
     path: string
     system: string
     emulatorId: string
     asDirectory: boolean
     flat: boolean
-  } {
+  }> {
     // The system is worked out first: it decides which emulators are even
     // candidates, so asking for one before knowing the system could pick an
     // emulator that cannot run this ROM.
@@ -189,7 +189,7 @@ export class Library extends EventEmitter {
     // The name is the server's, and it is what decides where this lands. One
     // that climbs out of the system folder is refused: the whole point of the
     // layout is that an emulator finds the game by the folder it is in.
-    const path = safeJoin(dir, asDirectory ? rom.fs_name_no_ext : installName(rom))
+    const path = await safeJoin(dir, asDirectory ? rom.fs_name_no_ext : installName(rom))
     if (!path) {
       throw new RommError(t('error.unsafeName', { name: rom.fs_name }))
     }
@@ -303,7 +303,7 @@ export class Library extends EventEmitter {
 
       let target: { dir: string; system: string; emulatorId: string; flat: boolean }
       try {
-        target = this.plan(rom)
+        target = await this.plan(rom)
       } catch {
         // Unmapped platform, or no emulator can run it: nothing to look for.
         continue
@@ -392,9 +392,9 @@ export class Library extends EventEmitter {
       // Each is checked for staying inside the system folder, as `plan` checks
       // the one it writes to: a name that climbs out would be adopted here and
       // then deleted by `uninstall`, which removes what the index points at.
-      const asFile = safeJoin(target.dir, installName(rom))
-      const asNamedOnServer = safeJoin(target.dir, rom.fs_name)
-      const asDirectory = safeJoin(target.dir, rom.fs_name_no_ext)
+      const asFile = await safeJoin(target.dir, installName(rom))
+      const asNamedOnServer = await safeJoin(target.dir, rom.fs_name)
+      const asDirectory = await safeJoin(target.dir, rom.fs_name_no_ext)
       if (!asFile || !asNamedOnServer || !asDirectory) continue
 
       const fileInfo = await stat(asFile).catch(() => null)

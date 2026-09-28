@@ -6,15 +6,6 @@ the work that remains, with the reason each was not done at the time.
 
 ## Left open
 
-- [ ] **`src/main/safepath.ts:26` — containment is lexical only.** A directory
-      symlink already inside a system folder, routine on EmuDeck, plus a RomM
-      `file_name` of `disc/.bashrc` passes `safeJoin` and is written through. The gap
-      that mattered is closed — the save pull now goes through `safeJoin` like every
-      other reader of a server-supplied name — but hardening the function itself
-      means a `realpath` comparison, which makes it async across twelve call sites
-      and rewrites a test file that is pure string cases throughout. Worth its own
-      commit and its own review.
-
 - [ ] **`src/config/emulators/types.ts` — `SaveLocation`, `LayoutSource` and the
       `dirs`/`layout` pair are not discriminated unions**, so the types admit
       descriptors that are nonsense: `{ match: 'shared', archive: true }` syncs a

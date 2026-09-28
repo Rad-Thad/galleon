@@ -70,22 +70,25 @@ interface Holding {
  * arriving. Deleting a download means deleting all of them, and measuring one
  * means adding them up.
  */
-function pathsHeld(holding: Holding): string[] {
+async function pathsHeld(holding: Holding): Promise<string[]> {
   if (holding.files.length === 0) return [holding.targetPath, partialPathOf(holding.targetPath)]
-  return holding.files.flatMap((name) => {
-    // The names come from RomM, and this list is what the cancel path deletes
-    // and what the resume path measures. The transfer refuses to *write* one
-    // that walks out of the folder — but a name that was refused is still in
-    // the record, so without this a server naming `../../.bashrc` has its size
-    // counted as bytes received and the file removed when the row is cancelled.
-    const path = safeJoin(holding.targetPath, name)
-    return path ? [path, partialPathOf(path)] : []
-  })
+  const held = await Promise.all(
+    holding.files.map(async (name) => {
+      // The names come from RomM, and this list is what the cancel path deletes
+      // and what the resume path measures. The transfer refuses to *write* one
+      // that walks out of the folder — but a name that was refused is still in
+      // the record, so without this a server naming `../../.bashrc` has its size
+      // counted as bytes received and the file removed when the row is cancelled.
+      const path = await safeJoin(holding.targetPath, name)
+      return path ? [path, partialPathOf(path)] : []
+    })
+  )
+  return held.flat()
 }
 
 async function bytesHeld(holding: Holding): Promise<number> {
   let total = 0
-  for (const path of pathsHeld(holding)) {
+  for (const path of await pathsHeld(holding)) {
     total += (await stat(path).catch(() => null))?.size ?? 0
   }
   return total
@@ -101,7 +104,7 @@ async function bytesHeld(holding: Holding): Promise<number> {
  * installed, unplayable, and refusing to download.
  */
 async function discardHeld(holding: Holding): Promise<void> {
-  for (const path of pathsHeld(holding)) {
+  for (const path of await pathsHeld(holding)) {
     await rm(path, { force: true }).catch(() => undefined)
   }
   if (holding.ownsFolder) {
@@ -157,7 +160,7 @@ export class DownloadManager extends EventEmitter {
     return this.queue.map((item) => ({ ...item }))
   }
 
-  enqueue(rom: RommRom): DownloadItem {
+  async enqueue(rom: RommRom): Promise<DownloadItem> {
     const existing = this.queue.find(
       (item) => item.romId === rom.id && (item.state === 'queued' || item.state === 'downloading')
     )
@@ -192,7 +195,17 @@ export class DownloadManager extends EventEmitter {
       return { ...paused }
     }
 
-    const { path, system } = this.library.plan(rom)
+    const { path, system } = await this.library.plan(rom)
+
+    // Asked again, because planning reads the disk and the queue can have been
+    // added to while it did. Two presses of the same button arrive as two calls
+    // that both found nothing the first time, and the later one would splice
+    // out the row the transfer already on the wire is reporting into.
+    const raced = this.queue.find(
+      (item) => item.romId === rom.id && (item.state === 'queued' || item.state === 'downloading')
+    )
+    if (raced) return { ...raced }
+
     const item: DownloadItem = {
       romId: rom.id,
       name: rom.name ?? rom.fs_name,
@@ -258,7 +271,9 @@ export class DownloadManager extends EventEmitter {
     let resumed = 0
     for (const item of stalled) {
       try {
-        this.enqueue(await this.client.rom(item.romId))
+        // Awaited, so whatever queueing this game turns out to need is done
+        // before it counts as resumed and before the next one is asked for.
+        await this.enqueue(await this.client.rom(item.romId))
         resumed += 1
       } catch (cause) {
         // Left marked, so the next time the server answers takes it up again.
@@ -642,7 +657,7 @@ export class DownloadManager extends EventEmitter {
     const took = log.since()
 
     try {
-      const { dir, path, system, emulatorId, asDirectory, flat } = this.library.plan(rom)
+      const { dir, path, system, emulatorId, asDirectory, flat } = await this.library.plan(rom)
 
       /**
        * One file at a time, where the server will do it.
@@ -931,7 +946,7 @@ export class DownloadManager extends EventEmitter {
       // RomM chose one by one. A name that climbs out of the game's folder is
       // refused here rather than followed, which is also what keeps the list
       // recorded against the game safe to walk when it is deleted again.
-      const destination = safeJoin(where.dir, file.file_name)
+      const destination = await safeJoin(where.dir, file.file_name)
       if (!destination) {
         log.error('download', 'refused a file name that leaves the game folder', undefined, {
           romId: rom.id,

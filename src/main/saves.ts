@@ -1304,7 +1304,7 @@ export class SaveSync {
        */
       const fresh = archive
         ? location.dir
-        : safeJoin(
+        : await safeJoin(
             location.dir,
             slot === null ? item.file_name : `${stem}${extname(item.file_name)}`
           )
