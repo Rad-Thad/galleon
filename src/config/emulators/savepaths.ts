@@ -54,11 +54,6 @@ export interface SaveLocation {
    */
   search?: readonly string[]
   match: SaveMatch
-  /**
-   * Sync `dir` as a single archive rather than file by file. Set with
-   * `match: 'directory'`, where the folder is the unit of save data.
-   */
-  archive?: boolean
 }
 
 /** Everything a descriptor can say about one game's save data. */
@@ -238,7 +233,7 @@ export function shared(dir: string): SaveLocation {
 
 /** A location whose whole directory is this game's save data. */
 export function directory(dir: string): SaveLocation {
-  return { dir, match: 'directory', archive: true }
+  return { dir, match: 'directory' }
 }
 
 /** A location holding files named after the ROM. */

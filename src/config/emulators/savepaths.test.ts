@@ -617,8 +617,10 @@ test('EmuDeck resolves a Switch game to its title-id folder', () => {
     `${HOME}/Emulation/saves/eden/saves/0000000000000000/` +
       '00000000000000000000000000000001/010012300ABCD000'
   )
+  // `directory` is the whole answer: the folder is the unit of save data, and
+  // syncing it as one archive follows from that rather than being declared
+  // beside it.
   assert.equal(paths.saves?.match, 'directory')
-  assert.equal(paths.saves?.archive, true)
 })
 
 // ---------------------------------------------------------------------------

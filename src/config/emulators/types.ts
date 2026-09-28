@@ -142,13 +142,9 @@ export interface EmulationPaths {
  * they call each key, so that is what a descriptor declares; reading the file
  * is the main process's job and knows nothing about which emulator it is.
  */
-export interface LayoutSource {
+interface LayoutFile {
   /** Where the file is, resolved like any other path template. */
   file: DirSpec
-  /** `key=value` shell, as EmuDeck writes, or JSON, as RetroDECK does. */
-  format: 'shell' | 'json'
-  /** For JSON, the property holding the values, e.g. RetroDECK's `paths`. */
-  section?: string
   /** Our path names -> what this file calls them. */
   keys: Partial<Record<keyof EmulationPaths, string>>
   /**
@@ -169,6 +165,22 @@ export interface LayoutSource {
    */
   defaults?: Readonly<Record<string, string>>
 }
+
+/**
+ * `key=value` shell, as EmuDeck writes, or JSON, as RetroDECK does.
+ *
+ * A union rather than one shape with a format beside it, because `section` —
+ * the property the values sit under — is a JSON idea and is silently ignored
+ * anywhere else. Declared on the shell shape it would read as a claim the
+ * reader never honours.
+ */
+export type LayoutSource =
+  | (LayoutFile & { format: 'shell' })
+  | (LayoutFile & {
+      format: 'json'
+      /** The property holding the values, e.g. RetroDECK's `paths`. */
+      section?: string
+    })
 
 export interface LayoutDiscovery {
   /** Tried in order; the first that carries its `requires` name wins. */
@@ -364,7 +376,7 @@ export interface RequiredCore {
   readonly buildbotUrl: string | null
 }
 
-export interface EmulatorDescriptor {
+interface EmulatorFields {
   // -- identity ------------------------------------------------------------------
 
   readonly id: EmulatorId
@@ -410,21 +422,6 @@ export interface EmulatorDescriptor {
    * has been run at least once and that layout exists.
    */
   readonly ownsLibrary: boolean
-  /**
-   * Path templates, resolved against whichever install was found.
-   *
-   * `roms` is where this emulator's games are written, and every emulator
-   * declares one — the same rule saves follow. It is deliberately not a single
-   * shared library: a game placed in the tree its emulator already scans is
-   * still there when that emulator is started on its own, which a central
-   * RomMix-only folder would quietly prevent.
-   */
-  readonly dirs: Partial<Record<keyof EmulationPaths, DirSpec>>
-  /**
-   * Set instead of `dirs` when the emulator records its own layout because the
-   * user chose it. Templates cannot express a path that lives on the disk.
-   */
-  readonly layout: LayoutDiscovery | undefined
   /**
    * True when this emulator's game list reads one directory and does not
    * descend into it.
@@ -553,6 +550,46 @@ export interface EmulatorDescriptor {
   /** argv to start this game, or null when the emulator cannot run the system. */
   launch(ctx: LaunchContext): string[] | null
 }
+
+/**
+ * Where this emulator's folders come from, which is one answer and not two.
+ *
+ * Either RomMix resolves path templates against the install it found, or the
+ * emulator wrote the layout down itself because the user chose where it goes —
+ * and templates cannot express a path that lives on somebody's disk. The probe
+ * consults `layout` first and never reads `dirs` when it is there, so a
+ * descriptor carrying both is a set of templates that quietly do nothing.
+ *
+ * Both names are still spelled out either way, as every other field is: the
+ * emulator that declares no templates says so with an empty `dirs`.
+ */
+export type PathSource =
+  | {
+      /**
+       * Path templates, resolved against whichever install was found.
+       *
+       * `roms` is where this emulator's games are written, and every emulator
+       * declares one — the same rule saves follow. It is deliberately not a
+       * single shared library: a game placed in the tree its emulator already
+       * scans is still there when that emulator is started on its own, which a
+       * central RomMix-only folder would quietly prevent.
+       */
+      readonly dirs: Partial<Record<keyof EmulationPaths, DirSpec>>
+      readonly layout: undefined
+    }
+  | {
+      readonly dirs: Record<string, never>
+      readonly layout: LayoutDiscovery
+    }
+
+/**
+ * An emulator entry: everything above, plus where its folders come from.
+ *
+ * The fields are declared in `EmulatorFields` and the pair in `PathSource`,
+ * because the pair is a choice between two shapes rather than two independent
+ * fields — see `PathSource`.
+ */
+export type EmulatorDescriptor = EmulatorFields & PathSource
 
 /** A descriptor plus what probing the machine found out about it. */
 export interface EmulatorState {

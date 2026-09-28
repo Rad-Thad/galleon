@@ -173,10 +173,10 @@ export const example: EmulatorDescriptor = {
    *   sources: [
    *     {
    *       file: { base: 'home', path: 'emudeck/settings.sh' },
-   *       // 'shell' for `key=value`, 'json' for a JSON object
+   *       // 'shell' for `key=value`, 'json' for a JSON object. A JSON source
+   *       // takes a `section` too, naming the property the values sit under —
+   *       // it is part of that shape alone and cannot be written here
    *       format: 'shell',
-   *       // For JSON only: the property holding the values, e.g. 'paths'
-   *       section: undefined,
    *       // The name that must be present for the file to count as usable, so
    *       // an older half-written format is skipped rather than believed
    *       requires: 'home',

@@ -6,17 +6,6 @@ the work that remains, with the reason each was not done at the time.
 
 ## Left open
 
-- [ ] **`src/config/emulators/types.ts` — `SaveLocation`, `LayoutSource` and the
-      `dirs`/`layout` pair are not discriminated unions**, so the types admit
-      descriptors that are nonsense: `{ match: 'shared', archive: true }` syncs a
-      shared memory card as a per-game archive, `section` is silently ignored for
-      `format: 'shell'`, and `LaunchVariant.requires` is honoured only for a
-      `scripts` install, so a `requires` on a flatpak is always-offered. The
-      `shared`/`directory`/`perRom` helpers are the only thing enforcing any of it
-      today, and `registry.test.ts` iterates `EMULATORS`, so `example/index.ts` is
-      unchecked. A real improvement to the central interface, and a refactor of it
-      rather than a defect in it.
-
 - [ ] **`src/shared/types/romm.ts:17,20,74,75` and `Credentials.expiresAt`.**
       `token_type`, `refresh_expires`, `oauth_scopes` and `avatar_path` have no
       reader, and being non-optional they force `test/app/server.ts` and

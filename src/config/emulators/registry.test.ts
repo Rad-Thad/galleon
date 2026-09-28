@@ -53,6 +53,15 @@ const FIELD_ORDER = [
   'launch'
 ] as const
 
+/**
+ * Every descriptor there is, the example among them.
+ *
+ * `EMULATORS` is what RomMix offers, and the example is deliberately not in it
+ * — but it is what somebody copies to add an emulator, so a rule it quietly
+ * breaks is a rule the next descriptor starts out breaking too.
+ */
+const ALL_DESCRIPTORS: readonly EmulatorDescriptor[] = [...EMULATORS, example]
+
 /** A state as the main-process probe would report it, for selection tests. */
 function state(id: string, available: boolean): EmulatorState {
   const descriptor = emulatorById(id)
@@ -78,7 +87,7 @@ test('every descriptor id is unique', () => {
 test('every declared system is a real ES-DE system directory', () => {
   // Same reasoning as the platform map: a typo here would quietly make an
   // emulator look incapable of running a system it handles fine.
-  for (const emulator of EMULATORS) {
+  for (const emulator of ALL_DESCRIPTORS) {
     const unknown = emulator.systems.filter((system) => !isKnownSystem(system))
     assert.deepEqual(unknown, [], `${emulator.id} declares unknown systems`)
   }
@@ -258,7 +267,7 @@ test('every AppImage route says where its builds come from', () => {
   // The point of merging the two: a route that can be recognised and not
   // fetched is a `binary` — something the user put there — and one offered as
   // an AppImage would be an Install button with nothing behind it.
-  for (const emulator of [...EMULATORS, example]) {
+  for (const emulator of ALL_DESCRIPTORS) {
     for (const spec of emulator.install) {
       if (spec.kind === 'appimage') assert.ok(spec.release.api, `${emulator.id} names no release`)
     }
@@ -303,7 +312,10 @@ test('an emulator whose folders the user chose says where that choice is written
   const sources = retrodeck.layout?.sources ?? []
   assert.equal(sources.length, 1)
   assert.equal(sources[0].file.path, 'retrodeck/retrodeck.json')
-  assert.equal(sources[0].section, 'paths')
+  // Narrowed rather than read straight off: `section` is part of the JSON
+  // shape alone, which is what makes it unwritable beside `format: 'shell'`.
+  assert.equal(sources[0].format, 'json')
+  assert.equal(sources[0].format === 'json' ? sources[0].section : null, 'paths')
   // Verified against RetroDECK's own default retrodeck.json.
   assert.equal(sources[0].keys.home, 'rd_home_path')
   assert.equal(sources[0].keys.roms, 'roms_path')
@@ -318,7 +330,7 @@ test('an emulator whose folders the user chose says where that choice is written
 })
 
 test('every layout source can be acted on without knowing the emulator', () => {
-  for (const emulator of EMULATORS) {
+  for (const emulator of ALL_DESCRIPTORS) {
     for (const source of emulator.layout?.sources ?? []) {
       assert.ok(source.file.path, `${emulator.id}: a source with no file`)
       assert.ok(
@@ -342,7 +354,7 @@ test('every layout source can be acted on without knowing the emulator', () => {
 
 test('an emulator declares either fixed folders or where its own are recorded', () => {
   // Both would be ambiguous, neither leaves the probe nothing to go on.
-  for (const emulator of EMULATORS) {
+  for (const emulator of ALL_DESCRIPTORS) {
     const hasTemplates = Object.keys(emulator.dirs).length > 0
     const hasLayout = emulator.layout != null
     assert.ok(
@@ -352,8 +364,28 @@ test('an emulator declares either fixed folders or where its own are recorded', 
   }
 })
 
+test('a variant names a file it needs only where something resolves one', () => {
+  // `requires` is checked against the install directory, and only a `scripts`
+  // install has one — its ref is a folder of launchers rather than a program.
+  // Declared anywhere else the file is never looked for, so the variant is
+  // always offered and the claim reads as a check that is not being made.
+  for (const emulator of ALL_DESCRIPTORS) {
+    const needs = emulator.systems
+      .flatMap((system) => emulator.variants?.(system) ?? [])
+      .filter((variant) => variant.requires !== undefined)
+    if (needs.length === 0) continue
+    // Every route, not merely one of them: the probe takes the first install
+    // that resolves, so an emulator offering a flatpak beside its launchers
+    // has its variants filtered or not depending on which one was found.
+    assert.ok(
+      emulator.install.every((spec) => spec.kind === 'scripts'),
+      `${emulator.id}: ${needs[0].id} names a file it needs, which nothing here looks for`
+    )
+  }
+})
+
 test('a scripts install names a directory the layout actually discovers', () => {
-  for (const emulator of EMULATORS) {
+  for (const emulator of ALL_DESCRIPTORS) {
     for (const spec of emulator.install) {
       if (spec.kind !== 'scripts') continue
       const names = (emulator.layout?.sources ?? []).flatMap((source) => [
@@ -550,20 +582,31 @@ test('the field list matches what the interface declares', () => {
   // to the interface that nobody added here — which would let the ordering
   // test below pass while ignoring the new field entirely.
   const source = readFileSync(new URL('./types.ts', import.meta.url), 'utf8')
-  const from = source.indexOf('export interface EmulatorDescriptor')
+  const from = source.indexOf('interface EmulatorFields')
   // Stop at the interface's own closing brace, which is the first `}` in
-  // column zero — otherwise this reads on into `EmulatorState` and asserts
+  // column zero — otherwise this reads on into what follows and asserts
   // against a union of the two.
   const body = source.slice(from, source.indexOf('\n}\n', from))
   const declared = [...body.matchAll(/^  (?:readonly )?([a-zA-Z]+)[?]?[:(]/gm)].map((m) => m[1])
-  assert.deepEqual(declared, [...FIELD_ORDER])
+
+  // `dirs` and `layout` are declared on `PathSource` instead, being one choice
+  // between two shapes rather than two fields — so they are checked there and
+  // left out of the list the interface itself carries.
+  const pathSource = source.slice(source.indexOf('export type PathSource'))
+  for (const field of ['dirs', 'layout']) {
+    assert.ok(pathSource.includes(`${field}:`), `PathSource no longer declares ${field}`)
+  }
+  assert.deepEqual(
+    declared,
+    FIELD_ORDER.filter((field) => field !== 'dirs' && field !== 'layout')
+  )
 })
 
 test("every emulator spells out every field, in the interface's order", () => {
   // Not style for its own sake. An absent optional field makes the reader of
   // one emulator guess what the default does, and a differing order makes two
   // emulators impossible to read side by side.
-  for (const emulator of [...EMULATORS, example] as EmulatorDescriptor[]) {
+  for (const emulator of ALL_DESCRIPTORS) {
     assert.deepEqual(
       Object.keys(emulator),
       [...FIELD_ORDER],

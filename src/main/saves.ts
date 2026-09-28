@@ -1197,10 +1197,10 @@ export class SaveSync {
      * Only the permissive case is named below, so everything else keeps the
      * filter by default — which is what covers the third shape, a directory
      * save carried as one archive. That is an emulator's own tree and unpacks
-     * over another's exactly as a state loads over one, and it is `directory()`
-     * in `savepaths.ts` that sets `archive`, always beside `match: 'directory'`
-     * and never beside `rom-stem`. A shape added later is filtered until
-     * somebody decides otherwise here, which is the right way round.
+     * over another's exactly as a state loads over one, and `match:
+     * 'directory'` is what says a folder is the unit of save data. A shape
+     * added later is filtered until somebody decides otherwise here, which is
+     * the right way round.
      */
     const tag = this.tagFor(paths, target)
     const usable = this.tagDecides(kind, location)
