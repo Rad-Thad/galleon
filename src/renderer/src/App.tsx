@@ -1,4 +1,12 @@
-import { useCallback, useLayoutEffect, useRef, useState, type JSX, type Ref } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type JSX,
+  type Ref
+} from 'react'
 import { isInProgress } from '@shared/types'
 import { Logo, QuitOverlay } from './components'
 import {
@@ -39,6 +47,47 @@ import { Toasts } from './Toasts'
 const BAR_FITS = ['full', 'compact', 'tight', 'bare'] as const
 
 /**
+ * What RomM serves for an account that uploaded no picture.
+ *
+ * Its own default rather than one of RomMix's: the same face the user is shown
+ * beside their name in RomM's web interface, so the two name the same account
+ * in the same way.
+ */
+const DEFAULT_AVATAR = 'assets/default/user.svg'
+
+/**
+ * The account's picture, in a slot of its own beside the two lines.
+ *
+ * Big enough to be a face across a room, which is more than a line of this bar
+ * is tall — so it stands beside both lines rather than inside one, where it
+ * would push the name's row apart from the server's and leave the picture all
+ * but touching the mark below it.
+ *
+ * The same box holds the plain mark when even the default cannot be drawn — a
+ * server old enough not to ship it, an asset that answers 404 — so the bar is
+ * laid out the same either way. Not a state to report: this block is only
+ * drawn while the server is answering, so a picture that fails is one file
+ * missing rather than a session in trouble.
+ */
+function Avatar({ path }: { path: string }): JSX.Element {
+  const url = window.rommix.system.assetUrl(path || DEFAULT_AVATAR)
+  const [failed, setFailed] = useState(false)
+
+  // Signing in as somebody else reuses this element, and their picture is not
+  // the one that failed.
+  useEffect(() => setFailed(false), [url])
+
+  if (!url || failed) {
+    return (
+      <span className="topbar__avatar topbar__avatar--blank">
+        <Icon name="user" size={20} />
+      </span>
+    )
+  }
+  return <img className="topbar__avatar" src={url} alt="" onError={() => setFailed(true)} />
+}
+
+/**
  * Whether the bar's three blocks stand side by side without running into one
  * another.
  *
@@ -51,10 +100,17 @@ function barFits(header: HTMLElement): boolean {
   const style = getComputedStyle(header)
   const room = header.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)
   const widthOf = (selector: string): number => header.querySelector(selector)?.scrollWidth ?? 0
+  // The picture stands beside the lines rather than in one of them, so it costs
+  // its own width on top of whichever line is the wider — and nothing at all on
+  // a bar that is not signed in, which has no picture to draw.
+  const account = header.querySelector('.topbar__account')
+  const beside = account
+    ? widthOf('.topbar__avatar') + (parseFloat(getComputedStyle(account).columnGap) || 0)
+    : 0
   const side = Math.max(
     widthOf('.topbar__brand'),
-    widthOf('.topbar__user'),
-    widthOf('.topbar__host')
+    widthOf('.topbar__user') + beside,
+    widthOf('.topbar__host') + beside
   )
   return widthOf('.topbar__nav') + 2 * (side + parseFloat(style.columnGap)) <= room
 }
@@ -244,16 +300,21 @@ export function App(): JSX.Element {
               against the edge the whole bar ends on. */}
           <div className="topbar__status">
             {status?.connected ? (
-              <>
-                <span className="topbar__user">
-                  <span>{status.user?.username}</span>
-                  <Icon name="user" size={15} />
-                </span>
-                <span className="topbar__host">
-                  <span>{hostOf(status.baseUrl)}</span>
-                  <Icon name="server" size={15} />
-                </span>
-              </>
+              <div className="topbar__account">
+                {/* Neither line carries a mark of its own here: the picture
+                    beside them says whose account this is, and a second mark
+                    against it only crowds the corner. The states below keep
+                    theirs, having no picture to be identified by. */}
+                <div className="topbar__lines">
+                  <span className="topbar__user">
+                    <span>{status.user?.username}</span>
+                  </span>
+                  <span className="topbar__host">
+                    <span>{hostOf(status.baseUrl)}</span>
+                  </span>
+                </div>
+                <Avatar path={status.user?.avatar_path ?? ''} />
+              </div>
             ) : offline ? (
               /* The server it cannot reach is still worth naming: this is the
                  one place that says which machine is missing, and "offline" on

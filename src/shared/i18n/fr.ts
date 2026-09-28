@@ -716,6 +716,8 @@ export const fr: Catalog = {
   'settings.address': 'Adresse',
   'settings.signedInAs': 'Connecté en tant que',
   'settings.rommVersion': 'Version de RomM',
+  'settings.missingScopes':
+    "Cette connexion n'a pas toutes les permissions dont RomMix a besoin : {scopes}. Reconnectez-vous pour les accorder.",
   'settings.disconnect': 'Se déconnecter',
   'settings.disconnected': 'Déconnecté de RomM',
   'settings.interface': 'Interface',

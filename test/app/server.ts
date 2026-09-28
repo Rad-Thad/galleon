@@ -606,6 +606,10 @@ const user: RommUser = {
   enabled: true,
   role: 'admin',
   oauth_scopes: [],
+  // Nothing uploaded, which is what most RomM accounts have: the top bar then
+  // asks for the server's own default, served below. It goes through the same
+  // authenticated protocol a cover does, and that protocol serves asset paths
+  // and refuses everything else — so a shape it turns down is a blank face.
   avatar_path: '',
   // Linked, and one achievement in. Both halves matter: the screen says
   // something different for an account with no RetroAchievements name against
@@ -845,10 +849,8 @@ export async function startFakeRomm(): Promise<FakeRomm> {
         }
         const granted: RommTokenResponse = {
           access_token: PASSWORD_TOKEN,
-          token_type: 'bearer',
           expires: 3600,
-          refresh_token: 'rmm_fake_refresh_token',
-          refresh_expires: 7200
+          refresh_token: 'rmm_fake_refresh_token'
         }
         return json(granted)
       }
@@ -872,6 +874,18 @@ export async function startFakeRomm(): Promise<FakeRomm> {
         const png = coverPng(Number(cover[1]))
         res.writeHead(200, { 'Content-Type': 'image/png', 'Content-Length': png.length })
         return res.end(png)
+      }
+
+      // The face RomM draws for an account with no picture of its own. An SVG
+      // on the real server; the bytes are nobody's business here, only that
+      // the path is served and served as an image.
+      if (url.pathname === '/assets/default/user.svg') {
+        const svg = Buffer.from(
+          '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">' +
+            '<circle cx="12" cy="9" r="4" /><path d="M4 21a8 8 0 0 1 16 0z" /></svg>'
+        )
+        res.writeHead(200, { 'Content-Type': 'image/svg+xml', 'Content-Length': svg.length })
+        return res.end(svg)
       }
 
       // Keyed on the game and the shot together, so no two pictures in one

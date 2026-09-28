@@ -16,7 +16,12 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { ConnectionStatus } from '@shared/types'
 import { ConnectionWatch, connectionStatus } from './connection.ts'
-import { RommError, UnsupportedServerError, type RommClient } from './romm/index.ts'
+import {
+  REQUIRED_SCOPES,
+  RommError,
+  UnsupportedServerError,
+  type RommClient
+} from './romm/index.ts'
 import { Store } from './store.ts'
 
 const scratches: string[] = []
@@ -37,11 +42,11 @@ function store(options: { signedIn?: boolean } = {}): Store {
 }
 
 /** A server that answers `me` however the test says, and a version from the beat. */
-function client(answer: 'ok' | Error): RommClient {
+function client(answer: 'ok' | Error, scopes: readonly string[] = REQUIRED_SCOPES): RommClient {
   return {
     async me() {
       if (answer !== 'ok') throw answer
-      return { id: 1, username: 'someone' }
+      return { id: 1, username: 'someone', oauth_scopes: [...scopes] }
     },
     async heartbeat() {
       if (answer !== 'ok') throw answer
@@ -49,6 +54,39 @@ function client(answer: 'ok' | Error): RommClient {
     }
   } as unknown as RommClient
 }
+
+describe('the permissions the sign-in carries', () => {
+  test('a token short of one names it, rather than waiting for the 403', async () => {
+    // `collections.write` is what the star on a game costs. Without it every
+    // press comes back refused from a token that looks healthy everywhere else.
+    const granted = REQUIRED_SCOPES.filter((scope) => scope !== 'collections.write')
+
+    const status = await connectionStatus(store(), client('ok', granted))
+
+    assert.equal(status.connected, true)
+    assert.deepEqual(status.missingScopes, ['collections.write'])
+  })
+
+  test('a sign-in carrying everything RomMix needs says nothing', async () => {
+    const status = await connectionStatus(store(), client('ok'))
+
+    assert.deepEqual(status.missingScopes, [])
+  })
+
+  test('a server that names no scopes at all is not a token granted none', async () => {
+    // Every permission would otherwise be listed as missing against a sign-in
+    // that works, which is a warning with nothing to do about it.
+    const status = await connectionStatus(store(), client('ok', []))
+
+    assert.deepEqual(status.missingScopes, [])
+  })
+
+  test('nothing is claimed about a server that did not answer', async () => {
+    const status = await connectionStatus(store(), client(new RommError('refused', 401)))
+
+    assert.deepEqual(status.missingScopes, [])
+  })
+})
 
 describe('what "not connected" means', () => {
   test('a server that answers is simply connected', async () => {
@@ -158,6 +196,7 @@ describe('watching it', () => {
     baseUrl: 'https://romm.example',
     user: null,
     serverVersion: null,
+    missingScopes: [],
     error: null,
     ...fields
   })

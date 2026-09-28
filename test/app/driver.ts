@@ -486,7 +486,6 @@ function seed(home: string, options: StartOptions): void {
           clientToken: options.token,
           accessToken: null,
           refreshToken: null,
-          expiresAt: null,
           deviceId: 'integration-test'
         })
       )

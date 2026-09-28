@@ -65,6 +65,18 @@ describe('starting up', () => {
     assert.equal(asked[0].authorization, `Bearer ${server.token}`)
   })
 
+  test('the face beside the name is one the server drew', async () => {
+    // This account uploaded no picture, which is the ordinary case, so the bar
+    // asks RomM for its own default rather than drawing a mark of RomMix's.
+    // Asserted through the request as well as the element: an image that never
+    // arrived is replaced by that mark, and a bar with a mark in it looks the
+    // same whether the picture was missing or never asked for.
+    await app.waitFor(`document.querySelector('.topbar__avatar')`, 'the account picture')
+    const asked = server.asked.filter((one) => one.path === '/assets/default/user.svg')
+    assert.ok(asked.length > 0, 'it should have fetched the default picture')
+    assert.equal(asked[0].authorization, `Bearer ${server.token}`)
+  })
+
   test('the library it drew is the one the server sent', async () => {
     // Waited for rather than read straight away: the shelves are filled from a
     // request, and a screen that is up is not yet a screen that has answers.

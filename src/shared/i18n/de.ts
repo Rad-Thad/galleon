@@ -724,6 +724,8 @@ export const de: Catalog = {
   'settings.address': 'Adresse',
   'settings.signedInAs': 'Angemeldet als',
   'settings.rommVersion': 'RomM-Version',
+  'settings.missingScopes':
+    'Dieser Anmeldung fehlen Berechtigungen, die RomMix braucht: {scopes}. Melde dich erneut an, um sie zu erteilen.',
   'settings.disconnect': 'Verbindung trennen',
   'settings.disconnected': 'Verbindung zu RomM getrennt',
   'settings.interface': 'Oberfläche',

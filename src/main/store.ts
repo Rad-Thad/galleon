@@ -44,8 +44,6 @@ import { log } from './log.ts'
 interface StoredCredentials {
   accessToken: string | null
   refreshToken: string | null
-  /** Epoch millis when the access token stops being valid. */
-  expiresAt: number | null
   /** Long-lived `rmm_...` client token, used instead of the OAuth pair. */
   clientToken: string | null
   /**
@@ -61,7 +59,6 @@ interface StoredCredentials {
 const EMPTY_CREDENTIALS: StoredCredentials = {
   accessToken: null,
   refreshToken: null,
-  expiresAt: null,
   clientToken: null,
   deviceId: null
 }

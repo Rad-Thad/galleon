@@ -47,6 +47,20 @@ export interface ConnectionStatus {
   user: RommUser | null
   /** RomM version reported by /api/heartbeat, when available. */
   serverVersion: string | null
+  /**
+   * Permissions RomMix needs that this sign-in does not carry.
+   *
+   * A token narrower than `REQUIRED_SCOPES` works until it meets the call that
+   * needs the missing one, and then answers 403 to a screen that has no way to
+   * explain it — favouriting a game, uploading a save. Read off the account at
+   * every connection check, so the answer is the server's rather than a guess
+   * from what was asked for at sign-in.
+   *
+   * Empty when nothing is missing, and also when the server names no scopes at
+   * all: silence is not a refusal, and listing every permission against a
+   * server that never reports them would be a warning nobody can act on.
+   */
+  missingScopes: readonly string[]
   error: string | null
 }
 

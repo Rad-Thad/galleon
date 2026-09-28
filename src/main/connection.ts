@@ -1,7 +1,7 @@
 import type { ConnectionStatus } from '@shared/types'
 import { t } from './i18n.ts'
 import { log } from './log.ts'
-import { refusedUs, UnsupportedServerError } from './romm/index.ts'
+import { REQUIRED_SCOPES, refusedUs, UnsupportedServerError } from './romm/index.ts'
 import type { RommClient } from './romm/index.ts'
 import type { Store } from './store.ts'
 
@@ -64,6 +64,28 @@ function givingUpAfter(ms: number): Promise<typeof NO_ANSWER> {
 }
 
 /**
+ * Permissions RomMix needs that this account's token was not granted.
+ *
+ * A token short of one of them is refused only by the call that needs it —
+ * `collections.write` by the star on a game, `assets.write` by the first save
+ * pushed — which arrives as a 403 at a screen with nothing to say about it. The
+ * account is read on every connection check anyway, so the answer is there to
+ * be had before anything is pressed.
+ *
+ * An account naming no scopes at all is a server that does not report them
+ * rather than a token granted nothing: every permission would be listed as
+ * missing against a sign-in that works, which is a warning that can only be
+ * ignored. See `ConnectionStatus.missingScopes`.
+ */
+function missingScopes(granted: readonly string[] | undefined): readonly string[] {
+  // Undefined as well as empty, because this is a field off the wire rather
+  // than a value RomMix made: a server that stops sending it would otherwise
+  // take the connection check down with it, over a warning.
+  if (!granted || granted.length === 0) return []
+  return REQUIRED_SCOPES.filter((scope) => !granted.includes(scope))
+}
+
+/**
  * Ask RomM who we are and whether it is running.
  *
  * `timeoutMs` is a seam for the tests, which cannot afford to sit out the real
@@ -86,6 +108,7 @@ export async function connectionStatus(
       baseUrl: server?.baseUrl ?? null,
       user: null,
       serverVersion: null,
+      missingScopes: [],
       error: null
     }
   }
@@ -114,6 +137,7 @@ export async function connectionStatus(
         baseUrl: server.baseUrl,
         user: null,
         serverVersion: null,
+        missingScopes: [],
         error: t('error.serverTimedOut', { url: server.baseUrl })
       }
     }
@@ -126,6 +150,7 @@ export async function connectionStatus(
       baseUrl: server.baseUrl,
       user,
       serverVersion: beat.version,
+      missingScopes: missingScopes(user.oauth_scopes),
       error: null
     }
   } catch (cause) {
@@ -144,6 +169,7 @@ export async function connectionStatus(
       baseUrl: server.baseUrl,
       user: null,
       serverVersion: null,
+      missingScopes: [],
       error: (cause as Error).message
     }
   }
@@ -227,6 +253,7 @@ export class ConnectionWatch {
       configured: true,
       offline: true,
       baseUrl: last.baseUrl,
+      missingScopes: [],
       user: null,
       serverVersion: null,
       error: reason ?? null

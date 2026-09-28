@@ -45,7 +45,7 @@ function client(token = server.token): RommClient {
   const store = {
     server: { baseUrl: server.baseUrl },
     settings: { deviceId: 'integration-test', deviceName: 'the test machine' },
-    credentials: { clientToken: token, accessToken: null, refreshToken: null, expiresAt: null },
+    credentials: { clientToken: token, accessToken: null, refreshToken: null },
     setCredentials() {},
     clearCredentials() {}
   } as unknown as Store

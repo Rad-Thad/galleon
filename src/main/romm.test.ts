@@ -118,7 +118,6 @@ interface FakeCredentials {
   accessToken: string | null
   refreshToken: string | null
   clientToken: string | null
-  expiresAt: number | null
   deviceId: string | null
 }
 
@@ -132,7 +131,6 @@ function fakeStore(credentials: Partial<FakeCredentials> = {}): {
     accessToken: null,
     refreshToken: null,
     clientToken: null,
-    expiresAt: null,
     deviceId: null,
     ...credentials
   }
@@ -149,8 +147,7 @@ function fakeStore(credentials: Partial<FakeCredentials> = {}): {
       Object.assign(held, {
         accessToken: null,
         refreshToken: null,
-        clientToken: null,
-        expiresAt: null
+        clientToken: null
       })
     }
   } as unknown as Store
@@ -359,8 +356,8 @@ describe('signing in', () => {
     assert.match(body.get('scope') ?? '', /roms\.read/)
     assert.match(body.get('scope') ?? '', /collections\.write/)
     assert.equal(credentials.accessToken, 'jwt')
+    assert.equal(credentials.refreshToken, 'again')
     assert.equal(credentials.clientToken, null)
-    assert.ok((credentials.expiresAt ?? 0) > Date.now())
   })
 
   test('a refused password says the credentials were wrong, not that the session expired', async () => {

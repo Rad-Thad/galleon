@@ -69,6 +69,15 @@ export function GeneralTab({ open }: { open?: SettingsTarget }): JSX.Element {
           the machine that is not answering, and Disconnect is a button whose
           consequences are very different from waiting for it to come back. */}
       {offline ? <div className="notice notice--warn">{t('app.offlineNotice')}</div> : null}
+      {/* Beside the address for the same reason: this is the page about the
+          server, and a permission the token was never granted is answered with
+          a 403 wherever it is first needed — the star on a game, the first save
+          pushed — with nothing there to explain it. */}
+      {status?.missingScopes.length ? (
+        <div className="notice notice--warn">
+          {t('settings.missingScopes', { scopes: status.missingScopes.join(', ') })}
+        </div>
+      ) : null}
       <dl className="kv">
         <dt>{t('settings.address')}</dt>
         <dd>{status?.baseUrl ?? t('value.notConfigured')}</dd>

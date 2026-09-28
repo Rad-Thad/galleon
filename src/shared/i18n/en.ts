@@ -717,6 +717,8 @@ export const en = {
   'settings.address': 'Address',
   'settings.signedInAs': 'Signed in as',
   'settings.rommVersion': 'RomM version',
+  'settings.missingScopes':
+    'This sign-in is missing permissions RomMix needs: {scopes}. Sign in again to grant them.',
   'settings.disconnect': 'Disconnect',
   'settings.disconnected': 'Disconnected from RomM',
   'settings.interface': 'Interface',

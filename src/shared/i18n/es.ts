@@ -710,6 +710,8 @@ export const es: Catalog = {
   'settings.address': 'Dirección',
   'settings.signedInAs': 'Sesión iniciada como',
   'settings.rommVersion': 'Versión de RomM',
+  'settings.missingScopes':
+    'A esta sesión le faltan permisos que RomMix necesita: {scopes}. Vuelve a iniciar sesión para concederlos.',
   'settings.disconnect': 'Desconectar',
   'settings.disconnected': 'Desconectado de RomM',
   'settings.interface': 'Interfaz',

@@ -120,6 +120,42 @@
   font-weight: 650;
 }
 
+/* The account: two lines of text with the picture beside them, rather than a
+   picture on the first line — at a size worth drawing it fills more than a line
+   is tall, and inside one it crowds the mark on the line below. */
+.topbar__account {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.topbar__lines {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  min-width: 0;
+}
+
+/* Round, and the same box whether it holds a picture or the mark that stands
+   in for one, so the bar is laid out the same either way. `cover` because an
+   avatar is whatever shape the user uploaded. */
+.topbar__avatar {
+  width: calc(34px * var(--type-scale));
+  height: calc(34px * var(--type-scale));
+  border-radius: 50%;
+  object-fit: cover;
+  flex: none;
+}
+
+.topbar__avatar--blank {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface);
+  color: var(--text-faint);
+}
+
 .nav-item {
   display: flex;
   align-items: center;

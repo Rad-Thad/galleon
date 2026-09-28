@@ -749,6 +749,7 @@ const bridge: RomMixBridge = {
           ra_progression: null
         },
         serverVersion: '5.1.0 (preview)',
+        missingScopes: [],
         error: null
       }),
     connect: () => Promise.reject(new Error(say('demo.notAvailable'))),

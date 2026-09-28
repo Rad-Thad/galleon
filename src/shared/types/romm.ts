@@ -28,10 +28,8 @@ export interface RommHeartbeat {
 /** POST /api/token response (`TokenResponse`). */
 export interface RommTokenResponse {
   access_token: string
-  token_type: string
   expires: number
   refresh_token?: string
-  refresh_expires?: number
 }
 
 /** POST /api/auth/device/init response (`DeviceAuthInitResponse`). */
@@ -85,7 +83,15 @@ export interface RommUser {
   email: string | null
   enabled: boolean
   role: string
+  /**
+   * The scopes this account's token carries, which sign-in checks against
+   * `REQUIRED_SCOPES` — see `connectionStatus`.
+   */
   oauth_scopes: string[]
+  /**
+   * The account's picture, as a path this server serves — drawn in the top bar
+   * beside the name. Empty for an account that has none.
+   */
   avatar_path: string
 
   /**

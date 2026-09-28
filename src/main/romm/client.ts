@@ -408,7 +408,6 @@ export class RommClient {
       clientToken: token.trim(),
       accessToken: null,
       refreshToken: null,
-      expiresAt: null,
       // Whose token this is, is not knowable from here — see `storeToken`.
       deviceId: null
     })
@@ -475,8 +474,7 @@ export class RommClient {
       clientToken: token.access_token,
       deviceId: token.device_id,
       accessToken: null,
-      refreshToken: null,
-      expiresAt: token.expires_at ? Date.parse(token.expires_at) : null
+      refreshToken: null
     })
     return true
   }
@@ -495,7 +493,6 @@ export class RommClient {
     this.store.setCredentials({
       accessToken: token.access_token,
       refreshToken: token.refresh_token ?? null,
-      expiresAt: Date.now() + token.expires * 1000,
       clientToken: null,
       deviceId: sameSession ? this.store.credentials.deviceId : null
     })
