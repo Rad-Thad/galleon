@@ -4,6 +4,18 @@ Newest first. `npm run release` adds the entry for a version, falling back to th
 commit subjects and ids since the previous tag — so write the section by hand
 before releasing if you want prose instead. See [Releasing](README.md#releasing).
 
+## 0.20.0 — 2026-09-30
+
+- fix: stop the achievements tab blanking the screen (a8e90b1)
+- fix: keep the library's filters when coming back from a game (450da16)
+- ci: give the app suite its own screen wherever it runs (8889ede)
+- feat: show the account's picture and the permissions it lacks (14dc14c)
+- refactor: allow only the emulator descriptor shapes the code honours (3f39b87)
+- fix: refuse a name that reaches out of its folder through a link (7bad180)
+- test(unit): pin RetroDECK's component tables to each other (fd05230)
+- chore: update the dependencies (d9aa111)
+- feat: accept the RomMix settings as flags in rommix-steam.sh (7552e73)
+
 ## 0.19.0 — 2026-09-25
 
 - fix: flag the favourites collection when creating it (08d02c4)
