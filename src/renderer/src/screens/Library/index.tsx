@@ -17,7 +17,7 @@ import {
 } from '../../components'
 import { useAction, useFocusable, useFocusContext, useKeyLabel } from '../../input/focus'
 import { usePagedRoms } from '../../paging'
-import { useApp, useI18n } from '../../state'
+import { useApp, useI18n, type LibraryView } from '../../state'
 
 /** The search box's name in the focus registry, for the shortcut that jumps to it. */
 const SEARCH_FIELD = 'library-search'
@@ -33,7 +33,7 @@ const SEARCH_FIELD = 'library-search'
  * So that scope is answered from the installed index, which is complete, small
  * and already in hand.
  */
-type Scope = 'all' | 'downloaded'
+type Scope = LibraryView['scope']
 
 /**
  * The full library browser: search, filter by platform, and an endless grid.
@@ -44,9 +44,9 @@ type Scope = 'all' | 'downloaded'
  * sentinel into view and fetches the next page before the user arrives —
  * there is nothing to aim at and press.
  */
-export function LibraryScreen(): JSX.Element {
+export function LibraryScreen({ view }: { view?: LibraryView }): JSX.Element {
   const { t } = useI18n()
-  const { installed, installedIds, navigate, offline, settings } = useApp()
+  const { installed, installedIds, navigate, offline, revise, settings } = useApp()
   const keyLabel = useKeyLabel()
 
   /**
@@ -58,7 +58,7 @@ export function LibraryScreen(): JSX.Element {
    * Held as the user's own choice underneath, so coming back into range puts
    * the whole library back rather than leaving them on a filter they never set.
    */
-  const [chosenScope, setScope] = useState<Scope>('all')
+  const [chosenScope, setScope] = useState<Scope>(view?.scope ?? 'all')
   const scope: Scope = offline ? 'downloaded' : chosenScope
   const [platforms, setPlatforms] = useState<RommPlatform[]>([])
   /**
@@ -69,9 +69,16 @@ export function LibraryScreen(): JSX.Element {
    * with no number to show decides what to draw instead.
    */
   const [searchCounts, setSearchCounts] = useState<Record<number, number> | null>(null)
-  const [selectedPlatform, setSelectedPlatform] = useState<number | undefined>(undefined)
-  const [search, setSearch] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [selectedPlatform, setSelectedPlatform] = useState<number | undefined>(view?.platformId)
+  const [search, setSearch] = useState(view?.search ?? '')
+  /**
+   * Seeded from the route as well, so a return lands on the filtered grid.
+   *
+   * Starting this empty would ask the server for the whole library first and
+   * narrow it a moment later — the unfiltered grid drawn over the screen the
+   * player pressed B to get back to.
+   */
+  const [debouncedSearch, setDebouncedSearch] = useState(view?.search ?? '')
   const [error, setError] = useState<string | null>(null)
   /**
    * The server's half of the grid.
@@ -342,7 +349,17 @@ export function LibraryScreen(): JSX.Element {
             key={tile.romId}
             tile={tile}
             installed={tileInstalled(tile, installedIds)}
-            onSelect={() => navigate({ name: 'game', romId: romToOpen(tile, installedIds) })}
+            onSelect={() => {
+              // What was filtered for goes onto this screen's own step first,
+              // so B off the game comes back to the grid it was picked out of.
+              // Written here rather than as the filters change, which would
+              // redraw the shell around a screen for a keystroke in it.
+              revise({
+                name: 'library',
+                view: { scope: chosenScope, search, platformId: selectedPlatform }
+              })
+              navigate({ name: 'game', romId: romToOpen(tile, installedIds) })
+            }}
             showPlatform={selectedPlatform === undefined}
           />
         ))}

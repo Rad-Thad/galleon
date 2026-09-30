@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
-import { popRoute, prunedForOffline, pushRoute, type Route } from './history.ts'
+import { popRoute, prunedForOffline, pushRoute, reviseRoute, type Route } from './history.ts'
 
 /**
  * The algebra behind B.
@@ -84,6 +84,29 @@ describe('going somewhere', () => {
     const history: Route[] = [home, game(1)]
     pushRoute(history, game(2))
     assert.deepEqual(path(history), ['home', 'game'])
+  })
+})
+
+describe('re-describing where you are', () => {
+  test('the step on the end keeps what the screen left on it', () => {
+    // What a filtered library comes back to: the view is written onto the
+    // library's own step, and popping the game off draws the grid again.
+    const filtered: Route = { name: 'library', view: { scope: 'all', search: 'zelda' } }
+    const opened = pushRoute(reviseRoute([library], filtered), game(1))
+    assert.deepEqual(popRoute(opened), [filtered])
+  })
+
+  test('and the path is no longer than it was', () => {
+    // Not a move: B has the same amount to undo after this as before, which is
+    // what keeps it a screen annotating its own step.
+    assert.equal(reviseRoute([library, game(1)], game(1)).length, 2)
+  })
+
+  test('a step that is not the one on the end is not rewritten', () => {
+    // By identity, for the reason `popRoute` gives: this is handed to
+    // `setHistory`, and a copy of the same path redraws every screen on it.
+    const history = [library, game(1)]
+    assert.equal(reviseRoute(history, library), history)
   })
 })
 

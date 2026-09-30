@@ -386,7 +386,7 @@ function Screen({ route }: { route: Route }): JSX.Element {
     case 'home':
       return <HomeScreen />
     case 'library':
-      return <LibraryScreen />
+      return <LibraryScreen view={route.view} />
     case 'game':
       return <GameScreen romId={route.romId} fromVersions={route.fromVersions} />
     case 'collections':

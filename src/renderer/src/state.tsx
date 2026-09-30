@@ -22,7 +22,7 @@ import {
   type UpdateStatus
 } from '@shared/types'
 import { setSoundEnabled } from './input/sound'
-import { popRoute, prunedForOffline, pushRoute, type Route } from './history'
+import { popRoute, prunedForOffline, pushRoute, reviseRoute, type Route } from './history'
 import { fileNameOf } from '@shared/gamefiles'
 
 /** Application-wide state: connection, settings, downloads and navigation. */
@@ -30,7 +30,7 @@ import { fileNameOf } from '@shared/gamefiles'
 // Where RomMix is, and the rules for moving between screens, live in
 // `history.ts` — pure, and testable for it. Re-exported because this is where
 // every screen already reaches for the type.
-export type { Route, SettingsTarget } from './history'
+export type { LibraryView, Route, SettingsTarget } from './history'
 
 export interface Toast {
   id: number
@@ -154,6 +154,16 @@ interface AppState {
    * history is what makes B climb into the menu and then offer to quit.
    */
   replace: (route: Route) => void
+  /**
+   * Re-describe the screen already on, without moving.
+   *
+   * For what a screen wants back when it is returned to: the Library writes
+   * the filters in force onto its own step before pushing a game on top of it.
+   * See `reviseRoute`, which is also why this is not `navigate` — going to a
+   * section is what starts a path, and this is a screen annotating the one
+   * being walked.
+   */
+  revise: (route: Route) => void
   goBack: () => void
   /** Whether this screen hangs off another. See `navigate`, and `App.back`. */
   canGoBack: boolean
@@ -323,6 +333,10 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
 
   const replace = useCallback((next: Route): void => {
     setHistory([next])
+  }, [])
+
+  const revise = useCallback((next: Route): void => {
+    setHistory((current) => reviseRoute(current, next))
   }, [])
 
   const goBack = useCallback((): void => {
@@ -664,6 +678,7 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
       route,
       navigate,
       replace,
+      revise,
       goBack,
       canGoBack,
       notify
@@ -687,6 +702,7 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
       route,
       navigate,
       replace,
+      revise,
       goBack,
       canGoBack,
       notify

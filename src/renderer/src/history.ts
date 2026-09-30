@@ -18,13 +18,29 @@ import type { EmulatorId } from '@shared/types'
  */
 export type SettingsTarget = 'theme'
 
+/**
+ * What the Library screen was showing when a game was opened from it.
+ *
+ * Carried on the route because the screen is unmounted while the game is on
+ * top of it: a filter the player set is not a thing to set again on the way
+ * back. Absent where the menu bar started the path, which is a visit that
+ * begins with the whole library — see `SECTIONS`.
+ */
+export interface LibraryView {
+  /** The route's copy of `Scope`, which is where what it means is written. */
+  scope: 'all' | 'downloaded'
+  search: string
+  /** The RomM platform the grid is narrowed to, or every platform. */
+  platformId?: number
+}
+
 export type Route =
   /**
    * First-run setup, and the sign-in form it ends on. See `SetupScreen`.
    */
   | { name: 'setup' }
   | { name: 'home' }
-  | { name: 'library' }
+  | { name: 'library'; view?: LibraryView }
   /**
    * One game. `fromVersions` says it was opened from another dump's versions
    * list, which is where the highlight belongs when it arrives: the pad is on a
@@ -150,6 +166,24 @@ export function pushRoute(history: readonly Route[], next: Route): readonly Rout
    * it has since been renamed out of.
    */
   return [...history.slice(0, at), next]
+}
+
+/**
+ * The same path, with the step on the end of it described afresh.
+ *
+ * What a screen leaves behind for its own return: the Library writes its
+ * filters onto its own step before a game is pushed on top, so popping the
+ * game off draws the grid it was picked out of. Not a move — the path is the
+ * same length after this as before, and `canGoBack` says what it said.
+ *
+ * A step that is not the one on the end is not this screen's to rewrite, so a
+ * route naming another one hands the path straight back — by identity, for the
+ * reason `popRoute` does.
+ */
+export function reviseRoute(history: readonly Route[], next: Route): readonly Route[] {
+  const top = history[history.length - 1]
+  if (!top || !sameRoute(top, next)) return history
+  return [...history.slice(0, -1), next]
 }
 
 /**

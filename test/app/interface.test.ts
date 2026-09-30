@@ -729,6 +729,25 @@ describe('searching the library', () => {
     await app.waitFor(`document.activeElement?.tagName !== 'INPUT'`, 'the caret to come back')
   })
 
+  test('and a game opened from it comes back to the same search', async () => {
+    // Opening a game takes the screen down, so what was filtered for travels on
+    // the route — see `LibraryView`. Typing the title again for every game in a
+    // list of matches is the whole of the bug this pins.
+    await app.choose('[data-rom="2"]')
+    await app.waitFor(`document.querySelector('[data-screen="game"]')`, 'the game screen')
+
+    await app.press('Escape')
+    await app.waitFor(`document.querySelector('[data-screen="library"]')`, 'the library again')
+
+    assert.equal(
+      await app.read<string>(`document.querySelector('.field__input')?.value`),
+      'Tobu',
+      'the box should still hold what was searched for'
+    )
+    await app.waitFor(`document.querySelector('[data-rom="2"]')`, 'the game that matches')
+    await app.waitFor(`!document.querySelector('[data-rom="1"]')`, 'the ones that do not')
+  })
+
   test('and leaving the screen forgets it', async () => {
     // The search is a way of looking at the library rather than a setting, so
     // coming back to it should be the whole library and not the last thing
