@@ -64,8 +64,13 @@ export function achievementsOf(rom: RommRom, user: RommUser | null): Achievement
    * The game is found by its RetroAchievements id, not RomM's: `results` is one
    * entry per RA game, and a RomM id used here matches another game's row as
    * happily as none at all.
+   *
+   * The list is read as something that may not be there: RomM's schema requires
+   * no field of `RAProgression`, and an account with no progression to report
+   * answers with the object empty rather than with a list of no games. Nothing
+   * earned, then, which is the answer for a game nobody has started anyway.
    */
-  const progress = user?.ra_progression?.results.find(
+  const progress = user?.ra_progression?.results?.find(
     (result) => rom.ra_id !== null && result.rom_ra_id === rom.ra_id
   )
   const earned = new Set((progress?.earned_achievements ?? []).map((one) => String(one.id)))

@@ -111,6 +111,18 @@ describe('a game with achievements', () => {
     assert.equal(progress?.rows.length, 1)
     assert.equal(progress?.earned, 0)
   })
+
+  test('and the same where the user has a progression with no games in it', () => {
+    // `results` is not a field RomM's schema requires — see `RAProgression` in
+    // `schema/` — and an account with no RetroAchievements progression to
+    // report answers with the object empty. Nothing earned, then, rather than
+    // nothing drawn: the set is the game's and this user is at the start of it.
+    const unfetched = { id: 1, ra_username: 'somebody', ra_progression: {} } as unknown as RommUser
+    const progress = achievementsOf(rom([achievement({ ra_id: 11 })]), unfetched)
+
+    assert.equal(progress?.rows.length, 1)
+    assert.equal(progress?.earned, 0)
+  })
 })
 
 describe('what does not become a tab', () => {
