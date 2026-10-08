@@ -13,7 +13,7 @@
  * of those is a seam a test can stand in for.
  */
 
-import { createWriteStream } from 'node:fs'
+import { createWriteStream, type WriteStream } from 'node:fs'
 import { rename, rm, stat } from 'node:fs/promises'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
@@ -258,21 +258,26 @@ export async function fetchToFile(
       const promised = declared > 0 ? received + declared : 0
 
       const source = Readable.fromWeb(res.body as Parameters<typeof Readable.fromWeb>[0])
-      await pipeline(
-        source,
-        // Counted as the bytes pass through, the same way `streamToFile` and
-        // `fetchfile.ts` count, so the three transfers read alike.
-        async function* (chunks: AsyncIterable<Buffer>) {
-          for await (const chunk of chunks) {
-            received += chunk.length
-            waitForBytes()
-            onProgress({ received, total })
-            yield chunk
-          }
-        },
-        createWriteStream(partial, { flags: resumed ? 'a' : 'w' }),
-        { signal: attemptStopped.signal }
-      )
+      const sink = createWriteStream(partial, { flags: resumed ? 'a' : 'w' })
+      try {
+        await pipeline(
+          source,
+          // Counted as the bytes pass through, the same way `streamToFile` and
+          // `fetchfile.ts` count, so the three transfers read alike.
+          async function* (chunks: AsyncIterable<Buffer>) {
+            for await (const chunk of chunks) {
+              received += chunk.length
+              waitForBytes()
+              onProgress({ received, total })
+              yield chunk
+            }
+          },
+          sink,
+          { signal: attemptStopped.signal }
+        )
+      } finally {
+        await closed(sink)
+      }
 
       // A body that ended early — a proxy re-encoding the reply, a host that
       // closed mid-stream — otherwise leaves a short file that passes for a
@@ -434,8 +439,13 @@ export async function streamToFile(
   if (!res.ok) throw await transport.toError(res)
   if (!res.body) throw new RommError(t('error.emptyAssetBody'))
   const source = Readable.fromWeb(res.body as Parameters<typeof Readable.fromWeb>[0])
+  const sink = createWriteStream(destination)
   if (!onProgress) {
-    await pipeline(source, createWriteStream(destination))
+    try {
+      await pipeline(source, sink)
+    } finally {
+      await closed(sink)
+    }
     return
   }
 
@@ -443,18 +453,36 @@ export async function streamToFile(
   // to whatever size it knows the file to be.
   const total = Number(res.headers.get('content-length') ?? 0)
   let received = 0
-  await pipeline(
-    source,
-    // Counted as the bytes pass through rather than from a `data` listener,
-    // which would put the stream in flowing mode and race the pipeline for
-    // them.
-    async function* (chunks: AsyncIterable<Buffer>) {
-      for await (const chunk of chunks) {
-        received += chunk.length
-        onProgress({ received, total })
-        yield chunk
-      }
-    },
-    createWriteStream(destination)
-  )
+  try {
+    await pipeline(
+      source,
+      // Counted as the bytes pass through rather than from a `data` listener,
+      // which would put the stream in flowing mode and race the pipeline for
+      // them.
+      async function* (chunks: AsyncIterable<Buffer>) {
+        for await (const chunk of chunks) {
+          received += chunk.length
+          onProgress({ received, total })
+          yield chunk
+        }
+      },
+      sink
+    )
+  } finally {
+    await closed(sink)
+  }
+}
+
+/**
+ * Resolves once the file behind this stream is closed, written or abandoned.
+ *
+ * `pipeline` settles when the write side finishes or fails, which is not when
+ * the file is closed: after a failure, the open can still be on its way. Every
+ * caller acts on the file next (renames it, measures it, deletes it), and a
+ * cancel that deleted the partial would see an empty one reappear behind it.
+ * So no transfer returns while its file is still open, or still opening.
+ */
+function closed(sink: WriteStream): Promise<void> {
+  if (sink.closed) return Promise.resolve()
+  return new Promise((resolve) => sink.once('close', () => resolve()))
 }

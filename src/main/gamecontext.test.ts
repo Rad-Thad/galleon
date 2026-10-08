@@ -1,12 +1,16 @@
 import assert from 'node:assert/strict'
-import { after, test } from 'node:test'
+import { after, describe, test } from 'node:test'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { emulatorById } from '@config/emulators'
 import type { EmulatorState, ResolvedInstall } from '@config/emulators'
+import type { InstalledRom, RommRom } from '@shared/types'
 import type { RomMixApp } from './app.ts'
-import { launcherKey, launchOptions } from './gamecontext.ts'
+import { launchContext, launcherKey, launchOptions, romFor, saveContext } from './gamecontext.ts'
+import { t } from './i18n.ts'
+import { log } from './log.ts'
+import { RommError } from './romm/index.ts'
 
 /**
  * The variant a launch runs, which is the one a save has to be filed under.
@@ -25,7 +29,16 @@ import { launcherKey, launchOptions } from './gamecontext.ts'
  */
 
 const roots: string[] = []
+const realHome = process.env.ROMMIX_HOME
+// The calls below log, and the log goes wherever the root is: a scratch one,
+// so nothing lands in the RomMix folder of whoever runs the tests.
+const logRoot = mkdtempSync(join(tmpdir(), 'rommix-gamecontext-test-'))
+roots.push(logRoot)
+process.env.ROMMIX_HOME = logRoot
 after(() => {
+  log.close()
+  if (realHome === undefined) delete process.env.ROMMIX_HOME
+  else process.env.ROMMIX_HOME = realHome
   for (const dir of roots) rmSync(dir, { recursive: true, force: true })
 })
 
@@ -98,4 +111,184 @@ test('an emulator that claims the system with nothing installed for it says so',
 
   assert.equal(effective, undefined)
   assert.equal(noLauncher, true)
+})
+
+/**
+ * The part of the app the game calls read, answering as the test says.
+ *
+ * `rom` is what the server does when asked; `cached` is what was written down
+ * at install time; `installed` is the copy the emulator in charge would run,
+ * and `stored` the index entry whatever emulator it belongs to.
+ */
+function gameApp(
+  parts: {
+    rom?: () => Promise<RommRom>
+    cached?: RommRom | null
+    installed?: InstalledRom | null
+    stored?: InstalledRom | null
+    emulator?: EmulatorState | null
+    remember?: () => Promise<void>
+  } = {}
+): { app: RomMixApp; remembered: number[]; probed: () => number } {
+  const remembered: number[] = []
+  let probes = 0
+  const app = {
+    client: { rom: parts.rom ?? (async () => game) },
+    offline: { game: async () => parts.cached ?? null },
+    library: {
+      installedNow: () => parts.installed ?? null,
+      remember: async (rom: RommRom) => {
+        remembered.push(rom.id)
+        await parts.remember?.()
+      },
+      launchTarget: async (entry: InstalledRom) => `${entry.path}/game.nsp`
+    },
+    store: {
+      getInstalled: () => parts.stored ?? parts.installed ?? undefined,
+      settings: { systemLaunchers: {} }
+    },
+    ensureEmulators: async () => {
+      probes += 1
+    },
+    activeEmulator: () =>
+      parts.emulator === undefined ? emudeckWith(launchers('ryujinx.sh')) : parts.emulator
+  } as unknown as RomMixApp
+  return { app, remembered, probed: () => probes }
+}
+
+const game = { id: 7, name: 'From the server' } as RommRom
+const saved = { id: 7, name: 'From the disk' } as RommRom
+const onDisk = { romId: 7, system: 'switch', path: '/roms/switch/game' } as InstalledRom
+
+describe('the ROM a call about a game works from', () => {
+  test("is the server's answer whenever there is one", async () => {
+    const { app } = gameApp({ cached: saved })
+
+    assert.equal((await romFor(app, 7)).name, 'From the server')
+  })
+
+  test('is written down again on the way past, for a game on this disk', async () => {
+    const { app, remembered } = gameApp({ installed: onDisk })
+
+    await romFor(app, 7)
+
+    assert.deepEqual(remembered, [7])
+  })
+
+  test('is not written down for a game that is not here', async () => {
+    const { app, remembered } = gameApp()
+
+    await romFor(app, 7)
+
+    assert.deepEqual(remembered, [])
+  })
+
+  test('still answers when writing it down fails', async () => {
+    // A full disk or a missing folder is no reason to refuse the game screen.
+    const { app } = gameApp({
+      installed: onDisk,
+      remember: async () => {
+        throw new Error('no room')
+      }
+    })
+
+    assert.equal((await romFor(app, 7)).name, 'From the server')
+  })
+
+  test('is the copy saved at install time when nothing answers', async () => {
+    const { app } = gameApp({
+      rom: async () => {
+        throw new TypeError('fetch failed')
+      },
+      cached: saved
+    })
+
+    assert.equal((await romFor(app, 7)).name, 'From the disk')
+  })
+
+  test('is never the saved copy when RomM turned the request down', async () => {
+    // A 401 is the sign-in expiring. Served from the cache, the game screen
+    // would work while everything else headed for the sign-in form.
+    for (const status of [401, 403]) {
+      const { app } = gameApp({
+        rom: async () => {
+          throw new RommError('refused', status)
+        },
+        cached: saved
+      })
+
+      await assert.rejects(romFor(app, 7), (cause: Error) => cause instanceof RommError)
+    }
+  })
+
+  test('is the failure itself when nothing was saved either', async () => {
+    const failure = new TypeError('fetch failed')
+    const { app } = gameApp({
+      rom: async () => {
+        throw failure
+      }
+    })
+
+    await assert.rejects(romFor(app, 7), (cause) => cause === failure)
+  })
+})
+
+describe("what syncing a game's saves needs", () => {
+  test('the ROM, the emulator, and the file it is handed rather than its folder', async () => {
+    const { app, probed } = gameApp({ installed: onDisk })
+
+    const target = await saveContext(app, 7)
+
+    assert.equal(target.rom.name, 'From the server')
+    assert.equal(target.system, 'switch')
+    assert.equal(target.romPath, '/roms/switch/game/game.nsp')
+    // The variant the launch would run, so the save is looked for where the
+    // emulator that ran wrote it.
+    assert.equal(target.variant, 'ryujinx')
+    assert.equal(probed(), 1, 'the emulators should be probed before the index is read')
+  })
+
+  test('says so when the game is not downloaded for the emulator in charge', async () => {
+    const { app } = gameApp()
+
+    await assert.rejects(saveContext(app, 7), { message: t('error.notDownloadedForEmulator') })
+  })
+
+  test('says so when no emulator can run the system', async () => {
+    const { app } = gameApp({ installed: onDisk, emulator: null })
+
+    await assert.rejects(saveContext(app, 7), {
+      message: t('error.noEmulatorForSystem', { system: 'switch' })
+    })
+  })
+})
+
+describe('what launching a game needs', () => {
+  test('the copy on disk and the emulator that will run it', async () => {
+    const { app, probed } = gameApp({ installed: onDisk })
+
+    const { installed, emulator } = await launchContext(app, 7)
+
+    assert.equal(installed.path, '/roms/switch/game')
+    assert.equal(emulator.id, 'emudeck')
+    assert.equal(probed(), 1)
+  })
+
+  test('a game downloaded for another emulator is told apart from one never downloaded', async () => {
+    const elsewhere = gameApp({ stored: onDisk })
+    await assert.rejects(launchContext(elsewhere.app, 7), {
+      message: t('error.downloadedForOther')
+    })
+
+    const nowhere = gameApp()
+    await assert.rejects(launchContext(nowhere.app, 7), { message: t('error.notDownloadedYet') })
+  })
+
+  test('says so when no emulator can run the system', async () => {
+    const { app } = gameApp({ installed: onDisk, emulator: null })
+
+    await assert.rejects(launchContext(app, 7), {
+      message: t('error.noEmulatorForSystem', { system: 'switch' })
+    })
+  })
 })
