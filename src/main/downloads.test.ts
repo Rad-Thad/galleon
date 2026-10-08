@@ -1325,8 +1325,14 @@ describe('pausing on purpose', () => {
     const store = new Store(join(root, 'config'))
     const second = rom({ id: 2, fs_name: 'Streets of Rage (USA).md' })
     // The first transfer never finishes, so the second stays queued behind it —
-    // which is the state this is about.
+    // which is the state this is about. Waiting for the first to be on the wire
+    // means its own record is already written, so what is left to see is
+    // whether the second one wrote one too.
     const wire = heldWire()
+    let onWire!: () => void
+    const firstOnWire = new Promise<void>((resolve) => {
+      onWire = resolve
+    })
     const client = {
       async supportsRange() {
         return true
@@ -1338,20 +1344,25 @@ describe('pausing on purpose', () => {
         return second
       },
       async downloadRom() {
+        onWire()
         await wire.held
       }
     } as unknown as RommClient
     const downloads = queue(store, client, new Library(store, client, cache(client), () => null))
     await downloads.enqueue(rom())
     await downloads.enqueue(second)
+    await firstOnWire
 
     downloads.pause(2)
 
     const queuedItem = downloads.items.find((item) => item.romId === 2)
     assert.equal(queuedItem?.state, 'paused')
     assert.equal(queuedItem?.receivedBytes, 0)
-    // Nothing arrived, so there is nothing to remember between runs.
-    assert.deepEqual(store.pending, [])
+    // Nothing of the second arrived, so it has nothing to remember between runs.
+    assert.deepEqual(
+      store.pending.map((entry) => entry.romId),
+      [1]
+    )
   })
 
   test('pausing something that is not moving does nothing at all', async () => {
