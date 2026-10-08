@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Optional, not part of the default setup. A Mac that is awake can ask the Nova's
+  bridge to run now, ignoring its time window (its charger and idle checks still
+  apply). The Nova's own systemd timer works without this.
+
+  Install: replace @SSH_HOST@ with the SSH alias of the device, save as
+  ~/Library/LaunchAgents/io.github.galleon.device-bridge-nudge.plist, then
+  launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/io.github.galleon.device-bridge-nudge.plist
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>io.github.galleon.device-bridge-nudge</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/ssh</string>
+    <string>-o</string>
+    <string>BatchMode=yes</string>
+    <string>-o</string>
+    <string>ConnectTimeout=10</string>
+    <string>@SSH_HOST@</string>
+    <string>systemd-run --user --no-block --unit=galleon-device-bridge-nudge ~/.local/bin/galleon-device-bridge run --now</string>
+  </array>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>3</integer>
+    <key>Minute</key>
+    <integer>30</integer>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>/tmp/galleon-device-bridge-nudge.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/galleon-device-bridge-nudge.log</string>
+</dict>
+</plist>

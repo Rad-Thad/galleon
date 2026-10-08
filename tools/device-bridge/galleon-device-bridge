@@ -1,0 +1,7 @@
+#!/bin/sh
+# Entry point installed to ~/.local/bin. The logic lives in the Python file beside
+# the installed copy, so an update replaces one directory and nothing else.
+set -eu
+here=${GALLEON_BRIDGE_LIB:-"$HOME/.local/lib/galleon-device-bridge"}
+[ -f "$here/galleon_device_bridge.py" ] || here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+exec /usr/bin/env python3 -I "$here/galleon_device_bridge.py" "$@"

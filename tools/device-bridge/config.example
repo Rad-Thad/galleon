@@ -1,0 +1,34 @@
+# Galleon device bridge configuration: ~/.config/galleon-device-bridge/config
+# KEY=VALUE lines. Lives only on the device; never commit a filled-in copy.
+
+# The public repository whose nightly is tested and whose results branch is written.
+REPO=Rad-Thad/galleon
+RELEASE_TAG=nightly
+
+# Local time window for unattended runs ("run --now" ignores it).
+WINDOW=01:00-07:00
+# Run only on the charger, and only above this battery level.
+REQUIRE_AC=1
+MIN_BATTERY=40
+
+# Hard limit for run.sh is BUDGET_SECONDS + GRACE_SECONDS.
+BUDGET_SECONDS=1800
+GRACE_SECONDS=300
+MIN_FREE_MB=3072
+
+# Test folders kept on the device, and result folders kept on the branch.
+KEEP_RUNS=3
+KEEP_PUBLISHED=60
+
+# Exact process names that mean someone is playing (matched against /proc/*/comm,
+# never against command lines). An idle Galleon is recognised separately.
+BUSY_PROCESSES=reaper galleon rommix es-de retroarch duckstation-qt DuckStation armsx2 ARMSX2 pcsx2-qt dolphin-emu ppsspp PPSSPPSDL PPSSPPQt flycast melonDS
+SESSION_UNIT=gamescope-session-plus@steam.service
+
+# 0 = stage results locally and do not push (for trying the bridge out).
+PUBLISH=1
+# Take a newer bridge from a nightly whose harness passed (1) or never (0).
+SELF_UPDATE=1
+
+# Extra words to redact, one per line, in this file (for example a Wi-Fi name):
+# REDACT_FILE=~/.config/galleon-device-bridge/redact
