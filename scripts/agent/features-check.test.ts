@@ -209,5 +209,13 @@ describe('the command, against a repository', () => {
     assert.equal(refused.status, 1)
     assert.match(String(refused.stderr), /M1-01: "title" changed/)
     assert.match(String(refused.stderr), /no results\/b{40}\/summary\.json/)
+
+    const lost = spawnSync(
+      process.execPath,
+      ['scripts/agent/features-check.mjs', '--base', 'no-such-ref'],
+      { cwd: dir, encoding: 'utf8' }
+    )
+    assert.equal(lost.status, 1, 'a base it cannot read is not a list with nothing in it')
+    assert.match(String(lost.stderr), /cannot read docs\/features\.json at no-such-ref/)
   })
 })
