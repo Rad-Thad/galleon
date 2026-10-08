@@ -12,6 +12,7 @@
     "src/config/**/*",
     "test/**/*",
     "packaging/**/*",
+    "scripts/agent/**/*.ts",
     "electron.vite.config.ts",
     "vite.web.config.ts"
   ]
