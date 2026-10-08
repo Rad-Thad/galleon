@@ -1,0 +1,109 @@
+# Runs the test suites over and over, to show that a flaky test is fixed
+# rather than that it happened to pass once.
+#
+# A test that fails one run in ten passes a pull request most of the time, so
+# one green run says nothing about it. This runs the suites back to back on
+# the same machine and stops at the first failure, which leaves its log and,
+# for the app suite, the screenshot the driver took where it gave up.
+#
+# Started by hand (`workflow_dispatch`). Also on a pull request that changes
+# this file, because a workflow can only be started by hand once it is on the
+# default branch: the pull request that adds or changes it is the one place it
+# can prove itself first. Not a required check, and no other pull request
+# starts it.
+name: Stress
+
+on:
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: Which suite to repeat
+        type: choice
+        options: [both, unit, app]
+        default: both
+      runs:
+        description: How many times to run it; empty for the default per architecture
+        type: string
+        default: ''
+      arch:
+        description: Which architecture
+        type: choice
+        options: [both, x64, arm64]
+        default: both
+  pull_request:
+    paths:
+      - .github/workflows/stress.yml
+
+concurrency:
+  group: stress-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  stress:
+    strategy:
+      fail-fast: false
+      matrix:
+        # The two runners `release.yml` builds on, or one of them. The default
+        # number of runs is per architecture: arm64 runners are fewer, and the
+        # suites take longer there.
+        include: ${{ fromJSON(inputs.arch == 'x64' && '[{"runner":"ubuntu-24.04","arch":"x64","runs":20}]' || inputs.arch == 'arm64' && '[{"runner":"ubuntu-24.04-arm","arch":"arm64","runs":10}]' || '[{"runner":"ubuntu-24.04","arch":"x64","runs":20},{"runner":"ubuntu-24.04-arm","arch":"arm64","runs":10}]') }}
+
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      # What `release.yml` does before `npm run test:app`, for the same reasons;
+      # see the comments there.
+      - run: npx install-electron
+      - run: |
+          sudo chown root:root node_modules/electron/dist/chrome-sandbox
+          sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
+      - run: sudo apt-get update && sudo apt-get install -y xvfb
+
+      - name: Run the suites back to back
+        env:
+          # Through the environment rather than spliced into the script, which
+          # GitHub does before the shell ever parses it. A pull request has no
+          # inputs, so it gets the defaults.
+          SUITE: ${{ inputs.suite || 'both' }}
+          RUNS: ${{ inputs.runs || matrix.runs }}
+        run: |
+          case "$SUITE" in both|unit|app) ;; *) echo "::error::unknown suite $SUITE"; exit 1 ;; esac
+          case "$RUNS" in ''|*[!0-9]*) echo "::error::runs must be a number, not $RUNS"; exit 1 ;; esac
+          for run in $(seq 1 "$RUNS"); do
+            if [ "$SUITE" != app ]; then
+              echo "::group::run $run of $RUNS: npm test"
+              started=$SECONDS
+              npm test
+              echo "::endgroup::"
+              echo "run $run: npm test passed in $((SECONDS - started)) s" | tee -a "$GITHUB_STEP_SUMMARY"
+            fi
+            if [ "$SUITE" != unit ]; then
+              echo "::group::run $run of $RUNS: npm run test:app"
+              started=$SECONDS
+              npm run test:app
+              echo "::endgroup::"
+              echo "run $run: npm run test:app passed in $((SECONDS - started)) s" | tee -a "$GITHUB_STEP_SUMMARY"
+            fi
+          done
+          echo "**$RUNS consecutive green runs of $SUITE on ${{ matrix.arch }}**" >> "$GITHUB_STEP_SUMMARY"
+
+      # The screen at the moment the app suite gave up, as `release.yml` keeps it.
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: stress-app-test-failures-${{ matrix.arch }}
+          path: test/app/failures/
+          if-no-files-found: ignore

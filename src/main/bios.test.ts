@@ -10,6 +10,7 @@ import { BiosManager } from './bios.ts'
 import { OfflineCache } from './offline.ts'
 import { RommError, UnreachableError, type RommClient } from './romm/index.ts'
 import { rootPaths } from './root.ts'
+import { log } from './log.ts'
 import { Store } from './store.ts'
 
 /**
@@ -28,6 +29,8 @@ const scratches: string[] = []
 const realHome = process.env.ROMMIX_HOME
 
 afterEach(() => {
+  // The log holds its path into whichever scratch root logged first.
+  log.close()
   if (realHome === undefined) delete process.env.ROMMIX_HOME
   else process.env.ROMMIX_HOME = realHome
   for (const dir of scratches.splice(0)) rmSync(dir, { recursive: true, force: true })
