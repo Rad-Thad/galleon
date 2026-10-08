@@ -1,6 +1,13 @@
 import assert from 'node:assert/strict'
-import { after, afterEach, before, describe, test } from 'node:test'
-import { mkdtempSync, readdirSync, readFileSync, existsSync, rmSync, writeFileSync } from 'node:fs'
+import { after, afterEach, before, describe, mock, test } from 'node:test'
+import fs, {
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  existsSync,
+  rmSync,
+  writeFileSync
+} from 'node:fs'
 import { hostname, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { app } from 'electron'
@@ -753,6 +760,44 @@ describe('downloading a ROM', () => {
       new RommClient(store).downloadRom(rom, destination, () => undefined, controller.signal)
     )
     assert.equal(sent.length, 1)
+  })
+
+  test('a transfer that has returned has stopped touching the disk', async () => {
+    // What a caller does next relies on it: a cancel deletes the partial and a
+    // pause measures it, and a file still being opened behind the returned
+    // promise comes back after the delete, or measures short.
+    const { store } = fakeStore()
+    const destination = join(scratch(), 'sonic.md')
+    const controller = new AbortController()
+    serve(() => {
+      controller.abort()
+      return new Response(broken('01'))
+    })
+    // Every open made slow, so one still in flight when the transfer returns
+    // is certain to land afterwards rather than merely likely to.
+    let opened = 0
+    const open = fs.open
+    mock.method(fs, 'open', (...args: unknown[]) => {
+      const done = args.pop() as (...result: unknown[]) => void
+      ;(open as (...call: unknown[]) => void)(...args, (...result: unknown[]) => {
+        setTimeout(() => {
+          opened += 1
+          done(...result)
+        }, 50)
+      })
+    })
+
+    try {
+      await assert.rejects(() =>
+        new RommClient(store).downloadRom(rom, destination, () => undefined, controller.signal)
+      )
+      const openedBy = opened
+      await new Promise((resolve) => setTimeout(resolve, 200))
+
+      assert.equal(opened, openedBy, 'a file was still being opened after the transfer returned')
+    } finally {
+      mock.restoreAll()
+    }
   })
 
   test('a ROM left half-downloaded by an earlier attempt is never appended to', async () => {
