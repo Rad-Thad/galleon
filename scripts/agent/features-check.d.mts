@@ -23,3 +23,5 @@ export function compare(
 ): { errors: string[]; flipped: Feature[] }
 export function flipErrors(flipped: readonly Feature[], evidence: Evidence): string[]
 export function addedLines(before: string, after: string): string
+export const FORBIDDEN_IN_GITHUB: string[]
+export function forbiddenNames(files: readonly { path: string; text: string }[]): string[]

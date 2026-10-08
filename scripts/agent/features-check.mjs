@@ -6,15 +6,17 @@
 // the agent is the only one editing it. So the list is held to rules a script
 // can check rather than to good intentions: its shape, its dependency graph,
 // its coverage of every requirement in the research, the catalogue its device
-// checks come from, and, on a pull request, that an existing feature changes
-// only by its `passes` flag and only with the evidence its verification type
-// asks for (docs/TESTING.md, "Verification types").
+// checks come from, the names `.github/` must never use, and, on a pull
+// request, that an existing feature changes only by its `passes` flag and only
+// with the evidence its verification type asks for (docs/TESTING.md,
+// "Verification types").
 //
 // The rules are pure functions over plain data, so the tests can feed them
 // fixtures; the command at the bottom gathers that data from git.
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
-import { pathToFileURL } from 'node:url'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { join } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const FIELDS = [
   'id',
@@ -258,6 +260,22 @@ export function flipErrors(flipped, evidence) {
   return errors
 }
 
+/**
+ * Names that belong to the earlier plan's dispatch trigger and tester sign-in.
+ * Nothing in `.github/` may use them: there is no Routine trigger and no
+ * repository secret (M0-16), so a reference is either dead or a way in.
+ */
+export const FORBIDDEN_IN_GITHUB = ['ROUTINE_FIRE_URL', 'ROUTINE_FIRE_TOKEN', 'TESTER_LOGIN']
+
+/** Every file under `.github/` that names one of `FORBIDDEN_IN_GITHUB`. */
+export function forbiddenNames(files) {
+  return files.flatMap(({ path, text }) =>
+    FORBIDDEN_IN_GITHUB.filter((name) => text.includes(name)).map(
+      (name) => `${path}: names ${name}; nothing in .github/ may`
+    )
+  )
+}
+
 /** Lines of `after` that `before` does not have: what an append-only file gained. */
 export function addedLines(before, after) {
   const left = new Map()
@@ -301,6 +319,15 @@ function main(argv) {
   const catalogue = catalogueIds(readFileSync(new URL('docs/TESTING.md', root), 'utf8'))
 
   const errors = validate(head, { catalogue })
+  const github = fileURLToPath(new URL('.github/', root))
+  errors.push(
+    ...forbiddenNames(
+      (existsSync(github) ? readdirSync(github, { recursive: true }) : [])
+        .map((path) => join('.github', String(path)))
+        .filter((path) => statSync(fileURLToPath(new URL(path, root))).isFile())
+        .map((path) => ({ path, text: readFileSync(new URL(path, root), 'utf8') }))
+    )
+  )
   if (argv.includes('--base') && errors.length === 0) {
     const before = showJson(base, 'docs/features.json')
     // A base that cannot be read would make every feature look new.

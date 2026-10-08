@@ -1,5 +1,5 @@
-# Labels for this repository. Synced by .github/workflows/labels.yml (added in M0-16);
-# the first set is created by the local handoff session (HANDOFF.md, Appendix A).
+# Labels for this repository. .github/workflows/labels.yml creates and updates
+# them whenever this file changes on main; it never deletes one.
 # No label triggers anything: the agent reads owner-authored issues and the
 # device-results branch at the start of every session.
 - name: needs-triage

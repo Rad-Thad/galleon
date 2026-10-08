@@ -18,6 +18,7 @@ import {
   catalogueIds,
   compare,
   flipErrors,
+  forbiddenNames,
   REQUIRED_SOURCES,
   validate
 } from './features-check.mjs'
@@ -96,7 +97,22 @@ describe('the guard’s readings', () => {
     assert.equal(addedLines('a\n- none\nb', 'a\n- none\nb\n- none\nc'), '- none\nc')
   })
 
-  test('passes the real feature list', () => {
+  test('refuses the earlier plan’s trigger and sign-in names anywhere in .github/', () => {
+    assert.deepEqual(
+      forbiddenNames([
+        { path: '.github/workflows/a.yml', text: 'url: ${{ secrets.ROUTINE_FIRE_URL }}' },
+        { path: '.github/labels.yml', text: '- name: flaky' },
+        { path: '.github/ISSUE_TEMPLATE/b.yml', text: 'TESTER_LOGIN and ROUTINE_FIRE_TOKEN' }
+      ]),
+      [
+        '.github/workflows/a.yml: names ROUTINE_FIRE_URL; nothing in .github/ may',
+        '.github/ISSUE_TEMPLATE/b.yml: names ROUTINE_FIRE_TOKEN; nothing in .github/ may',
+        '.github/ISSUE_TEMPLATE/b.yml: names TESTER_LOGIN; nothing in .github/ may'
+      ]
+    )
+  })
+
+  test('passes the real feature list and the real .github/', () => {
     const run = spawnSync(process.execPath, [join(here, 'features-check.mjs')], {
       cwd: root,
       encoding: 'utf8'
