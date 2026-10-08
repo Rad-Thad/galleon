@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { after, describe, test } from 'node:test'
 import { spawnSync } from 'node:child_process'
-import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -50,10 +50,10 @@ function launch(args: string[] = [], env: Record<string, string> = {}): Launch {
   writeFileSync(join(dir, 'rommix-steam.sh'), readFileSync(SCRIPT))
   chmodSync(join(dir, 'rommix-steam.sh'), 0o755)
   writeFileSync(
-    join(dir, 'RomMix-x86_64.AppImage'),
+    join(dir, 'Galleon-x86_64.AppImage'),
     `#!/bin/sh\nprintf '%s\\n' "$@" > ${dir}/argv\nenv | grep -E '^(ROMMIX|GALLEON)_' > ${dir}/env || :\n`
   )
-  chmodSync(join(dir, 'RomMix-x86_64.AppImage'), 0o755)
+  chmodSync(join(dir, 'Galleon-x86_64.AppImage'), 0o755)
 
   spawnSync(join(dir, 'rommix-steam.sh'), args, {
     env: { PATH: process.env.PATH ?? '', ...env },
@@ -145,7 +145,21 @@ describe('when it cannot start', () => {
       encoding: 'utf8'
     })
     assert.equal(ran.status, 1)
-    assert.match(ran.stderr, /no RomMix AppImage found/)
+    assert.match(ran.stderr, /no Galleon AppImage found/)
     assert.match(ran.stderr, /--appimage=/)
+  })
+  test("and stock RomMix's image beside it is not one to start", () => {
+    const dir = scratch()
+    writeFileSync(join(dir, 'RomMix-x86_64.AppImage'), `#!/bin/sh\nprintf started > ${dir}/ran\n`)
+    chmodSync(join(dir, 'RomMix-x86_64.AppImage'), 0o755)
+    writeFileSync(join(dir, 'galleon-steam.sh'), readFileSync(SCRIPT))
+    chmodSync(join(dir, 'galleon-steam.sh'), 0o755)
+    const ran = spawnSync(join(dir, 'galleon-steam.sh'), [], {
+      env: { PATH: process.env.PATH ?? '' },
+      encoding: 'utf8'
+    })
+    assert.equal(ran.status, 1)
+    assert.match(ran.stderr, /no Galleon AppImage found/)
+    assert.equal(existsSync(join(dir, 'ran')), false)
   })
 })

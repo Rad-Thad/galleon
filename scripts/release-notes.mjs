@@ -26,7 +26,7 @@ if (!version) {
   process.exit(1)
 }
 
-const REPOSITORY = 'https://github.com/leclercb/rommix'
+const REPOSITORY = 'https://github.com/Rad-Thad/galleon'
 const markdown = readFileSync('CHANGELOG.md', 'utf8')
 
 /**
@@ -58,15 +58,15 @@ ${entry}
 Choose \`x86_64\` or \`arm64\` depending on your machine's architecture.
 
 \`\`\`bash
-chmod +x RomMix-x86_64.AppImage
-./RomMix-x86_64.AppImage
+chmod +x Galleon-x86_64.AppImage
+./Galleon-x86_64.AppImage
 \`\`\`
 
 No version in the file name: updates are written over that same file.
 
 ### From Steam
 
-Download \`rommix-steam.sh\` too, \`chmod +x\` it, keep it beside the AppImage,
+Download \`galleon-steam.sh\` too, \`chmod +x\` it, keep it beside the AppImage,
 and add **the script** as the non-Steam game — Steam cannot launch the AppImage
 directly.
 ${previous ? `\n**Full changelog**: ${REPOSITORY}/compare/v${previous}...v${version}\n` : ''}`)
