@@ -1,0 +1,13 @@
+[Unit]
+Description=Galleon device bridge: test the newest nightly when the device is idle
+Documentation=file://%h/.local/lib/galleon-device-bridge/
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/galleon-device-bridge run
+# Longer than the test budget plus the bridge's own grace and the downloads; the
+# bridge enforces the real limit itself and cleans up after run.sh.
+TimeoutStartSec=3h
+# Galleon runs under Steam, outside this unit; whatever run.sh started directly
+# (for example the on-device fake RomM) ends with the unit.
+KillMode=control-group

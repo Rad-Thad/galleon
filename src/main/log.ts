@@ -405,6 +405,21 @@ export const log = {
   },
 
   /**
+   * Let go of the file, so the next line opens one afresh under whatever the
+   * root is by then.
+   *
+   * For whoever is about to remove the folder the file is in. The path is
+   * otherwise held for the life of the process, and every line after the
+   * removal fails, switches file logging off for good, or puts the file back
+   * into a folder half-way through being deleted. Writes are synchronous, so
+   * once this returns nothing is left writing to the old one.
+   */
+  close(): void {
+    logFile = null
+    fileDisabled = false
+  },
+
+  /**
    * A timer for one operation, so its duration is reported by whatever ends it.
    *
    * Returned rather than wrapped around a callback because the interesting

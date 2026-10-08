@@ -1,0 +1,2408 @@
+[
+  {
+    "id": "M0-00",
+    "milestone": "M0",
+    "title": "A reliably green baseline: fix the flaky download-queue tests",
+    "description": "The first CI runs on the new repository (RomMix v0.20.0, unchanged) failed on a commit upstream's CI passed. x64 `npm test`: 'a transfer that cannot be resumed is not interrupted' and 'changing the order of the queue' (per-test temporary log and download folders removed while still in use: 'logging to file stopped: ENOENT ... /tmp/rommix-downloads-test-*/logs/app.log'). x64 `npm run test:app`: 15 s timeouts in 'pausing one stops it where it is, and it picks up from there', 'and cancelling throws it away rather than pausing it' and 'driving the queue from the activity tab'. arm64 `npm run package -- --arm64`: 'getaddrinfo EAI_AGAIN github.com' while electron-builder fetched its assets. The branch ruleset needs a baseline that is green every time, so this is the first unit of work, before M0-01.",
+    "source": ["HARNESS", "REQ-14", "REQ-15"],
+    "acceptance": [
+      "A `workflow_dispatch` workflow `.github/workflows/stress.yml` (inputs: suite, runs, arch) runs `npm test` and `npm run test:app` back to back; the PR links runs showing 20 consecutive green runs of each on x64 and 10 on arm64.",
+      "Each fix addresses a root cause and the PR names it: a temporary folder outlives every handle on it (the file logger is stopped and awaited before the folder is removed); the fake server and the queue are awaited by state (an event, or a polled condition with a deadline), never by sleeping.",
+      "No test is skipped, marked todo, wrapped in a retry or quarantined, and no timeout is raised as the only change (the evaluator checks the diff for each).",
+      "The package step runs from cache: `~/.cache/electron` and `~/.cache/electron-builder` are restored with actions/cache keyed on package-lock.json, and a separate warm-up step fetches what is missing with at most 3 attempts and back-off; the packaging itself is never retried.",
+      "docs/PROGRESS.md records each flaky test, its root cause, the fix and the stress-run links. Dependabot PRs #1-#3 are triaged only after this merges (CLAUDE.md, rule 7)."
+    ],
+    "verification": "ci",
+    "depends_on": [],
+    "passes": false
+  },
+  {
+    "id": "M0-01",
+    "milestone": "M0",
+    "title": "Overlay bootstrap and upstream baseline",
+    "description": "Confirm the handoff kit sits correctly on top of the RomMix v0.20.0 baseline: placeholders replaced, upstream agent skills removed, RomMix's own CLAUDE.md rules carried into the root CLAUDE.md, and the upstream base recorded.",
+    "source": ["HARNESS", "REQ-2", "REQ-13"],
+    "acceptance": [
+      "`grep -rn --exclude-dir=.git --exclude=HANDOFF.md --exclude=features.json '__GH_OWNER__\\|__REPO__' .` prints nothing (those two files quote the placeholders on purpose).",
+      "`.claude/skills/`, `.agents/` and `skills-lock.json` do not exist (the upstream `update` skill commits straight to main).",
+      "`docs/UPSTREAM.md` records the upstream repo, the base commit (v0.20.0, ea787b98c32ce6efcd0c0448c0dac5aed074f3af), the commit studied for the plan (990e55e3855db5ef0c92324283664b71f14fd37d) and the rule for pulling upstream changes.",
+      "`npm ci && npm run format:check && npm run lint && npm run typecheck && npm test` passes on the cloud VM with Node 24, and the output is pasted into the PR."
+    ],
+    "verification": "ci",
+    "depends_on": [],
+    "passes": false
+  },
+  {
+    "id": "M0-02",
+    "milestone": "M0",
+    "title": "Agent scripts: init, check, next, and the Stop hook",
+    "description": "Add `scripts/agent/init.sh` (idempotent: Node 24 check, `npm ci` when the lockfile changed, `npx install-electron`, Docker RomM up and provisioned, smoke test), `scripts/agent/check.sh` (format:check, lint, typecheck, test, coverage), `scripts/agent/next.mjs` (lists eligible features) and a Stop hook in `.claude/settings.json` that runs check.sh when tracked source changed.",
+    "source": ["HARNESS"],
+    "acceptance": [
+      "Running `scripts/agent/init.sh` twice in a row on a fresh cloud VM exits 0 both times; the second run takes under 90 s.",
+      "`scripts/agent/init.sh` fails with a clear message (not a stack trace) when Node is not 24.x, when Docker is unavailable, or when RomM never reports healthy.",
+      "`node scripts/agent/next.mjs` prints features whose `passes` is false and whose `depends_on` all pass, in milestone order, and marks the ones blocked by a gate.",
+      "`.claude/settings.json` registers a Stop hook that runs `scripts/agent/check.sh` only when `git diff --name-only origin/main` touches `src/`, `test/`, `packaging/`, `scripts/` or `native/`, and blocks the turn while it fails.",
+      "`.claude/settings.json` registers a SessionStart hook gated on `CLAUDE_CODE_REMOTE=true` that puts Node 24 first on PATH and prints the session ritual from CLAUDE.md.",
+      "`scripts/agent/init.sh` fetches `origin/device-results` and prints `node scripts/agent/device-results.mjs --summary` (or, before M0-23, the raw `results/latest.json` and `bridge/status.json`, or 'no device results yet')."
+    ],
+    "verification": "ci",
+    "depends_on": ["M0-01"],
+    "passes": false
+  },
+  {
+    "id": "M0-03",
+    "milestone": "M0",
+    "title": "Feature list guard",
+    "description": "`scripts/agent/features-check.mjs` validates docs/features.json in CI: schema, unique ids, existing depends_on with no cycles, coverage of every REQ/PARITY/BEYOND item, that the only change to an existing feature in a PR is its `passes` flag, and that `passes` flips only with the evidence its verification type requires.",
+    "source": ["HARNESS"],
+    "acceptance": [
+      "The script fails CI when any feature object has a field other than id, milestone, title, description, source, acceptance, verification, depends_on, passes, or a verification other than `ci`, `agent-screenshot`, `device` or `acceptance`.",
+      "It fails when REQ-1..15, PARITY-1..48 or BEYOND-1..18 is missing from every `source` list, or when depends_on has a cycle.",
+      "On a pull request it compares against the base branch and fails if an existing feature's title, description, source, acceptance, verification or depends_on changed (new features may be appended).",
+      "A `device` feature may flip `passes` to true only when the PR's PROGRESS entry has `PASSES <id> device:<sha>`, `origin/device-results:results/<sha>/summary.json` shows every `Device check` id named in that feature's acceptance as `pass` together with `safety.owner-state` and `safety.server-readonly`, and the commit that added `READY-FOR-DEVICE <id>` to docs/PROGRESS.md is an ancestor of `<sha>`.",
+      "An `acceptance` feature may flip only with `PASSES <id> acceptance:<date>` and a pass for that id in `origin/device-results:acceptance/<date>/results.json`.",
+      "Every `Device check` id in features.json appears in the check catalogue in docs/TESTING.md, and every `device` feature names at least one.",
+      "Unit tests cover each rule with a fixture file."
+    ],
+    "verification": "ci",
+    "depends_on": ["M0-01"],
+    "passes": false
+  },
+  {
+    "id": "M0-04",
+    "milestone": "M0",
+    "title": "Rebrand to the fork's own identity",
+    "description": "Rename the product so it can sit beside stock RomMix on the same device: product name, appId, executable, AppImage and Steam-script names, home folder and its XDG pointer, updater endpoints and user-facing strings. Internal code identifiers (RomMixApp, ROMMIX_* variables) stay, to keep upstream merges cheap. The name comes from docs/decisions/0001-fork-rommix.md.",
+    "source": ["REQ-1", "INT", "HARNESS"],
+    "acceptance": [
+      "`electron-builder.yml` produces `<Name>-arm64.AppImage` and `<Name>-x86_64.AppImage` with appId `io.github.<owner>.<Name>`; `packaging/rommix-steam.sh` is shipped as `<name>-steam.sh` and finds `<Name>-*.AppImage` beside it.",
+      "The default home folder is `~/<name>`, the XDG pointer is `~/.config/<name>/root` (src/main/root.ts) and Electron's profile folder is `~/.config/<Name>`; a unit test proves a machine holding stock RomMix's `~/rommix`, `~/.config/rommix/root` and `~/.config/rommix` profile (as the owner's Nova does after Phase 0) is left untouched.",
+      "`src/main/update.ts` reads releases and the rolling channel from this repository, derived from one constant; `grep -rn 'leclercb/rommix' src packaging scripts` finds only attribution comments.",
+      "Every user-facing occurrence of the old product name in `src/shared/i18n/*.ts` uses the new one, and `npm test` (catalog placeholder checks) passes.",
+      "README.md says this is a fork of RomMix, links upstream, keeps the MIT notice and names the original author.",
+      "`GALLEON_HOME` overrides the home folder and is read before the pointer file; `ROMMIX_HOME` is not read (the one `ROMMIX_*` variable that is renamed), so stock RomMix's environment can never point Galleon at RomMix's folder (unit test)."
+    ],
+    "verification": "ci",
+    "depends_on": ["M0-01"],
+    "passes": false
+  },
+  {
+    "id": "M0-05",
+    "milestone": "M0",
+    "title": "CI on both architectures, every gate inside the build job, within the time budget",
+    "description": "Extend `.github/workflows/release.yml` so the `build` matrix job (x64 on ubuntu-24.04, arm64 on ubuntu-24.04-arm) runs every gate within the CI time budget in docs/PLAN.md section 4: expensive checks once on x64, build, package and a smoke test on arm64, path-filtered steps for the slow suites, caches for Electron and electron-builder. Required-check names stay `build (ubuntu-24.04, x64)` and `build (ubuntu-24.04-arm, arm64)`.",
+    "source": ["HARNESS", "REQ-14"],
+    "acceptance": [
+      "The workflow name, the job id `build` and the matrix keys are unchanged, both legs have `timeout-minutes: 20`, and there is no job-level `if:` on `build` and no `continue-on-error` anywhere.",
+      "The x64 leg runs, in order: format:check, lint, typecheck, `npm run test:coverage` (floor from package.json: lines 96, branches 88, functions 89), features-check, the bridge unit tests (`python3 -m unittest discover -s tools/device-bridge`), the PR-body check, the licence guard, Docker RomM 5.2.0 `npm run test:romm` (and `test:saves` from M2) when the `changes` step reports client, save, sync or fixture changes, build, package (skipped only on docs-only pull requests), `npm run test:app`, and the pull-request subset of `shots:nova`.",
+      "The arm64 leg runs build, package (skipped only on docs-only pull requests) and `npm run smoke:app`: the packaged app starts under Xvfb against the fake server, reaches Home and quits within 60 s.",
+      "Step conditions use only `matrix.arch`, the outputs of one `changes` step (an inline `git diff --name-only` against the base, or dorny/paths-filter pinned by SHA) and the event name; on pushes to `main` packaging always runs on both legs.",
+      "Caches: npm through setup-node, and `~/.cache/electron` plus `~/.cache/electron-builder` keyed on package-lock.json; RomM and MariaDB images are pulled once per job by digest.",
+      "`concurrency` cancels superseded pull-request runs, and the median wall time per leg over the last 10 pull requests is at most 10 minutes (`node scripts/agent/ci-times.mjs` prints it from the check-runs API).",
+      "Screenshots and test:app failure captures are uploaded as artifacts named per architecture.",
+      "A deliberately failing unit test on a scratch branch turns the x64 required check red (verified once; the scratch PR is closed)."
+    ],
+    "verification": "ci",
+    "depends_on": ["M0-00", "M0-02", "M0-03", "M0-06", "M0-09"],
+    "passes": false
+  },
+  {
+    "id": "M0-06",
+    "milestone": "M0",
+    "title": "RomM 5.2.0 and 5.3.1 in Docker, provisioned without a person",
+    "description": "Add `test/romm/compose.yml` (MariaDB on tmpfs plus pinned `rommapp/romm:5.2.0` and `:5.3.1`, metadata providers off) and `test/romm/provision.mjs`, a port of Grout's MIT provision flow: first admin while the setup wizard is active (CSRF cookie echoed), a quick scan over socket.io with `apis: []`, a client token, and a device. Also a headless device-pairing test.",
+    "source": ["REQ-14", "PARITY-1", "HARNESS"],
+    "acceptance": [
+      "`docker compose -f test/romm/compose.yml --profile v520 up -d` then `node test/romm/provision.mjs --profile v520` leaves a server whose `GET /api/heartbeat` reports `SYSTEM.VERSION` 5.2.0, with the fixture platforms scanned, in under 4 minutes on the cloud VM.",
+      "The same works with `--profile v531` (5.3.1) and on the ubuntu-24.04-arm runner.",
+      "Provisioning writes `test/romm/.state/<profile>.json` (git-ignored) with base URL, admin user, client token and device id, and is idempotent.",
+      "A test pairs a device end to end: `POST /api/auth/device/init`, approval through `POST /api/auth/device/approve` as the admin, then `POST /api/auth/device/token` returns an access token and device id.",
+      "Grout's licence and the ported file are credited in THIRD_PARTY.md; no metadata provider is contacted (all API keys empty)."
+    ],
+    "verification": "ci",
+    "depends_on": ["M0-01"],
+    "passes": false
+  },
+  {
+    "id": "M0-07",
+    "milestone": "M0",
+    "title": "Fixture library that mirrors the owner's library shapes",
+    "description": "Generate a synthetic library under `test/romm/library/` with the shapes in docs/DEVICE-FACTS.md (multi-disc PS1 and GameCube folders, PS2 cue/bin pairs listed separately, PSP folders with .EDAT extras, a PSP entry with no extension, Dreamcast .chd and .cdi, SNES and GBA files, firmware stubs) plus legally redistributable homebrew ROMs fetched by manifest with SHA-256 and licence.",
+    "source": ["REQ-14", "HARNESS"],
+    "acceptance": [
+      "`node test/romm/make-library.mjs` builds the tree deterministically (same bytes every run); no commercial ROM or BIOS bytes are in the repository.",
+      "`test/fixtures/roms/manifest.json` lists each homebrew file with source URL, SHA-256, licence and attribution, and `scripts/agent/fetch-fixtures.mjs` refuses a file whose hash differs.",
+      "After a RomM scan the platforms ps1/psx, ps2, psp, ngc, dc, snes and gba exist and the multi-disc, cue/bin and nested-folder rows appear with the same `has_multiple_files` / `has_nested_single_file` flags as on the owner's server.",
+      "BIOS stubs are zero-filled files with the expected names (e.g. `scph5501.bin`, `dc_boot.bin`) and are never presented as real firmware."
+    ],
+    "verification": "ci",
+    "depends_on": ["M0-06"],
+    "passes": false
+  },
+  {
+    "id": "M0-08",
+    "milestone": "M0",
+    "title": "Real-server integration suite (`npm run test:romm`)",
+    "description": "Run the RomMix client (`src/main/romm/client.ts`, `transfer.ts`) against the Dockerized RomM for the calls the fork depends on: heartbeat, pairing, platforms, paged ROM listing with and without files, single-file download with Range resume, multi-file download, per-file download (`file_ids` and `/files/content/`), firmware, save and state upload/download, device registration, play sessions.",
+    "source": ["REQ-14", "REQ-4", "PARITY-3", "HARNESS"],
+    "acceptance": [
+      "`npm run test:romm` runs against 5.2.0 and 5.3.1 in sequence and exits non-zero on any failure.",
+      "A download interrupted at 50% resumes with `Range: bytes=<n>-` and the result matches the file's `md5_hash` from `files[]`.",
+      "The suite asserts `GET /api/roms/{id}/files/content/{name}` works with GET on 5.2.0 (Phase 0 saw 405 only for HEAD) and records the outcome in the test name.",
+      "Every request body sent is checked against the schema snapshot in `schema/` for that version."
+    ],
+    "verification": "ci",
+    "depends_on": ["M0-06", "M0-07"],
+    "passes": false
+  },
+  {
+    "id": "M0-09",
+    "milestone": "M0",
+    "title": "1280x960 screenshot harness the agent can read",
+    "description": "Add `npm run shots:nova`: launch the built app under Xvfb at 1280x960 against the fake RomM in `test/app/server.ts`, walk every screen with the pad driver in `test/app/driver.ts`, and write PNGs plus a contact sheet. The agent inspects them with its image viewer; CI uploads them.",
+    "source": ["REQ-14", "REQ-3", "HARNESS"],
+    "acceptance": [
+      "`npm run shots:nova` writes `artifacts/shots/<screen>.png` at exactly 1280x960 for Home, Library, a game page (each tab), Downloads, BIOS, Emulators, Settings (each tab), the setup wizard and the running overlay.",
+      "It also writes `artifacts/shots/index.html` showing all screenshots with their names, and exits non-zero if any screen fails to load.",
+      "Screens are reached by walking with the pad, not by calling into the app, as `scripts/screenshots.mjs` already does.",
+      "Running it twice on the same commit gives images whose pixel difference is under 0.5% (ImageMagick `compare -metric AE`), so later golden tests are meaningful.",
+      "`npm run shots:nova -- --subset pr` covers Home, Library, a game page, Downloads, Settings and the setup wizard in at most 2 minutes on the x64 runner; the full set runs nightly (M0-24)."
+    ],
+    "verification": "agent-screenshot",
+    "depends_on": ["M0-02"],
+    "passes": false
+  },
+  {
+    "id": "M0-10",
+    "milestone": "M0",
+    "title": "Frame-time overlay and performance log",
+    "description": "A toggle (Settings -> System, and the chord L3+R3 held 2 s) shows a small overlay with frame time p50/p90/p99, the share of janky frames (>1.5x the display interval) and the current screen, measured from requestAnimationFrame. A summary per screen goes to the log and the diagnostics bundle.",
+    "source": ["PARITY-47", "GATE", "REQ-3"],
+    "acceptance": [
+      "The overlay draws in a corner without changing layout and costs under 0.3 ms per frame (measured in a test:app scenario with the overlay on and off).",
+      "Statistics come from a pure module (`src/renderer/src/perf/frames.ts`) with unit tests for percentiles and the janky threshold at 60 Hz and 120 Hz.",
+      "With the overlay on, a 30 s scripted scroll of a 1,300-game platform in test:app logs `perf summary {screen, frames, p50, p90, p99, jankyPct}` to app.log.",
+      "The overlay also shows the power state read from sysfs without root: CPU governor and current/max frequency of the prime cluster (policy7), GPU devfreq governor and frequency, and the Armada profile from `/run/armada/perf-state.json` and `/usr/share/armada/power-profiles.conf` when readable (pure parser with fixture tests; 'unknown' when unreadable).",
+      "On the device (informational): device checks `grid.scroll@performance` and `grid.scroll@balanced` record the same statistics on the Nova through the self-test (M0-21)."
+    ],
+    "verification": "agent-screenshot",
+    "depends_on": ["M0-09"],
+    "passes": false
+  },
+  {
+    "id": "M0-11",
+    "milestone": "M0",
+    "title": "Diagnostics bundle: Report a problem",
+    "description": "Settings -> System -> Report a problem (and an entry in the quit dialog) writes `~/<name>/reports/<timestamp>.zip`: app and launcher logs, pre-flight results, redacted settings, versions (app, commit, channel, Electron, Chromium), OS release, kernel, Mesa and gamescope versions where readable, the relevant environment variables, emulator probe results, the last 5 launch commands and exits, the latest perf summaries, and the power state (CPU governors and frequencies per policy, GPU devfreq governor and frequency, Armada profile and per-app override when readable).",
+    "source": ["REQ-13", "INT", "HARNESS"],
+    "acceptance": [
+      "Redaction is a pure function with unit tests: the RomM base URL host becomes `<server>`, any `rmm_` token, bearer header, password, cookie and pairing code is removed, and IPv4/IPv6 addresses become `<ip>`; a test feeds a log containing each and asserts none survive.",
+      "The bundle never includes `config/` credentials or keyring data (test asserts file list).",
+      "The zip is written with the existing `zipDirectory` in `src/main/zip.ts` and is under 20 MB (logs are tail-trimmed).",
+      "A test:app scenario presses Report a problem with the pad and finds the zip on disk."
+    ],
+    "verification": "ci",
+    "depends_on": ["M0-04"],
+    "passes": false
+  },
+  {
+    "id": "M0-12",
+    "milestone": "M0",
+    "title": "Problem reports reach the agent without GitHub",
+    "description": "The owner does not file GitHub issues. A Report a problem bundle (M0-11) saved in Galleon on the Nova is collected by the device bridge on its next run, sanitised again, and published under `reports/<time>/` on the `device-results` branch; the agent treats each new report as an owner-authored bug. The phone hand-off and the prefilled GitHub form of the earlier plan are dropped. The dialog says plainly that the report is picked up automatically the next night the Nova is charging in Game Mode.",
+    "source": ["REQ-13", "INT", "REQ-15"],
+    "acceptance": [
+      "The dialog text (all four catalogues) says where the report is saved and that it is picked up automatically; no QR code or GitHub link is shown.",
+      "`scripts/agent/device-results.mjs` lists new `reports/` folders since the last session and opens one issue per report (labels `bug`, `device-report`), quoting only the sanitised summary.",
+      "Device check `report.bundle`: the self-test opens Report a problem with the internal pad driver; the bundle appears in the test home, holds no credentials (file list) and passes the bridge's sanitiser with nothing withheld."
+    ],
+    "verification": "device",
+    "depends_on": ["M0-11", "M0-22", "M0-23"],
+    "passes": false
+  },
+  {
+    "id": "M0-13",
+    "milestone": "M0",
+    "title": "Update channels with checksums",
+    "description": "Keep upstream's rolling `canary` pre-release (built from every green push to main) as the in-app update channel, publish SHA256SUMS beside it, and make `<name>-steam.sh --canary` the documented way to stay on it. Updates are verified against the checksum before they are swapped in. The device bridge tests the separate `nightly` pre-release (M0-24), which adds the test bundle.",
+    "source": ["REQ-13"],
+    "acceptance": [
+      "Each push to main publishes or replaces the `canary` pre-release with both AppImages, the Steam script and `SHA256SUMS`, and moves the tag last (as `release.yml` already does).",
+      "The updater (`src/main/update.ts`) refuses an image whose SHA-256 does not match `SHA256SUMS`, logs why, and keeps the running version (unit test).",
+      "The footer and Settings -> About show version, short commit and channel.",
+      "Device check `build.identity`: the app under test reports the version and commit named in the nightly's `build-info.json`.",
+      "Device check `update.verify`: in the test home, the updater reads the live channel and its `SHA256SUMS`, accepts the matching image and refuses a deliberately corrupted copy, and replaces no installed AppImage."
+    ],
+    "verification": "device",
+    "depends_on": ["M0-04", "M0-05"],
+    "passes": false
+  },
+  {
+    "id": "M0-14",
+    "milestone": "M0",
+    "title": "Owner-gated stable releases from Actions",
+    "description": "Add `.github/workflows/cut-release.yml`: `workflow_dispatch` with a version input, protected by the `release` environment (owner approval). It checks package.json and the CHANGELOG section, runs the same build matrix through a reusable workflow, creates the tag and release in the same run (tags made with the workflow token start no other workflow), and records the release.",
+    "source": ["REQ-13", "HARNESS"],
+    "acceptance": [
+      "The release job cannot start until the owner approves the `release` environment.",
+      "It fails before tagging when package.json's version or the `## <version>` CHANGELOG section disagree with the input.",
+      "Building, tagging and publishing happen in one run, so no step depends on a tag-push trigger; the agent never pushes a tag.",
+      "After publishing, a PR appends the release to docs/PROGRESS.md. The owner approves the `release` environment, or the local Claude session does it on the owner's word during the acceptance session (`POST /repos/{owner}/{repo}/actions/runs/{run_id}/pending_deployments`)."
+    ],
+    "verification": "ci",
+    "depends_on": ["M0-05", "M0-15"],
+    "passes": false
+  },
+  {
+    "id": "M0-15",
+    "milestone": "M0",
+    "title": "Acceptance backlog: one consolidated session script",
+    "description": "`scripts/agent/acceptance.mjs` turns every `acceptance` feature whose code is merged (PROGRESS line `READY-FOR-ACCEPTANCE <id>`), plus every acceptance line marked informational, into `docs/ACCEPTANCE.md`: one session script for the owner in plain words, grouped by where the owner is (the Nova in Game Mode, Android with Argosy, a browser), with a time estimate per group, a save backup first, and a results table the local Claude session fills in. It replaces the per-build checklists of the earlier plan.",
+    "source": ["REQ-13", "REQ-15", "HARNESS"],
+    "acceptance": [
+      "The generator is deterministic and unit-tested, and the session it writes totals at most two hours (the sum of the item estimates is checked).",
+      "Each item names the build, the exact menus and buttons, what success looks like, and the feature id it decides.",
+      "`acceptance/<date>/results.json` (schema in docs/TESTING.md) is read back by `scripts/agent/device-results.mjs`, which flips `passes` for items marked pass and opens a bug for each fail.",
+      "No item is something the device bridge can check; the evaluator rejects any that is."
+    ],
+    "verification": "ci",
+    "depends_on": ["M0-03"],
+    "passes": false
+  },
+  {
+    "id": "M0-16",
+    "milestone": "M0",
+    "title": "Labels from the repository; owner issues without secrets",
+    "description": "Add `.github/workflows/labels.yml` to sync labels from `.github/labels.yml`. There is no Routine API trigger and no repository secret: the Project and the hourly heartbeat Routine read owner-authored issues and the `device-results` branch at the start of every session. The `agent-dispatch.yml` of the earlier plan is not built.",
+    "source": ["REQ-13", "HARNESS", "REQ-15"],
+    "acceptance": [
+      "The label workflow creates or updates every label in `.github/labels.yml` and deletes none (crazy-max/ghaction-github-labeler pinned by SHA, `skip-delete: true`).",
+      "No workflow references `ROUTINE_FIRE_URL`, `ROUTINE_FIRE_TOKEN` or `TESTER_LOGIN` (features-check greps `.github/`).",
+      "CLAUDE.md's session ritual treats owner-authored open issues, and only those, as candidates for work."
+    ],
+    "verification": "ci",
+    "depends_on": ["M0-01"],
+    "passes": false
+  },
+  {
+    "id": "M0-17",
+    "milestone": "M0",
+    "title": "One-line install and update from Desktop Mode",
+    "description": "Add `install.sh` at the repo root: downloads the latest stable or nightly aarch64 AppImage and the Steam script from this repo's releases into `~/Applications`, verifies SHA-256, makes them executable, and writes `~/.local/share/applications/<name>.desktop` (Exec = the Steam script) so the app appears in Steam's 'Add a Non-Steam Game' program list. Phase 0 showed that list's Browse file picker never opens under KDE on the Nova, so the printed steps tick the app in the list and never use Browse. Re-running it updates in place. The local Claude session uses it to install Galleon for real during the acceptance session.",
+    "source": ["REQ-13", "INT"],
+    "acceptance": [
+      "`curl -fsSL https://raw.githubusercontent.com/<owner>/<repo>/main/install.sh | bash -s -- --nightly` works on a machine with only bash, curl, sha256sum and coreutils (shellcheck clean).",
+      "It refuses to install on a non-aarch64 machine unless `--arch x86_64` is given, and refuses a file whose checksum fails.",
+      "A CI test runs it on x64 with a fake HOME against a local fake releases API and checks the files, modes and an idempotent second run.",
+      "It never uses sudo and never writes outside `~/Applications` and `~/.local/share/applications`.",
+      "The `.desktop` entry passes `desktop-file-validate` and has Name, Icon (installed beside it) and `Categories=Game;`.",
+      "On the device (informational): device check `install.script` runs it into a throw-away HOME on the Nova."
+    ],
+    "verification": "ci",
+    "depends_on": ["M0-04", "M0-13"],
+    "passes": false
+  },
+  {
+    "id": "M0-18",
+    "milestone": "M0",
+    "title": "Independent evaluator and pull-request discipline",
+    "description": "Use `.claude/agents/evaluator.md` on every feature before merge, add `.github/pull_request_template.md` (feature ids, evidence, evaluator verdict, device checks added or changed, CI wall time per leg, risk), and document merging through REST after green checks.",
+    "source": ["HARNESS"],
+    "acceptance": [
+      "Every merged PR after this one contains an `Evaluator: PASS` section quoting the evaluator's findings, and a `Feature: <id>` line.",
+      "The PR template exists and CI fails a PR whose body lacks a `Feature:` line (simple workflow step in the build job).",
+      "docs/PROGRESS.md has one entry per session from here on (checked by features-check: an entry dated within the PR's lifetime).",
+      "PROGRESS entries record each PR's CI wall time per leg (from `node scripts/agent/ci-times.mjs <pr>`)."
+    ],
+    "verification": "ci",
+    "depends_on": ["M0-02"],
+    "passes": false
+  },
+  {
+    "id": "M0-19",
+    "milestone": "M0",
+    "title": "Watch upstream RomMix",
+    "description": "A weekly workflow compares this repo's recorded upstream base with leclercb/rommix main via REST and opens or updates one issue `upstream: N new commits` listing subjects, so useful fixes (for example the controller-listing commits after v0.20.0) are ported deliberately.",
+    "source": ["REQ-2", "HARNESS"],
+    "acceptance": [
+      "The issue lists commits since the base recorded in docs/UPSTREAM.md, with links, and is updated rather than duplicated.",
+      "The workflow only reads the public upstream API with the workflow token and never pushes."
+    ],
+    "verification": "ci",
+    "depends_on": ["M0-01"],
+    "passes": false
+  },
+  {
+    "id": "M0-20",
+    "milestone": "M0",
+    "title": "Licence and dependency guard",
+    "description": "Add `docs/DEPENDENCIES.md` and a CI step that lists production dependency licences, fails on GPL/AGPL/LGPL in anything bundled into the AppImage, and greps the tree for text copied from GPL projects (Argosy, Tender, OpenGamepadUI, Ludo, ROCKNIX) by known identifiers.",
+    "source": ["HARNESS", "REQ-2"],
+    "acceptance": [
+      "CI fails when a new runtime dependency is added without a DEPENDENCIES.md entry (name, exact version, licence, why).",
+      "CI fails on a GPL-family licence in the production dependency tree (`npm ls --omit=dev --all` plus licence metadata).",
+      "THIRD_PARTY.md lists MIT/MPL sources whose code or data is used (Grout, ES-DE data files, fonts) with licence text."
+    ],
+    "verification": "ci",
+    "depends_on": ["M0-01"],
+    "passes": false
+  },
+  {
+    "id": "M0-21",
+    "milestone": "M0",
+    "title": "Self-test mode: scripted scenarios on the device, read-only towards RomM",
+    "description": "When `GALLEON_HOME` is set and `$GALLEON_HOME/self-test-request.json` exists at start-up, Galleon takes the request (renames it so a restart does not repeat it), runs the scenarios it lists, driven from inside the app (its own pad-event driver and IPC, never OS input injection), writes `summary.json` to the results folder the request names, and quits with code 0. Scenarios: cold start-up time; a scroll of a 1,000+ game grid (the largest platform in the library, or a built-in synthetic 1,300-game platform without a server) with requestAnimationFrame frame-time capture (p50, p95, p99, frames, dropped frames above 1.5x the display interval), once per power profile in the request, with governor, clocks and Armada profile sampled during the scroll (`/usr/share/armada/power-profiles.conf`, `armada-power status`, cpufreq and devfreq sysfs); heartbeat and auth; a small ROM download with progress events; launch and graceful exit through each installed emulator with a bundled homebrew payload, checking that the emulator process and its window appeared (gamescope's focused-app and window-list atoms or the X11 window list; `gamescopectl screenshot` when present) and that it exited with code 0 within the grace period; self-screenshots with `webContents.capturePage` at 1280x960; and every feature check id the request names (catalogue in docs/TESTING.md). The safety rules are built into the app, not left to the harness.",
+    "source": ["REQ-15", "REQ-14", "HARNESS", "GATE", "REQ-3"],
+    "acceptance": [
+      "With `GALLEON_HOME` set, everything stays under it, including Electron's userData (profile, caches, single-instance lock); `~/.config/galleon/root`, the default home and stock RomMix's folders are never read or written (unit test with a fake home).",
+      "Read-only server guard: in self-test mode the RomM client refuses every method other than GET and HEAD before it reaches the network, strips `device_id` from save and state requests, never registers a device, never refreshes a token, and sends no play sessions or now-playing updates; each refusal is counted in `safety.serverWritesAttempted` (unit tests over every call site in `src/main/romm/client.ts` and `devices.ts`).",
+      "Privacy mode: no screen draws the server address, the account name or a pairing code while the self-test runs (test:app renders every screen with privacy on and searches the DOM).",
+      "Emulator sandbox: each emulator the self-test starts gets its own config, data and save folders under the test home (XDG_CONFIG_HOME and XDG_DATA_HOME, Dolphin `-u`, RetroArch `--config` plus an appended config naming the sandbox's folders, flatpaks through `flatpak run --env=... --filesystem=<test home>`), with BIOS files linked read-only from the owner's folders; an emulator that cannot be sandboxed is skipped with reason `cannot-sandbox` and never run against the owner's folders (descriptor-level unit tests).",
+      "Abort on input: a button press or stick movement from the real controller stops the self-test within one second, writes `status: aborted-by-user` and quits, so run.sh can exit 20 (test:app with a simulated real pad).",
+      "`summary.json` follows the schema in docs/TESTING.md (a schema test), lists every requested check with result pass, fail, skip or error, its metrics, thresholds and evidence paths, and is written even when a scenario throws.",
+      "Device check `selftest.complete`: the start-up, grid-scroll and screenshot scenarios complete on the Nova and the app quits with code 0.",
+      "Device check `safety.server-readonly`: the run sent no request other than GET or HEAD to the RomM server and no save or state request with a `device_id`.",
+      "Device check `server.heartbeat`: with the imported sign-in, GET /api/heartbeat and GET /api/users/me succeed and the server version is recorded.",
+      "Device check `download.small`: the smallest SNES or GBA title downloads into the test home with progress events and a verified hash, and is deleted afterwards.",
+      "A self-test instance never writes Galleon's idle state file (M1-17), so the device bridge cannot mistake it for the owner's Galleon."
+    ],
+    "verification": "device",
+    "depends_on": ["M0-04", "M0-10", "M0-11"],
+    "passes": false
+  },
+  {
+    "id": "M0-22",
+    "milestone": "M0",
+    "title": "Device test bundle: run.sh, the test shortcut and owner-state protection",
+    "description": "Build `galleon-device-tests.tar.gz` from `test/device/` in the nightly (M0-24): `run.sh` (entry point, POSIX sh), `bundle.json` ({contract, minBridge}), `thresholds.json`, `launch.sh`, Python 3 standard-library helpers (Steam CEF client, shortcuts.vdf reader, owner-state manifest, sanitiser rules shared with the bridge), the homebrew payloads from the M0-07 manifest with their licences, and `bridge/` (a copy of tools/device-bridge for its self-update). run.sh implements the contract in docs/PLAN.md section 5: a separate home, a read-only sign-in import, the owner-state manifest and restore, the 'Galleon Device Test' Steam shortcut, launch through `steam://rungameid/<gameid>` (fallback: the Steam CEF `SteamClient.Apps.RunGame`), the power-profile handshake through `armada-power`, audio muted and restored, a clean exit, and `--cleanup`.",
+    "source": ["REQ-15", "REQ-14", "HARNESS"],
+    "acceptance": [
+      "`run.sh` and `launch.sh` are shellcheck-clean, and the helpers have unit tests that run in CI, including a full dry run against a fake HOME, a fake `/sys/class/power_supply`, a fake Steam CEF endpoint and a fake `armada-power`.",
+      "The owner-state manifest covers stock RomMix's and the owner's Galleon config and credentials, every emulator save, memory-card and config folder in docs/DEVICE-FACTS.md, and Steam's shortcuts.vdf files; run.sh backs up the emulator config files before starting anything, restores any that changed, and fails `safety.owner-state` if the manifest taken after differs (test with a fake HOME where an emulator rewrites its config).",
+      "The sign-in import is read-only and ordered: the bridge's read-only token file, then the owner's Galleon config, then stock RomMix (`~/.config/rommix/root` or `~/rommix`; `config/settings.json` `server.baseUrl`; `config/credentials.bin` with magic `RAW1`). `ENC1` or nothing found skips the server checks with reason `no-importable-credentials`. The test home gets save sync up and down off, play sessions off, the guard on, and no device id (unit tests on fixtures).",
+      "Only small ROMs are downloaded (the smallest SNES and GBA titles, at most 16 MB each; anything else only as a capped Range read), only into the test home, and all are deleted before exit (test asserts the folder is empty).",
+      "Before launching, run.sh mutes the default audio sink and stops an idle owner's Galleon through its core socket; afterwards it restores the volume, the power profile and the owner's Galleon (relaunched through its own Steam shortcut) (tests with fakes).",
+      "Device check `harness.run`: run.sh finishes within the budget, the summary is complete and the device is back at Steam's library.",
+      "Device check `safety.owner-state`: the manifest taken after the run equals the one taken before.",
+      "Both checks pass on the Nova in two consecutive nightly runs, and the 'Galleon Device Test' shortcut does nothing when started by hand."
+    ],
+    "verification": "device",
+    "depends_on": ["M0-21", "M0-24", "M0-07"],
+    "passes": false
+  },
+  {
+    "id": "M0-23",
+    "milestone": "M0",
+    "title": "Device results drive the plan: ingestion and passes",
+    "description": "`scripts/agent/device-results.mjs` fetches `origin/device-results` and reads `results/index.json`, `bridge/status.json`, and new `reports/` and `acceptance/` folders since the last ingested result (PROGRESS line `DEVICE-RESULTS <sha> <status>`). It maps check ids to features through the `Device check` lines in features.json and prints, in this order: safety failures, checks that newly fail (regressions), checks that newly pass with the features they complete, new problem reports, and how long ago the bridge was last seen. With `--apply` it flips `passes` under the rules of M0-03, sets `passes` back to false for a device feature whose check fails on a newer build, and opens one `regression` issue per such feature.",
+    "source": ["REQ-15", "HARNESS"],
+    "acceptance": [
+      "Unit tests with fixture branches: a flip happens only when the feature's READY-FOR-DEVICE commit is an ancestor of the tested sha; a safety failure blocks every flip from that run; a later failure reverts the flip and opens exactly one regression issue; a `withheld`, `error` or `skipped` summary flips nothing.",
+      "The script has no code path that writes to `device-results` (a test greps for push commands).",
+      "It finishes in under 10 seconds on the cloud VM with a 60-result branch.",
+      "Its `--summary` output is the first thing CLAUDE.md's session ritual reads."
+    ],
+    "verification": "ci",
+    "depends_on": ["M0-03"],
+    "passes": false
+  },
+  {
+    "id": "M0-24",
+    "milestone": "M0",
+    "title": "Nightly: heavy suites, the device test bundle and the nightly pre-release",
+    "description": "Add `.github/workflows/nightly.yml` (a daily schedule at an off-hour UTC time plus `workflow_dispatch`; its first step ends the run early when `main` has not moved since the last nightly). On both architectures it runs the full `npm run test:coverage`, the full `test:app`, the Docker RomM matrix (5.2.0 and 5.3.1, `test:romm` and, from M2, `test:saves`) and every screen of `shots:nova`; then it builds the device test bundle and publishes a rolling `nightly` pre-release with `Galleon-arm64.AppImage`, `Galleon-x86_64.AppImage`, `galleon-device-tests.tar.gz`, `build-info.json` ({sha, version, builtAt, bundleContract}) and `SHA256SUMS` covering all of them, moving the `nightly` tag last as release.yml does for `canary`. This is what the device bridge tests.",
+    "source": ["HARNESS", "REQ-15"],
+    "acceptance": [
+      "Every job has `timeout-minutes: 30` and the workflow has `concurrency: {group: nightly, cancel-in-progress: false}`, so nightlies never stack; a typical run takes at most 30 minutes.",
+      "`build-info.json` names the exact commit built, `SHA256SUMS` covers every asset, and the `nightly` tag moves only after every asset is uploaded.",
+      "A failing suite fails the nightly and publishes nothing; the agent treats a red nightly like a red required check.",
+      "Until M0-22 lands, the bundle holds a minimal run.sh that writes a summary with only `harness.run`, so the bridge path is exercised end to end from the first nightly.",
+      "The pre-release is never marked latest, and its body says it exists for the device bridge."
+    ],
+    "verification": "ci",
+    "depends_on": ["M0-05", "M0-13"],
+    "passes": false
+  },
+  {
+    "id": "M1-01",
+    "milestone": "M1",
+    "title": "Close Gate 0 on the record",
+    "description": "Phase 0 (stock RomMix v0.20.0 on the Nova, Desktop and Game Mode) passed on 2026-10-08; the results were written into docs/PLAN.md and docs/TESTING.md at handoff. Open a `gate` issue that records the Gate 0 decision (proceed with the RomMix fork) and lists every Phase 0 caveat with the feature that addresses it, so the decision is traceable on GitHub.",
+    "source": ["GATE", "REQ-2"],
+    "acceptance": [
+      "The `gate` issue quotes the PHASE 0 RESULTS table, states 'Gate 0: PASS, proceed with the fork', and is closed with a link from docs/PLAN.md.",
+      "Every caveat in PLAN.md's Phase 0 caveat list maps to a feature id that exists in docs/features.json (features-check verifies the list in PLAN.md)."
+    ],
+    "verification": "ci",
+    "depends_on": ["M0-03"],
+    "passes": false
+  },
+  {
+    "id": "M1-02",
+    "milestone": "M1",
+    "title": "DuckStation descriptor (Armada AppImage)",
+    "description": "Add `src/config/emulators/duckstation/index.ts`: AppImage `~/Applications/DuckStation*.AppImage` (flatpak `org.duckstation.DuckStation` as a second route), systems `psx`, launch `-batch -fullscreen -nogui -- <rom>`, BIOS `~/.local/share/duckstation/bios`, saves `~/.local/share/duckstation/memcards` (per-game cards, `.mcd`).",
+    "source": ["INT", "REQ-1", "PARITY-35"],
+    "acceptance": [
+      "Registry and savepaths tests (`src/config/emulators/registry.test.ts`, `savepaths.test.ts`) cover install detection, argv for a .chd and an .m3u, and the save location.",
+      "No code outside `src/config/` names DuckStation (`grep -rn -i duckstation src --include=*.ts | grep -v src/config` is empty apart from i18n).",
+      "The descriptor's comments cite the flags' source (duckstation qthost.cpp at the pinned commit in docs/research/armada_integration.md)."
+    ],
+    "verification": "ci",
+    "depends_on": ["M0-04"],
+    "passes": false
+  },
+  {
+    "id": "M1-03",
+    "milestone": "M1",
+    "title": "ARMSX2 descriptor (Armada AppImage)",
+    "description": "Add an ARMSX2 descriptor: AppImage `~/Applications/ARMSX2*.AppImage`, system `ps2`, launch `-batch -fullscreen -nogui -- <iso>`, BIOS `~/.config/ARMSX2/bios`, memory cards `~/.config/ARMSX2/memcards`, config `~/.config/ARMSX2/inis/PCSX2.ini`. Cue/bin rows launch the `.bin` because Armada's ps2 override rejects `.cue`.",
+    "source": ["INT", "REQ-1", "PARITY-37"],
+    "acceptance": [
+      "Tests cover argv for an .iso, a .chd and a cue/bin pair (the .bin is passed).",
+      "Saves are declared as `shared` until M2 adds folder-card handling, with a catalogue reason shown on the Saves tab.",
+      "Device check `launch.armsx2`: ARMSX2 starts the bundled PS2 payload fullscreen in its sandbox with no setup window, and its window takes focus (skipped with reason `missing-bios` when the Nova has no PS2 BIOS)."
+    ],
+    "verification": "device",
+    "depends_on": ["M0-04", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M1-04",
+    "milestone": "M1",
+    "title": "Dolphin descriptor (flatpak)",
+    "description": "Add a Dolphin descriptor: flatpak `org.DolphinEmu.dolphin-emu`, systems `gc` and `wii`, launch `-b -C Dolphin.Display.Fullscreen=True -e <rom>` (verify the -C key against Dolphin source and record it), saves under `~/.var/app/org.DolphinEmu.dolphin-emu/data/dolphin-emu/GC` and `.../Wii/title`, states `.../StateSaves`.",
+    "source": ["INT", "REQ-1", "PARITY-35"],
+    "acceptance": [
+      "Tests cover argv for .iso, .rvz and a two-disc GameCube .m3u.",
+      "The -C key is verified in Dolphin's source at a pinned commit and cited in a comment.",
+      "Device check `launch.dolphin`: Dolphin starts the bundled GameCube homebrew `.dol` fullscreen in a sandbox user folder (`-u`), with no Dolphin main window."
+    ],
+    "verification": "device",
+    "depends_on": ["M0-04", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M1-05",
+    "milestone": "M1",
+    "title": "PPSSPP descriptor (flatpak)",
+    "description": "Add a PPSSPP descriptor: flatpak `org.ppsspp.PPSSPP`, system `psp`, launch `--fullscreen --pause-menu-exit <rom>`, saves `~/.var/app/org.ppsspp.PPSSPP/config/ppsspp/PSP/SAVEDATA` (directory per game), states `.../PSP/PPSSPP_STATE`.",
+    "source": ["INT", "REQ-1", "PARITY-35"],
+    "acceptance": [
+      "Tests cover argv for .iso, .cso and a nested-folder PSP row (the inner image is passed).",
+      "Device check `launch.ppsspp`: PPSSPP starts the bundled PSP homebrew fullscreen in its sandbox, and the stop path returns to Galleon."
+    ],
+    "verification": "device",
+    "depends_on": ["M0-04", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M1-06",
+    "milestone": "M1",
+    "title": "Flycast descriptor (flatpak)",
+    "description": "Add a Flycast descriptor: flatpak `org.flycast.Flycast`, system `dreamcast`, launch `<rom>` (exits on close when started from the command line), BIOS and VMUs in `~/.var/app/org.flycast.Flycast/data/flycast` (`dc_boot.bin`, `dc_flash.bin`).",
+    "source": ["INT", "REQ-1", "PARITY-35"],
+    "acceptance": [
+      "Tests cover argv for .chd, .cdi and .gdi.",
+      "BIOS placement puts `dc_boot.bin` and `dc_flash.bin` in the data folder (bios test).",
+      "Device check `launch.flycast`: Flycast boots the bundled Dreamcast homebrew fullscreen in its sandbox (its HLE BIOS when the real one is missing)."
+    ],
+    "verification": "device",
+    "depends_on": ["M0-04", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M1-07",
+    "milestone": "M1",
+    "title": "melonDS descriptor (Armada AppImage)",
+    "description": "Add a melonDS descriptor: AppImage `~/Applications/melonDS*.AppImage`, system `nds`, launch `-f <rom>`, saves beside the ROM (Armada's template leaves SaveFilePath empty) declared as `perRom` in the ROM folder, config `~/.config/melonDS/melonDS.toml`.",
+    "source": ["INT", "REQ-1", "PARITY-35"],
+    "acceptance": [
+      "Tests cover argv and that save discovery looks next to the ROM.",
+      "Device check `launch.melonds`: melonDS opens the bundled NDS homebrew fullscreen, and a save written beside the ROM in the sandbox is found by save discovery."
+    ],
+    "verification": "device",
+    "depends_on": ["M0-04", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M1-08",
+    "milestone": "M1",
+    "title": "RetroArch as Armada installs it",
+    "description": "Adapt the existing RetroArch descriptor (`src/config/emulators/retroarch/index.ts`) for Armada: flatpak core folder, `--appendconfig=<launcher-owned cfg>` with `quit_on_close_content = \"2\"`, buildbot `linux/aarch64` cores, and launch variants per system for the Android-matching cores (snes9x, mgba, pcsx_rearmed, swanstation, beetle psx hw, ppsspp, dolphin, flycast) so the per-system choice of M2-08 can be honoured.",
+    "source": ["INT", "REQ-1", "PARITY-35", "PARITY-36"],
+    "acceptance": [
+      "The appended config file lives in the launcher's home, never edits `retroarch.cfg`, and is covered by a snapshot test.",
+      "Variants list only cores that RetroArch can load on aarch64 Linux (checked against the buildbot index in a test fixture).",
+      "Device check `launch.retroarch`: the RetroArch flatpak opens the bundled SNES homebrew fullscreen with the launcher-owned appended config, and Close Content returns to Galleon (`exit.retroarch`), leaving an `.srm` in the sandbox's save folder."
+    ],
+    "verification": "device",
+    "depends_on": ["M0-04", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M1-09",
+    "milestone": "M1",
+    "title": "ES-DE find rules decide where emulators live",
+    "description": "Add `src/main/findrules.ts`: read a vendored, pinned copy of ES-DE's `linuxarm` es_find_rules.xml and es_systems.xml (MIT, credited), layer Armada's `~/ES-DE/custom_systems/` overrides on top (an entry there replaces the bundled one by name), and resolve systempath/staticpath globs so descriptors' install routes find what the Armada Store installed.",
+    "source": ["INT", "REQ-1"],
+    "acceptance": [
+      "The parser keeps sibling elements outside the root (ES-DE files are not single-rooted) and has tests for override-by-name.",
+      "Resolution expands `~` and `*` and reports the first existing match; a test with a fake home holding `~/Applications/DuckStation-arm64.AppImage` resolves DuckStation.",
+      "The pre-flight check names the rule that found each emulator."
+    ],
+    "verification": "ci",
+    "depends_on": ["M1-02"],
+    "passes": false
+  },
+  {
+    "id": "M1-10",
+    "milestone": "M1",
+    "title": "Library on the SD card by default",
+    "description": "Phase 0 put a 1.46 GB GameCube download in `~/rommix/roms/gc/` on internal storage; the owner wants games on the SD card. Add a storage-location setting whose default is the ext4 SD card when one is mounted (`/run/media/<user>/<label>`, preferring label `NovaSD`), falling back to internal storage. Check the folder is writable and that flatpak emulators can read it (Armada grants `/run/media`). Keep BIOS and saves where emulators expect them. Handle the card being absent or unmounted without losing track of games.",
+    "source": ["INT", "REQ-4"],
+    "acceptance": [
+      "A pure module picks the default root from a volume list (unit tests: ext4 card present, card absent, card read-only, card nearly full, card present but not ext4, two cards).",
+      "When the chosen card is not mounted, games on it show 'card not inserted' instead of 'not downloaded', are never offered for re-download or pruned from the index (`Store.pruneInstalled` skips unmounted roots), and queued downloads wait with a clear message instead of falling back to internal storage silently.",
+      "Changing the ROM folder moves nothing silently: the app offers to move existing games and shows sizes first; Phase 0's games in `~/rommix/roms` can be adopted or moved.",
+      "Pre-flight shows the volume, file system and free space.",
+      "Device check `storage.sdcard`: with the card mounted, a fresh test home picks the mounted ext4 card (`/run/media/<user>/NovaSD`) as its default library root and `download.small` lands there and is deleted afterwards; with the root pointed at a simulated unmounted card, games show 'card not inserted' and nothing is pruned."
+    ],
+    "verification": "device",
+    "depends_on": ["M0-04", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M1-11",
+    "milestone": "M1",
+    "title": "Hold Start to leave any emulator, with the save intact",
+    "description": "Phase 0 proved RomMix's own exit works in Game Mode under Steam Input and InputPlumber: holding Start about 1.5 s (`SUSPENDED_HOLD_MS` in `src/renderer/src/input/gamepad.ts`) stopped RetroArch (flatpak) gracefully in about 300 ms through `stopFlatpakApp` in `src/main/host.ts`, and focus came back. Keep that mechanism. Harden it for every Armada emulator: exactly one SIGTERM per process, then automatic SIGKILL after the grace period for AppImage and native emulators too (today only flatpaks escalate on their own, and the force-close button cannot be seen while the emulator has the screen), only tracked processes signalled, never the launcher's own Steam scope. Then prove each emulator writes its save on that SIGTERM.",
+    "source": ["REQ-7", "INT"],
+    "acceptance": [
+      "The stop path (`askToQuit` in `src/main/launcher.ts`, `signalProcessGroup` and `stopFlatpakApp` in `src/main/host.ts`) is unit-tested with a fake process table: one SIGTERM per pid, SIGKILL only after the grace period, flatpak SIGTERM to the sandbox's processes before `flatpak kill`, and nothing outside the spawned tree is signalled.",
+      "The automatic escalation after a hold-to-exit is logged with the emulator, the grace used and whether the save directory changed during the grace period.",
+      "A test:app scenario holds Start on the stand-in emulator that ignores SIGTERM and sees it killed after the grace period with the session still reported.",
+      "Device check `exit.retroarch`, device check `exit.duckstation`, device check `exit.armsx2`, device check `exit.dolphin`, device check `exit.ppsspp` and device check `exit.flycast`: for each, the graceful stop (the path holding Start uses) ends the emulator with exit code 0, Galleon has focus again within 6 s (`focus.return`), no SIGKILL was needed, and where the payload writes a save the sandbox's save folder changed before the process ended."
+    ],
+    "verification": "device",
+    "depends_on": ["M1-02", "M1-03", "M1-04", "M1-05", "M1-06", "M1-08", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M1-12",
+    "milestone": "M1",
+    "title": "Emulators start with a clean environment, inside Steam's tree",
+    "description": "In `src/main/launcher.ts`, build each child's environment explicitly: drop Steam's overlay `LD_PRELOAD`, the AppImage runtime's `APPDIR`/`APPIMAGE`/`ARGV0`/`OWD` and any `LD_LIBRARY_PATH` it added, put `/usr/bin:/usr/local/bin:/bin` first on PATH (as `armada-game-launch` does), keep display and Steam variables, and keep spawning as a descendant (no double fork, no systemd-run).",
+    "source": ["INT"],
+    "acceptance": [
+      "A pure `childEnvironment(parentEnv, descriptorEnv)` function has unit tests for each rule.",
+      "A test asserts the spawned process's parent chain leads back to the launcher (it is not reparented to init).",
+      "The exact environment differences are logged once per launch at debug level."
+    ],
+    "verification": "ci",
+    "depends_on": ["M0-04"],
+    "passes": false
+  },
+  {
+    "id": "M1-13",
+    "milestone": "M1",
+    "title": "Nothing steals focus while a game runs",
+    "description": "While an emulator or Steam game has the screen: never open a new top-level window (no toasts, no dialogs, no devtools), stop requestAnimationFrame-driven work and polling in the renderer, and after the emulator exits re-focus and redraw the launcher window once.",
+    "source": ["INT", "REQ-3"],
+    "acceptance": [
+      "A test:app scenario counts BrowserWindow instances and asserts no new window appears during a launch, including when a download finishes mid-game.",
+      "Notifications raised during play are queued and shown after the game ends (test).",
+      "Renderer frame callbacks drop to zero while suspended (measured via the perf module in test:app).",
+      "Device check `focus.no-new-window`: a download finishing while the sandboxed emulator has the screen opens no window (the window list is unchanged), and its notice appears after the exit.",
+      "Device check `focus.return`: after every emulator exit in the run, Galleon is the focused app again."
+    ],
+    "verification": "device",
+    "depends_on": ["M0-10", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M1-14",
+    "milestone": "M1",
+    "title": "Steam games: list installed and launch",
+    "description": "Add `src/main/steam/` (data parsing is emulator-agnostic, so it lives in main): read `~/.local/share/Steam/steamapps/libraryfolders.vdf` (and `config/libraryfolders.vdf`), each library's `appmanifest_*.acf` (appid, name, StateFlags, SizeOnDisk), show installed games (StateFlags & 4) as a 'Steam' platform, and launch with `/usr/bin/steam steam://rungameid/<appid>` using the clean environment.",
+    "source": ["REQ-3", "PARITY-41", "INT"],
+    "acceptance": [
+      "The text-VDF parser has tests built from real-shaped fixtures, including SD-card libraries under `/run/media` and partially installed games (excluded).",
+      "Launching logs the command and does not wait on Steam's process; the running overlay shows 'Playing on Steam'.",
+      "Device check `steam.list`: installed Steam games and non-Steam shortcuts are listed (counts and art found are published, never names).",
+      "Device check `steam.launch`: Galleon starts the 'Galleon Device Test Target' shortcut through `steam://rungameid/`; the result records whether it started, whether Steam showed 'Launch Multiple Games', and whether Galleon survived. A prompt left on screen marks the check `needs-attended`, and it is never run unattended again."
+    ],
+    "verification": "device",
+    "depends_on": ["M1-12", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M1-15",
+    "milestone": "M1",
+    "title": "Usable at 1280x960 before the redesign",
+    "description": "Make every inherited screen fit the Nova's 4:3 1280x960 panel with no clipped, overlapping or unreachable controls: a 4:3 layout profile chosen automatically by aspect ratio and size (Settings -> Interface -> Scale still overrides), and text no smaller than the RomMix default at that size.",
+    "source": ["REQ-3"],
+    "acceptance": [
+      "`npm run shots:nova` shows no element outside the viewport and no overlap on any screen (an automated bounding-box check in test:app reports offenders by data-* handle).",
+      "Every control on every screen is reachable with the d-pad (test:app walks each screen and visits every `data-action`).",
+      "The agent reviews the contact sheet and lists any visual defect in the PR."
+    ],
+    "verification": "agent-screenshot",
+    "depends_on": ["M0-09"],
+    "passes": false
+  },
+  {
+    "id": "M1-16",
+    "milestone": "M1",
+    "title": "Know the power profile, and tell the player",
+    "description": "Phase 0 measured the cause of Game Mode lag: Armada's default Balanced profile (conservative governor, prime core capped near 2.09 GHz, GPU 220-680 MHz); with Performance the UI was as smooth as Desktop Mode, and Chromium was hardware-accelerated (Mesa through GLX on /dev/dri/renderD128). Read the power state without root, show a one-time hint when the launcher runs on Balanced or Eco ('for smoother browsing, set Performance for this app: Quick Access -> Armada Control'), and document that step in the player docs (M8-05). Armada keys per-game profiles by Steam appid, so every emulator the launcher starts inherits the launcher's profile.",
+    "source": ["REQ-3", "INT", "GATE"],
+    "acceptance": [
+      "A pure parser reads `/usr/share/armada/power-profiles.conf`, `/run/armada/perf-state.json`, `/sys/devices/system/cpu/cpufreq/policy*/scaling_{governor,cur_freq,max_freq}` and `/sys/class/devfreq/*/{governor,cur_freq}`; fixture tests cover balanced, performance, a missing file and an unknown format.",
+      "The hint appears at most once per profile change, can be dismissed for good, never appears outside Armada, and never tries to change the profile itself (the profile state is root-owned).",
+      "Pre-flight shows the current profile, governor and clocks.",
+      "Device check `power.read`: the profile, governor and clocks Galleon reads match `armada-power status` and sysfs under both profiles the harness sets.",
+      "Device check `power.hint`: the hint shows on Balanced and not on Performance (screenshots)."
+    ],
+    "verification": "device",
+    "depends_on": ["M0-10", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M1-17",
+    "milestone": "M1",
+    "title": "Core control socket",
+    "description": "Expose a local JSON-lines socket at `$XDG_RUNTIME_DIR/<name>/core.sock` (mode 0600) from the main process with: status (connection, running game, downloads with progress, pending save uploads), quit-emulator, and pause/resume downloads. Document it in `docs/core-socket.md`. It is the boundary the Decky panel uses and the one a fallback UI would talk to.",
+    "source": ["INT", "GATE"],
+    "acceptance": [
+      "Protocol messages are typed in `src/shared/types/` and covered by unit tests, including malformed input.",
+      "The socket refuses connections from other users (file mode and SO_PEERCRED check) and is removed on exit.",
+      "A test drives quit-emulator through the socket and sees the same graceful stop path as holding Start.",
+      "The main process keeps `$XDG_RUNTIME_DIR/<name>/state.json` current (at least every 30 s; schema 1: `idle`, `steamAppId`, `updatedAt`), with `idle` true only while no game runs, no download is active and no save upload is pending; the device bridge reads it to tell an idle Galleon from someone playing (unit tests for each state).",
+      "The socket also accepts `quit-app`, which quits Galleon only when it is idle and answers why not otherwise (used by the device tests to hand the screen over politely)."
+    ],
+    "verification": "ci",
+    "depends_on": ["M1-11"],
+    "passes": false
+  },
+  {
+    "id": "M1-18",
+    "milestone": "M1",
+    "title": "Download progress with speed, time left and a cancel button",
+    "description": "Add speed and time-left to the download engine (`src/main/downloads.ts`): an exponential moving average over 500 ms samples, time left from the smoothed speed, 'waiting for server' while RomM builds a zip, and a controller binding (X) that cancels the focused transfer from the Downloads screen and from a game page.",
+    "source": ["REQ-5", "REQ-10", "PARITY-7", "PARITY-8"],
+    "acceptance": [
+      "The smoothing is a pure function with tests: constant rate converges within 3 s, a stall shows 'stalled' rather than a huge time left, and the estimate never flickers between units on steady input.",
+      "Download rows read like '15% - 613.6 MB / 3.8 GB - 41.4 MB/s - 1m 20s left' (format tested in all four catalogues).",
+      "Cancel removes the `.part` file and the queue row and is reachable with the pad (test:app).",
+      "Device check `download.progress`: a capped Range download (at most 400 MB) of the smallest ROM over 500 MB shows a speed and time left within 20% of the measured rate after the first 3 s, X on the internal pad driver cancels it, and its `.part` file is gone."
+    ],
+    "verification": "device",
+    "depends_on": ["M1-15", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M1-19",
+    "milestone": "M1",
+    "title": "BIOS placement for Armada's emulators",
+    "description": "Give each Armada descriptor its BIOS answer (`bios` field) so the existing BIOS screen copies RomM's firmware where each emulator reads it: DuckStation `~/.local/share/duckstation/bios`, ARMSX2 `~/.config/ARMSX2/bios`, Flycast data folder, RetroArch `system/`. Hash-verified, refusing unverified files unless the user confirms.",
+    "source": ["PARITY-10", "INT"],
+    "acceptance": [
+      "`src/config/emulators/bios.test.ts` covers each target folder and the verified/unverified paths.",
+      "Device check `bios.targets`: every BIOS target folder resolves, present and missing files are reported by reading the owner's folders only, and installing a fixture BIOS into the sandbox puts it where the sandboxed emulator finds it."
+    ],
+    "verification": "device",
+    "depends_on": ["M1-02", "M1-06", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M1-20",
+    "milestone": "M1",
+    "title": "Gate 1, decided by the device bridge",
+    "description": "Gate 1 is decided by measurements from the device bridge, not by a person. Once every feature it depends on is READY-FOR-DEVICE, the agent evaluates the newest complete nightly results against the thresholds in docs/PLAN.md section 9 (data in `test/device/thresholds.json`) and records the outcome in PLAN.md and a closed `gate` issue. A smoothness or focus failure leads to documented optimisation rounds first, and only then to a pivot decision with a safe default.",
+    "source": ["GATE", "REQ-3", "REQ-7", "REQ-15"],
+    "acceptance": [
+      "`node scripts/agent/gate1.mjs` reads the newest complete results and prints G1-1..G1-5 as pass or fail with the numbers; its rules are unit-tested on fixture summaries, including a run where only one power profile was measured (incomplete, not pass).",
+      "Gate 1 passes only when two consecutive complete nightly results each pass every criterion; their links are recorded in PLAN.md.",
+      "If G1-2 or G1-4 fails: at least two optimisation rounds, each a merged PR with before-and-after device numbers, are in PROGRESS.md before a `gate` + `needs-human` issue proposes the Godot pivot; the issue states the safe default (keep Electron and keep optimising), which the agent adopts in an ADR after 72 hours without an answer.",
+      "Device check `gate1.summary`: `gate1.mjs` run against the newest result reports every criterion as measured (no criterion missing data)."
+    ],
+    "verification": "device",
+    "depends_on": [
+      "M0-17",
+      "M1-02",
+      "M1-03",
+      "M1-04",
+      "M1-05",
+      "M1-06",
+      "M1-08",
+      "M1-10",
+      "M1-11",
+      "M1-13",
+      "M1-14",
+      "M1-15",
+      "M1-16",
+      "M1-18",
+      "M1-21",
+      "M1-22",
+      "M0-22",
+      "M0-23",
+      "M1-30"
+    ],
+    "passes": false
+  },
+  {
+    "id": "M1-21",
+    "milestone": "M1",
+    "title": "Server address without a scheme: try https, then http",
+    "description": "Phase 0: a LAN address typed without a scheme was turned into https:// by `normaliseUrl` in `src/main/romm/client.ts`; the owner's RomM is plain http on a non-default port, so every attempt failed with 'fetch failed' until http:// was typed. When no scheme is typed, probe `https://` then `http://` with `GET /api/heartbeat`, keep the one that answers like RomM, show which one connected, and make errors specific.",
+    "source": ["PARITY-1", "INT"],
+    "acceptance": [
+      "Unit tests with a fake transport: https answers -> https kept; https fails, http answers -> http kept and shown as 'Connected over http (not encrypted)'; both fail -> one message naming both attempts; an explicit scheme is never changed.",
+      "Error text distinguishes 'server answered on http but not https', 'nothing answered at this address', 'answered but is not RomM', and a TLS certificate problem, in all four catalogues.",
+      "The address saved is the one that worked, with its scheme, so later starts do not probe again; a later TLS failure is never silently downgraded to http.",
+      "Device check `server.scheme-probe`: given the imported address without its scheme, Galleon finds the scheme that answers like RomM and reaches the heartbeat with GET requests only."
+    ],
+    "verification": "device",
+    "depends_on": ["M0-04", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M1-22",
+    "milestone": "M1",
+    "title": "Pairing that is easy to approve",
+    "description": "Phase 0: approving through the login redirect link (`/login?next=/pair/device?user_code=...`) was confusing; approving from a browser already signed in to RomM, at `/pair/device?user_code=...`, worked. Show the QR code, the plain user code in large type, and the short direct URL `<server>/pair/device?user_code=<code>`, with the instruction to open it in a browser where you are already signed in to RomM. Keep polling with RFC 8628 back-off.",
+    "source": ["PARITY-1", "INT"],
+    "acceptance": [
+      "The QR encodes the direct `/pair/device?user_code=` URL built from `verification_path_complete`, not a login redirect (unit test on the URL builder with 5.2.0-shaped responses).",
+      "The screen shows code, URL and instruction together at 1280x960 without scrolling (screenshot in `shots:nova`).",
+      "Polling honours `interval`, adds 5 s on `slow_down`, stops on `access_denied` or `expired_token` with a clear message and a 'get a new code' button (unit tests).",
+      "Device check `pairing.screen`: fed a fake code without calling the server, the pairing screen shows code, QR and URL together at 1280x960 without scrolling (screenshot)."
+    ],
+    "verification": "device",
+    "depends_on": ["M1-21", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M1-23",
+    "milestone": "M1",
+    "title": "Armada's emulator set, found as Armada installs it",
+    "description": "Phase 0 found only RetroArch; it listed RetroDECK, EmuDeck, Eden and shadPS4 as missing and warned 'Flathub is not set up for your user' although Armada's flatpaks are system installs. Order the registry for armadaOS (Armada descriptors first), hide x86_64-only entries on aarch64 (RetroDECK is x86_64-only on Flathub), and make the pre-flight accept system-wide flatpak installs, asking for a user Flathub remote only when the user presses Install.",
+    "source": ["INT", "REQ-1"],
+    "acceptance": [
+      "`EMULATORS` order in `src/config/emulators/index.ts` puts the Armada descriptors before the upstream frontends, and an architecture filter hides descriptors whose every install route is unavailable on aarch64 (tests for both architectures).",
+      "Pre-flight treats an app found by `flatpak info --system <id>` as installed and shows no Flathub warning when nothing needs installing (unit test on parsed output).",
+      "`npm run shots:nova` shows the Emulators page listing RetroArch, DuckStation, ARMSX2, Dolphin, PPSSPP, Flycast and melonDS with their detected install kind.",
+      "Device check `emulators.detected`: Settings -> Emulators lists every emulator installed on the Nova (compared with what the harness finds in `~/Applications` and `flatpak list --system --app`) with its install kind, and no Flathub warning appears (screenshot)."
+    ],
+    "verification": "device",
+    "depends_on": ["M1-02", "M1-03", "M1-04", "M1-05", "M1-06", "M1-07", "M1-09", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M1-24",
+    "milestone": "M1",
+    "title": "The RomM token is stored safely, and the risk is stated",
+    "description": "Phase 0 logged 'no OS keyring available, credentials are stored in plain text' on armadaOS. Keep RomMix's `credentials.bin` (already written with mode 0600 in `src/main/store.ts`), make its folder 0700, use the OS keyring when one is reachable in both sessions, and never lose the token when switching between Desktop Mode (KWallet may be present) and Game Mode (no keyring). Document the remaining risk in Settings and the README.",
+    "source": ["INT", "PARITY-1"],
+    "acceptance": [
+      "Unit tests: credentials file 0600, its folder 0700, and both are corrected at start if loosened.",
+      "A token written in a session with a keyring is still readable in a session without one: the store either uses one backend consistently (choice recorded in an ADR) or keeps a 0600 fallback copy; a test simulates both orders.",
+      "Settings -> Account says where the token is kept ('in a file only your user can read' or 'in the system keyring') and how to revoke it in RomM.",
+      "Device check `auth.storage`: in Game Mode (no keyring) the imported token is stored in the test home's credentials file with mode 0600 in a 0700 folder, the backend in use is recorded, and a restart signs in again without pairing."
+    ],
+    "verification": "device",
+    "depends_on": ["M0-04", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M1-25",
+    "milestone": "M1",
+    "title": "Game manuals open on RomM 5.2.0",
+    "description": "Phase 0 logged 'refused an image request that is not an asset path {path: roms/3/14/manual/14.pdf}': the asset protocol in `src/main/app.ts` rejects RomM's `path_manual`. Accept manual paths under RomM's resources root (still refusing anything that climbs out of it), so the Manual tab works now and the screensaver collage can use manual pages later (PARITY-33).",
+    "source": ["PARITY-33", "PARITY-24"],
+    "acceptance": [
+      "`src/main/app.test.ts` gains cases: `roms/<p>/<r>/manual/<id>.pdf` is served; `../` and absolute paths are still refused.",
+      "The Docker RomM fixture gets a manual uploaded through `POST /api/roms/{id}/manuals` and `npm run test:romm` opens it through the client.",
+      "Device check `manual.open`: a game whose manual RomM holds (found by listing, GET only) opens its Manual tab and the first page renders (screenshot); skipped with a reason when the library has no manual."
+    ],
+    "verification": "device",
+    "depends_on": ["M0-08", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M1-26",
+    "milestone": "M1",
+    "title": "Platform icons never show as broken",
+    "description": "Phase 0 saw 404s for `/assets/platforms/systematic/{gc,wii-u}.svg` and `/assets/platforms/{gc,wii-u}.svg` on RomM 5.2.0. Fix the icon-name mapping in `src/config/systems.ts` (PLATFORM_ICON_PATHS tries both the slug and the table's `icon`), remember 404s for the session so they are not asked again, and fall back to a bundled label or glyph in the fork's style (no third-party artwork unless its licence allows MIT redistribution).",
+    "source": ["PARITY-43"],
+    "acceptance": [
+      "A test against the Docker 5.2.0 fixture requests the icon for every platform in the fixture library and asserts either a 200 or a recorded fallback, with each 404 asked at most once per session.",
+      "Bundled fallbacks are the platform's short code in the fork's type (the Argosy-fork design labels platforms with text), so no artwork licence is needed.",
+      "`shots:nova` of the Library shows no broken image for GameCube or Wii U."
+    ],
+    "verification": "agent-screenshot",
+    "depends_on": ["M0-09"],
+    "passes": false
+  },
+  {
+    "id": "M1-27",
+    "milestone": "M1",
+    "title": "Cheap when idle",
+    "description": "Phase 0 saw Chromium's GPU process at about 20% CPU in Game Mode. Cut the launcher's background cost so the conservative governor is not kept busy: poll the gamepad with requestAnimationFrame only while the window is visible and input arrived recently (fall back to a slow timer when idle), stop decorative animations and spinners when nothing is loading, honour a reduced-motion setting, and avoid repaint-triggering CSS on idle screens.",
+    "source": ["REQ-3", "INT", "PARITY-47"],
+    "acceptance": [
+      "A test:app scenario measures CPU time of all the app's processes over 60 s idle on Home under Xvfb and fails above a budget recorded in the test (start from the measured baseline, then require at least a 50% cut).",
+      "Input latency after idle stays under one frame plus 50 ms (test:app presses a button after 30 s idle and times the focus change).",
+      "Device check `idle.cpu`: on the Balanced profile, 60 s idle on Home costs less CPU than the budget in thresholds.json (all Galleon processes, from /proc), and the first internal pad event after the idle period moves focus within one frame plus 50 ms."
+    ],
+    "verification": "device",
+    "depends_on": ["M0-10", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M1-28",
+    "milestone": "M1",
+    "title": "Select+Start as the exit combo, if the owner wants it",
+    "description": "The owner originally proposed holding Select+Start about 1 s; Phase 0 showed holding Start already works. Ask in one `needs-human` decision issue whether to keep Start, switch to Select+Start, or allow both. Safe default after 72 hours without an answer, recorded in an ADR: allow both (Start held, or Select+Start held), with Start held as the documented one. Implement it as a setting in the same Gamepad-API path (`src/renderer/src/input/gamepad.ts`). The EVIOCGKEY key-state helper described in docs/PLAN.md stays a contingency for the day Chromium stops seeing pads while unfocused.",
+    "source": ["REQ-7"],
+    "acceptance": [
+      "The decision issue is labelled `needs-human`, asks one question, and states the safe default and the date it applies; the answer or the default is quoted in docs/PROGRESS.md and recorded in an ADR.",
+      "The hold logic is a pure function with tests (both held 999 ms: nothing; 1,000 ms: fire once; released and held again: fire again), and the setting is in Settings -> Games.",
+      "Device check `exit.combo`: synthetic pad events through Galleon's gamepad layer (the code the real pad feeds) for each enabled combo stop the sandboxed RetroArch and Dolphin with their saves intact."
+    ],
+    "verification": "device",
+    "depends_on": ["M1-11", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M1-29",
+    "milestone": "M1",
+    "title": "The launcher registers itself with Steam",
+    "description": "Phase 0: Steam's 'Add a Non-Steam Game -> Browse' file picker never opened under KDE on the Nova; a .desktop file had to be written by hand. The fork registers itself: `install.sh` (M0-17) writes the .desktop entry, and `install.sh --add-to-steam` (offered by default, and a button in Settings when Steam is not running) adds a non-Steam shortcut to every `~/.local/share/Steam/userdata/*/config/shortcuts.vdf`: exe = the Steam script, start dir `~/Applications`, launch options `/usr/libexec/armada/armada-game-launch %command%` when that file exists, plus the launcher's artwork in `config/grid/`. It refuses while Steam runs (Steam rewrites the file on exit), offers to close Steam, and backs the file up first. The Decky companion (M3-01) is the route that needs no Desktop Mode at all.",
+    "source": ["INT"],
+    "acceptance": [
+      "A binary-VDF reader and writer with round-trip tests on real-shaped fixtures (types 0x00, 0x01, 0x02, 0x08; other keys preserved).",
+      "Steam running is detected (process `steam` or `~/.steam/steam.pid`) and the tool exits with instructions instead of writing.",
+      "An existing entry for the same exe is updated, not duplicated.",
+      "Device check `steam.shortcut-roundtrip`: a copy of each real shortcuts.vdf (the originals are only read) round-trips byte for byte, and adding then updating a Galleon entry in the copy leaves every other entry unchanged."
+    ],
+    "verification": "device",
+    "depends_on": ["M0-17", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M1-30",
+    "milestone": "M1",
+    "title": "Sign in by importing stock RomMix's sign-in on first run",
+    "description": "Phase 0 left stock RomMix v0.20.0 signed in on the Nova. On first run with no server configured, Galleon offers 'Use the RomM sign-in from RomMix': it reads RomMix's settings (`~/.config/rommix/root` pointer or `~/rommix`; `config/settings.json`, whose `server` holds `baseUrl` and `authMode`) and credentials (`config/credentials.bin`: the 4-byte magic `RAW1` then JSON with `clientToken`, or `ENC1` when keyring-encrypted), checks them with GET /api/heartbeat and /api/users/me, and stores them in Galleon's own store, so the owner never pairs again. RomMix's files are only read. Galleon registers as its own RomM device rather than reusing RomMix's device id, so the two apps' save-sync records stay apart. Encrypted or missing credentials fall back to pairing (M1-22).",
+    "source": ["REQ-15", "PARITY-1", "INT", "REQ-13"],
+    "acceptance": [
+      "A pure parser reads both RomMix layouts with fixture tests (RAW1 client token, RAW1 OAuth pair, ENC1, a truncated file, a missing pointer), and the importer opens RomMix's files read-only (a test asserts their bytes and mtimes are unchanged).",
+      "The offer appears only when no server is configured, and the setup wizard (M4-32) shows it before pairing; declining leads to the normal sign-in.",
+      "RomMix's device id is never copied (unit test); in normal use Galleon registers its own device after the import, and in self-test mode it registers nothing.",
+      "Device check `import.rommix`: a fresh test home with the import accepted reaches a signed-in Home using the Nova's stock RomMix sign-in, with GET requests only, and stock RomMix's folder is unchanged (manifest)."
+    ],
+    "verification": "device",
+    "depends_on": ["M0-04", "M1-21", "M1-24", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M2-01",
+    "milestone": "M2",
+    "title": "Save-sync spec written from Argosy's code, before any engine change",
+    "description": "Write `docs/save-sync/SPEC.md` from rommapp/argosy-launcher at 2714d5453b6bbef790987071ab0e82068009532b (read as specification only; GPL-3.0, nothing copied): per system the owner plays (SNES, GBA, PS1, PSP, PS2, GameCube/Wii, Dreamcast), what Argosy uploads on a RomM 5.2.0 server (no SAVE_SYNC in heartbeat, so the legacy handlers in `app/src/main/kotlin/com/nendo/argosy/data/sync/platform/*SaveHandler.kt` and `data/sync/SaveArchiver.kt`, not Sigil): slot, emulator tag, file name, archive shape, how content_hash is computed, when sync runs, how 409 and conflicts are handled (`data/repository/SaveUploader.kt`, `SaveDownloader.kt`, `data/sync/NegotiateInventory.kt`, `SyncCoordinator.kt`, `docs/save-sync-flow.md`, `docs/save-id-to-path.md`). Map each to what RomM 5.2.0 does (`reference/romm-api/openapi-5.2.0.json`).",
+    "source": ["REQ-6", "PARITY-11", "RESEARCH"],
+    "acceptance": [
+      "Every statement about Argosy cites file and line at the pinned commit; every statement about RomM cites the 5.2.0 schema or RomM source at tag 5.2.0.",
+      "A table per system lists Android emulator/core, Argosy handler, archive shape, emulator tag, and the Linux emulator(s) that could read it, with 'same bytes', 'convertible' or 'not interoperable'.",
+      "The spec lists the differences from RomMix's current engine (`src/main/saves.ts`): no negotiate, `overwrite=true` uploads, downloads without device_id/optimistic=false, `.rommix-save.zip` directory archives, shared memory cards skipped.",
+      "The evaluator subagent reviews the spec against the cited code and its verdict is in the PR; open questions only a capture can answer are listed for M2-02."
+    ],
+    "verification": "ci",
+    "depends_on": ["M0-08"],
+    "passes": false
+  },
+  {
+    "id": "M2-02",
+    "milestone": "M2",
+    "title": "Argosy's save shapes confirmed on the owner's server, read-only",
+    "description": "Instead of a capture run by a person, the device bridge runs `test/device/argosy-shapes.py` (Python 3 standard library) when the nightly request asks for it. With the imported sign-in it finds saves made by Argosy devices (`GET /api/devices`, then `GET /api/saves?rom_id=` for up to 3 games per system, chosen from the server's own lists), downloads each into memory (GET, never with a `device_id`, which would record a sync for a device), and records only its shape: slot, emulator tag, file-name pattern, archive entry names and sizes, whether `content_hash` follows RomM's rule, and updated_at. The bytes are discarded on the device. docs/save-sync/SPEC.md (M2-01) is checked against the report.",
+    "source": ["REQ-6", "PARITY-11"],
+    "acceptance": [
+      "The script sends only GET requests and never a `device_id` (a unit test checks the file statically: no POST, PUT, PATCH or DELETE, no `device_id`), and a CI test runs it against Docker 5.2.0 seeded as an Argosy device and validates the report layout.",
+      "The report holds no save bytes, game titles or account names, and passes the sanitiser with nothing withheld.",
+      "Device check `argosy.shapes`: the report from the Nova covers every system the owner has Argosy saves for, and every difference from SPEC.md is resolved in a PR that updates SPEC.md or the fixtures."
+    ],
+    "verification": "device",
+    "depends_on": ["M2-01", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M2-03",
+    "milestone": "M2",
+    "title": "Golden fixtures and round-trip harness on Docker 5.2.0",
+    "description": "Build `test/fixtures/saves/<system>/` golden files from SPEC.md (synthetic saves in exactly the shapes Argosy writes, built from the specification, never copied from Argosy's code or from anyone's real saves; cross-checked with the M2-02 shape report once it exists) and add `npm run test:saves`: it seeds Docker 5.2.0 as 'an Argosy device' (a device record with `client: argosy-launcher`, uploads exactly as the spec says), then drives the fork's engine as a second device and asserts the server ends in the expected state; and the reverse.",
+    "source": ["REQ-6", "PARITY-11", "REQ-14"],
+    "acceptance": [
+      "For each system: identical bytes on both sides negotiate to `no_op` twice in a row (Argosy's own proof standard).",
+      "Fork upload after an Argosy upload of the same slot is either a conflict or an explicit decision, never a silent overwrite; Argosy's later negotiate sees the fork's upload as `download`.",
+      "Fixtures carry no personal data (a test scans them for IPs, tokens and the server host placeholder).",
+      "The harness runs in the CI build job on both architectures.",
+      "Every fixture names the SPEC.md section it follows."
+    ],
+    "verification": "ci",
+    "depends_on": ["M0-06", "M2-01"],
+    "passes": false
+  },
+  {
+    "id": "M2-04",
+    "milestone": "M2",
+    "title": "content_hash exactly as RomM computes it",
+    "description": "Implement `src/main/savehash.ts`: MD5 hex for a plain file; for a zip, MD5 of the sorted `name:md5(entry)` lines joined with newlines, skipping directories (RomM `assets_handler.py`). Use it for every local inventory entry.",
+    "source": ["REQ-6", "PARITY-11"],
+    "acceptance": [
+      "Unit tests with zips whose entry order differs produce the same hash; directory entries are ignored.",
+      "Against Docker 5.2.0, the hash the server stores for each uploaded golden file equals the local hash (test:saves).",
+      "Hashing streams files and never loads more than 8 MB into memory at once."
+    ],
+    "verification": "ci",
+    "depends_on": ["M2-03"],
+    "passes": false
+  },
+  {
+    "id": "M2-05",
+    "milestone": "M2",
+    "title": "Decision engine that agrees with RomM's negotiate",
+    "description": "Replace RomMix's client-side comparison in `src/main/saves.ts` for the Argosy-compatible path with RomM's own rules (ADR 0002): on 5.2.0, negotiate with the full local inventory and act only on the game in question for a pre-launch check; on 5.3+, scope with `rom_ids`. A per-game shortcut that reads `GET /api/saves?rom_id&device_id` and reproduces `compare_save_state` locally is allowed only if a test proves it decides identically to negotiate for every golden scenario.",
+    "source": ["REQ-6", "PARITY-11"],
+    "acceptance": [
+      "Capability gating comes from the heartbeat version through `src/main/romm/version.ts` (`atLeast(version, '5.3.0')` for rom_ids), with tests for 5.0, 5.2.0, 5.3.1 and 'development'.",
+      "An equivalence test feeds the same scenarios to the engine and to the real negotiate endpoint on Docker 5.2.0 and 5.3.1 and requires identical actions.",
+      "A pre-launch check for one game never downloads or uploads another game's save, even though 5.2.0 returns operations for the whole library.",
+      "Sessions are completed with operation counts; a session superseded by a newer negotiate is treated as finished, not as an error."
+    ],
+    "verification": "ci",
+    "depends_on": ["M2-04"],
+    "passes": false
+  },
+  {
+    "id": "M2-06",
+    "milestone": "M2",
+    "title": "Transfers the way Argosy makes them",
+    "description": "Uploads send `rom_id`, `emulator`, `slot=autosave`, `device_id`, `session_id` and `overwrite=false` (`src/main/romm/client.ts` `uploadSave` currently sends `overwrite=true`); a 409 becomes a conflict for the user. Downloads use `device_id`, `optimistic=false`, write to a temporary file, fsync, rename, then `POST /api/saves/{id}/downloaded`.",
+    "source": ["REQ-6", "PARITY-11"],
+    "acceptance": [
+      "`overwrite=true` is sent only from the explicit 'Keep this device's save' choice (test asserts every other call site sends false).",
+      "A failed or interrupted write never calls `/downloaded` (fault-injection test), so the server never records this device as current.",
+      "Retrying an upload with identical content is idempotent on 5.2.0 and 5.3.1 (no duplicate slot rows; test:saves).",
+      "Play sessions recorded during the session are sent with the session's completion (`play_sessions`)."
+    ],
+    "verification": "ci",
+    "depends_on": ["M2-05"],
+    "passes": false
+  },
+  {
+    "id": "M2-07",
+    "milestone": "M2",
+    "title": "One safe writer for every save on disk",
+    "description": "Route every write into an emulator's save tree through one function that refuses to replace a directory with a file (the Argosy fork's Dolphin memory-card bug), backs up the file it replaces (RomMix `keepBackup`), writes atomically and fsyncs. Add regression tests for the Argosy fork's bug list (docs/research/argosy_fork_inventory.md, Q7).",
+    "source": ["PARITY-11", "REQ-6"],
+    "acceptance": [
+      "`grep` in CI finds no `writeFile`/`rename`/`rm` into save directories outside the writer module (allow-list test).",
+      "Tests: a directory at the destination is refused and logged; a normal overwrite and a create still work; two concurrent writers to one save are serialised.",
+      "Backups are kept per game, the last 5 by default, under `~/<name>/saves/`."
+    ],
+    "verification": "ci",
+    "depends_on": ["M2-04"],
+    "passes": false
+  },
+  {
+    "id": "M2-08",
+    "milestone": "M2",
+    "title": "Per system, how saves travel (owner decision with a safe default)",
+    "description": "Open a `needs-human` decision issue with a plain-language table per system: (A) run the same libretro core as Argosy in RetroArch, saves move unchanged; or (B) run the standalone emulator (DuckStation, PPSSPP, Dolphin, Flycast, ARMSX2), with an adapter where the spec says one is possible. Safe default after 72 hours without an answer, recorded in an ADR: (A) for every system where SPEC.md says Argosy's core runs on Linux aarch64 with 'same bytes'; otherwise (B) where the spec says 'convertible'; otherwise 'not interoperable, saves stay on each side', said plainly in the app. Record the outcome in `docs/save-sync/SYSTEM-CHOICES.md` and set the default emulator per system from it.",
+    "source": ["REQ-6", "REQ-11", "GATE"],
+    "acceptance": [
+      "The issue explains each choice's trade-off in one or two sentences a non-developer can follow, citing the spec's 'same bytes / convertible / not interoperable' column, and states the safe default and its date.",
+      "SYSTEM-CHOICES.md records per system the owner's answer, or the default and the date it applied, and the defaults in settings follow it.",
+      "The choice can be changed per system in Settings, and the final acceptance session (M8-07) re-confirms it."
+    ],
+    "verification": "ci",
+    "depends_on": ["M2-01"],
+    "passes": false
+  },
+  {
+    "id": "M2-09",
+    "milestone": "M2",
+    "title": "SNES and GBA saves round-trip with Argosy",
+    "description": "RetroArch .srm on both sides. Use the emulator tag and file naming Argosy uses for these cores (from the spec), read RetroArch's real save folder from its config, and sync under the `autosave` slot.",
+    "source": ["REQ-6", "PARITY-11"],
+    "acceptance": [
+      "test:saves passes for the SNES and GBA golden files in both directions.",
+      "Device check `saves.snes-gba`: the SNES and GBA payloads write `.srm` files in RetroArch's sandbox; Galleon finds them where RetroArch's config says, archives them as SPEC.md says Argosy does, uploads them to the on-device fake RomM (M2-20, never the owner's server), downloads them byte-identical into an empty sandbox, and the owner's real RetroArch save folder is unchanged.",
+      "The real Android-to-Linux round trip for this system is part of Gate 2 in the final acceptance session (M2-19)."
+    ],
+    "verification": "device",
+    "depends_on": ["M2-06", "M2-07", "M2-08", "M2-20", "M2-02"],
+    "passes": false
+  },
+  {
+    "id": "M2-10",
+    "milestone": "M2",
+    "title": "PlayStation saves round-trip",
+    "description": "Per the choice in SYSTEM-CHOICES.md (M2-08): RetroArch with the Android core (same .srm), or DuckStation with a converter between DuckStation's per-game memory card and the Android core's save (both raw 128 KiB card images where the spec confirms it).",
+    "source": ["REQ-6", "PARITY-11"],
+    "acceptance": [
+      "The converter, if used, is a pure function with golden tests both ways and refuses inputs that are not 131,072-byte card images.",
+      "test:saves passes for the PS1 golden files.",
+      "Device check `saves.ps1`: a memory card in the spec's shape seeded in DuckStation's sandbox (or the Android core's save, per SYSTEM-CHOICES.md) is converted, uploaded to the on-device fake RomM and restored byte-identical; both discs of a multi-disc game share it.",
+      "The real Android-to-Linux round trip for this system is part of Gate 2 in the final acceptance session (M2-19)."
+    ],
+    "verification": "device",
+    "depends_on": ["M2-09", "M2-20", "M2-02"],
+    "passes": false
+  },
+  {
+    "id": "M2-11",
+    "milestone": "M2",
+    "title": "PSP saves round-trip",
+    "description": "PPSSPP's SAVEDATA folders, archived in the exact shape Argosy's PSP handler uses (prefix bundle by game id, per the spec), never RomMix's `.rommix-save.zip`.",
+    "source": ["REQ-6", "PARITY-11"],
+    "acceptance": [
+      "The archive builder produces byte-identical zip entry names and layout to the golden Argosy archive and the same content_hash for the same files.",
+      "Device check `saves.psp`: a SAVEDATA folder seeded in PPSSPP's sandbox is archived with the golden entry names and content_hash, uploaded to the on-device fake RomM and restored identically.",
+      "The real Android-to-Linux round trip for this system is part of Gate 2 in the final acceptance session (M2-19)."
+    ],
+    "verification": "device",
+    "depends_on": ["M2-09", "M2-20", "M2-02"],
+    "passes": false
+  },
+  {
+    "id": "M2-12",
+    "milestone": "M2",
+    "title": "PS2 folder memory cards round-trip",
+    "description": "ARMSX2 on both sides, folder memory cards only (Argosy syncs nothing else for PS2). Detect whether ARMSX2's slot 1 card is a folder card; if not, explain how to switch and offer to convert nothing automatically. Follow a custom data folder if ARMSX2 is configured with one.",
+    "source": ["REQ-6", "PARITY-11", "PARITY-37", "BEYOND-14"],
+    "acceptance": [
+      "Reading `~/.config/ARMSX2/inis/PCSX2.ini` decides folder vs file card; tests for both and for a custom memcard folder.",
+      "The archive shape matches Argosy's PS2 folder handler for a single game's save directory inside the folder card.",
+      "Device check `saves.ps2`: the Nova's real `PCSX2.ini` is read (never changed) to decide folder or file cards, and a folder card seeded in ARMSX2's sandbox round-trips through the on-device fake RomM in Argosy's shape.",
+      "The real Android-to-Linux round trip for this system is part of Gate 2 in the final acceptance session (M2-19)."
+    ],
+    "verification": "device",
+    "depends_on": ["M2-09", "M2-20", "M2-02"],
+    "passes": false
+  },
+  {
+    "id": "M2-13",
+    "milestone": "M2",
+    "title": "GameCube and Wii saves round-trip",
+    "description": "Dolphin standalone on Linux against Argosy's GCI handler (GameCube) and Wii title saves, per the spec; require Dolphin's GCI-folder mode for GameCube if that is what makes per-game saves possible, and say so.",
+    "source": ["REQ-6", "PARITY-11"],
+    "acceptance": [
+      "Golden tests convert between Argosy's archive and Dolphin's GCI folder layout without touching other games' GCI files.",
+      "The writer never deletes or replaces the memory-card directory itself (regression test for the fork's 2026-09-19 bug).",
+      "Device check `saves.gc-wii`: GCI files and a Wii title save seeded in Dolphin's sandbox user folder round-trip through the on-device fake RomM without touching the other games' GCI files or the memory-card folder itself.",
+      "The real Android-to-Linux round trip for this system is part of Gate 2 in the final acceptance session (M2-19)."
+    ],
+    "verification": "device",
+    "depends_on": ["M2-09", "M2-20", "M2-02"],
+    "passes": false
+  },
+  {
+    "id": "M2-14",
+    "milestone": "M2",
+    "title": "Dreamcast saves round-trip",
+    "description": "Flycast standalone against Argosy's Dreamcast handler (built-in flycast core VMU), per the spec; use per-game VMUs if Flycast can, otherwise declare it shared with a clear reason.",
+    "source": ["REQ-6", "PARITY-11"],
+    "acceptance": [
+      "Golden tests for the VMU mapping both ways, or a documented 'not interoperable' decision recorded in SYSTEM-CHOICES.md (M2-08).",
+      "Device check `saves.dc`: a VMU seeded in Flycast's sandbox round-trips through the on-device fake RomM, or the app shows the 'Dreamcast saves do not travel' notice (screenshot) when SYSTEM-CHOICES.md says so.",
+      "The real Android-to-Linux round trip for this system is part of Gate 2 in the final acceptance session (M2-19)."
+    ],
+    "verification": "device",
+    "depends_on": ["M2-09", "M2-20", "M2-02"],
+    "passes": false
+  },
+  {
+    "id": "M2-15",
+    "milestone": "M2",
+    "title": "Save states only where they can load",
+    "description": "States are plain per-ROM uploads with no slot, device or conflict logic, and only load in the same core. Sync states only where both sides run the same core and version family; elsewhere keep them local and say so on the Saves tab.",
+    "source": ["PARITY-13"],
+    "acceptance": [
+      "A rule table (system, emulator) -> 'states sync' is data with tests; RomMix's `STATE_PULL_LIMIT` behaviour is kept for syncing systems.",
+      "The Saves tab labels local-only states clearly (screenshot)."
+    ],
+    "verification": "ci",
+    "depends_on": ["M2-06"],
+    "passes": false
+  },
+  {
+    "id": "M2-16",
+    "milestone": "M2",
+    "title": "Conflicts are decided by the player, explicitly",
+    "description": "Adapt `src/renderer/src/screens/Game/SaveTransfer.tsx` and the Saves tab to show a conflict as two columns (this device / RomM, with device names from `origin_device_id`, times and sizes) and three explicit choices: keep this device's (upload with overwrite), keep RomM's (download and confirm), or skip. Pressing a cover or moving focus never resolves anything.",
+    "source": ["PARITY-12", "REQ-6"],
+    "acceptance": [
+      "test:app drives a conflict created on Docker-free fake RomM (`test/app/server.ts` gains 409 and device_syncs support) and checks each choice's resulting calls.",
+      "Focus stays on the same choice when the list changes (the Argosy fork's dangerous-neighbour rule).",
+      "`shots:nova` includes the conflict dialog at 1280x960."
+    ],
+    "verification": "agent-screenshot",
+    "depends_on": ["M2-06"],
+    "passes": false
+  },
+  {
+    "id": "M2-17",
+    "milestone": "M2",
+    "title": "Sync around every session, durable across sleep and reboots",
+    "description": "Pre-launch check with a cancellable overlay (checking save -> downloading -> launching), upload after the emulator exits, a persistent queue of pending uploads that survives suspend, crashes and offline time, and a visible 'All saves uploaded' state so the owner knows it is safe to reboot into Android.",
+    "source": ["PARITY-11", "REQ-6", "INT"],
+    "acceptance": [
+      "The pending-upload queue is a journal on disk; killing the app mid-upload and restarting resumes it (test).",
+      "The Home screen and the Decky panel (M3) show 'All saves uploaded' only when the queue is empty and the last negotiate said no_op for every game played since boot.",
+      "The overlay's Cancel stops the launch, finishes any write in progress, and leaves nothing half-written.",
+      "Device check `saves.journal`: against the on-device fake RomM, playing the RetroArch payload, quitting, then killing Galleon mid-upload and restarting it finishes the upload from the journal; 'All saves uploaded' appears within a minute with the fake server up, says saves are waiting while it is stopped, and clears when it is back (screenshots)."
+    ],
+    "verification": "device",
+    "depends_on": ["M2-06", "M2-07", "M2-20"],
+    "passes": false
+  },
+  {
+    "id": "M2-18",
+    "milestone": "M2",
+    "title": "Play time reported to RomM",
+    "description": "Record session start and end around each launch (emulators and Steam games), send them with the sync session's completion or through `POST /api/play-sessions` (batches up to 100), and show PLAYED as RomM's total across devices (RomMix's `playTime`).",
+    "source": ["PARITY-14"],
+    "acceptance": [
+      "Sessions shorter than 5 s are dropped; offline sessions are queued and sent later (tests).",
+      "test:romm asserts the sessions appear in `GET /api/play-sessions?rom_id=` on 5.2.0."
+    ],
+    "verification": "ci",
+    "depends_on": ["M2-06"],
+    "passes": false
+  },
+  {
+    "id": "M2-19",
+    "milestone": "M2",
+    "title": "Gate 2: saves travel between Android and Linux (in the final acceptance session)",
+    "description": "The real Android-to-Linux-to-Android round trip needs the owner's hands (Argosy runs on Android) and the owner's real saves, so it is the Gate 2 part of the final acceptance session (M8-07), done once, after every per-system device check passes. Before it, the local Claude session keeps a read-only copy of the server's saves for the games used (GET only), so nothing can be lost.",
+    "source": ["GATE", "REQ-6"],
+    "acceptance": [
+      "Every per-system feature M2-09..M2-14 passes its device check before Gate 2 is scheduled.",
+      "Acceptance session: for each system you play (the script lists them), save in Argosy on Android, continue that save in Galleon on Linux, save again, and continue in Argosy. Neither side asks you to choose between two saves, and RomM's web page shows one current save per game. Systems marked 'do not travel' in SYSTEM-CHOICES.md show that notice instead.",
+      "The results are in `acceptance/<date>/results.json` and PLAN.md links them; a failure reopens that system's feature and never changes the stack."
+    ],
+    "verification": "acceptance",
+    "depends_on": ["M2-09", "M2-10", "M2-11", "M2-12", "M2-13", "M2-14", "M2-17"],
+    "passes": false
+  },
+  {
+    "id": "M2-20",
+    "milestone": "M2",
+    "title": "Save checks on the device without the real server",
+    "description": "Ship a minimal fake RomM in the device bundle (`test/device/fake-romm/`, built from `test/app/server.ts` plus the save, device and negotiate endpoints the M2 engine uses, in RomM 5.2.0's shapes from `reference/romm-api/openapi-5.2.0.json`) and run it on 127.0.0.1 with the Electron binary inside the AppImage in Node mode (`ELECTRON_RUN_AS_NODE=1`, after `--appimage-extract` into the test folder), so Galleon's real save engine can upload and download on the Nova while the owner's server is only ever read.",
+    "source": ["REQ-6", "REQ-15", "HARNESS"],
+    "acceptance": [
+      "The fake server listens only on 127.0.0.1 on a random port, and run.sh stops it on exit and in `--cleanup` (it also runs inside the bridge's systemd unit, which ends it).",
+      "Its save endpoints pass the same contract tests as Docker 5.2.0 for the calls the engine makes (one shared test runs against both in CI).",
+      "Device check `saves.fake-server`: the fake server starts on the Nova, and the self-test pointed at it uploads and downloads one save while `safety.server-readonly` still passes for the real server."
+    ],
+    "verification": "device",
+    "depends_on": ["M0-22", "M2-06", "M2-07"],
+    "passes": false
+  },
+  {
+    "id": "M3-01",
+    "milestone": "M3",
+    "title": "Decky companion: QAM status and a quit button",
+    "description": "A small non-root Decky plugin in `decky/` (TypeScript frontend, no Python backend unless needed) that reads the core socket: Quick Access panel with current game, download progress, 'All saves uploaded', and a 'Quit game' button; plus 'Add/repair shortcut' using `SteamClient.Apps.AddShortcut` with a gamepad controller template. CI builds the zip as a release asset. The launcher keeps working when Decky is broken.",
+    "source": ["INT", "PARITY-38"],
+    "acceptance": [
+      "The plugin builds in CI with pinned @decky packages, and its licence and the @decky packages' licences are recorded in DEPENDENCIES.md.",
+      "With no launcher running the panel says so; with the socket unreachable it never throws.",
+      "The panel can install or update the launcher AppImage into `~/Applications` and add its shortcut with `SteamClient.Apps.AddShortcut` (Armada Store's method), so a fresh setup needs no Desktop Mode once Decky has the plugin (installed from its release URL with Decky's developer option).",
+      "Acceptance session: install the plugin zip in Decky (the script gives the exact steps), open Quick Access during a game, see the game and save status, and use 'Quit game' to return to Galleon with the save intact."
+    ],
+    "verification": "acceptance",
+    "depends_on": ["M1-17", "M2-17"],
+    "passes": false
+  },
+  {
+    "id": "M3-02",
+    "milestone": "M3",
+    "title": "Start in the launcher when the Nova boots (opt-in)",
+    "description": "Settings -> System -> Start on boot, available only when the launcher was started from Steam (it knows its `SteamGameId`): writes `~/.config/gamescope-session-plus/sessions.d/steam` containing one marked line `CLIENTCMD+=\" steam://rungameid/<gameid>\"`, preserving anything else in the file; turning it off removes only that line.",
+    "source": ["INT"],
+    "acceptance": [
+      "Unit tests: create, preserve foreign lines, remove only the marked line, refuse when SteamGameId is unknown.",
+      "Never touches `/etc` or `/usr`, and never sets CLIENTCMD in `~/.config/environment.d/`.",
+      "Settings shows the recovery path: hold Select during the boot splash for Desktop Mode (Armada's own escape).",
+      "Acceptance session: turn Start on boot on, reboot, and Galleon opens by itself after Steam starts; turn it off, reboot, and Steam opens as before. (Attended on purpose: an unattended reboot that goes wrong could leave the Nova in a boot loop.)"
+    ],
+    "verification": "acceptance",
+    "depends_on": ["M1-14"],
+    "passes": false
+  },
+  {
+    "id": "M3-03",
+    "milestone": "M3",
+    "title": "Sleep in the background while something else has the screen",
+    "description": "When a Steam game or an emulator has focus, stop rendering and polling (renderer suspended, intervals paused), resume when focus returns. Detect focus from window blur/visibility and, where `xprop` is available, gamescope's `GAMESCOPE_FOCUSED_APP` against the launcher's own `SteamAppId`.",
+    "source": ["INT", "REQ-3"],
+    "acceptance": [
+      "A focus-state module with tests for both signals and for a missing `xprop`.",
+      "test:app confirms timers and frame callbacks stop while suspended and restart on focus.",
+      "Device check `focus.suspend`: while the sandboxed emulator, then the test target shortcut, has the screen, Galleon's renderer runs no frame callbacks or timers, and it redraws within 5 s of getting focus back with no black frame (screenshot)."
+    ],
+    "verification": "device",
+    "depends_on": ["M1-13", "M1-14", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M3-04",
+    "milestone": "M3",
+    "title": "Downloads survive sleep and Wi-Fi drops",
+    "description": "Downloads resume after s2idle or fake suspend: keep `.part` files with ETag/Last-Modified, resume with `Range` and `If-Range`, take a logind delay inhibitor (never block) through `systemd-inhibit` or `busctl` on PrepareForSleep to checkpoint, and after wake wait for NetworkManager connectivity FULL before retrying with back-off.",
+    "source": ["INT", "PARITY-7"],
+    "acceptance": [
+      "`src/main/romm/transfer.ts` sends If-Range on resume and restarts from zero when the server answers 200 instead of 206 (test with the fake server).",
+      "A wake detector (monotonic vs wall-clock gap, plus PrepareForSleep where available) triggers the connectivity wait (unit tests with fakes).",
+      "No retry storm: back-off is capped and logged.",
+      "Device check `network.resume`: during a capped download the self-test's transfer fault injection drops the connection twice and simulates a wake (a clock jump); the download resumes with Range and If-Range from where it was, and the capped back-off is logged without a retry storm.",
+      "Acceptance session (informational): put the Nova to sleep with the power button for a minute during a download; it continues after waking."
+    ],
+    "verification": "device",
+    "depends_on": ["M1-18", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M3-05",
+    "milestone": "M3",
+    "title": "Exit and power actions that fit Game Mode",
+    "description": "Under Steam Game Mode, the quit dialog's Sleep/Restart/Turn off (RomMix's `src/main/power.ts`) defer to Steam: offer 'Back to Steam' and 'Switch to Desktop' (Armada's `steamos-session-select desktop`), and keep the systemctl actions only outside Game Mode.",
+    "source": ["INT"],
+    "acceptance": [
+      "Mode detection (gamescope session, SteamGameId) is a pure function with tests; the dialog shows the right set in each mode (test:app with environment overrides).",
+      "Device check `gamemode.detect`: in Game Mode the quit dialog offers Back to Steam and Switch to Desktop, and no systemctl power actions (screenshot; nothing is executed)."
+    ],
+    "verification": "device",
+    "depends_on": ["M1-13", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M3-06",
+    "milestone": "M3",
+    "title": "On-screen keyboard that works with the pad",
+    "description": "An in-app keyboard for every text field (server address, search, collection names), because Steam's keyboard does not reliably appear for non-Steam apps. Layouts for URL, text and numbers; the pad types, B deletes, Start confirms.",
+    "source": ["INT", "PARITY-45"],
+    "acceptance": [
+      "Every text input opens the in-app keyboard when focused with the pad (test:app walks the sign-in and search screens with the pad only).",
+      "`shots:nova` includes the keyboard over the sign-in screen.",
+      "Device check `keyboard.osk`: the internal pad driver types a search and a server address with the in-app keyboard (screenshots)."
+    ],
+    "verification": "device",
+    "depends_on": ["M1-15", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M3-07",
+    "milestone": "M3",
+    "title": "In-game menu without stealing the screen",
+    "description": "Bring the Argosy fork's in-game bar (title, emulator/core, PLAYED, SESSION, achievements; actions) to Linux without mapping a window over the game: in the Decky panel, and for RetroArch through its network command interface (`network_cmd_enable` in the appended config) for save state, load state, reset, disc swap and quit. Standalone emulators keep their own menus.",
+    "source": ["PARITY-38", "INT"],
+    "acceptance": [
+      "RetroArch commands are sent over UDP to localhost only, with tests against a fake listener.",
+      "Reset sits apart from Quit and asks to confirm (dangerous-neighbour rule).",
+      "Device check `retroarch.netcmd`: with the sandboxed RetroArch running the SNES payload, Galleon's UDP commands save a state, load it and quit, and RetroArch's log confirms each.",
+      "Acceptance session (informational): the same from the Quick Access panel (M3-01)."
+    ],
+    "verification": "device",
+    "depends_on": ["M3-01", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M3-08",
+    "milestone": "M3",
+    "title": "Controller check and Steam Input guidance",
+    "description": "The pre-flight lists every controller the app can see (the post-v0.20.0 upstream commits 68697e0 and 990e55e3 do this; port them once their test:app failure is fixed) and explains which Steam Input template to choose for the launcher's shortcut, since every emulator inherits it.",
+    "source": ["INT", "PARITY-45"],
+    "acceptance": [
+      "The upstream commits are ported with their tests, and test:app passes on both architectures.",
+      "The guidance text is in all four catalogues and names the template Armada's store uses for its apps.",
+      "Device check `controllers.listed`: the pre-flight lists the Nova's controller as Galleon sees it in Game Mode (screenshot).",
+      "Acceptance session (informational): with the template the guidance names, the buttons work in every emulator (M7-12)."
+    ],
+    "verification": "device",
+    "depends_on": ["M1-23", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M3-09",
+    "milestone": "M3",
+    "title": "Updates arrive on the Nova without a computer",
+    "description": "End to end on the device: the in-app updater (Automatic by default) takes the Nova from one nightly to the next, verifying the checksum; `install.sh` works again as a repair path.",
+    "source": ["REQ-13", "PARITY-48"],
+    "acceptance": [
+      "The updater's Steam-launch limitation (cannot restart itself) is explained on screen with 'quit and press Play again'.",
+      "Device check `update.verify` (shared with M0-13) passes, and after a staged update in the test home the screen explains 'quit and press Play again' (screenshot)."
+    ],
+    "verification": "device",
+    "depends_on": ["M0-13", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M4-01",
+    "milestone": "M4",
+    "title": "Local library index for discovery features",
+    "description": "RomMix deliberately keeps no local copy of the library (TODO.md, 'A copy of the whole library on this disk'), but Series, genre counts, random pick and offline browsing need one. Write an ADR, then build a lean index (id, platform, names, sizes, files summary, genres, franchises, collections, companies, release year, HLTB, missing_from_fs, updated_at) kept current with `updated_after`, deletions from `GET /api/roms/identifiers`, `with_char_index/with_filter_values/with_rom_id_index=false`, a weekly full pass, and startup jobs owned by a service rather than by any screen.",
+    "source": ["BEYOND-12", "PARITY-2", "PARITY-3"],
+    "acceptance": [
+      "The ADR records why RomMix's earlier decision no longer holds for this fork and what stays live (search, per-user fields).",
+      "An incremental pass with nothing changed costs one `updated_after` page plus one identifiers call (test against Docker 5.2.0 counting requests).",
+      "The first full build for a 4,206-row library fits in under 60 MB on disk (measured with the synthetic library scaled up in a test).",
+      "Startup connect, the weekly sync and the favourites refresh run from a main-process service and still run when Home is replaced (test)."
+    ],
+    "verification": "ci",
+    "depends_on": ["M0-08"],
+    "passes": false
+  },
+  {
+    "id": "M4-02",
+    "milestone": "M4",
+    "title": "Design system: the Nova theme",
+    "description": "Implement the Argosy fork's visual language as a theme and layout set (docs/research/argosy-fork-design-spec.md): black or charcoal ground, white and four greys, hairlines #1c1c1c, one swappable accent (amber default plus mint, sky, rose, lime, slate) reserved for selection and things in motion, IBM Plex Mono (SIL OFL, shipped with its licence in `src/renderer/src/assets/fonts/`), weights one step heavier, type at 1.2x of the 1024x768 canvas scaled to 1280x960, TEXT SIZE 100-130%, square corners, no painted system chrome.",
+    "source": ["PARITY-43", "REQ-3"],
+    "acceptance": [
+      "Tokens live in one stylesheet under `src/renderer/src/styles/themes/` plus CSS variables; no screen hard-codes a colour (lint rule or test greps `#[0-9a-f]{3,6}` outside theme files).",
+      "A contrast test checks every grey on both grounds against the type sizes it is used at.",
+      "`shots:nova` contact sheet reviewed: the accent appears only on the focused item and on moving progress."
+    ],
+    "verification": "agent-screenshot",
+    "depends_on": ["M1-15"],
+    "passes": false
+  },
+  {
+    "id": "M4-03",
+    "milestone": "M4",
+    "title": "One selection look and calm motion",
+    "description": "The focused item's label turns accent only where A acts, with one 2 px accent mark (left bar on rows, underline on inline items, inner ring on tiles) and a 15% band on full-width rows; colour-only transitions of about 120 ms; animate colour, opacity and width only, never size or position (docs/research/argosy-fork-design-spec.md, 'One selection look', 'Motion').",
+    "source": ["PARITY-44", "BEYOND-8"],
+    "acceptance": [
+      "A shared focus component in `src/renderer/src/components/` is used by every focusable element; a test:app scan finds no focused element without the mark.",
+      "A CSS lint test fails on transitions or animations of width/height/top/left/transform on grid tiles.",
+      "No row ever shows two accent spots, and items where A does nothing step one grey brighter instead (screenshots)."
+    ],
+    "verification": "agent-screenshot",
+    "depends_on": ["M4-02"],
+    "passes": false
+  },
+  {
+    "id": "M4-04",
+    "milestone": "M4",
+    "title": "Grids that stay smooth at 1,300 games",
+    "description": "Replace the grow-forever paging grid (`src/renderer/src/paging.ts`, PAGE_SIZE 60 appended to the DOM) with windowed rendering: only rows near the viewport exist, focus movement never reflows, images decode off the main thread at tile size, and covers are cached on disk at display size.",
+    "source": ["PARITY-47", "REQ-3"],
+    "acceptance": [
+      "With a 1,300-game fake platform, DOM node count stays under 600 at any scroll position (test:app).",
+      "The frame-time overlay's scripted 30 s scroll under Xvfb shows no regression against the M1 baseline recorded in PROGRESS.md.",
+      "Device check `grid.scroll@performance`: scrolling a 1,000+ game platform top to bottom and back shows p95 frame time at or under 16.7 ms and dropped frames at or under 3% on the Performance profile, with no regression against the M1 baseline recorded in PROGRESS.md."
+    ],
+    "verification": "device",
+    "depends_on": ["M4-01", "M0-10", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M4-05",
+    "milestone": "M4",
+    "title": "File-state dot everywhere",
+    "description": "One dot at the bottom-left of every cover and row: hollow grey ring = on the server, solid grey = queued, solid accent plus a 2 px accent hairline filling left to right = downloading (the line appears only once bytes move), solid white = on this device; multi-disc games aggregate their discs.",
+    "source": ["PARITY-6"],
+    "acceptance": [
+      "The state is computed by one pure function from the download queue and the install index, including multi-disc aggregation (unit tests for all four states and partial discs).",
+      "`shots:nova` includes a grid with all four states (fake server can hold a download at 40%)."
+    ],
+    "verification": "agent-screenshot",
+    "depends_on": ["M4-02"],
+    "passes": false
+  },
+  {
+    "id": "M4-06",
+    "milestone": "M4",
+    "title": "Now playing home",
+    "description": "Home becomes Now playing (docs/research/argosy-fork-design-spec.md): left a two-column feed of up to 12 recently played games, right the selected game's preview in a 4:3 frame over title, year, DEVELOPER / PUBLISHER / GENRE / FILE (disc count and size), a hairline and the status row with transfer progress; A play or download, X details, Y preview audio, RB Browse, B back; empty state points at Browse.",
+    "source": ["PARITY-15", "PARITY-2"],
+    "acceptance": [
+      "Recently played comes from RomM's `last_played` plus local sessions, most recent first (test).",
+      "Controls behave as listed (test:app with the pad).",
+      "`shots:nova` shows the populated and empty states."
+    ],
+    "verification": "agent-screenshot",
+    "depends_on": ["M4-05", "M4-07"],
+    "passes": false
+  },
+  {
+    "id": "M4-07",
+    "milestone": "M4",
+    "title": "Preview video with sound",
+    "description": "Play RomM's per-game preview (`path_video`, served from the resources mount) through a protocol handler that supports Range, start it about 250 ms after selection settles, cut (never fade) on change, loop, sound on, black when there is none, a 750 MB LRU disk cache, and stop it under the screensaver, while a game runs and when the window is hidden.",
+    "source": ["PARITY-19"],
+    "acceptance": [
+      "The protocol handler answers Range requests with 206 and validates paths like the image protocol (unit tests).",
+      "The debounce and cache eviction are pure modules with tests; a d-pad sweep across 20 tiles opens at most one stream.",
+      "Device check `video.preview`: a sweep across 20 tiles opens at most one stream, the settled selection's video starts within 500 ms (a bundled public-domain clip when the library has no preview videos), and grid p95 during playback stays within the M4-04 threshold."
+    ],
+    "verification": "device",
+    "depends_on": ["M4-02", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M4-08",
+    "milestone": "M4",
+    "title": "Preview audio toggle",
+    "description": "Y toggles preview audio globally, shown as PREVIEW AUDIO / MUTED on the video badge and in the header; Browse honours it; the setting persists.",
+    "source": ["PARITY-20"],
+    "acceptance": [
+      "Persisted in settings and covered by a test; the badge appears in `shots:nova`."
+    ],
+    "verification": "agent-screenshot",
+    "depends_on": ["M4-07"],
+    "passes": false
+  },
+  {
+    "id": "M4-09",
+    "milestone": "M4",
+    "title": "Browse: grid and metadata bar",
+    "description": "Per-platform 5-column grid of 4:3 tiles with LB/RB to change platform and header counts; a metadata bar along the bottom (156 px at 1.2x type, scaled for 1280x960) whose right half is the selected game's video under the left-to-right scrim; three metadata rows (DEVELOPER / PUBLISHER / GENRE, then PLAYED / TO BEAT / ACHIEVEMENTS, plus TRANSFER while downloading) with a 90 ms crossfade on selection change (docs/research/argosy-fork-design-spec.md).",
+    "source": ["PARITY-16", "PARITY-17"],
+    "acceptance": [
+      "LB/RB cycle platforms in RomM order and wrap (test:app).",
+      "TO BEAT comes from RomM's HLTB data where present and is omitted otherwise.",
+      "`shots:nova` shows Browse with and without a download in progress."
+    ],
+    "verification": "agent-screenshot",
+    "depends_on": ["M4-04", "M4-07"],
+    "passes": false
+  },
+  {
+    "id": "M4-10",
+    "milestone": "M4",
+    "title": "The bar rises into a panel",
+    "description": "A raises the bar into a 416 px panel (scaled): the video grows to a 512x384 letterboxed frame, the plain cover in a white hairline, the description and hints A PLAY/DOWNLOAD, X DETAILS, B CLOSE fade in; the grid dims but never moves; B drops it back.",
+    "source": ["PARITY-18"],
+    "acceptance": [
+      "The grid's tile positions are identical before, during and after the panel (test:app compares bounding boxes).",
+      "Panel and bar are one element at two heights (no remount; video keeps playing)."
+    ],
+    "verification": "agent-screenshot",
+    "depends_on": ["M4-09"],
+    "passes": false
+  },
+  {
+    "id": "M4-11",
+    "milestone": "M4",
+    "title": "Title-aware cover crop and selection reveal",
+    "description": "Match RomM's per-game `logo.png` against the cover once per game in a worker (blurred-edge plus luma cross-correlation over scales, accept only confident matches), store one 0..1 offset per game, and crop 4:3 tiles to keep the title, centred when unsure. The selected tile zooms out to the whole cover over a blurred, dimmed copy without changing size.",
+    "source": ["PARITY-21", "PARITY-22"],
+    "acceptance": [
+      "The matcher is a pure function tested on fixture covers with known logo positions (including 'no logo' and 'not confident' cases returning centre).",
+      "Analysis is batched, time-limited, retried at most three times and never re-run on download ticks.",
+      "`shots:nova` shows a cover cropped to its title and a selected tile revealing the whole cover."
+    ],
+    "verification": "agent-screenshot",
+    "depends_on": ["M4-09"],
+    "passes": false
+  },
+  {
+    "id": "M4-12",
+    "milestone": "M4",
+    "title": "Cover flight into details",
+    "description": "Opening details from the Browse panel fades the rest of Browse to black while the cover glides to the detail screen's cover frame (376x282 canvas px, scaled), then the route changes; input is ignored mid-flight.",
+    "source": ["PARITY-23"],
+    "acceptance": [
+      "The flight uses transform/opacity on a detached copy only (not on grid tiles) and lasts about 320 ms.",
+      "Pressed buttons during the flight are dropped (test:app)."
+    ],
+    "verification": "agent-screenshot",
+    "depends_on": ["M4-10"],
+    "passes": false
+  },
+  {
+    "id": "M4-13",
+    "milestone": "M4",
+    "title": "Game details in the fork layout",
+    "description": "Left: the plain cover in a white hairline, status, and an action rail (play/download, delete, favourite, hide, versions, discs, emulator and core, saves, collections). Right: metadata, description, screenshots (focus follows the d-pad), achievements, and MORE IN <series>. RomMix's tabs (Details, Saves, Files, Screenshots, Manual, Achievements, Versions) are restyled, not dropped.",
+    "source": ["PARITY-24", "BEYOND-8"],
+    "acceptance": [
+      "Every action of the inherited game page is still reachable with the pad (test:app visits each `data-action`).",
+      "The screenshot strip's focus ring follows d-pad moves (test).",
+      "`shots:nova` covers each part of the page."
+    ],
+    "verification": "agent-screenshot",
+    "depends_on": ["M4-03", "M4-15"],
+    "passes": false
+  },
+  {
+    "id": "M4-14",
+    "milestone": "M4",
+    "title": "Genre filter and ALL / ON DEVICE",
+    "description": "A 34 px genre strip under the Browse header: LT/RT step through genres ordered by count, SELECT flips ALL / ON DEVICE; applies to Browse and Series, never to Now playing; remembered between launches; no accent in the strip.",
+    "source": ["PARITY-25", "REQ-9"],
+    "acceptance": [
+      "Genre counts come from the local index and match RomM for the fixture library (test).",
+      "Both choices persist across restarts (test)."
+    ],
+    "verification": "agent-screenshot",
+    "depends_on": ["M4-01", "M4-09"],
+    "passes": false
+  },
+  {
+    "id": "M4-15",
+    "milestone": "M4",
+    "title": "Series / IP screen",
+    "description": "IPs are IGDB franchises spanning two or more systems, plus multi-system collections with no franchise; each opens to its series grouped by platform; details get MORE IN <series> (up to 7 games) ending in ALL OF <IP>. Names containing commas must not split.",
+    "source": ["PARITY-26"],
+    "acceptance": [
+      "Grouping is a pure function over the local index with tests, including comma-containing franchise names and games in several collections.",
+      "The screen fills in under one second for the scaled synthetic library (test)."
+    ],
+    "verification": "agent-screenshot",
+    "depends_on": ["M4-01"],
+    "passes": false
+  },
+  {
+    "id": "M4-16",
+    "milestone": "M4",
+    "title": "Collections as a mosaic",
+    "description": "One RomM collection at a time as a mosaic that scrolls down; LB/RB step around the ring (genres first, then game modes, each largest first, then the user's and smart collections); A opens the focused game.",
+    "source": ["PARITY-27"],
+    "acceptance": [
+      "Collections come from `/api/collections`, `/api/collections/smart` and `/api/collections/virtual` (fake server supports all three).",
+      "`shots:nova` shows the mosaic."
+    ],
+    "verification": "agent-screenshot",
+    "depends_on": ["M4-04"],
+    "passes": false
+  },
+  {
+    "id": "M4-17",
+    "milestone": "M4",
+    "title": "Drawer on Start",
+    "description": "Start opens a drawer: Now playing, Browse, Series, Collections, Downloads, Saves, Apps, Settings, with counts only when something needs attention (failed downloads, save conflicts) and an account row.",
+    "source": ["PARITY-28"],
+    "acceptance": [
+      "Counts update live from the queue and the save engine (test:app).",
+      "`shots:nova` shows the drawer with one count."
+    ],
+    "verification": "agent-screenshot",
+    "depends_on": ["M4-03"],
+    "passes": false
+  },
+  {
+    "id": "M4-18",
+    "milestone": "M4",
+    "title": "L3 quick menu",
+    "description": "L3 opens search (fuzzy), random pick, most played, top unplayed, recent and favourites; each game row shows 64x48 art and the file-state dot, and updates live when a download finishes.",
+    "source": ["PARITY-29", "BEYOND-8"],
+    "acceptance": [
+      "Fuzzy search is a pure function with tests (typos, articles, roman numerals).",
+      "A download finishing while the menu is open turns the dot white without reopening (test:app)."
+    ],
+    "verification": "agent-screenshot",
+    "depends_on": ["M4-05", "M4-01"],
+    "passes": false
+  },
+  {
+    "id": "M4-19",
+    "milestone": "M4",
+    "title": "R3 quick settings",
+    "description": "R3 opens quick settings: accent, ground, text size, preview audio, navigation sounds, the frame-time overlay, and Armada's performance profile where it can be read and set without root (otherwise a hint to use Armada Control).",
+    "source": ["PARITY-30"],
+    "acceptance": [
+      "Each control changes the setting in place with left/right (test:app).",
+      "The performance-profile control is hidden when the system offers no unprivileged way to change it (detection unit-tested)."
+    ],
+    "verification": "agent-screenshot",
+    "depends_on": ["M4-02"],
+    "passes": false
+  },
+  {
+    "id": "M4-20",
+    "milestone": "M4",
+    "title": "Settings hub",
+    "description": "Fork knobs first (ACCENT, GROUND, TEXT SIZE, SCREENSAVER AFTER, SCREENSAVER FIELD, PREVIEW AUDIO), changed in place with left/right; then server, sync, RetroAchievements, storage, emulators, BIOS, Steam, graphics, updates, about. Remembers focus and scroll.",
+    "source": ["PARITY-31"],
+    "acceptance": [
+      "Every inherited setting from `src/renderer/src/screens/Settings/tabs/` is still reachable (test:app).",
+      "Focus and scroll are restored when returning to the hub (test)."
+    ],
+    "verification": "agent-screenshot",
+    "depends_on": ["M4-03"],
+    "passes": false
+  },
+  {
+    "id": "M4-21",
+    "milestone": "M4",
+    "title": "Notices that never steal focus",
+    "description": "Square cards with a 2 px left mark (white info, grey warning, red error); only a running task's hairline uses the accent; a persistent running-task card; drawn inside the main window and queued while a game runs.",
+    "source": ["PARITY-32"],
+    "acceptance": [
+      "`src/renderer/src/Toasts.tsx` restyled; test:app confirms no extra window and queued delivery after a game."
+    ],
+    "verification": "agent-screenshot",
+    "depends_on": ["M1-13", "M4-02"],
+    "passes": false
+  },
+  {
+    "id": "M4-22",
+    "milestone": "M4",
+    "title": "Screensaver",
+    "description": "After 2.5 idle minutes (off, 1, 2, 2.5, 3, 5, 10): black with a soft accent noise field rendered at about 10 fps, clock top left, a random installed or library game bottom left (cover, platform and year, title, time to beat, A OPEN), and a 4:3 collage of that game's screenshots plus one page of its manual; a new game every 30 s; any button wakes, A opens details; video and audio stop.",
+    "source": ["PARITY-33"],
+    "acceptance": [
+      "The collage layout is a pure function choosing one of three grid patterns, each picture used once, empty slots as hairline frames (tests).",
+      "Manual pages come through the M1-25 path, are cached (100 MB cap, 40 MB per file) and rendered at 900 px.",
+      "The noise field costs under 2 ms per frame on the Xvfb runner and runs only while the saver shows."
+    ],
+    "verification": "agent-screenshot",
+    "depends_on": ["M4-02", "M1-25"],
+    "passes": false
+  },
+  {
+    "id": "M4-23",
+    "milestone": "M4",
+    "title": "Achievements from RomM",
+    "description": "Per-game achievements and progress from RomM's RetroAchievements data on details, the Browse bar and the in-game panel; the fetch retries after errors, caches per user, and refreshes after a session.",
+    "source": ["PARITY-34", "BEYOND-9"],
+    "acceptance": [
+      "A failed fetch is retried with back-off within the session, not only after restart (test).",
+      "Cache keys include the RomM user id (test)."
+    ],
+    "verification": "ci",
+    "depends_on": ["M4-01"],
+    "passes": false
+  },
+  {
+    "id": "M4-24",
+    "milestone": "M4",
+    "title": "Downloads screen in the fork layout",
+    "description": "ACTIVE / QUEUED / FINISHED rows with small cover, platform and status, the accent hairline, and the M1-18 line '15% - 613.6 MB / 3.8 GB - 41.4 MB/s - 1m 20s left'; storage wait reads 'NEED 4.2 GB, AVAILABLE 1.1 GB'; failures show the reason and Retry; X cancels; the 'on this device' list with sizes and free space stays.",
+    "source": ["PARITY-7", "PARITY-8", "REQ-5", "REQ-10"],
+    "acceptance": [
+      "Focus survives rows moving between sections (test:app).",
+      "Device check `download.queue`: three small ROMs queued in the test home run one after another, X on the internal pad driver cancels one, the rows keep their places and focus never jumps (screenshots), and every file is deleted afterwards."
+    ],
+    "verification": "device",
+    "depends_on": ["M1-18", "M4-03", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M4-25",
+    "milestone": "M4",
+    "title": "Saves screen in the fork layout",
+    "description": "Header with device name, saves from this device, connection; NEEDS A DECISION (M2-16 choices); IN PROGRESS; SAVED GAMES with readable status (SERVER NEWER, PENDING UPLOAD, UP TO DATE, NOT SYNCED: reason); Y runs a check; unreadable save folders are named.",
+    "source": ["PARITY-12"],
+    "acceptance": [
+      "Statuses map one-to-one from the engine's states with no state shown as uploading before bytes move (test).",
+      "`shots:nova` shows each section."
+    ],
+    "verification": "agent-screenshot",
+    "depends_on": ["M2-16", "M4-03"],
+    "passes": false
+  },
+  {
+    "id": "M4-26",
+    "milestone": "M4",
+    "title": "Apps screen",
+    "description": "Other apps in 4:3 hairline frames: Steam's non-Steam shortcuts (from M5-05) and Armada Store apps (`~/.local/share/applications/armada-*.desktop`), with hide and reorder; launching goes through Steam for shortcuts so Steam tracks them.",
+    "source": ["PARITY-42"],
+    "acceptance": [
+      "Order and hidden state persist (test).",
+      "`shots:nova` shows the screen in reorder mode."
+    ],
+    "verification": "agent-screenshot",
+    "depends_on": ["M5-05", "M4-03"],
+    "passes": false
+  },
+  {
+    "id": "M4-27",
+    "milestone": "M4",
+    "title": "Every control on the pad, and a footer that says what buttons do",
+    "description": "D-pad, face buttons, shoulders, triggers, Start, Select, L3, R3 all have a job on the screens where they help; a contextual footer shows the current bindings and hides when there is nothing useful to say; touch still works where it existed; no painted status bar, clock (outside the screensaver) or battery.",
+    "source": ["PARITY-45"],
+    "acceptance": [
+      "A binding table per screen is data; test:app checks the footer matches it.",
+      "Every screen is fully operable without touch or keyboard (test:app pad-only walk)."
+    ],
+    "verification": "agent-screenshot",
+    "depends_on": ["M4-03"],
+    "passes": false
+  },
+  {
+    "id": "M4-28",
+    "milestone": "M4",
+    "title": "Every inherited surface in the new look",
+    "description": "Restyle what remains from RomMix (setup and emulator wizards, dialogs, BIOS, Emulators, pre-flight, update panel, collections dialog) so nothing leaks the old themes, including the light themes; the fork theme is the default and RomMix's themes stay selectable only if they still render correctly.",
+    "source": ["BEYOND-18", "PARITY-43"],
+    "acceptance": [
+      "A test renders every screen in the fork theme and fails on computed colours outside the token set (test:app).",
+      "`shots:nova` contact sheet reviewed screen by screen in the PR."
+    ],
+    "verification": "agent-screenshot",
+    "depends_on": ["M4-02"],
+    "passes": false
+  },
+  {
+    "id": "M4-29",
+    "milestone": "M4",
+    "title": "Library hygiene: folding and filters",
+    "description": "Fold RomM sibling rows with the same display name into one game with a version picker at download time (never at launch), join per-disc rows into one multi-disc game, and add sync filters: hide prototypes, betas, demos, unlicensed, hacks, chosen regions and hidden games.",
+    "source": ["PARITY-4", "PARITY-5"],
+    "acceptance": [
+      "Folding is a pure function over index rows with tests from the fixture library's shapes.",
+      "Filters persist and apply to Browse, Series, search and counts consistently (tests)."
+    ],
+    "verification": "ci",
+    "depends_on": ["M4-01"],
+    "passes": false
+  },
+  {
+    "id": "M4-30",
+    "milestone": "M4",
+    "title": "Favourites, hide and ratings stay in RomM",
+    "description": "Favourite, hide and rate from details and the quick menu; changes go to RomM (`PUT /api/roms/{id}/props` and the favourites collection) and queue while offline.",
+    "source": ["PARITY-46"],
+    "acceptance": [
+      "test:romm asserts each change round-trips on 5.2.0; offline changes are sent on reconnect (test)."
+    ],
+    "verification": "ci",
+    "depends_on": ["M4-13"],
+    "passes": false
+  },
+  {
+    "id": "M4-31",
+    "milestone": "M4",
+    "title": "Emulator and core per platform and per game; disc and memory-card pickers",
+    "description": "Per-platform choice exists in RomMix (Emulators -> Platforms, 'Run with...'); add per-game overrides of emulator and core shown with the inherited default, a disc picker for multi-disc games, and a memory-card picker where an emulator has several cards.",
+    "source": ["PARITY-35"],
+    "acceptance": [
+      "Overrides persist per ROM id and change the save location consistently (tests on `saves()` context).",
+      "`shots:nova` shows the per-game override and the disc picker."
+    ],
+    "verification": "agent-screenshot",
+    "depends_on": ["M4-13"],
+    "passes": false
+  },
+  {
+    "id": "M4-32",
+    "milestone": "M4",
+    "title": "First-run wizard and pairing in the new look",
+    "description": "Restyle `src/renderer/src/screens/Wizards/Setup/` at 4:3 with the M1-21 address probing and M1-22 pairing screen, ending with the SD-card choice (M1-10) and the emulator check (M1-23).",
+    "source": ["PARITY-48", "PARITY-1"],
+    "acceptance": [
+      "test:app completes the wizard with the pad only against the fake server.",
+      "`shots:nova` shows each wizard page."
+    ],
+    "verification": "agent-screenshot",
+    "depends_on": ["M1-21", "M1-22", "M4-02"],
+    "passes": false
+  },
+  {
+    "id": "M4-33",
+    "milestone": "M4",
+    "title": "UI acceptance on the Nova",
+    "description": "The owner judges the redesigned launcher on the device: legibility at arm's length and feel. The measured part is already settled by the device checks of M4-04 and M4-34, which must pass first.",
+    "source": ["PARITY-47", "REQ-3", "REQ-1"],
+    "acceptance": [
+      "The newest device results pass `grid.scroll@performance` (M4-04) and `grid.scroll@balanced` (M4-34) before the session is scheduled.",
+      "Acceptance session: walk Now playing, Browse (with the panel), details, Series, Collections, Downloads, Saves and Settings for ten minutes. Text is readable at arm's length, it feels at least as smooth as Steam's library, and you would rather use it than Steam's library."
+    ],
+    "verification": "acceptance",
+    "depends_on": ["M4-04", "M4-06", "M4-09", "M4-10", "M4-13", "M4-24", "M4-25", "M4-28"],
+    "passes": false
+  },
+  {
+    "id": "M4-34",
+    "milestone": "M4",
+    "title": "Smooth on Armada's Balanced profile too",
+    "description": "Phase 0 passed smoothness only on the Performance profile. Make the redesigned UI light enough that browsing is smooth on Balanced (conservative governor, capped clocks), so the launcher does not need Performance just to scroll: cheap focus moves, no layout work per d-pad press, decoded covers at tile size, video decode only for the settled selection, and a 'light browse' setting that turns off preview video and the reveal zoom if needed.",
+    "source": ["REQ-3", "PARITY-47", "INT"],
+    "acceptance": [
+      "test:app runs the scripted Browse scroll with CPU throttled (Chromium CPU throttling rate 4 through the DevTools protocol) and records frame-time p90 and janky share; the PR shows before/after.",
+      "The light-browse setting exists in R3 quick settings and is remembered.",
+      "Device check `grid.scroll@balanced`: on the Balanced profile the same scroll shows p95 frame time at or under 16.7 ms and dropped frames at or under 5%."
+    ],
+    "verification": "device",
+    "depends_on": ["M4-04", "M4-07", "M1-27", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M5-01",
+    "milestone": "M5",
+    "title": "Steam games as a first-class platform",
+    "description": "Installed Steam games appear in Now playing, Browse (a Steam platform), search and the quick menu, with art from the user's custom grid images, Steam's `appcache/librarycache` (flat files and per-appid folders) and finally Steam's CDN; playtime and last played from `localconfig.vdf` where present.",
+    "source": ["REQ-3", "PARITY-41"],
+    "acceptance": [
+      "Art lookup order is a pure function with tests for both librarycache layouts.",
+      "Steam games never enter RomM sync, save sync or downloads (tests).",
+      "Device check `steam.list` also shows installed Steam games as a Steam platform with art found for each (counts only), offered to start but not started."
+    ],
+    "verification": "device",
+    "depends_on": ["M1-14", "M4-09", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M5-02",
+    "milestone": "M5",
+    "title": "Coming back from a Steam game",
+    "description": "After a Steam game exits, the launcher returns to the front and redraws; while it runs, the launcher is suspended (M3-03).",
+    "source": ["INT", "REQ-3"],
+    "acceptance": [
+      "Device check `steam.return`: three times in a row, after the 'Galleon Device Test Target' shortcut started from Galleon exits, Galleon is in front within 5 s and redrawn, never a black screen (screenshots)."
+    ],
+    "verification": "device",
+    "depends_on": ["M3-03", "M5-01", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M5-03",
+    "milestone": "M5",
+    "title": "Living with 'Launch Multiple Games'",
+    "description": "Steam may show a 'Launch Multiple Games' prompt because the launcher is itself a running shortcut, and 'Close previous game' would kill it. Detect the outcome (the launcher killed vs still running), and apply the mitigation the `steam.launch` results support: guidance on screen before the first Steam launch, and relaunch through the Decky companion or Start on boot if the launcher was closed.",
+    "source": ["INT"],
+    "acceptance": [
+      "The chosen mitigation is recorded in an ADR citing the `steam.launch` results.",
+      "Device check `steam.launch` (M1-14): after the mitigation lands, the target starts and Galleon survives in three consecutive nightly runs."
+    ],
+    "verification": "device",
+    "depends_on": ["M1-20", "M5-01", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M5-04",
+    "milestone": "M5",
+    "title": "Install Steam games you own but have not installed",
+    "description": "For owned apps that Steam lists locally but are not installed, offer Install, handing off to Steam with `steam://install/<appid>` and showing Steam's progress state from the appmanifest when it appears.",
+    "source": ["PARITY-41"],
+    "acceptance": [
+      "Owned-but-not-installed detection is a pure function over Steam's local files with fixture tests; nothing is downloaded by the launcher itself.",
+      "Acceptance session: pick a game you own but have not installed and press Install in Galleon; Steam starts installing it, and Galleon shows it as installing, then installed."
+    ],
+    "verification": "acceptance",
+    "depends_on": ["M5-01"],
+    "passes": false
+  },
+  {
+    "id": "M5-05",
+    "milestone": "M5",
+    "title": "Read non-Steam shortcuts",
+    "description": "Parse binary `shortcuts.vdf` (read-only here; writing is M1-29) to list non-Steam shortcuts with appid, name, exe and launch options, and compute their 64-bit gameid `(appid << 32) | 0x02000000` for launching through `steam://rungameid/`.",
+    "source": ["PARITY-42", "INT"],
+    "acceptance": [
+      "Reader tests on fixtures, including signed int32 appids and unknown keys.",
+      "The launcher hides its own shortcut from the list."
+    ],
+    "verification": "ci",
+    "depends_on": ["M1-14"],
+    "passes": false
+  },
+  {
+    "id": "M6-01",
+    "milestone": "M6",
+    "title": "Favourite means ready to play",
+    "description": "Marking a game as a favourite queues its download in the background (behind anything the user started), respects free space and the SD-card choice, and offers to remove the download when it is unfavourited (never automatically).",
+    "source": ["REQ-8"],
+    "acceptance": [
+      "The queue policy is a pure function with tests (priority, space check, unfavourite while queued cancels, unfavourite when installed asks).",
+      "Favourites set from another device (RomM) are picked up at the next sync and queued too (test with Docker RomM).",
+      "Device check `favourite.predownload`: a favourite set in the test home (the server's favourites are only read) queues the smallest SNES title in the background behind a user-started download; it completes, and unfavouriting asks before removing it; all files are deleted afterwards."
+    ],
+    "verification": "device",
+    "depends_on": ["M4-30", "M1-10", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M6-02",
+    "milestone": "M6",
+    "title": "On device, and making room",
+    "description": "An 'On device' view (also the ON DEVICE filter) listing what is downloaded with size and last played, total used and free per volume, and 'Make room': pick games to delete, largest or least recently played first; never deletes a game whose saves are not uploaded.",
+    "source": ["REQ-9"],
+    "acceptance": [
+      "Deletion goes through the existing uninstall path and refuses when the save queue holds that game (test).",
+      "Sizes and free space match `df` and `du` on the fixture (test).",
+      "Device check `storage.makeroom`: with three small ROMs in the test home, Make room removes the chosen ones, free space rises by their size (from `df`), and a game with a pending save upload (fake RomM stopped) is refused."
+    ],
+    "verification": "device",
+    "depends_on": ["M4-14", "M2-17", "M0-22", "M2-20"],
+    "passes": false
+  },
+  {
+    "id": "M6-03",
+    "milestone": "M6",
+    "title": "Dead rows and wrongly merged games",
+    "description": "Hide or flag rows RomM marks `missing_from_fs`, and never fold differently named games together just because they share an IGDB (or other provider) id, so stale rows cannot hide real games and sequels are not swallowed.",
+    "source": ["BEYOND-10"],
+    "acceptance": [
+      "Tests reproduce the Argosy fork's cases (a stale missing row hiding the real game; a sequel sharing a match) and show both fixed."
+    ],
+    "verification": "ci",
+    "depends_on": ["M4-29"],
+    "passes": false
+  },
+  {
+    "id": "M6-04",
+    "milestone": "M6",
+    "title": "Multi-disc assembly that cannot collide",
+    "description": "Assemble multi-disc games from `files[]` (not from siblings), write the client's own playlist in a folder whose name does not contain '.m3u' (PCSX ReARMed reads such paths as playlists), ignore any server .m3u, and keep generic track names from overwriting each other.",
+    "source": ["BEYOND-11", "BEYOND-4", "PARITY-9"],
+    "acceptance": [
+      "Tests with the fixture's 16-folder PS1 and 6-folder GameCube shapes and a GDI with generic track names.",
+      "The playlist path never contains '.m3u' as a folder segment (test)."
+    ],
+    "verification": "ci",
+    "depends_on": ["M0-07"],
+    "passes": false
+  },
+  {
+    "id": "M6-05",
+    "milestone": "M6",
+    "title": "Resumable downloads for folder and zip games",
+    "description": "Download multi-file games file by file (`?file_ids=` or `/files/content/`), verifying each against `files[].md5_hash` or `sha1_hash`, so every file resumes on its own; use the Range-cached zip only where per-file is impossible.",
+    "source": ["BEYOND-13"],
+    "acceptance": [
+      "test:romm interrupts a multi-file download mid-file and resumes it without refetching finished files.",
+      "A hash mismatch refetches only that file and reports it once."
+    ],
+    "verification": "ci",
+    "depends_on": ["M0-08"],
+    "passes": false
+  },
+  {
+    "id": "M6-06",
+    "milestone": "M6",
+    "title": "PSP DLC installed for you",
+    "description": "For PSP rows with `.EDAT` extras, install the DLC into PPSSPP's memory stick `PSP/GAME/<region title id>/` (the folder name must carry the game's own region title id), and remove it with the game.",
+    "source": ["BEYOND-16"],
+    "acceptance": [
+      "Title id comes from the ISO's PARAM.SFO (parser tests on fixtures); placement and removal are tested.",
+      "Device check `psp.dlc`: for the smallest PSP row with `.EDAT` extras, Galleon reads the title id from PARAM.SFO with a capped Range read, places only the DLC files in the PPSSPP sandbox's `PSP/GAME/<title id>/`, and removes them with the game."
+    ],
+    "verification": "device",
+    "depends_on": ["M1-05", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M6-07",
+    "milestone": "M6",
+    "title": "Per-game PS2 settings applied at launch",
+    "description": "Apply known per-game ARMSX2 settings (for example blending level 4 for Final Fantasy X; 3 for Metal Gear Solid 2, Jak 1 and 3, Ratchet & Clank 3) through ARMSX2's per-game settings files, which the Android launcher could never pass, without touching the user's global settings.",
+    "source": ["BEYOND-14"],
+    "acceptance": [
+      "Per-game files are written under ARMSX2's game settings folder keyed by serial/CRC, from a data table with tests.",
+      "Device check `armsx2.pergame`: the per-game settings files for the table's serials are written where the Nova's ARMSX2 build reads them (in its sandbox), and the game page lists them (screenshot)."
+    ],
+    "verification": "device",
+    "depends_on": ["M1-03", "M7-02", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M6-08",
+    "milestone": "M6",
+    "title": "Multi-disc PlayStation games play through",
+    "description": "End to end: a 2-disc PS1 game downloads, launches with its playlist and swaps discs in DuckStation or RetroArch (Beetle PSX HW with PGXP offered as the RetroArch option).",
+    "source": ["BEYOND-4"],
+    "acceptance": [
+      "Device check `multidisc.playlist`: a two-disc homebrew playlist starts in the sandboxed RetroArch, and the 'next disc' network command switches discs (RetroArch's log shows disc 2)."
+    ],
+    "verification": "device",
+    "depends_on": ["M6-04", "M1-02", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M6-09",
+    "milestone": "M6",
+    "title": "Jellyfin 'Watch' surface (optional)",
+    "description": "A Watch screen in the fork's design for a Jellyfin server the user adds (address and sign-in kept like the RomM token): continue watching, libraries, play fullscreen with the pad. Off until configured.",
+    "source": ["BEYOND-1", "PARITY-48"],
+    "acceptance": [
+      "Tested against a Dockerized Jellyfin with a public-domain clip in CI.",
+      "Acceptance session: add your Jellyfin server in Settings, open Watch and play something with sound. Skip this item if you do not use Jellyfin."
+    ],
+    "verification": "acceptance",
+    "depends_on": ["M4-02"],
+    "passes": false
+  },
+  {
+    "id": "M6-10",
+    "milestone": "M6",
+    "title": "RomM music, where the server has it",
+    "description": "If the heartbeat version supports RomM's music API, offer the game soundtrack player; otherwise hide it. Gate by capability, not by guess.",
+    "source": ["PARITY-48"],
+    "acceptance": [
+      "Capability check against the 5.2.0 and 5.3.1 schemas in `schema/` decides availability (test).",
+      "With music available on the fixture server, a track plays (test:app)."
+    ],
+    "verification": "ci",
+    "depends_on": ["M4-01"],
+    "passes": false
+  },
+  {
+    "id": "M6-11",
+    "milestone": "M6",
+    "title": "Updates that can be undone",
+    "description": "Keep the previous AppImage when updating; if the new build crashes twice within a minute of starting, offer to go back, naming each build by its build date and commit (not the time it was archived).",
+    "source": ["BEYOND-15"],
+    "acceptance": [
+      "Crash detection and the rollback swap are unit-tested with fake files and clocks.",
+      "Device check `update.rollback`: in the test home, with the previous tested AppImage as the old build, a simulated double crash offers to go back, and going back restores the older build by commit; nothing outside the test home changes."
+    ],
+    "verification": "device",
+    "depends_on": ["M3-09", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M6-12",
+    "milestone": "M6",
+    "title": "Browse offline",
+    "description": "With RomM unreachable, the whole library stays browsable from the local index and cached art (installed games playable, others marked 'needs RomM'), and changes made offline are sent later.",
+    "source": ["PARITY-3"],
+    "acceptance": [
+      "test:app with the fake server stopped browses every screen without errors.",
+      "The image cache has a size cap and evicts least recently used covers (test)."
+    ],
+    "verification": "ci",
+    "depends_on": ["M4-01"],
+    "passes": false
+  },
+  {
+    "id": "M6-13",
+    "milestone": "M6",
+    "title": "Graphics information instead of Android's driver page",
+    "description": "Replace Android's 'Drivers' idea with a read-only Graphics page: Mesa version, GPU, renderer in use by the launcher, and a pointer to Armada's per-game Turnip override, plus the M1-16 graphics mode.",
+    "source": ["PARITY-48"],
+    "acceptance": [
+      "Values come from files readable without root and degrade to 'unknown' (tests).",
+      "`shots:nova` shows the page."
+    ],
+    "verification": "agent-screenshot",
+    "depends_on": ["M1-16", "M6-15"],
+    "passes": false
+  },
+  {
+    "id": "M6-14",
+    "milestone": "M6",
+    "title": "Give generic work back upstream",
+    "description": "Prepare upstreamable patch series for leclercb/rommix (Armada emulator descriptors, Steam library provider, preview videos, the https/http address probe, the manual-path fix) on `upstream/*` branches with a write-up per series; the owner decides whether to open the pull requests (the agent cannot open PRs on other repositories).",
+    "source": ["BEYOND-17", "REQ-2"],
+    "acceptance": [
+      "Each series applies cleanly to upstream's current main in CI and passes upstream's four checks there.",
+      "A `needs-human` issue lists the ready series with links and states the safe default (submit nothing upstream) that applies after 72 hours; the owner's decision or the default is recorded."
+    ],
+    "verification": "ci",
+    "depends_on": ["M1-23", "M5-01", "M4-07"],
+    "passes": false
+  },
+  {
+    "id": "M6-15",
+    "milestone": "M6",
+    "title": "Graphics backend experiments (low priority)",
+    "description": "Phase 0 fixed Game Mode lag with the power profile, so this is optional: behind Settings -> System -> Graphics (Auto / ANGLE-Vulkan / Wayland under gamescope / Software), stored in a pre-launch file the Steam script reads, try Chromium's ANGLE-on-Vulkan path (Turnip) and Ozone Wayland on gamescope's own socket (`GAMESCOPE_WAYLAND_DISPLAY`), and keep the X11 default unless measurements win.",
+    "source": ["REQ-3", "INT"],
+    "acceptance": [
+      "Switch sets are data in one table with tests; the Steam script logs the chosen set to launcher.log.",
+      "A broken mode cannot strand the player: holding B during start resets to Auto (documented in the player docs, M8-05).",
+      "Device check `graphics.modes`: an experiment run measures `grid.scroll@balanced` in each mode (Auto, ANGLE-Vulkan, Wayland under gamescope); Auto changes only if a mode wins on p95 and dropped frames in two runs, recorded in an ADR."
+    ],
+    "verification": "device",
+    "depends_on": ["M1-16", "M1-27", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M7-01",
+    "milestone": "M7",
+    "title": "Research: the best CRT look per system and emulator on the Nova",
+    "description": "Produce `docs/emulator-tuning/SHADERS.md`: for SNES, GBA, PS1, PS2, PSP, GameCube, Wii, Dreamcast and DS, the candidate CRT (or LCD) shader per emulator (RetroArch slang: crt-royale, crt-guest-advanced and its fast variants, crt-geom, zfast_crt, crt-lottes; Dolphin post-processing; PPSSPP post-shaders; DuckStation post-processing chains; ARMSX2/PCSX2 TV shaders; what Flycast and melonDS can do), how each looks at 4:3 1280x960 on an OLED, its GPU cost on Adreno 740 under Turnip at 120 Hz in Armada's default and Performance power profiles, licence, and a recommended default with confidence H/M/L. Start from the Argosy fork's prior work (crt-geom flat for SNES, zfast_crt for PS1, gba-color plus zfast_lcd for GBA, none on upscaled 3D), which the owner now overrides: CRT for modern systems too.",
+    "source": ["REQ-12", "REQ-11", "RESEARCH"],
+    "acceptance": [
+      "Every claim cites a source (shader repo at a commit, emulator source or docs); cost estimates say how they were derived and are marked for on-device measurement.",
+      "The document proposes an A/B plan per system for the acceptance session (two or three candidates each, five minutes per system), and the defaults the agent sets until then.",
+      "Licences are listed; GPL shaders are fetched at runtime from their upstream or used from the emulator's own install, never bundled in the MIT AppImage.",
+      "An independent evaluator challenge pass (like the Argosy fork's settings-sheet challenge) is attached."
+    ],
+    "verification": "ci",
+    "depends_on": ["M1-23"],
+    "passes": false
+  },
+  {
+    "id": "M7-02",
+    "milestone": "M7",
+    "title": "Settings applied at launch without touching the user's own",
+    "description": "A launcher-owned overlay per emulator and per game: RetroArch `--appendconfig`, Dolphin `-C` keys (and a launcher-owned user folder only if needed), Flycast transient `-config`, PPSSPP and DuckStation and ARMSX2 ini files backed up, patched and restored around the session, or per-game files where the emulator supports them. The user's own settings win where they set something explicitly.",
+    "source": ["REQ-11"],
+    "acceptance": [
+      "Snapshot tests of every generated config per system.",
+      "A crash or a forced quit restores the user's ini files on the next start (journal test).",
+      "Each change is listed on the game page ('applied by the launcher: ...')."
+    ],
+    "verification": "ci",
+    "depends_on": ["M1-08"],
+    "passes": false
+  },
+  {
+    "id": "M7-03",
+    "milestone": "M7",
+    "title": "SNES and GBA in RetroArch, tuned for the Nova",
+    "description": "4:3 at 1280x960 with integer or near-integer scaling as SHADERS.md decides, the chosen CRT/LCD chains, run-ahead or frame delay where cheap, Vulkan driver, and a RetroArch menu hotkey that cannot collide with the exit combo. Covers the 'built-in emulation' parity: shaders, aspect, filter, fast-forward, rewind, states, auto save/restore, cheats, bezels and hotkeys through RetroArch.",
+    "source": ["REQ-11", "REQ-12", "PARITY-36", "PARITY-39", "BEYOND-3"],
+    "acceptance": [
+      "Config snapshots per system; the menu hotkey is tested not to collide with the exit combo (Start held, and Select+Start if M1-28 enabled it).",
+      "Device check `tune.snes` and device check `tune.gba`: the sandboxed RetroArch with the launcher-owned config loads the chosen shader without errors (its log), fills the 4:3 screen as described (a gamescope screenshot when available), and runs at full speed (RetroArch's frame statistics)."
+    ],
+    "verification": "device",
+    "depends_on": ["M7-01", "M7-02", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M7-04",
+    "milestone": "M7",
+    "title": "PlayStation (DuckStation) tuned",
+    "description": "Internal resolution, PGXP, texture filtering, 120 Hz pacing and the chosen CRT chain for DuckStation (or the RetroArch core, per SYSTEM-CHOICES.md).",
+    "source": ["REQ-11", "REQ-12", "PARITY-39", "BEYOND-4"],
+    "acceptance": [
+      "Config snapshots per system in CI.",
+      "Device check `tune.ps1`: DuckStation with the overlay loads the chosen chain without errors and runs the payload at full speed."
+    ],
+    "verification": "device",
+    "depends_on": ["M7-01", "M7-02", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M7-05",
+    "milestone": "M7",
+    "title": "PlayStation 2 (ARMSX2) tuned",
+    "description": "Vulkan, 2x upscale, blending defaults with per-game exceptions (M6-07), no-interlacing patches, widescreen off, a CRT TV shader; re-validate the Android notes on Turnip's blend constant for Linux.",
+    "source": ["REQ-11", "REQ-12", "PARITY-39", "BEYOND-14"],
+    "acceptance": [
+      "Config snapshots per system in CI.",
+      "Device check `tune.ps2`: ARMSX2 with the overlay runs the payload with the CRT shader at full speed (where no PS2 payload boots, the check confirms the overlay was loaded and says so)."
+    ],
+    "verification": "device",
+    "depends_on": ["M7-01", "M7-02", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M7-06",
+    "milestone": "M7",
+    "title": "GameCube and Wii (Dolphin) at the right speed with clean sound",
+    "description": "Internal resolution sized for 1280x960, 4x anisotropy, asynchronous ubershaders (possible on desktop Dolphin, impossible under LibretroDroid), a CRT post-processing shader, and correct speed and audio on the 120 Hz panel (the Argosy fork saw 200% speed and crackle there).",
+    "source": ["REQ-11", "REQ-12", "PARITY-40", "PARITY-39", "BEYOND-3"],
+    "acceptance": [
+      "Config snapshots per system in CI.",
+      "Device check `tune.gc`: Dolphin with the overlay runs the payload at 100% speed on the 120 Hz panel for five minutes with no audio underruns in its log and the post-processing shader loaded."
+    ],
+    "verification": "device",
+    "depends_on": ["M7-01", "M7-02", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M7-07",
+    "milestone": "M7",
+    "title": "PSP (PPSSPP) tuned",
+    "description": "Render at 3x (1440x816) with 4x as an A/B, Vulkan, and a PPSSPP post-shader CRT look as chosen.",
+    "source": ["REQ-11", "REQ-12", "PARITY-39"],
+    "acceptance": [
+      "Config snapshots per system in CI.",
+      "Device check `tune.psp`: PPSSPP with the overlay renders the payload at the chosen resolution with the post-shader loaded, at full speed."
+    ],
+    "verification": "device",
+    "depends_on": ["M7-01", "M7-02", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M7-08",
+    "milestone": "M7",
+    "title": "Dreamcast (Flycast) tuned",
+    "description": "Render at 1280x960, delay frame swapping on, and a CRT look by whatever means SHADERS.md finds (Flycast's own options, or the RetroArch flycast core if standalone has no shader path; the owner can reverse it in the acceptance session).",
+    "source": ["REQ-11", "REQ-12", "PARITY-39"],
+    "acceptance": [
+      "Config snapshots per system in CI.",
+      "Device check `tune.dc`: Flycast with the overlay renders the payload at 1280x960 with the chosen CRT method, at full speed."
+    ],
+    "verification": "device",
+    "depends_on": ["M7-01", "M7-02", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M7-09",
+    "milestone": "M7",
+    "title": "DS (melonDS) laid out for a 4:3 screen",
+    "description": "Screen layout and sizing that suit 1280x960 (stacked or side by side; the agent picks a default and the owner can change it), an LCD look, and touch mapped to the pad or stick where needed.",
+    "source": ["REQ-11"],
+    "acceptance": [
+      "Config snapshot in CI.",
+      "Device check `tune.nds`: melonDS uses the chosen screen layout at 1280x960 with the LCD look (screenshot); the layout preference can be changed in the acceptance session (M7-13)."
+    ],
+    "verification": "device",
+    "depends_on": ["M7-01", "M7-02", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M7-10",
+    "milestone": "M7",
+    "title": "60 fps games paced correctly on the 120 Hz panel",
+    "description": "Find and apply a way for 60 fps content to run without periodic holds on the 120 Hz panel (emulator vsync settings, gamescope's frame limiter or a per-game refresh), measured with present intervals rather than by eye.",
+    "source": ["BEYOND-2"],
+    "acceptance": [
+      "The approach and the measurement method are documented in docs/emulator-tuning/PACING.md with sources.",
+      "Device check `pacing.60hz`: a 60 fps payload shows steady 16.7 ms presents for one minute with no once-a-second hitch, measured from present intervals (method in PACING.md)."
+    ],
+    "verification": "device",
+    "depends_on": ["M7-01", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M7-11",
+    "milestone": "M7",
+    "title": "Settings the player can trust",
+    "description": "Show the settings the emulator really runs (not a stale menu copy), surface shader compile errors and missing shader files as notices instead of silently running without a shader, and refuse settings RetroAchievements hardcore forbids when hardcore is on.",
+    "source": ["BEYOND-5", "BEYOND-6", "BEYOND-7"],
+    "acceptance": [
+      "RetroArch's log is read after launch for shader errors; a fixture log produces a notice (test).",
+      "A hardcore-forbidden setting table (from rcheevos docs, cited) blocks those overlay keys in hardcore mode (tests)."
+    ],
+    "verification": "ci",
+    "depends_on": ["M7-02"],
+    "passes": false
+  },
+  {
+    "id": "M7-12",
+    "milestone": "M7",
+    "title": "Controls that make sense on the Nova in every emulator",
+    "description": "Consistent button layout across emulators for the Nova's pad, menu hotkeys that do not collide with the exit combo or with games, and per-emulator input overlays written like M7-02.",
+    "source": ["REQ-11", "PARITY-36"],
+    "acceptance": [
+      "A table of every emulator's bindings is data with a test that no binding collides with the exit combo.",
+      "Acceptance session: in each emulator, confirm and cancel, the shoulders, the emulator's own menu and holding Start to leave all work as Galleon's guide says, and they feel right in the hand."
+    ],
+    "verification": "acceptance",
+    "depends_on": ["M7-02"],
+    "passes": false
+  },
+  {
+    "id": "M7-13",
+    "milestone": "M7",
+    "title": "Shader A/B rounds and defaults",
+    "description": "Run the per-system A/B plan in the final acceptance session and set the defaults to the owner's picks, recorded in SHADERS.md; the player can switch per system and per game.",
+    "source": ["REQ-12"],
+    "acceptance": [
+      "Defaults in config match SHADERS.md's 'chosen' column (test).",
+      "Acceptance session: for each system, compare the two or three looks the script names on a game you choose, and pick one."
+    ],
+    "verification": "acceptance",
+    "depends_on": ["M7-03", "M7-04", "M7-05", "M7-06", "M7-07", "M7-08"],
+    "passes": false
+  },
+  {
+    "id": "M8-01",
+    "milestone": "M8",
+    "title": "Version 1.0 criteria and the first stable release",
+    "description": "Define 1.0 in PLAN.md (every feature passes or is deferred by an ADR, Gates 1 and 2 passed, no open `regression`), prepare the release PR (version, CHANGELOG section), and release inside the final acceptance session: the owner says go, the local Claude session approves the `release` environment and installs v1.0.0 on the Nova for real (install.sh, Steam shortcut, sign-in imported from RomMix).",
+    "source": ["REQ-13", "REQ-1"],
+    "acceptance": [
+      "`cut-release.yml` publishes v1.0.0 with both AppImages, the Steam script, checksums and the Decky zip.",
+      "Acceptance session: after the local Claude session installs v1.0.0, find Galleon in your Steam library, start it, and you are signed in without pairing."
+    ],
+    "verification": "acceptance",
+    "depends_on": ["M5-03", "M4-33", "M2-19"],
+    "passes": false
+  },
+  {
+    "id": "M8-02",
+    "milestone": "M8",
+    "title": "Armada Store catalog entry",
+    "description": "Prepare the catalog JSON entry (`install.type: appimage`, releases API URL, asset regex `^<Name>-arm64\\.AppImage$`, filename, category `applications`, controller template) and the pull-request text for armada-os/armada, and ask the maintainers first as their README suggests. The owner submits it; the agent cannot open PRs on other repositories.",
+    "source": ["INT", "REQ-1"],
+    "acceptance": [
+      "The entry validates against Armada's catalog tests (`tests/armada-store-test.sh` rules reproduced in a unit test).",
+      "A `needs-human` issue carries the entry and text with the safe default (do not submit) that applies after 72 hours; the outcome is recorded."
+    ],
+    "verification": "ci",
+    "depends_on": ["M8-01"],
+    "passes": false
+  },
+  {
+    "id": "M8-03",
+    "milestone": "M8",
+    "title": "Decky companion distribution",
+    "description": "Ship the Decky plugin zip with each release and prepare an Armada `deckyplugin` catalog entry; document that the Decky store does not accept AI-assisted plugins.",
+    "source": ["INT"],
+    "acceptance": [
+      "The release workflow attaches the plugin zip and its checksum.",
+      "The acceptance script's Decky steps (M3-01) install the plugin from the release zip."
+    ],
+    "verification": "ci",
+    "depends_on": ["M3-01", "M8-01"],
+    "passes": false
+  },
+  {
+    "id": "M8-04",
+    "milestone": "M8",
+    "title": "Start-up time and memory",
+    "description": "Measure and trim cold start (target under 4 s to an interactive Now playing on the Nova) and resident memory (target under 600 MB with a full library browsed), and bound every cache.",
+    "source": ["PARITY-47"],
+    "acceptance": [
+      "Start-up and memory are logged in the perf summary and the diagnostics bundle; CI tracks the Xvfb numbers per commit in an artifact.",
+      "Device check `startup.cold`: from the launch wrapper starting the AppImage to an interactive Now playing takes under 4 s on the Performance profile.",
+      "Device check `memory.resident`: the resident memory of all Galleon processes after browsing every screen stays under 600 MB."
+    ],
+    "verification": "device",
+    "depends_on": ["M4-33", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M8-05",
+    "milestone": "M8",
+    "title": "User documentation for the fork",
+    "description": "README for players (install, update, Game Mode setup, SD card, saves with Argosy, recovery), troubleshooting at 4:3, and how to report a problem, in plain language.",
+    "source": ["REQ-13"],
+    "acceptance": [
+      "Every command in the README is exercised by a CI test or marked as device-only; links checked in CI."
+    ],
+    "verification": "ci",
+    "depends_on": ["M0-17", "M3-09"],
+    "passes": false
+  },
+  {
+    "id": "M8-06",
+    "milestone": "M8",
+    "title": "Keeping it maintained",
+    "description": "Document and automate the routine chores: upstream port cadence (M0-19), the RomM version matrix bump procedure (add `schema/romm-<v>.json` with `npm run schema:fetch` against a Docker image, add the compose profile, run test:romm and test:saves), Electron updates gated on the next nightly's device run (reverted first thing if any check regresses), and repository activity so scheduled workflows never lapse after 60 idle days.",
+    "source": ["HARNESS", "REQ-13"],
+    "acceptance": [
+      "`docs/MAINTENANCE.md` exists with each procedure as numbered steps the agent can follow.",
+      "Adding RomM 5.4 (or the newest stable) to the matrix is done once by following the document, as its proof."
+    ],
+    "verification": "ci",
+    "depends_on": ["M0-19"],
+    "passes": false
+  },
+  {
+    "id": "M8-07",
+    "milestone": "M8",
+    "title": "One final acceptance session with the owner",
+    "description": "When every `ci` and `device` feature in M0-M7 passes (or is deferred by an ADR) and every `acceptance` feature is READY-FOR-ACCEPTANCE, generate docs/ACCEPTANCE.md (M0-15) and open one `needs-human` issue titled 'Galleon is ready for your acceptance session': the only invitation the owner gets. The owner runs the session with the local Claude session on the Mac, which reads ACCEPTANCE.md, walks them through it, does every terminal and GitHub step for them, keeps a read-only copy of the saves involved first, and pushes `acceptance/<date>/results.json` to `device-results`.",
+    "source": ["REQ-15", "REQ-13", "GATE"],
+    "acceptance": [
+      "ACCEPTANCE.md covers every acceptance feature (M2-19, M3-01, M3-02, M4-33, M5-04, M6-09, M7-12, M7-13, M8-01) and every informational acceptance line, in an order that needs as few reboots as possible, totals at most two hours, and starts with the save backup.",
+      "The invitation issue says in one paragraph what to do: open the Claude session on the Mac and say 'start the Galleon acceptance session'.",
+      "After the session `node scripts/agent/device-results.mjs --apply` flips every passed item and opens a bug for each failed one; failed items are repeated in a short follow-up session only after their fix passes its device checks.",
+      "Acceptance session: the whole script, with the local Claude session recording each result."
+    ],
+    "verification": "acceptance",
+    "depends_on": ["M0-15", "M8-04", "M8-05", "M7-11", "M5-03", "M4-34", "M3-09"],
+    "passes": false
+  }
+]

@@ -1,0 +1,12 @@
+[Unit]
+Description=Run the Galleon device bridge every hour
+
+[Timer]
+OnCalendar=hourly
+# A device that slept through its hour runs once on waking; the bridge then checks
+# its own window, charger and idle conditions before doing anything.
+Persistent=true
+RandomizedDelaySec=10min
+
+[Install]
+WantedBy=timers.target

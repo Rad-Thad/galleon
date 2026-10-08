@@ -88,7 +88,15 @@ async function aSaveWaitingToGoUp(content: string): Promise<void> {
   await app.goTo('library')
   await app.choose('[data-rom="1"]')
   await app.waitFor(`document.querySelector('[data-screen="game"]')`, 'the game screen')
-  if (await app.read<boolean>(`Boolean(document.querySelector('[data-action="download"]'))`)) {
+  // Asked of the library rather than of the screen. The screen draws before it
+  // knows whether the game is installed, and a button looked for in that
+  // moment is missing either way: the download was skipped, and every step
+  // after it waited on a game that was never coming.
+  const installed = await app.read<boolean>(
+    `(await window.rommix.library.installed()).some((one) => one.romId === 1)`
+  )
+  if (!installed) {
+    await app.waitFor(`document.querySelector('[data-action="download"]')`, 'the download button')
     await app.choose('[data-action="download"]')
     await app.waitFor(
       `(await window.rommix.library.installed()).some((one) => one.romId === 1)`,

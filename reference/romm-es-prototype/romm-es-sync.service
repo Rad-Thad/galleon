@@ -1,0 +1,9 @@
+[Unit]
+Description=Sync RomM library into ES-DE placeholders, gamelists and media
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 %h/.local/share/romm-es/romm_es.py sync
+Nice=10
+IOSchedulingClass=idle

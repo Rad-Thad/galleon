@@ -116,6 +116,8 @@ export class DownloadManager extends EventEmitter {
   private readonly queue: DownloadItem[] = []
   private readonly controllers = new Map<number, AbortController>()
   private running = false
+  /** The drain `running` stands for. See `whenIdle`. */
+  private draining: Promise<void> = Promise.resolve()
   /** When the renderer was last told anything. See `throttledUpdate`. */
   private lastEmit = 0
   /** The read-back of interrupted transfers, once asked for. See `restorePending`. */
@@ -511,6 +513,36 @@ export class DownloadManager extends EventEmitter {
   }
 
   /**
+   * Resolves once the queue has stopped moving: nothing on the wire, nothing
+   * waiting for it, and every write the last transfer makes behind it done.
+   *
+   * For whoever is about to take away the folders the queue writes into. A
+   * transfer that finished a moment ago still records itself in the store and
+   * the index afterwards, and a folder removed under those writes is removed
+   * half-way, or not at all.
+   */
+  async whenIdle(): Promise<void> {
+    // Again after each wait: a game queued while the last drain was finishing
+    // starts a drain of its own.
+    while (this.running) await this.draining
+  }
+
+  /**
+   * Start draining the queue, unless it already is.
+   *
+   * `running` is what decides, and it is cleared inside the drain itself, in
+   * the same turn as the drain's last look at the queue. A flag cleared any
+   * later would leave a gap in which a game queued after that look found the
+   * queue "running" and was never reached.
+   */
+  private pump(seed?: RommRom): Promise<void> {
+    if (this.running) return this.draining
+    this.running = true
+    this.draining = this.drain(seed)
+    return this.draining
+  }
+
+  /**
    * Drain the queue one item at a time.
    *
    * Every failure has to be recorded against the item that caused it. The loop
@@ -518,9 +550,7 @@ export class DownloadManager extends EventEmitter {
    * would strand not just the failed download but every one behind it, still
    * showing "Waiting" with nothing left to move them.
    */
-  private async pump(seed?: RommRom): Promise<void> {
-    if (this.running) return
-    this.running = true
+  private async drain(seed?: RommRom): Promise<void> {
     try {
       while (true) {
         const item = this.queue.find((i) => i.state === 'queued')

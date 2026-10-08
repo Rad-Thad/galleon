@@ -1,0 +1,55 @@
+# Labels for this repository. Synced by .github/workflows/labels.yml (added in M0-16);
+# the first set is created by the local handoff session (HANDOFF.md, Appendix A).
+# No label triggers anything: the agent reads owner-authored issues and the
+# device-results branch at the start of every session.
+- name: needs-triage
+  color: 'fbca04'
+  description: New; the agent has not looked at it yet (forms add this)
+- name: needs-human
+  color: 'b60205'
+  description: A decision only the owner can make; states a safe default the agent adopts after 72 hours
+- name: agent-working
+  color: 'c5def5'
+  description: Claimed by an agent session; also the concurrency lock
+- name: gate
+  color: '000000'
+  description: A decision gate (Gate 0, 1 or 2) and its record
+- name: regression
+  color: 'e11d21'
+  description: Worked before (a test or device check passed), broken now; highest priority
+- name: flaky
+  color: 'f9d0c4'
+  description: A test that failed and then passed on rerun; root-cause fix within two units of work
+- name: save-sync
+  color: 'e99695'
+  description: Touches save sync; extra care and golden tests required
+- name: device-report
+  color: 'd93f0b'
+  description: A problem report the device bridge collected from Galleon on the Nova
+- name: device-only
+  color: 'bfd4f2'
+  description: Can only be verified on the Nova, by the device bridge
+- name: acceptance
+  color: '5319e7'
+  description: Waits for the owner's final acceptance session
+- name: bug
+  color: 'd73a4a'
+  description: Something is broken
+- name: enhancement
+  color: 'a2eeef'
+  description: New feature or improvement
+- name: needs-info
+  color: 'fef2c0'
+  description: The agent asked a question; waiting for details
+- name: upstream
+  color: 'c2e0c6'
+  description: About RomMix upstream (ports, contributions)
+- name: dependencies
+  color: '0366d6'
+  description: Dependency updates
+- name: duplicate
+  color: 'cfd3d7'
+  description: Already reported
+- name: wontfix
+  color: 'ffffff'
+  description: Decided not to do this

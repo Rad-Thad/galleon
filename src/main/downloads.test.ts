@@ -9,7 +9,15 @@
 
 import assert from 'node:assert/strict'
 import { afterEach, describe, test } from 'node:test'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  truncateSync,
+  writeFileSync
+} from 'node:fs'
 import { readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -18,6 +26,7 @@ import { SHARED_LIBRARY, type DownloadItem, type RommRom } from '@shared/types'
 import { spaceOf } from './disk.ts'
 import { DownloadManager } from './downloads.ts'
 import { Library } from './library.ts'
+import { log } from './log.ts'
 import { OfflineCache } from './offline.ts'
 import {
   checksumOf,
@@ -49,7 +58,28 @@ import { zipDirectory } from './zip.ts'
 const scratches: string[] = []
 const realHome = process.env.ROMMIX_HOME
 
-afterEach(() => {
+/** Every queue a test made, so the teardown can wait for each to stop. */
+const queues: DownloadManager[] = []
+
+/** Every wire a test held, so a test that failed half-way still lets go. */
+const wires: (() => void)[] = []
+
+/**
+ * Nothing is removed while anything still writes into it.
+ *
+ * A test is over when its assertions are, and the queue it started often is
+ * not: the transfer it was watching still records itself in the store, and the
+ * pump goes on to whatever was behind it. A folder removed under those writes
+ * fails the removal (a file appears in a directory being emptied) or fails the
+ * write, in whichever test happens to be running by then. Then the log, which
+ * holds its path into whichever of these folders logged first. And the root
+ * last of all, because a write that did slip past would otherwise land in the
+ * RomMix folder of whoever is running the tests.
+ */
+afterEach(async () => {
+  for (const release of wires.splice(0)) release()
+  for (const downloads of queues.splice(0)) await downloads.whenIdle()
+  log.close()
   if (realHome === undefined) delete process.env.ROMMIX_HOME
   else process.env.ROMMIX_HOME = realHome
   for (const dir of scratches.splice(0)) rmSync(dir, { recursive: true, force: true })
@@ -59,6 +89,68 @@ function scratch(): string {
   const dir = mkdtempSync(join(tmpdir(), 'rommix-downloads-test-'))
   scratches.push(dir)
   return dir
+}
+
+/** A queue the teardown knows to wait for. */
+function queue(store: Store, client: RommClient, library: Library): DownloadManager {
+  const downloads = new DownloadManager(store, client, library)
+  queues.push(downloads)
+  return downloads
+}
+
+/**
+ * A transfer that stays on the wire until the test lets it go.
+ *
+ * The fake otherwise finishes within a few turns of starting, so a test about
+ * what the queue does *while* something is downloading would be asserting
+ * against a race it merely tends to win.
+ */
+function heldWire(): { held: Promise<void>; release: () => void } {
+  let release!: () => void
+  const held = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  wires.push(release)
+  return { held, release }
+}
+
+/**
+ * How long `reached` waits before saying what it was waiting for.
+ *
+ * A backstop for a queue that never gets there, not a pace: every wait ends on
+ * the event that answers it.
+ */
+const REACH_TIMEOUT_MS = 10_000
+
+/** Wait until the queue reports something, by its own events rather than a clock. */
+function reached(
+  downloads: DownloadManager,
+  check: (items: DownloadItem[]) => boolean,
+  what: string
+): Promise<void> {
+  if (check(downloads.items)) return Promise.resolve()
+  return new Promise((resolve, reject) => {
+    const listen = (items: DownloadItem[]): void => {
+      if (!check(items)) return
+      clearTimeout(deadline)
+      downloads.off('update', listen)
+      resolve()
+    }
+    const deadline = setTimeout(() => {
+      downloads.off('update', listen)
+      reject(new Error(`the queue never reached ${what}: ${JSON.stringify(downloads.items)}`))
+    }, REACH_TIMEOUT_MS)
+    downloads.on('update', listen)
+  })
+}
+
+/** Until this ROM's transfer is the one on the wire. */
+function onTheWire(downloads: DownloadManager, romId: number): Promise<void> {
+  return reached(
+    downloads,
+    (items) => items.find((item) => item.romId === romId)?.state === 'downloading',
+    `${romId} on the wire`
+  )
 }
 
 function rom(fields: Partial<RommRom> = {}): RommRom {
@@ -115,6 +207,8 @@ function fakeClient(
      * archived game is held to the hash RomM recorded for what is inside it.
      */
     zip?: Record<string, string>
+    /** A whole-ROM transfer stays on the wire until this settles. See `heldWire`. */
+    hold?: Promise<void>
   } = {}
 ): {
   client: RommClient
@@ -173,6 +267,7 @@ function fakeClient(
       opts: { resume?: boolean; onChecking?: () => void } = {}
     ) {
       resumed.push(opts.resume === true)
+      await options.hold
       const contents = options.contents ?? 'rom bytes'
       // The break happens once, on the first attempt: what is being tested is
       // what RomMix does next, and a transfer that never succeeds could never
@@ -240,6 +335,7 @@ function manager(
     breakTimes?: number
     /** An existing folder to open again, for the case of a restart. */
     store?: Store
+    hold?: Promise<void>
   } = {}
 ): {
   downloads: DownloadManager
@@ -264,29 +360,34 @@ function manager(
       new RommClient(store).verifyUnpacked(game, path)
   })
   const library = new Library(store, client, cache(client), () => options.emulator ?? null)
-  const downloads = new DownloadManager(store, client, library)
+  const downloads = queue(store, client, library)
   return { downloads, library, store, root, client, resumed }
 }
 
+/**
+ * Checking, extracting and installing are still moving: a game is not settled
+ * until what came out of the transfer has been checked, unpacked and indexed.
+ */
+const MOVING = new Set(['queued', 'downloading', 'checking', 'extracting', 'installing'])
+
 /** Run the queue until the item for this ROM stops moving. */
 async function settled(downloads: DownloadManager, romId: number): Promise<DownloadItem> {
-  for (let tick = 0; tick < 200; tick += 1) {
-    const item = downloads.items.find((row) => row.romId === romId)
-    // Checking, extracting and installing are still moving: a game is not
-    // settled until what came out of the transfer has been checked, unpacked
-    // and indexed.
-    if (
-      item &&
-      item.state !== 'queued' &&
-      item.state !== 'downloading' &&
-      item.state !== 'checking' &&
-      item.state !== 'extracting' &&
-      item.state !== 'installing'
-    )
-      return item
-    await new Promise((resolve) => setTimeout(resolve, 5))
-  }
-  throw new Error(`the download of ${romId} never settled`)
+  const find = (items: DownloadItem[]): DownloadItem | undefined =>
+    items.find((row) => row.romId === romId)
+  await reached(
+    downloads,
+    (items) => {
+      const item = find(items)
+      return item !== undefined && !MOVING.has(item.state)
+    },
+    `the download of ${romId} settled`
+  )
+  // And the rest of the turn the queue announced it in. What the queue does in
+  // reaction to its own news (the drain leaving its loop, mostly) happens
+  // there, and a press from the screen arrives over IPC in a later turn; a
+  // test answering inside it would be standing somewhere no caller can.
+  await new Promise((resolve) => setImmediate(resolve))
+  return find(downloads.items) as DownloadItem
 }
 
 describe('the queue', () => {
@@ -344,11 +445,7 @@ describe('a download that runs to the end', () => {
     process.env.ROMMIX_HOME = root
     const store = new Store(join(root, 'config'))
     const { client } = fakeClient({ contents: '0123456789' })
-    const downloads = new DownloadManager(
-      store,
-      client,
-      new Library(store, client, cache(client), () => null)
-    )
+    const downloads = queue(store, client, new Library(store, client, cache(client), () => null))
 
     const finished = new Promise<void>((resolve) => {
       downloads.on('update', (items: { state: string }[]) => {
@@ -386,8 +483,9 @@ describe('changing the order of the queue', () => {
     Object.fromEntries(three().map((game) => [game.id, game]))
 
   test('a promoted transfer takes the place of the one on the wire', async () => {
-    const { downloads } = manager({ contents: '0123456789' })
+    const { downloads } = manager({ contents: '0123456789', hold: heldWire().held })
     for (const game of three()) await downloads.enqueue(game)
+    await onTheWire(downloads, 1)
 
     downloads.promote(3)
 
@@ -410,16 +508,23 @@ describe('changing the order of the queue', () => {
      * was marked as overtaken: where it goes, whether anything has to be
      * pressed to bring it back, and whether it starts again from nothing.
      */
-    const made = manager({ contents: '0123456789', breakAfter: 4, roms: library() })
-    for (const game of three()) await made.downloads.enqueue(game)
-    const allDone = new Promise<void>((resolve) => {
-      made.downloads.on('update', (items: DownloadItem[]) => {
-        if (items.length === 3 && items.every((item) => item.state === 'done')) resolve()
-      })
+    const wire = heldWire()
+    const made = manager({
+      contents: '0123456789',
+      breakAfter: 4,
+      roms: library(),
+      hold: wire.held
     })
+    for (const game of three()) await made.downloads.enqueue(game)
+    await onTheWire(made.downloads, 1)
 
     made.downloads.promote(3)
-    await allDone
+    wire.release()
+    await reached(
+      made.downloads,
+      (items) => items.length === 3 && items.every((item) => item.state === 'done'),
+      'all three done'
+    )
 
     // Nobody pressed anything: the queue reached it again on its own.
     assert.deepEqual(
@@ -434,8 +539,9 @@ describe('changing the order of the queue', () => {
   test('a transfer that cannot be resumed is not interrupted', async () => {
     // Nothing to pick up afterwards, so overtaking it would cost everything it
     // has fetched. The promoted game takes the turn after instead.
-    const { downloads } = manager({ contents: '0123456789', ranges: false })
+    const { downloads } = manager({ contents: '0123456789', ranges: false, hold: heldWire().held })
     for (const game of three()) await downloads.enqueue(game)
+    await onTheWire(downloads, 1)
 
     downloads.promote(3)
 
@@ -453,7 +559,7 @@ describe('changing the order of the queue', () => {
      * answers, and `promote` gave the wrong one: the row said next, the wire
      * said otherwise, and the button that was meant to settle it did nothing.
      */
-    const made = manager({ contents: '0123456789', roms: library() })
+    const made = manager({ contents: '0123456789', roms: library(), hold: heldWire().held })
     const dir = join(made.root, 'roms', 'genesis')
     mkdirSync(dir, { recursive: true })
     writeFileSync(join(dir, 'Nine.md'), '0'.repeat(8))
@@ -473,6 +579,7 @@ describe('changing the order of the queue', () => {
 
     const [one, two] = three()
     await made.downloads.enqueue(one)
+    await onTheWire(made.downloads, 1)
     await made.downloads.enqueue(two)
     // Behind everything else waiting, rather than back into the place it held.
     await made.downloads.enqueue(rom({ id: 9, fs_name: 'Nine.md', fs_name_no_ext: 'Nine' }))
@@ -500,8 +607,9 @@ describe('changing the order of the queue', () => {
      * the back of the queue, and there was nothing to press afterwards to bring
      * it forward.
      */
-    const made = manager({ contents: '0123456789', roms: library() })
+    const made = manager({ contents: '0123456789', roms: library(), hold: heldWire().held })
     for (const game of three()) await made.downloads.enqueue(game)
+    await onTheWire(made.downloads, 1)
     made.downloads.pause(3)
 
     made.downloads.promote(3)
@@ -527,8 +635,9 @@ describe('changing the order of the queue', () => {
   })
 
   test('the one already next is left alone, and so is anything not waiting', async () => {
-    const { downloads } = manager({ contents: '0123456789' })
+    const { downloads } = manager({ contents: '0123456789', hold: heldWire().held })
     for (const game of three()) await downloads.enqueue(game)
+    await onTheWire(downloads, 1)
     const before = downloads.items.map((item) => item.romId)
 
     // On the wire rather than waiting, so there is nothing to bring forward.
@@ -540,6 +649,50 @@ describe('changing the order of the queue', () => {
       downloads.items.map((item) => item.romId),
       before
     )
+  })
+})
+
+describe('waiting for the queue to stop', () => {
+  test('it waits for the transfer on the wire and for everything behind it', async () => {
+    const games = [
+      rom({ id: 1, fs_name: 'One.md', fs_name_no_ext: 'One' }),
+      rom({ id: 2, fs_name: 'Two.md', fs_name_no_ext: 'Two' })
+    ]
+    const wire = heldWire()
+    const { downloads } = manager({
+      contents: '0123456789',
+      roms: Object.fromEntries(games.map((game) => [game.id, game])),
+      hold: wire.held
+    })
+    for (const game of games) await downloads.enqueue(game)
+    await onTheWire(downloads, 1)
+
+    let idle = false
+    const stopped = downloads.whenIdle().then(() => {
+      idle = true
+    })
+    // A full turn of the event loop, which is more than the queue needs to move
+    // on from anything that is not held.
+    await new Promise((resolve) => setImmediate(resolve))
+    assert.equal(idle, false, 'it should still be waiting on the held transfer')
+
+    wire.release()
+    await stopped
+
+    // Over, rather than merely past the transfer it was waiting on: the game
+    // queued behind it had its turn as well.
+    assert.deepEqual(
+      downloads.items.map((item) => `${item.romId}:${item.state}`),
+      ['1:done', '2:done']
+    )
+  })
+
+  test('a queue that never started is already idle', async () => {
+    const { downloads } = manager()
+
+    await downloads.whenIdle()
+
+    assert.deepEqual(downloads.items, [])
   })
 })
 
@@ -803,11 +956,7 @@ describe('after a restart', () => {
     // A second manager over the same root is what a restart looks like from
     // here: same files, same store, nothing in memory.
     const { client } = fakeClient()
-    const next = new DownloadManager(
-      store,
-      client,
-      new Library(store, client, cache(client), () => null)
-    )
+    const next = queue(store, client, new Library(store, client, cache(client), () => null))
     await next.restorePending()
 
     const [item] = next.items
@@ -826,11 +975,7 @@ describe('after a restart', () => {
     rmSync(join(root, 'roms', 'genesis', 'Sonic the Hedgehog (USA).md.part'))
 
     const { client } = fakeClient()
-    const next = new DownloadManager(
-      store,
-      client,
-      new Library(store, client, cache(client), () => null)
-    )
+    const next = queue(store, client, new Library(store, client, cache(client), () => null))
     await next.restorePending()
 
     assert.deepEqual(next.items, [])
@@ -845,11 +990,7 @@ describe('after a restart', () => {
     // The restart: a new manager over the same root, told to pick up what was
     // left, then asked for the same game again.
     const { client, resumed } = fakeClient({ contents: '0123456789', roms: { 1: rom() } })
-    const next = new DownloadManager(
-      store,
-      client,
-      new Library(store, client, cache(client), () => null)
-    )
+    const next = queue(store, client, new Library(store, client, cache(client), () => null))
     await next.restorePending()
     await next.enqueue(rom())
     const item = await settled(next, 1)
@@ -865,6 +1006,13 @@ describe('after a restart', () => {
     const root = scratch()
     process.env.ROMMIX_HOME = root
     const store = new Store(join(root, 'config'))
+    // Never let go while the test runs, which is what a process that has
+    // stopped looks like from the disk.
+    const wire = heldWire()
+    let wrote!: () => void
+    const partWritten = new Promise<void>((resolve) => {
+      wrote = resolve
+    })
     const client = {
       async supportsRange() {
         return true
@@ -877,23 +1025,16 @@ describe('after a restart', () => {
       },
       async downloadRom(_rom: RommRom, destination: string) {
         await writeFile(`${destination}.part`, '0123')
-        await new Promise(() => undefined)
+        wrote()
+        await wire.held
       }
     } as unknown as RommClient
-    const killed = new DownloadManager(
-      store,
-      client,
-      new Library(store, client, cache(client), () => null)
-    )
+    const killed = queue(store, client, new Library(store, client, cache(client), () => null))
     await killed.enqueue(rom())
-    await new Promise((resolve) => setTimeout(resolve, 20))
+    await partWritten
 
     const { client: next, resumed } = fakeClient({ contents: '0123456789', roms: { 1: rom() } })
-    const restarted = new DownloadManager(
-      store,
-      next,
-      new Library(store, next, cache(next), () => null)
-    )
+    const restarted = queue(store, next, new Library(store, next, cache(next), () => null))
     await restarted.restorePending()
 
     const [restored] = restarted.items
@@ -1016,7 +1157,7 @@ describe('after a restart', () => {
 
     try {
       const library = new Library(store, client, cache(client), () => null)
-      const downloads = new DownloadManager(store, client, library)
+      const downloads = queue(store, client, library)
       await downloads.enqueue(rom())
       const item = await settled(downloads, 1)
 
@@ -1100,11 +1241,7 @@ describe('after a restart', () => {
     })
 
     const { client } = fakeClient()
-    const next = new DownloadManager(
-      store,
-      client,
-      new Library(store, client, cache(client), () => null)
-    )
+    const next = queue(store, client, new Library(store, client, cache(client), () => null))
     await next.restorePending()
 
     assert.deepEqual(next.items, [])
@@ -1117,11 +1254,7 @@ describe('after a restart', () => {
     await settled(downloads, 1)
 
     const { client } = fakeClient()
-    const next = new DownloadManager(
-      store,
-      client,
-      new Library(store, client, cache(client), () => null)
-    )
+    const next = queue(store, client, new Library(store, client, cache(client), () => null))
     await next.restorePending()
     await next.restorePending()
 
@@ -1156,17 +1289,20 @@ describe('pausing on purpose', () => {
         onProgress({ received: 4, total: 10 })
         await new Promise((_resolve, reject) => {
           signal.addEventListener('abort', () => reject(new RommError('aborted')), { once: true })
+          underway()
         })
       }
     } as unknown as RommClient
-    const downloads = new DownloadManager(
-      store,
-      client,
-      new Library(store, client, cache(client), () => null)
-    )
+    let underway!: () => void
+    const listening = new Promise<void>((resolve) => {
+      underway = resolve
+    })
+    const downloads = queue(store, client, new Library(store, client, cache(client), () => null))
 
     await downloads.enqueue(rom())
-    await new Promise((resolve) => setTimeout(resolve, 20))
+    // Part-way, and waiting on the button: the bytes have landed and the abort
+    // has somewhere to go.
+    await listening
     downloads.pause(1)
     const item = await settled(downloads, 1)
 
@@ -1190,6 +1326,7 @@ describe('pausing on purpose', () => {
     const second = rom({ id: 2, fs_name: 'Streets of Rage (USA).md' })
     // The first transfer never finishes, so the second stays queued behind it —
     // which is the state this is about.
+    const wire = heldWire()
     const client = {
       async supportsRange() {
         return true
@@ -1201,14 +1338,10 @@ describe('pausing on purpose', () => {
         return second
       },
       async downloadRom() {
-        await new Promise(() => undefined)
+        await wire.held
       }
     } as unknown as RommClient
-    const downloads = new DownloadManager(
-      store,
-      client,
-      new Library(store, client, cache(client), () => null)
-    )
+    const downloads = queue(store, client, new Library(store, client, cache(client), () => null))
     await downloads.enqueue(rom())
     await downloads.enqueue(second)
 
@@ -1689,9 +1822,16 @@ describe('the room on the drive', () => {
   /** Bigger than any disk this will ever run on, and safely under 2^53. */
   const IMMENSE = 1e15
 
-  /** What a stopped transfer left behind, and the room it is measured against. */
-  const HELD = 16 * 1024 * 1024
-  const MARGIN = 4 * 1024 * 1024
+  /**
+   * What a stopped transfer left behind, and the room it is measured against.
+   *
+   * The free space is read once and relied on a moment later, on a disk every
+   * other test file running beside this one is writing to. Both figures are
+   * far larger than anything those writes add up to, so the answer cannot
+   * change in between; the held file is sparse, so its size costs no room.
+   */
+  const HELD = 4 * 1024 * 1024 * 1024
+  const MARGIN = 2 * 1024 * 1024 * 1024
 
   test('a game no disk could hold is refused before the transfer starts', async () => {
     const { downloads, root } = manager()
@@ -1721,7 +1861,8 @@ describe('the room on the drive', () => {
     const dir = join(root, 'roms', 'genesis')
     mkdirSync(dir, { recursive: true })
     const target = join(dir, 'Sonic the Hedgehog (USA).md')
-    writeFileSync(`${target}.part`, Buffer.alloc(HELD))
+    writeFileSync(`${target}.part`, '')
+    truncateSync(`${target}.part`, HELD)
     const space = await spaceOf(dir)
     assert.ok(space)
 

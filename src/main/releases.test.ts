@@ -13,6 +13,7 @@ import {
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { ReleaseSource } from '@config/emulators'
+import { log } from './log.ts'
 import { fetchReleases, installAsset, managedEmulatorDir } from './releases.ts'
 import { zipDirectory } from './zip.ts'
 
@@ -34,6 +35,8 @@ const realHome = process.env.ROMMIX_HOME
 
 afterEach(() => {
   globalThis.fetch = real
+  // The log holds its path into whichever scratch root logged first.
+  log.close()
   if (realHome === undefined) delete process.env.ROMMIX_HOME
   else process.env.ROMMIX_HOME = realHome
   for (const dir of scratches.splice(0)) rmSync(dir, { recursive: true, force: true })
