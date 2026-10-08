@@ -8,11 +8,11 @@
 # session that runs it again pays only for the checks. Each failure says what
 # is wrong and what fixes it, rather than ending on a stack trace.
 #
-# The functions are also read by scripts/agent/init.test.ts, which is why the
+# The functions are also read by scripts/agent/agent.test.ts, which is why the
 # work happens in `main` and only when this file is run rather than sourced.
 set -euo pipefail
 
-# Builtins only, up to `main`: scripts/agent/init.test.ts sources this with a
+# Builtins only, up to `main`: scripts/agent/agent.test.ts sources this with a
 # PATH that holds nothing but the commands it is testing.
 ROOT="$(cd "${BASH_SOURCE[0]%/*}/../.." && pwd)"
 
