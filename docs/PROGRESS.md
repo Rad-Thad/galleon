@@ -217,14 +217,16 @@ Lines the tooling reads (exact forms):
 
 - Device results: none new (as above).
 - Worked on: M0-16 (tracking issue #20).
-- Result: PR open.
+- Result: PR #21.
 - Evidence:
   - `.github/workflows/labels.yml`: on a push to `main` touching `.github/labels.yml` (or the workflow) and on `workflow_dispatch`, `crazy-max/ghaction-github-labeler` pinned to `548a7c3603594ec17c819e1239f281a3b801ab4d` (v6.0.0, MIT) with `skip-delete: true`; `issues: write` on that job only. Listed in the new `docs/DEPENDENCIES.md`. It first runs when this merges.
   - features-check now fails on `ROUTINE_FIRE_URL`, `ROUTINE_FIRE_TOKEN` or `TESTER_LOGIN` in any file under `.github/` (`forbiddenNames`, unit-tested; a scratch `.github/zz.tmp` naming one made the command exit 1).
   - CLAUDE.md's session ritual step 5 already limits candidates to owner-authored issues and the agent's own `needs-human` issues past their date; unchanged.
   - `passes: true` for M0-03 (merged in #19, evaluator PASS there).
-- CI wall time: pending.
-- Evaluator: pending.
+- CI wall time: x64 3:08, arm64 3:20 (on 44e9bb5).
+- Evaluator: PASS (a nested `.github/zz/t.yml` and a line added to labels.yml, each naming a forbidden variable, both failed features-check; the pin verified as v6.0.0, MIT).
 - Device / acceptance: none (`ci`).
 - Next: M0-04, M0-06, M0-09, M0-18, M0-19 or M0-20 (`node scripts/agent/next.mjs`); flip M0-16 in the next PR once the labels workflow has run green on `main`.
-- Notes: none.
+- Notes:
+  - The session branch still held #19's pre-squash commits, so the first push of this unit was rejected; it was force-pushed with a lease (only merged history was replaced).
+  - Stopped after this unit: the run passed 35 minutes.
