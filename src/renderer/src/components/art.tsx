@@ -144,7 +144,7 @@ export function Logo({ className }: { className?: string }): JSX.Element {
   const accent = { fill: 'var(--accent)' }
 
   return (
-    <svg className={className} viewBox="22 22 84 84" role="img" aria-label="RomMix">
+    <svg className={className} viewBox="22 22 84 84" role="img" aria-label="Galleon">
       <defs>
         <linearGradient id="rommix-mark" x1="0" y1="0" x2="0.6" y2="1">
           <stop offset="0" style={{ stopColor: 'var(--accent)' }} />

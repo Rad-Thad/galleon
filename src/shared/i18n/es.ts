@@ -79,19 +79,19 @@ export const es: Catalog = {
   'app.notConnected': 'Sin conexión',
   'app.offline': 'Sin conexión',
   'app.offlineNotice':
-    'RomMix está en modo sin conexión: no se puede contactar con el servidor RomM.',
+    'Galleon está en modo sin conexión: no se puede contactar con el servidor RomM.',
   'app.loading': 'Cargando',
   'app.qrCode': 'Código QR',
   'app.credit': 'Desarrollado con {heart} por leclercb',
   'app.version': 'v{version}',
   'app.buildVersion': 'v{version} · {commit}',
-  'app.quitTitle': '¿Salir de RomMix?',
+  'app.quitTitle': '¿Salir de Galleon?',
   'app.stay': 'Quedarse',
   'app.sleep': 'Suspender',
   'app.restartMachine': 'Reiniciar',
   'app.turnOff': 'Apagar',
   'app.quit': 'Salir',
-  'app.quitRomMix': 'Salir de RomMix',
+  'app.quitRomMix': 'Salir de Galleon',
   'app.gettingReady': 'Preparando',
   'app.gameRunning': 'Juego en marcha',
   'app.emulatorHasFocus': 'El emulador tiene el control. Ciérralo para volver.',
@@ -103,14 +103,14 @@ export const es: Catalog = {
   'app.forceClose': 'Forzar el cierre',
   'app.askingEmulatorToQuit': 'Pidiendo al emulador que se cierre…',
   'app.closingEmulatorNow': 'Cerrándolo ahora…',
-  'app.couldNotClose': 'Sigue en ejecución. RomMix no tiene otra forma de cerrarlo.',
+  'app.couldNotClose': 'Sigue en ejecución. Galleon no tiene otra forma de cerrarlo.',
 
   // -- avisos del armazón ---------------------------------------------------
 
-  'toast.updateAvailable': 'RomMix {version} está disponible',
-  'toast.updateAvailableSettings': 'RomMix {version} está disponible — mira en Ajustes',
-  'toast.updateReadyRestart': 'RomMix {version} está listo — reinicia para usarlo',
-  'toast.updateReadyQuit': 'RomMix {version} está listo — sal y vuelve a abrirlo',
+  'toast.updateAvailable': 'Galleon {version} está disponible',
+  'toast.updateAvailableSettings': 'Galleon {version} está disponible — mira en Ajustes',
+  'toast.updateReadyRestart': 'Galleon {version} está listo — reinicia para usarlo',
+  'toast.updateReadyQuit': 'Galleon {version} está listo — sal y vuelve a abrirlo',
   'toast.downloadComplete': 'Descarga terminada',
   'toast.downloadPaused': 'Descarga en pausa',
   'toast.downloadWaitingForServer': 'Esperando a que RomM vuelva',
@@ -131,16 +131,16 @@ export const es: Catalog = {
   'demo.connectionClosed':
     'El servidor cerró la conexión antes de que el archivo estuviera completo.',
   'demo.variantFaster': 'más rápido, menos fiel',
-  'demo.variantDefault': 'la elección de RomMix',
-  'demo.title': 'RomMix — demo',
+  'demo.variantDefault': 'la elección de Galleon',
+  'demo.title': 'Galleon — demo',
   'demo.description':
-    'La interfaz de RomMix, sobre la biblioteca homebrew de la demo pública de RomM. No hay ' +
+    'La interfaz de Galleon, sobre la biblioteca homebrew de la demo pública de RomM. No hay ' +
     'ningún servidor ni emulador de por medio, y no se descarga nada.',
 
   // -- primera configuración ------------------------------------------------
 
   'setup.stepOf': 'Paso {step} de {total}',
-  'setup.interfaceTitle': '¿Qué aspecto debe tener RomMix?',
+  'setup.interfaceTitle': '¿Qué aspecto debe tener Galleon?',
   'setup.interfaceSubtitle':
     'Su idioma, sus colores y su tamaño. Todo se puede cambiar luego en los ajustes.',
   'setup.scaleHint': 'Toda la interfaz, no solo el texto.',
@@ -164,22 +164,22 @@ export const es: Catalog = {
     'Las descargas irán a la carpeta de ROM del emulador que ejecute su plataforma. Eso es lo que ' +
     'las pone en su propia lista de juegos cuando lo abres tú, y lo que las ata a él:',
   'storage.toEmulatorChange':
-    'Cambiar de emulador para una plataforma deja sus juegos en la carpeta del anterior. RomMix ' +
+    'Cambiar de emulador para una plataforma deja sus juegos en la carpeta del anterior. Galleon ' +
     'deja de contarlos como descargados y vuelve a ofrecerlos.',
   'storage.toEmulatorMissing':
     'Un juego no se puede descargar para una plataforma que aún no tiene ningún emulador ' +
     'instalado.',
   'storage.toEmulatorExisting':
-    'Los juegos que ya están en la carpeta de RomMix se quedan ahí y se vuelven a ofrecer; vuelve ' +
+    'Los juegos que ya están en la carpeta de Galleon se quedan ahí y se vuelven a ofrecer; vuelve ' +
     'atrás y reaparecen.',
   'storage.toEmulatorKeep': 'Mantener una sola carpeta',
   'storage.toEmulatorConfirm': 'Usar la carpeta de cada emulador',
   'storage.toSharedTitle': '¿Guardar todos los juegos en una sola carpeta?',
   'storage.toSharedBody':
-    'Las descargas irán a la carpeta de ROM propia de RomMix, que no es una carpeta que ningún ' +
+    'Las descargas irán a la carpeta de ROM propia de Galleon, que no es una carpeta que ningún ' +
     'emulador lea hasta que se le indique:',
   'storage.toSharedSetup':
-    'Añade esa carpeta a los directorios de juegos de cada emulador, o no listarán lo que RomMix ' +
+    'Añade esa carpeta a los directorios de juegos de cada emulador, o no listarán lo que Galleon ' +
     'haya descargado. La comprobación previa dice cuál es la carpeta.',
   'storage.toSharedFree':
     'Cambiar de emulador para una plataforma ya no moverá nada ni obligará a descargar nada otra ' +
@@ -190,12 +190,12 @@ export const es: Catalog = {
   'storage.toSharedKeep': 'Mantener la carpeta de cada emulador',
   'storage.toSharedConfirm': 'Usar una sola carpeta',
   'storage.optionEmulator': 'La carpeta de cada emulador',
-  'storage.optionRomMix': 'Carpeta de RomMix',
+  'storage.optionRomMix': 'Carpeta de Galleon',
 
   // -- conexión -------------------------------------------------------------
 
   'connect.title': 'Conectar con RomM',
-  'connect.subtitle': 'Apunta RomMix a tu servidor RomM.',
+  'connect.subtitle': 'Apunta Galleon a tu servidor RomM.',
   'connect.serverAddress': 'Dirección del servidor',
   'connect.serverAddressHint': 'La misma dirección que usas para la interfaz web de RomM.',
   'connect.howSignIn': '¿Cómo quieres iniciar sesión?',
@@ -203,7 +203,7 @@ export const es: Catalog = {
   'connect.modeToken': 'Token de API',
   'connect.modePassword': 'Usuario y contraseña',
   'connect.deviceExplainer':
-    'RomMix muestra un código corto que apruebas desde RomM en cualquier navegador. Ninguna ' +
+    'Galleon muestra un código corto que apruebas desde RomM en cualquier navegador. Ninguna ' +
     'contraseña escrita en la tele.',
   'connect.tokenHint': 'Crea uno en RomM, en Administration → Client tokens.',
   'connect.username': 'Usuario',
@@ -217,7 +217,7 @@ export const es: Catalog = {
   'connect.pairTitle': 'Aprobar este dispositivo',
   'connect.pairExplainer':
     'Escanea esto con el móvil, o abre la dirección de abajo en cualquier dispositivo, y luego ' +
-    'introduce el código para dejar entrar a RomMix en tu biblioteca.',
+    'introduce el código para dejar entrar a Galleon en tu biblioteca.',
   'connect.pairOpen': 'Abrir en un navegador',
   'connect.pairExpiresIn': 'El código caduca en',
   'connect.pairTimeLeft': '{minutes} min {seconds} s',
@@ -346,11 +346,11 @@ export const es: Catalog = {
 
   // -- BIOS -----------------------------------------------------------------
 
-  'bios.allInPlace': 'Todos los archivos BIOS que RomMix conoce están en su sitio.',
+  'bios.allInPlace': 'Todos los archivos BIOS que Galleon conoce están en su sitio.',
   'bios.missingSummary_one': 'Falta {count} archivo, {fetchable} de ellos en tu servidor RomM',
   'bios.missingSummary_other': 'Faltan {count} archivos, {fetchable} de ellos en tu servidor RomM',
   'bios.explainer':
-    'Los archivos BIOS vienen de tu servidor RomM. Súbelos allí bajo una plataforma y RomMix ' +
+    'Los archivos BIOS vienen de tu servidor RomM. Súbelos allí bajo una plataforma y Galleon ' +
     'los copia al emulador que la ejecuta. No viene nada de ningún otro sitio.',
   'bios.nothingToInstall': 'Nada que instalar',
   'bios.recheck': 'Volver a comprobar',
@@ -459,10 +459,10 @@ export const es: Catalog = {
   // Por qué el BIOS de una plataforma no puede colocarse en absoluto.
 
   'bios.blockedNoMapping':
-    'RomMix no tiene ninguna correspondencia de carpeta para {platform}, así que no sabe qué ' +
+    'Galleon no tiene ninguna correspondencia de carpeta para {platform}, así que no sabe qué ' +
     'emulador la ejecuta. Añade una a systemOverrides en settings.json.',
   'bios.blockedNoEmulator': 'Ningún emulador instalado ejecuta {system}.',
-  'bios.blockedNoFolder': 'RomMix no sabe dónde guarda {name} sus archivos BIOS.',
+  'bios.blockedNoFolder': 'Galleon no sabe dónde guarda {name} sus archivos BIOS.',
 
   // -- un juego -------------------------------------------------------------
 
@@ -483,7 +483,7 @@ export const es: Catalog = {
     'Nada de lo instalado aquí ejecuta juegos de {platform}. Instala un emulador ahora, o descarga ' +
     'el juego e instala uno más tarde.',
   'game.noEmulatorNone':
-    'RomMix no tiene ningún emulador para {platform}, así que no puede iniciar este juego. La ' +
+    'Galleon no tiene ningún emulador para {platform}, así que no puede iniciar este juego. La ' +
     'descarga sigue funcionando.',
   'game.installEmulator': 'Instalar un emulador',
   'game.downloadAnyway': 'Descargar de todos modos',
@@ -500,9 +500,9 @@ export const es: Catalog = {
   'game.revision': 'Rev. {revision}',
   'game.ratingOutOf': '/ 100',
   'game.runningAsk':
-    'El juego está en marcha. RomMix preguntará qué enviar a RomM cuando cierres el emulador.',
+    'El juego está en marcha. Galleon preguntará qué enviar a RomM cuando cierres el emulador.',
   'game.runningAuto':
-    'El juego está en marcha. RomMix devolverá tus partidas a RomM cuando cierres el emulador.',
+    'El juego está en marcha. Galleon devolverá tus partidas a RomM cuando cierres el emulador.',
   'game.biosMissing_one':
     '{platform} necesita {files} para arrancar la mayoría de los juegos, y no está instalado.',
   'game.biosMissing_other':
@@ -605,28 +605,28 @@ export const es: Catalog = {
   'saves.primehack':
     'PrimeHack mantiene una sola tarjeta de memoria para todos los juegos, así que no hay ninguna partida guardada que pertenezca a este. Los estados guardados sí se sincronizan.',
   'saves.ppsspp':
-    'PPSSPP archiva las partidas bajo el identificador de juego impreso dentro de la imagen de disco en lugar del nombre de la ROM, y RomMix no puede leerlo desde fuera del emulador.',
+    'PPSSPP archiva las partidas bajo el identificador de juego impreso dentro de la imagen de disco en lugar del nombre de la ROM, y Galleon no puede leerlo desde fuera del emulador.',
   'saves.rpcs3':
-    'RPCS3 archiva las partidas bajo el identificador de título de PS3 en lugar del nombre de la ROM, que RomMix no puede asociar a este juego.',
+    'RPCS3 archiva las partidas bajo el identificador de título de PS3 en lugar del nombre de la ROM, que Galleon no puede asociar a este juego.',
   'saves.cemu':
-    'Cemu archiva las partidas bajo el identificador de título de Wii U en lugar del nombre de la ROM, que RomMix no puede asociar a este juego.',
+    'Cemu archiva las partidas bajo el identificador de título de Wii U en lugar del nombre de la ROM, que Galleon no puede asociar a este juego.',
   'saves.vita3k':
-    'Vita3K archiva las partidas bajo el identificador de título de Vita en lugar del nombre de la ROM, que RomMix no puede asociar a este juego.',
+    'Vita3K archiva las partidas bajo el identificador de título de Vita en lugar del nombre de la ROM, que Galleon no puede asociar a este juego.',
   'saves.xenia':
-    'Xenia archiva las partidas bajo el identificador de título de Xbox 360 en lugar del nombre de la ROM, que RomMix no puede asociar a este juego.',
+    'Xenia archiva las partidas bajo el identificador de título de Xbox 360 en lugar del nombre de la ROM, que Galleon no puede asociar a este juego.',
   'saves.flycast':
     'Flycast mantiene dos tarjetas de memoria VMU compartidas por todos los juegos de Dreamcast, así que no hay ninguna partida guardada que pertenezca a este. Los estados guardados sí se sincronizan.',
   'saves.xemu':
     'xemu mantiene un solo disco duro de Xbox emulado para todos los juegos, así que no hay ninguna partida guardada que pertenezca a este.',
   'saves.xroar': 'XRoar no escribe partidas en batería; solo se sincronizan sus estados.',
   'saves.azahar':
-    'Azahar guarda las partidas dentro de un árbol de tarjeta SD emulada indexado por identificador de título, que RomMix no puede asociar a este juego.',
+    'Azahar guarda las partidas dentro de un árbol de tarjeta SD emulada indexado por identificador de título, que Galleon no puede asociar a este juego.',
   'saves.azaharStates':
-    'Azahar guarda las partidas dentro de un árbol de tarjeta SD emulada indexado por identificador de título, que RomMix no puede asociar a este juego. Los estados guardados sí se sincronizan.',
-  'saves.shadps4NoData': 'RomMix no ha encontrado dónde guarda shadPS4 sus datos de partida.',
+    'Azahar guarda las partidas dentro de un árbol de tarjeta SD emulada indexado por identificador de título, que Galleon no puede asociar a este juego. Los estados guardados sí se sincronizan.',
+  'saves.shadps4NoData': 'Galleon no ha encontrado dónde guarda shadPS4 sus datos de partida.',
   'saves.shadps4NoSerial':
-    'Este juego no indica ningún número de serie de PS4, así que RomMix no puede saber cuál de las carpetas de guardado de shadPS4 es la suya.',
-  'setup.edenRoms': 'Añade la carpeta de ROM de RomMix a Eden: File → Game Directories.',
+    'Este juego no indica ningún número de serie de PS4, así que Galleon no puede saber cuál de las carpetas de guardado de shadPS4 es la suya.',
+  'setup.edenRoms': 'Añade la carpeta de ROM de Galleon a Eden: File → Game Directories.',
   'setup.edenFirmware':
     'Instala el firmware en Eden: Tools → Install Firmware. Las claves se copian por ti.',
   'setup.edenControls': 'Configura tu mando en Eden: Emulation → Configure → Controls.',
@@ -636,10 +636,10 @@ export const es: Catalog = {
   'setup.edenStaging':
     'Instala el firmware en Eden: Tools → Install Firmware, apuntando al archivo de abajo.',
   'setup.shadps4Roms':
-    'Añade la carpeta de ROM de RomMix a shadPS4, para que su lista de juegos encuentre lo que descargas.',
+    'Añade la carpeta de ROM de Galleon a shadPS4, para que su lista de juegos encuentre lo que descargas.',
 
   'saves.switchNoTitleId':
-    'RomMix no ha podido leer un identificador de título para este juego, que es con lo que ' +
+    'Galleon no ha podido leer un identificador de título para este juego, que es con lo que ' +
     '{emulator} nombra su carpeta de partidas. Una ROM que lleve su identificador de título en el ' +
     'nombre del archivo, o un NSP o XCI sin modificar, se resuelve sola.',
   'saves.switchNoProfile':
@@ -666,7 +666,7 @@ export const es: Catalog = {
   'details.downloadedFor': 'Descargado para',
   'details.onDisk': 'En el disco',
   'details.downloaded': 'Descargado',
-  'details.romMixFolder': 'La carpeta propia de RomMix',
+  'details.romMixFolder': 'La carpeta propia de Galleon',
   'details.empty': 'RomM no sabe nada más sobre este juego.',
 
   'files.tagBoth': 'Ambos',
@@ -686,7 +686,7 @@ export const es: Catalog = {
   'manual.next': 'Página siguiente',
   'manual.read': 'Leer',
   'manual.missing': 'RomM no tiene manual para este juego.',
-  'manual.offline': 'El manual está en tu servidor. Vuelve en cuanto RomMix pueda conectarse.',
+  'manual.offline': 'El manual está en tu servidor. Vuelve en cuanto Galleon pueda conectarse.',
   'achievements.progress': '{earned} de {total} conseguidos · {points} de {totalPoints} puntos',
   'achievements.notLinked':
     'Añade tu nombre de RetroAchievements a tu cuenta de RomM para ver tus logros.',
@@ -711,7 +711,7 @@ export const es: Catalog = {
   'settings.signedInAs': 'Sesión iniciada como',
   'settings.rommVersion': 'Versión de RomM',
   'settings.missingScopes':
-    'A esta sesión le faltan permisos que RomMix necesita: {scopes}. Vuelve a iniciar sesión para concederlos.',
+    'A esta sesión le faltan permisos que Galleon necesita: {scopes}. Vuelve a iniciar sesión para concederlos.',
   'settings.disconnect': 'Desconectar',
   'settings.disconnected': 'Desconectado de RomM',
   'settings.interface': 'Interfaz',
@@ -752,13 +752,14 @@ export const es: Catalog = {
   'settings.theme.arcade': 'Recreativa',
   'settings.theme.paper': 'Papel',
   'settings.theme.contrast': 'Alto contraste',
-  'themes.noticeTitle': 'RomMix ya tiene temas',
+  'themes.noticeTitle': 'Galleon ya tiene temas',
   'themes.noticeBody':
     'La interfaz puede dibujarse con otros colores: un tema claro o uno tomado de una consola. Cada uno se muestra en pantalla antes de conservarlo.',
   'themes.noticeChoose': 'Elegir un tema',
   'themes.noticeLater': 'Ahora no',
   'settings.support': 'Apoyar a RomMix',
-  'settings.supportBody': 'RomMix es gratis y siempre lo será. Puedes invitarme a un café.',
+  'settings.supportBody':
+    'Galleon se basa en RomMix, que Benjamin Leclerc escribió y regala. Puedes invitarle a un café.',
   'settings.buyCoffee': 'Invitarme a un café',
   'settings.scanOrOpen': 'Escanea esto con el móvil, o ábrelo en un navegador de esta máquina.',
   'settings.application': 'Aplicación',
@@ -766,7 +767,7 @@ export const es: Catalog = {
 
   'settings.gamesOnDisk': 'Juegos en el disco',
   'settings.storageToRomMix':
-    'Las descargas nuevas van a la carpeta de RomMix — indícasela a cada emulador',
+    'Las descargas nuevas van a la carpeta de Galleon — indícasela a cada emulador',
   'settings.storageToEmulator': 'Las descargas nuevas van a la carpeta propia de cada emulador',
   'settings.sharedFolderNote':
     'Los juegos se escriben en {path}/roms/<sistema>. Los juegos ya descargados en la carpeta ' +
@@ -776,7 +777,7 @@ export const es: Catalog = {
   'settings.syncDown': 'Descargar las partidas más recientes antes de jugar',
   'settings.syncDownHint':
     'Solo cuando sean estrictamente más recientes. Las últimas copias locales se conservan en ' +
-    'la carpeta RomMix.',
+    'la carpeta Galleon.',
   'settings.syncUp': 'Subir las partidas después de jugar',
   'settings.syncUpHint': 'Solo se envía lo que la sesión haya escrito.',
   'settings.confirmPush': 'Preguntar antes de enviar partidas a RomM',
@@ -785,11 +786,11 @@ export const es: Catalog = {
   'settings.confirmUninstallHint': 'Sin esto, una pulsación borra la descarga.',
 
   'emulators.explainer':
-    'Lo que RomMix encontró aquí, por orden de preferencia. Una plataforma en Predeterminado ' +
+    'Lo que Galleon encontró aquí, por orden de preferencia. Una plataforma en Predeterminado ' +
     'va al primer emulador instalado que la cubra.',
   'emulators.platforms': 'Plataformas',
   'emulators.platformsExplainer':
-    'Qué emulador ejecuta cada plataforma de tu biblioteca. Cambia uno y RomMix usa tu ' +
+    'Qué emulador ejecuta cada plataforma de tu biblioteca. Cambia uno y Galleon usa tu ' +
     'elección solo para esa plataforma — y lo dice si falta, en vez de sustituirlo.',
 
   // -- un emulador ----------------------------------------------------------
@@ -828,12 +829,12 @@ export const es: Catalog = {
   'emulator.setupTitle': 'Configurar {name}',
   'emulator.setupSteps': 'Pasos de configuración',
   'emulator.setupIntro':
-    'Lo que queda pasa dentro del propio {name} — RomMix no puede hacerlo desde fuera ni ' +
+    'Lo que queda pasa dentro del propio {name} — Galleon no puede hacerlo desde fuera ni ' +
     'comprobar que se ha hecho:',
   'emulator.contactingFlathub': 'Contactando con Flathub…',
   'emulator.installTitle': 'Instalar {name}',
   'emulator.fromFlathub': '{appId}, desde Flathub',
-  'emulator.buildIntoRomMix': 'la compilación que elijas, en la carpeta propia de RomMix',
+  'emulator.buildIntoRomMix': 'la compilación que elijas, en la carpeta propia de Galleon',
   'emulator.manualInstall': '{name} hay que instalarlo a mano.',
   'emulator.manualInstallFrom': '{name} hay que instalarlo a mano, desde {homepage}.',
   'emulator.reasonNotInstalled': '{name} no está instalado.',
@@ -878,16 +879,16 @@ export const es: Catalog = {
 
   // -- las actualizaciones del propio RomMix --------------------------------
 
-  'update.label': 'Nuevas versiones de RomMix',
+  'update.label': 'Nuevas versiones de Galleon',
   'update.policyAuto': 'Automático',
   'update.policyNotify': 'Avísame',
   'update.policyOff': 'Desactivado',
   'update.hintAuto':
-    'Las nuevas versiones se descargan en segundo plano y se usan la próxima vez que RomMix ' +
+    'Las nuevas versiones se descargan en segundo plano y se usan la próxima vez que Galleon ' +
     'arranque.',
   'update.hintNotify':
-    'RomMix avisa cuando se publica una versión nueva y espera a que tú la descargues.',
-  'update.hintOff': 'RomMix nunca mira por su cuenta. El botón de abajo sí.',
+    'Galleon avisa cuando se publica una versión nueva y espera a que tú la descargues.',
+  'update.hintOff': 'Galleon nunca mira por su cuenta. El botón de abajo sí.',
   'update.prereleases': 'Versiones candidatas',
   'update.prereleasesHint':
     'Versiones de prueba, etiquetadas como 1.0.0-rc.1. Llegan antes que una versión terminada ' +
@@ -898,39 +899,39 @@ export const es: Catalog = {
   'update.checking': 'comprobando…',
   'update.notCheckedYet': 'aún sin comprobar',
   'update.lastChecked': 'Última comprobación',
-  'update.available': 'RomMix {version} está disponible.',
+  'update.available': 'Galleon {version} está disponible.',
   'update.availableAutoLine': '{version} Se está descargando ahora.',
   'update.availableManualLine':
     '{version} Descárgala cuando quieras: no se descarga nada hasta entonces.',
   'update.availableBlockedLine': '{version} Descárgala desde la página de versiones.',
   'update.readyLine':
-    '{version} Se ejecutará la próxima vez que inicies RomMix, o ahora si reinicias.',
-  'update.downloadingLine': 'Descargando RomMix {version}: {size}',
-  'update.ready': 'RomMix {version} está listo.',
-  'update.upToDate': 'RomMix está al día.',
+    '{version} Se ejecutará la próxima vez que inicies Galleon, o ahora si reinicias.',
+  'update.downloadingLine': 'Descargando Galleon {version}: {size}',
+  'update.ready': 'Galleon {version} está listo.',
+  'update.upToDate': 'Galleon está al día.',
   'update.checkNow': 'Comprobar ahora',
   'update.downloadVersion': 'Descargar {version}',
   'update.downloadAction': 'Descargar la nueva versión',
   'update.restartNow': 'Reiniciar ahora',
   'update.releasesPage': 'Página de versiones',
-  'update.newest': 'RomMix {version} es la versión más reciente',
+  'update.newest': 'Galleon {version} es la versión más reciente',
   'update.steamBlocked':
-    'Steam ha iniciado RomMix, y no deja que un programa se reinicie a sí mismo. Sal de RomMix y ' +
+    'Steam ha iniciado Galleon, y no deja que un programa se reinicie a sí mismo. Sal de Galleon y ' +
     'vuelve a pulsar Jugar — la nueva versión ya está en su sitio.',
   'update.noBuildForMachine':
     'La versión {version} no tiene ninguna compilación para esta máquina ({arch}).',
   'update.noVersionTag': 'La versión más reciente no tiene etiqueta de versión',
   'update.noBuildCommit':
-    'Esta compilación no lleva ningún commit, así que RomMix no puede distinguirla de la canary.',
+    'Esta compilación no lleva ningún commit, así que Galleon no puede distinguirla de la canary.',
   'update.noCanaryCommit': 'La etiqueta canary no designa ningún commit.',
   'update.nothingToDownload': 'No hay ninguna versión nueva que descargar',
   'update.nothingToRestartInto': 'No hay ninguna versión descargada a la que reiniciar',
-  'update.devBuild': 'Esto es una compilación de desarrollo, RomMix no la reemplazará.',
+  'update.devBuild': 'Esto es una compilación de desarrollo, Galleon no la reemplazará.',
   'update.notAppImage':
-    'RomMix no se ha iniciado desde una AppImage, así que no puede reemplazarse a sí mismo. ' +
+    'Galleon no se ha iniciado desde una AppImage, así que no puede reemplazarse a sí mismo. ' +
     'Descarga la nueva versión desde la página de versiones.',
   'update.cannotWrite':
-    'RomMix no puede escribir en {dir}, así que no puede reemplazarse allí. Mueve la AppImage a ' +
+    'Galleon no puede escribir en {dir}, así que no puede reemplazarse allí. Mueve la AppImage a ' +
     'un sitio que sea tuyo, o descarga la nueva versión desde la página de versiones.',
   'update.noRoom': 'No queda sitio suficiente en {dir} para la nueva versión.',
   'update.githubResponded': 'GitHub respondió {status}',
@@ -939,9 +940,9 @@ export const es: Catalog = {
   // -- la instalación en sí -------------------------------------------------
 
   'system.updates': 'Actualizaciones',
-  'system.romMixFolder': 'Carpeta de RomMix',
+  'system.romMixFolder': 'Carpeta de Galleon',
   'system.folderExplainer':
-    'Los ajustes, las credenciales, el índice de descargas y cualquier emulador que RomMix haya ' +
+    'Los ajustes, las credenciales, el índice de descargas y cualquier emulador que Galleon haya ' +
     'instalado. Mueve esta carpeta para mover toda la instalación.',
   'system.folder': 'Carpeta',
   'system.folderHintEnv': 'Fijada por GALLEON_HOME, que manda sobre cualquier cosa elegida aquí.',
@@ -949,7 +950,7 @@ export const es: Catalog = {
     'Los ajustes, las partidas y la biblioteca sin conexión se copian. Los juegos y los ' +
     'emuladores instalados no se mueven.',
   'system.moveAndRestart': 'Mover y reiniciar',
-  'system.folderMoved': 'Carpeta de RomMix movida — reiniciando',
+  'system.folderMoved': 'Carpeta de Galleon movida — reiniciando',
   'system.preflight': 'Comprobación previa',
   'system.flatpakAvailable': 'Flatpak disponible',
   'system.flathubSetUp': 'Flathub configurado',
@@ -972,7 +973,7 @@ export const es: Catalog = {
   'change.body': 'Cada emulador guarda sus propios archivos, y al cambiar no se mueve ninguno:',
   'change.bios': 'Los archivos BIOS habrá que instalarlos otra vez para el nuevo emulador.',
   'change.gamesShared':
-    'Los juegos se quedan donde están — están en la carpeta propia de RomMix, la que le indicas a ' +
+    'Los juegos se quedan donde están — están en la carpeta propia de Galleon, la que le indicas a ' +
     'cada emulador.',
   'change.gamesPerEmulator':
     'Los juegos descargados se quedan en la carpeta del emulador antiguo y habrá que descargarlos ' +
@@ -985,11 +986,11 @@ export const es: Catalog = {
   // -- lo que informa la comprobación previa --------------------------------
 
   'diagnostics.noFlatpak':
-    'flatpak no está instalado, así que RomMix no puede encontrar ni instalar los emuladores que ' +
+    'flatpak no está instalado, así que Galleon no puede encontrar ni instalar los emuladores que ' +
     'se distribuyen así. Instálalo desde tu distribución y repite esta comprobación.',
   'diagnostics.noFlathub':
     'Flathub no está configurado para tu usuario, así que todavía no hay de dónde instalar los ' +
-    'emuladores flatpak. RomMix lo añade la primera vez que instalas uno, o puedes añadirlo tú ' +
+    'emuladores flatpak. Galleon lo añade la primera vez que instalas uno, o puedes añadirlo tú ' +
     'con: flatpak remote-add --user --if-not-exists flathub ' +
     'https://dl.flathub.org/repo/flathub.flatpakrepo',
   'diagnostics.noEmulatorSuggest':
@@ -1002,7 +1003,7 @@ export const es: Catalog = {
     'unidad en la que está esté montada.',
   'diagnostics.sharedFolder':
     'Los juegos se descargan en {path}. Añade esa carpeta a los directorios de juegos de cada ' +
-    'emulador, o no listarán lo que RomMix haya descargado.',
+    'emulador, o no listarán lo que Galleon haya descargado.',
 
   // -- los fallos que informa el proceso principal --------------------------
 
@@ -1015,7 +1016,7 @@ export const es: Catalog = {
   'error.savesNotSent_other': '{count} partidas guardadas no se han podido enviar a RomM.',
   'error.serverTimedOut': 'El servidor RomM en {url} no ha respondido a tiempo.',
   'error.serverTooOld':
-    'Este servidor RomM es la versión {version}. RomMix necesita la {minimum} o posterior — actualízalo, por favor.',
+    'Este servidor RomM es la versión {version}. Galleon necesita la {minimum} o posterior — actualízalo, por favor.',
   'error.notAuthorised': 'No autorizado — inicia sesión otra vez',
   'error.permissionDenied': 'Permiso denegado: {detail}',
   'error.rommReturned': 'RomM respondió {status}: {detail}',
@@ -1026,7 +1027,7 @@ export const es: Catalog = {
   'error.power': 'La máquina lo rechazó: {reason}',
   'error.powerUnavailable': 'No se puede pedir eso a esta máquina.',
   'error.noRoom': 'No hay espacio suficiente: {needed} necesarios, {free} libres en {path}.',
-  'error.unsafeName': '{name} no es un nombre que RomMix vaya a escribir en el disco.',
+  'error.unsafeName': '{name} no es un nombre que Galleon vaya a escribir en el disco.',
   'error.downloadNotPublished':
     '{name} no es el archivo que se publicó. Se ha eliminado en lugar de instalarlo.',
   'error.downloadCorrupt':
@@ -1052,26 +1053,26 @@ export const es: Catalog = {
   'error.noEmulatorInstallOne':
     'Ningún emulador instalado puede ejecutar «{system}». Instala {name} y vuelve a intentarlo.',
   'error.noFolderMapping':
-    'RomMix no sabe a qué carpeta corresponde «{platform}». Añade «{slug}» a systemOverrides ' +
+    'Galleon no sabe a qué carpeta corresponde «{platform}». Añade «{slug}» a systemOverrides ' +
     'en settings.json.',
-  'error.noRomFolder': 'RomMix no sabe dónde guarda {name} sus juegos',
+  'error.noRomFolder': 'Galleon no sabe dónde guarda {name} sus juegos',
 
-  'error.unknownEmulator': 'RomMix no conoce ningún emulador llamado {id}',
+  'error.unknownEmulator': 'Galleon no conoce ningún emulador llamado {id}',
   'error.emulatorNotInstalled': '{name} no está instalado',
-  'error.cannotInstall': 'RomMix no puede instalar {name} por ti',
-  'error.assetNotRunnable': '{asset} no es algo que RomMix pueda ejecutar',
+  'error.cannotInstall': 'Galleon no puede instalar {name} por ti',
+  'error.assetNotRunnable': '{asset} no es algo que Galleon pueda ejecutar',
   'error.assetWrongArch': '{asset} no está compilado para esta máquina ({arch})',
   'error.notAFlatpak': '{name} no se distribuye como flatpak',
 
-  'error.rootMustBeAbsolute': 'La carpeta de RomMix debe ser una ruta absoluta',
+  'error.rootMustBeAbsolute': 'La carpeta de Galleon debe ser una ruta absoluta',
   'error.romMixHomeSet':
-    'GALLEON_HOME está definida, y manda sobre la carpeta elegida aquí. Quítala y reinicia RomMix ' +
+    'GALLEON_HOME está definida, y manda sobre la carpeta elegida aquí. Quítala y reinicia Galleon ' +
     'para mover la carpeta desde Ajustes.',
-  'error.onlyWebAddresses': 'RomMix solo abre direcciones web',
+  'error.onlyWebAddresses': 'Galleon solo abre direcciones web',
 
   'error.biosListFailed': 'No se pueden leer los archivos BIOS del servidor: {reason}',
   'error.biosGone': 'Ese archivo BIOS ya no está en el servidor',
-  'error.biosNowhere': 'RomMix no tiene dónde poner ese archivo BIOS',
+  'error.biosNowhere': 'Galleon no tiene dónde poner ese archivo BIOS',
 
   'error.assetGone': '{file} ya no está ahí para borrarlo',
   'error.assetNotLocal': '{file} no está en este dispositivo para borrarlo',

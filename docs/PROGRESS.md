@@ -259,3 +259,21 @@ Lines the tooling reads (exact forms):
 - Evaluator: PASS (endpoints, after-pack, desktop name and the release steps traced; notes: two comments still named the old image and executable, fixed in this PR; `scripts/build-landing.mjs` still names upstream's site, for part 3).
 - Device / acceptance: none (`ci`).
 - Next: M0-04 part 3 (user-facing strings in all four catalogues, README, the landing script's site), then flip M0-04.
+
+## 2026-10-08 22:56 UTC session cloud (routine run, third unit)
+
+- Device results: none new (as above).
+- Worked on: M0-04 part 3 of 3 (tracking issue #22): the product name the user reads, and the README.
+- Result: PR #25. Part 2, PR #24, merged at 2c05b3b; its CI wall time was x64 3:33, arm64 3:26 (on 6103317), and its package step built `dist/Galleon-x86_64.AppImage`.
+- Evidence:
+  - All four catalogues: every user-facing "RomMix" reads "Galleon"; keys keep upstream's names (ADR 0001). The Support entry names RomMix and Benjamin Leclerc, since its link is his. Window title, logo label, the shared ROM folder's name in the pre-flight check, the default device name and the updater's User-Agent follow. Log lines and comments keep "RomMix".
+  - README.md: Galleon is introduced as a fork of RomMix (linked) by Benjamin Leclerc under the kept MIT notice; install, folder and Steam-script instructions use the new names.
+  - `npm test` 1341/1341 (catalogue placeholder checks included); `scripts/agent/check.sh` green.
+  - With #23, #24 and this PR every M0-04 acceptance line is met (the evaluator checked lines 1-3 and 6 on `main`); `passes` flips in the next PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: first pass FAIL only for this missing entry (lines 4 and 5 met; fr/de/es read correctly; the default device name is a fresh-install label and touches no save-sync rule). Its note that the Support text now implied donations go to Galleon is fixed here.
+- Device / acceptance: none (`ci`).
+- Next: flip M0-04; then M0-06 (Docker RomM), M0-09 (screenshot harness) on the way to M0-05, M0-13 and M0-24 (owner issue #5).
+- Notes:
+  - The unit suites that never set `GALLEON_HOME` still write `logs/app.log` into `~/galleon`; worth sandboxing.
+  - `src/renderer/src/dev/bridge.ts` still names preview devices `RomMix @ …`; they may appear in screenshots once `shots:nova` exists.

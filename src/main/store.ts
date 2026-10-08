@@ -100,7 +100,7 @@ function defaultSettings(): Settings {
     // is offered only to installations that asked for one.
     updatePrereleases: false,
     deviceId: randomUUID(),
-    deviceName: `RomMix @ ${hostname()}`
+    deviceName: `Galleon @ ${hostname()}`
   }
 }
 

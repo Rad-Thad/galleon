@@ -173,7 +173,7 @@ export class Library extends EventEmitter {
     // Every descriptor declares a ROM folder, so this is only null when the
     // emulator was found but never probed.
     if (!library.root) {
-      throw new RommError(t('error.noRomFolder', { name: emulator?.name ?? 'RomMix' }))
+      throw new RommError(t('error.noRomFolder', { name: emulator?.name ?? 'Galleon' }))
     }
 
     // Multi-file games (CD images with cue+bin, multi-disc sets) get a directory
