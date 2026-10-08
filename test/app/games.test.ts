@@ -754,7 +754,7 @@ describe('driving the queue from the activity tab', () => {
     // Held on the wire for the whole of this block: on the wire while the other
     // game is queued behind it, on the wire again once that one is done, and
     // still there when the buttons below are pressed. Left to run, each of
-    // those is a couple of seconds the scenario has to land in.
+    // those is a window the scenario has to land in.
     server.slowGame.allow(0)
 
     // Uninstalled first, so there is something to download. The confirmation is

@@ -128,11 +128,12 @@ export interface FakeRomm {
   /**
    * How much of the slow game goes out, and when.
    *
-   * Left alone it runs to the end in a couple of seconds, which is a window,
-   * not a state: a scenario that waits for it to be part-way, or back on the
-   * wire after something overtook it, is betting that the poll lands inside
-   * those seconds, and on a loaded runner it does not. Held, the transfer stays
-   * exactly where it is, connected and `downloading`, until it is let through.
+   * Left alone it runs to the end at the pace `serveSlowly` sets, which is a
+   * window, not a state: a scenario that waits for it to be part-way, or back
+   * on the wire after something overtook it, is betting that the poll lands
+   * inside that window, and on a loaded runner it does not. Held, the transfer
+   * stays exactly where it is, connected and `downloading`, until it is let
+   * through.
    */
   slowGame: {
     /**

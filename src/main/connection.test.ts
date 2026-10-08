@@ -357,7 +357,7 @@ describe('watching it', () => {
     connected = true
     await watch.refresh()
     const afterConnecting = asked.length
-    // Twenty probes' worth at the away rate, and nowhere near one at the
+    // Many probes' worth at the away rate, and nowhere near one at the
     // connected rate.
     await clock.tick(40)
     watch.stop()

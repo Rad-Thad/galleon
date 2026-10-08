@@ -131,9 +131,9 @@ jobs:
       # built.
       # `npm ci` does not fetch Electron's binary — the package no longer does it
       # on install, which is why CONTRIBUTING has it as a separate line too. The
-      # AppImage above is unaffected: electron-builder downloads its own. Only
-      # something that actually *runs* Electron needs this, and until now
-      # nothing in CI did.
+      # AppImage above is unaffected: it is packaged from the archive the
+      # warm-up step fetched. Only something that actually *runs* Electron
+      # needs this, and until now nothing in CI did.
       - run: npx install-electron
 
       # Chromium will not run without its sandbox, and the helper npm unpacks is
