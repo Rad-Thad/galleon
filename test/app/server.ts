@@ -125,6 +125,24 @@ export interface FakeRomm {
   goAway: () => Promise<void>
   /** And back into range, on the address it had. */
   comeBack: () => Promise<void>
+  /**
+   * How much of the slow game goes out, and when.
+   *
+   * Left alone it runs to the end in a couple of seconds, which is a window,
+   * not a state: a scenario that waits for it to be part-way, or back on the
+   * wire after something overtook it, is betting that the poll lands inside
+   * those seconds, and on a loaded runner it does not. Held, the transfer stays
+   * exactly where it is, connected and `downloading`, until it is let through.
+   */
+  slowGame: {
+    /**
+     * Let this many more bytes out, then hold the connection open with
+     * nothing more on it. Zero holds it where it is.
+     */
+    allow: (bytes: number) => void
+    /** Back to running to the end at its own pace, which is how it starts. */
+    flow: () => void
+  }
   close: () => Promise<void>
 }
 
@@ -169,7 +187,12 @@ const SLOW_CHUNK_MS = 30
  * and a scenario that pauses it, picks it up and then cancels it has to be able
  * to catch it twice.
  */
-function serveSlowly(res: ServerResponse, bytes: Buffer, from = 0): void {
+function serveSlowly(
+  res: ServerResponse,
+  bytes: Buffer,
+  from: number,
+  take: (wanted: number) => number
+): void {
   const rest = bytes.subarray(from)
   res.writeHead(from > 0 ? 206 : 200, {
     'Content-Type': 'application/octet-stream',
@@ -184,8 +207,11 @@ function serveSlowly(res: ServerResponse, bytes: Buffer, from = 0): void {
       res.end()
       return
     }
-    res.write(rest.subarray(at, at + SLOW_CHUNK))
-    at += SLOW_CHUNK
+    // Whatever `FakeRomm.slowGame` allows, which may be nothing this time.
+    const size = take(Math.min(SLOW_CHUNK, rest.length - at))
+    if (size === 0) return
+    res.write(rest.subarray(at, at + size))
+    at += size
   }, SLOW_CHUNK_MS)
   // The response, not the request: a GET's request body ends the moment it
   // arrives, so watching that stops the timer before a single chunk goes out.
@@ -675,6 +701,13 @@ export async function startFakeRomm(): Promise<FakeRomm> {
   // first — which is what running a libretro game through RetroArch would do.
   const nintendoSwitch = platform(3, 'switch', 'Nintendo Switch')
   const segacd = platform(4, 'segacd', 'Sega CD')
+  /** What the slow game may still send. See `FakeRomm.slowGame`. */
+  let slowAllowance = Infinity
+  const takeSlowBytes = (wanted: number): number => {
+    const size = Math.min(wanted, slowAllowance)
+    slowAllowance -= size
+    return size
+  }
   const slow = { ...rom(5, 'The Long Haul', megadrive, 'longhaul.md') }
   slow.fs_size_bytes = SLOW_ROM_BYTES.length
   slow.md5_hash = SLOW_ROM_MD5
@@ -1195,7 +1228,7 @@ export async function startFakeRomm(): Promise<FakeRomm> {
         // and every transfer of this game is slow. See `serveSlowly`.
         const askedFor = /^bytes=(\d+)-(\d*)$/.exec(req.headers.range ?? '')
         if (askedFor && askedFor[2]) return serveBytes(req, res, SLOW_ROM_BYTES)
-        return serveSlowly(res, SLOW_ROM_BYTES, Number(askedFor?.[1] ?? 0))
+        return serveSlowly(res, SLOW_ROM_BYTES, Number(askedFor?.[1] ?? 0), takeSlowBytes)
       }
 
       const fileContent = /^\/api\/roms\/(\d+)\/files\/content\/(.+)$/.exec(url.pathname)
@@ -1301,6 +1334,14 @@ export async function startFakeRomm(): Promise<FakeRomm> {
     signIn: { username: user.username, password: PASSWORD },
     grantedToken: PASSWORD_TOKEN,
     version: VERSION,
+    slowGame: {
+      allow: (bytes) => {
+        slowAllowance = bytes
+      },
+      flow: () => {
+        slowAllowance = Infinity
+      }
+    },
     approvePairing: () => {
       if (pairing) pairing.approved = true
     },

@@ -80,6 +80,16 @@ jobs:
             exit 1
           fi
 
+      # What packaging downloads, kept between runs: Electron's archive and the
+      # AppImage toolset. Keyed on the lockfile, which is what names the
+      # Electron and electron-builder versions both depend on.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cache/electron
+            ~/.cache/electron-builder
+          key: package-cache-${{ runner.os }}-${{ matrix.arch }}-${{ hashFiles('package-lock.json') }}
+
       - run: npm ci
 
       # The same gates `.release-it.js` runs before it will cut a tag, repeated
@@ -94,7 +104,19 @@ jobs:
       # `--publish never` that matters lives in the `package` script, so it
       # cannot be forgotten here — see package.json.
       - run: npm run build
-      - run: npm run package -- --${{ matrix.arch }}
+
+      # Everything the package step would otherwise fetch from github.com in
+      # the middle of packaging, fetched here with a few attempts instead —
+      # see scripts/warm-package-cache.mjs. The packaging below is never
+      # retried, so a network hiccup is better met here, before it starts.
+      - name: Warm the packaging cache
+        id: warm
+        run: node scripts/warm-package-cache.mjs ${{ matrix.arch }}
+
+      # Handed the archive the step above checked, so it fetches nothing.
+      - run: npm run package -- --${{ matrix.arch }} -c.electronDist="$ELECTRON_ZIP"
+        env:
+          ELECTRON_ZIP: ${{ steps.warm.outputs.electron-zip }}
 
       # The one check that runs the renderer, the IPC wiring and the preload
       # bridge together — see test/app/. It needs somewhere to put a window,

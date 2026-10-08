@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import type { EmulatorState } from '@config/emulators'
 import type { Settings } from '@shared/types'
 import { detectEmulators, expandShell, prepareRomFolders } from './emulators.ts'
+import { log } from './log.ts'
 
 /**
  * Probing the machine for the emulators in the registry.
@@ -29,6 +30,8 @@ const roots: string[] = []
 const env = { ...process.env }
 
 afterEach(() => {
+  // The log holds its path into whichever scratch root logged first.
+  log.close()
   for (const dir of roots.splice(0)) rmSync(dir, { recursive: true, force: true })
   process.env = { ...env }
 })

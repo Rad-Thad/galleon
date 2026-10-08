@@ -10,7 +10,7 @@
  */
 
 import assert from 'node:assert/strict'
-import { afterEach, describe, test } from 'node:test'
+import { afterEach, describe, mock, test } from 'node:test'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -26,8 +26,31 @@ import { Store } from './store.ts'
 
 const scratches: string[] = []
 afterEach(() => {
+  mock.timers.reset()
   for (const dir of scratches.splice(0)) rmSync(dir, { recursive: true, force: true })
 })
+
+/**
+ * Time, moved by the test rather than waited for.
+ *
+ * What is under test here is a rate and a bound, and both are timers. Waited
+ * for on the real clock they are a bet on how busy the machine is: a probe
+ * meant to fire every few milliseconds fires once in forty on a loaded runner,
+ * and a bound whose timer is deliberately unref'd can be outlived by the
+ * process itself when nothing else is pending. On a mocked clock each tick is
+ * exactly as long as it says.
+ */
+function mockTime(): { tick: (ms: number) => Promise<void> } {
+  mock.timers.enable({ apis: ['setTimeout'] })
+  return {
+    async tick(ms: number) {
+      mock.timers.tick(ms)
+      // What the timers started (a probe is a promise) runs before the next
+      // look. `setImmediate` is still the real one: only `setTimeout` is mocked.
+      await new Promise((resolve) => setImmediate(resolve))
+    }
+  }
+}
 
 /** A store with a server configured and a token held, unless told otherwise. */
 function store(options: { signedIn?: boolean } = {}): Store {
@@ -142,8 +165,11 @@ describe('what "not connected" means', () => {
       me: () => new Promise(() => undefined),
       heartbeat: () => new Promise(() => undefined)
     } as unknown as RommClient
+    const clock = mockTime()
 
-    const status = await connectionStatus(store(), silent, 10)
+    const checking = connectionStatus(store(), silent, 10)
+    await clock.tick(10)
+    const status = await checking
 
     assert.equal(status.connected, false)
     assert.equal(status.offline, true)
@@ -296,11 +322,13 @@ describe('watching it', () => {
       { away: 2, connected: 10_000 }
     )
 
+    const clock = mockTime()
+
     watch.start()
-    await new Promise((resolve) => setTimeout(resolve, 40))
+    for (let probe = 0; probe < 5; probe += 1) await clock.tick(2)
     const whileRunning = asked.length
     watch.stop()
-    await new Promise((resolve) => setTimeout(resolve, 20))
+    await clock.tick(20)
 
     // Away from the server almost nothing is being asked, so there are no
     // failures to learn from and this is the only way back.
@@ -320,14 +348,18 @@ describe('watching it', () => {
       { away: 2, connected: 10_000 }
     )
 
+    const clock = mockTime()
+
     watch.start()
-    await new Promise((resolve) => setTimeout(resolve, 20))
+    for (let probe = 0; probe < 5; probe += 1) await clock.tick(2)
     assert.ok(asked.length > 1)
 
     connected = true
     await watch.refresh()
     const afterConnecting = asked.length
-    await new Promise((resolve) => setTimeout(resolve, 40))
+    // Twenty probes' worth at the away rate, and nowhere near one at the
+    // connected rate.
+    await clock.tick(40)
     watch.stop()
 
     // With a server there, every screen is making requests against it and the

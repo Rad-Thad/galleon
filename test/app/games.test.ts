@@ -426,12 +426,24 @@ describe('uninstalling a game', () => {
   })
 })
 
+/**
+ * How much of the slow game a scenario lets through before it presses
+ * something: some of it, and certainly not all.
+ */
+const PART_OF_THE_SLOW_GAME = 256 * 1024
+
 describe('pausing a download and picking it up again', () => {
+  after(() => server.slowGame.flow())
+
   test('what arrived is kept, and the rest is asked for by range', async () => {
     // The one game the fake serves slowly, because a transfer that is over
     // before the first key press cannot be interrupted. Everything under test
     // here is in `transfer.ts`, and this is the only place it runs against a
     // real socket rather than a stubbed fetch.
+    //
+    // Part of it and then nothing, so "part-way" is a place the transfer stays
+    // rather than a moment the poll below has to land in.
+    server.slowGame.allow(PART_OF_THE_SLOW_GAME)
     await app.goTo('library')
     await app.choose('[data-rom="5"]')
     await app.waitFor(`document.querySelector('[data-screen="game"]')`, 'the game screen')
@@ -442,7 +454,8 @@ describe('pausing a download and picking it up again', () => {
     // onto.
     await app.waitFor(
       `(await window.rommix.downloads.list()).some(
-         (one) => one.romId === 5 && one.state === 'downloading' && one.receivedBytes > 0
+         (one) => one.romId === 5 && one.state === 'downloading' &&
+           one.receivedBytes >= ${PART_OF_THE_SLOW_GAME}
        )`,
       'the transfer to be under way'
     )
@@ -467,6 +480,7 @@ describe('pausing a download and picking it up again', () => {
     // The same button, which is what the screen offers: what the player wants
     // is the game, and whether that means starting or finishing a transfer is
     // not a second decision to make.
+    server.slowGame.flow()
     await downloadAnyway(app)
     await app.waitFor(
       `(await window.rommix.library.installed()).some((one) => one.romId === 5)`,
@@ -728,6 +742,8 @@ describe('the downloads screen', () => {
  * that has anything to say about it.
  */
 describe('driving the queue from the activity tab', () => {
+  after(() => server.slowGame.flow())
+
   /** What the queue says about one game right now. */
   const stateOf = (romId: number): Promise<string | undefined> =>
     app.read<string | undefined>(
@@ -735,6 +751,12 @@ describe('driving the queue from the activity tab', () => {
     )
 
   test('one moved to the front takes the wire off the one that had it', async () => {
+    // Held on the wire for the whole of this block: on the wire while the other
+    // game is queued behind it, on the wire again once that one is done, and
+    // still there when the buttons below are pressed. Left to run, each of
+    // those is a couple of seconds the scenario has to land in.
+    server.slowGame.allow(0)
+
     // Uninstalled first, so there is something to download. The confirmation is
     // the same one the uninstall scenario above answers.
     await app.goTo('library')
@@ -769,15 +791,20 @@ describe('driving the queue from the activity tab', () => {
     // The slow one gives way rather than being cancelled: it can be picked up
     // where it stopped, which is the whole reason the button offers to start
     // the other game now rather than merely next.
+    //
+    // Seen by what it leaves behind rather than caught in the act. The slow
+    // game is off the wire only while the promoted one runs, and that is over
+    // as quickly as the fake answers; a poll can miss it entirely. But there
+    // is one transfer at a time and the slow game is held, so the promoted game
+    // can only have finished if the slow one gave the wire up for it.
     await app.waitFor(
-      `(await window.rommix.downloads.list()).find((one) => one.romId === 5)?.state !== 'downloading'`,
-      'the slow game to give the wire up'
+      `(await window.rommix.downloads.list()).find((one) => one.romId === 4)?.state === 'done'`,
+      'the promoted game to take the wire and finish'
     )
-    await app.waitFor(
-      `['downloading', 'extracting', 'done'].includes(
-         (await window.rommix.downloads.list()).find((one) => one.romId === 4)?.state
-       )`,
-      'the promoted game to take it'
+    const slow = await stateOf(5)
+    assert.ok(
+      slow === 'queued' || slow === 'downloading',
+      `the slow game should be back in the queue rather than stopped, and is ${slow}`
     )
   })
 
@@ -787,6 +814,14 @@ describe('driving the queue from the activity tab', () => {
     await app.waitFor(
       `(await window.rommix.downloads.list()).find((one) => one.romId === 5)?.state === 'downloading'`,
       'the slow game to get its turn back'
+    )
+
+    // Some bytes to keep, and then held again.
+    server.slowGame.allow(PART_OF_THE_SLOW_GAME)
+    await app.waitFor(
+      `(await window.rommix.downloads.list()).find((one) => one.romId === 5)?.receivedBytes >=
+         ${PART_OF_THE_SLOW_GAME}`,
+      'part of the slow game to arrive'
     )
 
     await app.choose('[data-download="5"] [data-action="pause-transfer"]')
