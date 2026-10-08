@@ -23,14 +23,14 @@ The repository is public, so GitHub's build machines (including the ARM ones) co
 
 ## One habit, when it suits you
 
-Leave the Nova **on its charger, in Game Mode, at Steam's library** overnight (quit any game, RomMix or ES-DE first), and set Steam's **Settings -> Power -> Sleep when plugged in** to **Never** once. Results then show up automatically. If the Nova is away or asleep for days, nothing breaks; the features that need it simply wait.
+Leave the Nova **on its charger, in Game Mode, at Steam's library** whenever you are not using it (quit any game, RomMix or ES-DE first), and set Steam's **Settings -> Power -> Sleep when plugged in** to **Never** once. Results then show up automatically. If the Nova is away or asleep for days, nothing breaks; the features that need it simply wait.
 
 ## What you will see, and when
 
 | When                      | What                                                                                                                                                                                                        |
 | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | From day one              | Nothing you need to look at. The agent opens and merges its own pull requests.                                                                                                                              |
-| Some nights, 1 to 7 a.m.  | The Nova lights up with Galleon and a few emulators for up to half an hour, sound muted. **Any button stops it.** A "Galleon Device Test" entry in Steam does nothing if you start it.                      |
+| At any hour, when idle    | The Nova lights up with Galleon and a few emulators for up to half an hour, sound muted. **Any button stops it.** A "Galleon Device Test" entry in Steam does nothing if you start it.                      |
 | Rarely                    | A GitHub e-mail with one question (for example which exit button combo you prefer). Answer if you like; after three days the agent takes the safe default the question names.                               |
 | Near the end (weeks away) | **One e-mail: "Galleon is ready for your acceptance session."** Open the Claude session on your Mac and say **"start the Galleon acceptance session"**. About two hours, and Galleon is installed for real. |
 
@@ -42,7 +42,7 @@ Nothing the agent or the bridge does can change your RomM server, your saves, yo
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | Pause development            | Pause the Project, and at <https://claude.ai/code/routines> toggle `galleon-heartbeat` off. Turn them on to resume. |
 | Stop a run in progress       | Open the session at claude.ai/code and press **Stop**.                                                              |
-| Stop the night tests         | Ask the Mac's Claude to "stop the Galleon device bridge" (it disables the Nova's timer).                            |
+| Stop the device tests        | Ask the Mac's Claude to "stop the Galleon device bridge" (it disables the Nova's timer).                            |
 | Cut the Nova off from GitHub | Ask the Mac's Claude to "remove the Galleon deploy key".                                                            |
 | Cut the agent off completely | github.com -> Settings -> Applications -> Claude -> **Configure** -> remove `galleon`.                              |
 
@@ -124,4 +124,4 @@ part kickoff | pbcopy                                                           
 part routine | pbcopy                                                              # "the routine prompt"
 ```
 
-**A5. Later, on request:** stop the night tests with `ssh nova 'systemctl --user disable --now galleon-device-bridge.timer'`; remove the deploy key with `gh repo deploy-key list --repo "$OWNER/$NAME"` then `gh repo deploy-key delete <id> --repo "$OWNER/$NAME"`. For the acceptance session, read `docs/ACCEPTANCE.md` on `main` and follow it.
+**A5. Later, on request:** stop the device tests with `ssh nova 'systemctl --user disable --now galleon-device-bridge.timer'`; remove the deploy key with `gh repo deploy-key list --repo "$OWNER/$NAME"` then `gh repo deploy-key delete <id> --repo "$OWNER/$NAME"`. For the acceptance session, read `docs/ACCEPTANCE.md` on `main` and follow it.
