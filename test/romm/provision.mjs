@@ -38,12 +38,14 @@ import {
   waitForHeartbeat
 } from './lib.mjs'
 
+/** Fail with what RomM said, not only the status: a bare 403 says nothing. */
 async function check(response, what) {
   if (response.ok) return response
   const text = await response.text().catch(() => '')
   throw new Error(`${what}: ${response.status} ${text.slice(0, 500)}`)
 }
 
+/** A browser-like session: a cookie jar and the CSRF token RomM checks writes against. */
 class Session {
   constructor(baseUrl) {
     this.baseUrl = baseUrl

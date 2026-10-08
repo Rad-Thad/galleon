@@ -115,7 +115,6 @@ export function parseArgs(argv) {
   return options
 }
 
-/** Fail with what RomM said, not only the status: a bare 403 says nothing. */
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 /**
@@ -141,7 +140,6 @@ export async function waitForHeartbeat(
   throw new Error(`${baseUrl} did not answer its heartbeat in time (${last})`)
 }
 
-/** A browser-like session: a cookie jar and the CSRF token RomM checks writes against. */
 export function statePath(profile) {
   return join(here, '.state', `${profile}.json`)
 }
