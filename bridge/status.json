@@ -1,0 +1,9 @@
+{
+  "bridgeVersion": 1,
+  "lastSeen": "2026-10-08T15:06:00Z",
+  "lastSkip": "no 'nightly' release published yet",
+  "lastTested": null,
+  "skipReasons": {
+    "no 'nightly' release published yet": 1
+  }
+}
