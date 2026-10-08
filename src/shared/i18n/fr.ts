@@ -763,8 +763,9 @@ export const fr: Catalog = {
     'L’interface peut être dessinée dans d’autres couleurs : un thème clair, ou repris d’une console. Chacun s’affiche à l’écran avant d’être gardé.',
   'themes.noticeChoose': 'Choisir un thème',
   'themes.noticeLater': 'Plus tard',
-  'settings.support': 'Soutenir Galleon',
-  'settings.supportBody': 'Galleon est gratuit et le restera. Vous pouvez m’offrir un café.',
+  'settings.support': 'Soutenir RomMix',
+  'settings.supportBody':
+    'Galleon repose sur RomMix, que Benjamin Leclerc a écrit et offre à tous. Vous pouvez lui offrir un café.',
   'settings.buyCoffee': 'M’offrir un café',
   'settings.scanOrOpen':
     'Scannez ceci avec votre téléphone, ou ouvrez-le dans un navigateur sur cette machine.',

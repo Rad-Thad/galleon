@@ -762,8 +762,9 @@ export const en = {
     'The interface can be drawn in other colours — a light theme, or one taken from a console. Each is shown on screen before you keep it.',
   'themes.noticeChoose': 'Choose a theme',
   'themes.noticeLater': 'Not now',
-  'settings.support': 'Support Galleon',
-  'settings.supportBody': 'Galleon is free and always will be. You can buy me a coffee.',
+  'settings.support': 'Support RomMix',
+  'settings.supportBody':
+    'Galleon is built on RomMix, which Benjamin Leclerc wrote and gives away. You can buy him a coffee.',
   'settings.buyCoffee': 'Buy me a coffee',
   'settings.scanOrOpen': 'Scan this with your phone, or open it in a browser on this machine.',
   'settings.application': 'Application',

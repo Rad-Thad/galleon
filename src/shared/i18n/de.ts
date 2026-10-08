@@ -772,9 +772,9 @@ export const de: Catalog = {
     'Die Oberfläche kann in anderen Farben gezeichnet werden – ein helles Design oder eines von einer Konsole. Jedes wird auf dem Bildschirm gezeigt, bevor es bleibt.',
   'themes.noticeChoose': 'Design wählen',
   'themes.noticeLater': 'Später',
-  'settings.support': 'Galleon unterstützen',
+  'settings.support': 'RomMix unterstützen',
   'settings.supportBody':
-    'Galleon ist kostenlos und bleibt es. Sie können mir einen Kaffee ausgeben.',
+    'Galleon baut auf RomMix auf, das Benjamin Leclerc geschrieben hat und verschenkt. Sie können ihm einen Kaffee ausgeben.',
   'settings.buyCoffee': 'Kaffee ausgeben',
   'settings.scanOrOpen':
     'Scannen Sie das mit Ihrem Telefon oder öffnen Sie es in einem Browser auf diesem Rechner.',

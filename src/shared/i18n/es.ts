@@ -757,8 +757,9 @@ export const es: Catalog = {
     'La interfaz puede dibujarse con otros colores: un tema claro o uno tomado de una consola. Cada uno se muestra en pantalla antes de conservarlo.',
   'themes.noticeChoose': 'Elegir un tema',
   'themes.noticeLater': 'Ahora no',
-  'settings.support': 'Apoyar a Galleon',
-  'settings.supportBody': 'Galleon es gratis y siempre lo será. Puedes invitarme a un café.',
+  'settings.support': 'Apoyar a RomMix',
+  'settings.supportBody':
+    'Galleon se basa en RomMix, que Benjamin Leclerc escribió y regala. Puedes invitarle a un café.',
   'settings.buyCoffee': 'Invitarme a un café',
   'settings.scanOrOpen': 'Escanea esto con el móvil, o ábrelo en un navegador de esta máquina.',
   'settings.application': 'Aplicación',
