@@ -43,6 +43,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
+        with:
+          # The parent too, for the `changes` step's diff.
+          fetch-depth: 2
 
       - uses: actions/setup-node@v7
         with:
@@ -114,6 +117,52 @@ jobs:
           else
             node scripts/agent/features-check.mjs
           fi
+
+      # Which slow suites this change needs (docs/PLAN.md section 4). A pull
+      # request is checked out as a merge commit and main moves by squash
+      # merges, so the first parent is the base in both cases. Docker RomM 5.2.0
+      # runs once, on x64, when client, save or fixture code changed; a manual
+      # dispatch runs every version on both architectures.
+      - name: changes
+        id: changes
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: |
+          changed=$(git diff --name-only HEAD^1 HEAD)
+          echo "$changed"
+          romm=false
+          if grep -qE '^(src/main/romm/|src/main/saves[^/]*\.ts$|src/main/saves-compat/|test/romm/|test/fixtures/|schema/)' <<<"$changed"; then
+            romm=true
+          fi
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+            profiles='v520 v531'
+          elif [ "$ARCH" = x64 ] && [ "$romm" = true ]; then
+            profiles=v520
+          else
+            profiles=
+          fi
+          echo "romm=$romm" >>"$GITHUB_OUTPUT"
+          echo "romm_profiles=$profiles" >>"$GITHUB_OUTPUT"
+
+      # A disposable RomM per version, provisioned through its own API, then
+      # the suites that need a real server — see test/romm/README.md.
+      - name: Docker RomM
+        if: steps.changes.outputs.romm_profiles != ''
+        env:
+          PROFILES: ${{ steps.changes.outputs.romm_profiles }}
+        run: |
+          for profile in $PROFILES; do
+            echo "::group::RomM $profile"
+            start=$SECONDS
+            docker compose -f test/romm/compose.yml --profile "$profile" up -d
+            if ! node test/romm/provision.mjs --profile "$profile"; then
+              docker compose -f test/romm/compose.yml --profile "$profile" logs --tail 200
+              exit 1
+            fi
+            echo "RomM $profile provisioned in $((SECONDS - start))s"
+            ROMM_PROFILE="$profile" npm run test:romm-pairing
+            echo "::endgroup::"
+          done
 
       # `npm run appimage` is these two together; they are split so that a
       # failing bundle and a failing package are separate red steps. The

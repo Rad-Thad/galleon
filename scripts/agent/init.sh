@@ -102,7 +102,7 @@ start_romm() {
   fi
   step 'RomM 5.2.0 up'
   docker compose -f "$compose" --profile v520 up -d
-  wait_for_romm "${GALLEON_ROMM_URL:-http://127.0.0.1:3000}" "${GALLEON_ROMM_TIMEOUT:-240}"
+  wait_for_romm "${GALLEON_ROMM_URL:-http://127.0.0.1:18520}" "${GALLEON_ROMM_TIMEOUT:-240}"
   (cd "$ROOT" && node test/romm/provision.mjs --profile v520)
 }
 

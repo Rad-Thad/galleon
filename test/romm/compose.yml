@@ -1,0 +1,104 @@
+# Disposable RomM servers for the real-server suites, one profile per RomM
+# version the owner's server has run (docs/DEVICE-FACTS.md).
+#
+#   docker compose -f test/romm/compose.yml --profile v520 up -d
+#   node test/romm/provision.mjs --profile v520
+#
+# Nothing is persisted: the database lives on tmpfs, so every `up` starts from
+# an empty server and a test cannot pass because of what an earlier run left.
+# Images are pinned by digest so an upstream re-tag cannot change the server
+# under the tests; each digest is a multi-architecture index, which is what
+# lets the same file run on the arm64 runner.
+name: galleon-romm
+
+x-db: &db
+  image: mariadb:11@sha256:6422478cb8e159f080fb1d8ccf65101e26fe51385787fde7d16c3b165a331f15
+  environment:
+    MARIADB_ROOT_PASSWORD: romm
+    MARIADB_DATABASE: romm
+    MARIADB_USER: romm
+    MARIADB_PASSWORD: romm
+  healthcheck:
+    test: ['CMD', 'healthcheck.sh', '--connect', '--innodb_initialized']
+    interval: 3s
+    timeout: 3s
+    retries: 40
+  tmpfs:
+    - /var/lib/mysql
+
+x-romm: &romm
+  environment: &romm-env
+    DB_NAME: romm
+    DB_USER: romm
+    DB_PASSWD: romm
+    ROMM_AUTH_SECRET_KEY: test-only-not-a-real-secret-0123456789abcdef
+    # Some Docker hosts (the cloud VM among them) have no IPv6 inside
+    # containers, and RomM's nginx refuses to start when it cannot bind it.
+    IPV4_ONLY: 'true'
+    # provision.mjs asks for the one scan the suites need. A rescan landing in
+    # the middle of a run would change the library under it.
+    ENABLE_RESCAN_ON_FILESYSTEM_CHANGE: 'false'
+    ENABLE_SCHEDULED_RESCAN: 'false'
+    ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB: 'false'
+    ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA: 'false'
+    ENABLE_SCHEDULED_CONVERT_IMAGES_TO_WEBP: 'false'
+    # Every metadata provider stays unconfigured: the library is synthetic, and
+    # a suite that reached a third party would depend on it being up.
+    IGDB_CLIENT_ID: ''
+    IGDB_CLIENT_SECRET: ''
+    MOBYGAMES_API_KEY: ''
+    STEAMGRIDDB_API_KEY: ''
+    SCREENSCRAPER_USER: ''
+    SCREENSCRAPER_PASSWORD: ''
+    RETROACHIEVEMENTS_API_KEY: ''
+    TGDB_API_KEY: ''
+    FLASHPOINT_API_ENABLED: 'false'
+    HLTB_API_ENABLED: 'false'
+    LAUNCHBOX_API_ENABLED: 'false'
+    PLAYMATCH_API_ENABLED: 'false'
+    HASHEOUS_API_ENABLED: 'false'
+  volumes:
+    - ./library:/romm/library
+  healthcheck:
+    test: ['CMD-SHELL', 'curl -fsS http://localhost:8080/api/heartbeat || exit 1']
+    interval: 3s
+    timeout: 3s
+    retries: 80
+
+services:
+  db-v520:
+    <<: *db
+    profiles: [v520]
+
+  romm-v520:
+    <<: *romm
+    profiles: [v520]
+    image: rommapp/romm:5.2.0@sha256:3512f2ca455782f90247271bed23116e6bc675bc74e379be2c41696e607ab11e
+    depends_on:
+      db-v520:
+        condition: service_healthy
+    environment:
+      <<: *romm-env
+      DB_HOST: db-v520
+    # Loopback only, on a port per profile, so both versions can run at once
+    # and nothing outside the machine can reach them. provision.mjs holds the
+    # same numbers (PROFILES).
+    ports:
+      - 127.0.0.1:18520:8080
+
+  db-v531:
+    <<: *db
+    profiles: [v531]
+
+  romm-v531:
+    <<: *romm
+    profiles: [v531]
+    image: rommapp/romm:5.3.1@sha256:0d66b4ea152a237c7f24b95e87459f46d3c596a7c0b35a82f26bc971487278b3
+    depends_on:
+      db-v531:
+        condition: service_healthy
+    environment:
+      <<: *romm-env
+      DB_HOST: db-v531
+    ports:
+      - 127.0.0.1:18531:8080
