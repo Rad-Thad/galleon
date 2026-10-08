@@ -64,9 +64,9 @@ if (!app.requestSingleInstanceLock()) {
   app.quit()
 } else {
   // The root has to exist before the Store reads from it. Electron's own
-  // userData is deliberately left alone: it holds Chromium's caches, cookies,
-  // GPU state and singleton locks, none of which belong in a folder meant to
-  // hold the handful of files RomMix itself writes.
+  // userData stays outside it, in the profile above: it holds Chromium's
+  // caches, cookies, GPU state and singleton locks, none of which belong in a
+  // folder meant to hold the handful of files RomMix itself writes.
   ensureRoot()
 
   logSession({
