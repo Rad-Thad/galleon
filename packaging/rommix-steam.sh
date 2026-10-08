@@ -22,8 +22,8 @@ while [ "$rest" -gt 0 ]; do
       export ROMMIX_LOG
       ;;
     --home=*)
-      ROMMIX_HOME=${arg#--home=}
-      export ROMMIX_HOME
+      GALLEON_HOME=${arg#--home=}
+      export GALLEON_HOME
       ;;
     --appimage=*)
       ROMMIX_APPIMAGE=${arg#--appimage=}

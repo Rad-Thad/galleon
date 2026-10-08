@@ -71,7 +71,7 @@ import type {
  * names the same folder, and a demo quoting a different one is a documented
  * answer contradicted by the thing that is supposed to be showing it.
  */
-const PREVIEW_ROOT = '~/rommix'
+const PREVIEW_ROOT = '~/galleon'
 
 // ---------------------------------------------------------------------------
 // The library

@@ -51,12 +51,12 @@ import { zipDirectory } from './zip.ts'
  *
  * Downloads are driven with a client that writes bytes to the path it is given
  * rather than a real server — the transfer itself is `romm.test.ts`'s subject.
- * The root is redirected with `ROMMIX_HOME`, so nothing here touches the
+ * The root is redirected with `GALLEON_HOME`, so nothing here touches the
  * RomMix folder of whoever is running the tests.
  */
 
 const scratches: string[] = []
-const realHome = process.env.ROMMIX_HOME
+const realHome = process.env.GALLEON_HOME
 
 /** Every queue a test made, so the teardown can wait for each to stop. */
 const queues: DownloadManager[] = []
@@ -80,8 +80,8 @@ afterEach(async () => {
   for (const release of wires.splice(0)) release()
   for (const downloads of queues.splice(0)) await downloads.whenIdle()
   log.close()
-  if (realHome === undefined) delete process.env.ROMMIX_HOME
-  else process.env.ROMMIX_HOME = realHome
+  if (realHome === undefined) delete process.env.GALLEON_HOME
+  else process.env.GALLEON_HOME = realHome
   for (const dir of scratches.splice(0)) rmSync(dir, { recursive: true, force: true })
 })
 
@@ -346,7 +346,7 @@ function manager(
   resumed: boolean[]
 } {
   const root = options.store ? resolveRoot() : scratch()
-  process.env.ROMMIX_HOME = root
+  process.env.GALLEON_HOME = root
   const store = options.store ?? new Store(join(root, 'config'))
   store.updateSettings({ romStorage: options.shared === false ? 'emulator' : 'rommix' })
   const { client, resumed } = fakeClient(options)
@@ -442,7 +442,7 @@ describe('the queue', () => {
 describe('a download that runs to the end', () => {
   test('the game lands in the index, at the path it was written to', async () => {
     const root = scratch()
-    process.env.ROMMIX_HOME = root
+    process.env.GALLEON_HOME = root
     const store = new Store(join(root, 'config'))
     const { client } = fakeClient({ contents: '0123456789' })
     const downloads = queue(store, client, new Library(store, client, cache(client), () => null))
@@ -1004,7 +1004,7 @@ describe('after a restart', () => {
     // a desktop closing it or a machine losing power looks like. The bytes and
     // the record both have to be on disk already for this to survive.
     const root = scratch()
-    process.env.ROMMIX_HOME = root
+    process.env.GALLEON_HOME = root
     const store = new Store(join(root, 'config'))
     // Never let go while the test runs, which is what a process that has
     // stopped looks like from the disk.
@@ -1128,7 +1128,7 @@ describe('after a restart', () => {
 
   test('a ROM the server answers 404 for is a failure, not an outage', async () => {
     const root = scratch()
-    process.env.ROMMIX_HOME = root
+    process.env.GALLEON_HOME = root
     const store = new Store(join(root, 'config'))
     const reachable: boolean[] = []
 
@@ -1267,7 +1267,7 @@ describe('pausing on purpose', () => {
     // The client waits to be aborted rather than finishing, which is what a
     // transfer in progress looks like at the moment the button is pressed.
     const root = scratch()
-    process.env.ROMMIX_HOME = root
+    process.env.GALLEON_HOME = root
     const store = new Store(join(root, 'config'))
     const client = {
       async supportsRange() {
@@ -1321,7 +1321,7 @@ describe('pausing on purpose', () => {
 
   test('a transfer still waiting its turn pauses without ever starting', async () => {
     const root = scratch()
-    process.env.ROMMIX_HOME = root
+    process.env.GALLEON_HOME = root
     const store = new Store(join(root, 'config'))
     const second = rom({ id: 2, fs_name: 'Streets of Rage (USA).md' })
     // The first transfer never finishes, so the second stays queued behind it —

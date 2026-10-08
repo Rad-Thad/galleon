@@ -954,7 +954,7 @@ export const fr: Catalog = {
     'Les réglages, les identifiants, l’index des téléchargements et tout émulateur installé par ' +
     'RomMix. Déplacez ce dossier pour déplacer toute l’installation.',
   'system.folder': 'Dossier',
-  'system.folderHintEnv': 'Défini par ROMMIX_HOME, qui l’emporte sur tout ce qui est choisi ici.',
+  'system.folderHintEnv': 'Défini par GALLEON_HOME, qui l’emporte sur tout ce qui est choisi ici.',
   'system.folderHint':
     'Les réglages, les sauvegardes et la bibliothèque hors ligne sont copiés. Les jeux et les ' +
     'émulateurs installés ne sont pas déplacés.',
@@ -1079,7 +1079,7 @@ export const fr: Catalog = {
 
   'error.rootMustBeAbsolute': 'Le dossier RomMix doit être un chemin absolu',
   'error.romMixHomeSet':
-    'ROMMIX_HOME est défini, et il l’emporte sur le dossier choisi ici. Retirez-le et relancez ' +
+    'GALLEON_HOME est défini, et il l’emporte sur le dossier choisi ici. Retirez-le et relancez ' +
     'RomMix pour déplacer le dossier depuis les Réglages.',
   'error.onlyWebAddresses': 'RomMix n’ouvre que des adresses web',
 

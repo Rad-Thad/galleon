@@ -36,7 +36,7 @@ interface Launch {
   stderr: string
   /** The lines in `<root>/logs/launcher.log`. */
   logged: (root: string) => string[]
-  /** The root a launch with no ROMMIX_HOME and no pointer resolves to. */
+  /** The root a launch with no GALLEON_HOME and no pointer resolves to. */
   root: string
 }
 
@@ -87,7 +87,7 @@ function launch(env: Record<string, string>, args: string[] = []): Launch {
   return {
     argv: readFileSync(join(dir, 'argv'), 'utf8').split('\n').filter(Boolean),
     stderr: ran.stderr,
-    root: join(home, 'rommix'),
+    root: join(home, 'galleon'),
     logged: (root) =>
       readFileSync(join(root, 'logs', 'launcher.log'), 'utf8')
         .split('\n')
@@ -179,18 +179,18 @@ describe('what it writes down', () => {
 })
 
 describe('the root it writes under', () => {
-  test('ROMMIX_HOME, before anything else', () => {
+  test('GALLEON_HOME, before anything else', () => {
     const elsewhere = scratch('rommix-elsewhere-')
-    const run = launch({ XDG_SESSION_TYPE: 'x11', ROMMIX_HOME: elsewhere })
+    const run = launch({ XDG_SESSION_TYPE: 'x11', GALLEON_HOME: elsewhere })
     assert.equal(run.logged(elsewhere).length, 1)
   })
 
   test('then the pointer file, newline or no newline', () => {
     const pointed = scratch('rommix-pointed-')
     const dir = scratch('rommix-pointer-')
-    mkdirSync(join(dir, '.config', 'rommix'), { recursive: true })
+    mkdirSync(join(dir, '.config', 'galleon'), { recursive: true })
     // Written without one, which is the shape a hand-edited pointer takes.
-    writeFileSync(join(dir, '.config', 'rommix', 'root'), pointed)
+    writeFileSync(join(dir, '.config', 'galleon', 'root'), pointed)
     launch({ XDG_SESSION_TYPE: 'x11', HOME: dir })
     assert.equal(
       readFileSync(join(pointed, 'logs', 'launcher.log'), 'utf8').trim().length > 0,
@@ -198,10 +198,25 @@ describe('the root it writes under', () => {
     )
   })
 
+  test("never stock RomMix's, which may be installed beside it", () => {
+    const theirs = scratch('rommix-theirs-')
+    const pointed = scratch('rommix-their-pointer-')
+    const dir = scratch('rommix-beside-')
+    mkdirSync(join(dir, '.config', 'rommix'), { recursive: true })
+    writeFileSync(join(dir, '.config', 'rommix', 'root'), `${pointed}\n`)
+    launch({ XDG_SESSION_TYPE: 'x11', HOME: dir, ROMMIX_HOME: theirs })
+    assert.equal(
+      readFileSync(join(dir, 'galleon', 'logs', 'launcher.log'), 'utf8').length > 0,
+      true
+    )
+    assert.deepEqual(readdirSync(theirs), [])
+    assert.deepEqual(readdirSync(pointed), [])
+  })
+
   test('and a root that is only spaces is one nobody meant to set', () => {
     // `resolveRoot` trims it and falls through; a launcher that did not would
     // make a directory named " " wherever it happened to be started from.
-    const run = launch({ XDG_SESSION_TYPE: 'x11', ROMMIX_HOME: '  ' })
+    const run = launch({ XDG_SESSION_TYPE: 'x11', GALLEON_HOME: '  ' })
     assert.equal(run.logged(run.root).length, 1)
   })
 })
@@ -232,7 +247,7 @@ describe('what it refuses to let stop a launch', () => {
 
   test('and a root it cannot write to', () => {
     assert.deepEqual(
-      launch({ XDG_SESSION_TYPE: 'wayland', DISPLAY: ':0', ROMMIX_HOME: '/proc/nowhere' }).argv,
+      launch({ XDG_SESSION_TYPE: 'wayland', DISPLAY: ':0', GALLEON_HOME: '/proc/nowhere' }).argv,
       ['--ozone-platform=x11']
     )
   })
@@ -279,7 +294,7 @@ describe('what it refuses to let stop a launch', () => {
         XDG_RUNTIME_DIR: dir,
         XDG_SESSION_TYPE: 'wayland',
         DISPLAY: ':0',
-        ROMMIX_HOME: '/proc/nowhere'
+        GALLEON_HOME: '/proc/nowhere'
       }
     })
     assert.deepEqual(readFileSync(join(dir, 'argv'), 'utf8').split('\n').filter(Boolean), [
@@ -294,7 +309,7 @@ describe('what it refuses to let stop a launch', () => {
     const run = launch({
       XDG_SESSION_TYPE: 'x11',
       DISPLAY: ':0',
-      ROMMIX_HOME: '/proc/nowhere'
+      GALLEON_HOME: '/proc/nowhere'
     })
     assert.equal(run.stderr.split('\n').filter(Boolean).length, 1, run.stderr)
     assert.match(run.stderr, /INFO {2}startup/)
@@ -330,7 +345,7 @@ describe('what it refuses to let stop a launch', () => {
 describe('the history it keeps', () => {
   test('launches accumulate rather than replacing each other', () => {
     const root = scratch('rommix-history-')
-    for (let at = 0; at < 3; at += 1) launch({ XDG_SESSION_TYPE: 'x11', ROMMIX_HOME: root })
+    for (let at = 0; at < 3; at += 1) launch({ XDG_SESSION_TYPE: 'x11', GALLEON_HOME: root })
     assert.equal(
       readFileSync(join(root, 'logs', 'launcher.log'), 'utf8')
         .split('\n')
@@ -345,7 +360,7 @@ describe('the history it keeps', () => {
     const seeded = Array.from({ length: 400 }, (_, at) => `seeded line ${at}`).join('\n')
     writeFileSync(join(root, 'logs', 'launcher.log'), `${seeded}\n`)
 
-    const run = launch({ XDG_SESSION_TYPE: 'x11', ROMMIX_HOME: root })
+    const run = launch({ XDG_SESSION_TYPE: 'x11', GALLEON_HOME: root })
     const kept = run.logged(root)
     assert.equal(kept.length, 200, 'the cap is `KEEP` in the script')
     // The newest end, and this launch's own line at the bottom of it.
@@ -360,7 +375,7 @@ describe('the history it keeps', () => {
     mkdirSync(join(root, 'logs'), { recursive: true })
     writeFileSync(join(root, 'logs', 'launcher.log'), 'an older launch\n')
 
-    const run = launch({ XDG_SESSION_TYPE: 'x11', ROMMIX_HOME: root })
+    const run = launch({ XDG_SESSION_TYPE: 'x11', GALLEON_HOME: root })
     assert.deepEqual(run.logged(root).length, 2)
     assert.equal(run.logged(root)[0], 'an older launch')
   })
@@ -381,7 +396,7 @@ describe('the history it keeps', () => {
     writeFileSync(join(dir, 'rommix.bin'), '#!/bin/sh\nexit 0\n')
     chmodSync(join(dir, 'rommix.bin'), 0o755)
 
-    const one = `ROMMIX_HOME='${root}' XDG_SESSION_TYPE=x11 '${join(dir, 'rommix')}' 2>/dev/null`
+    const one = `GALLEON_HOME='${root}' XDG_SESSION_TYPE=x11 '${join(dir, 'rommix')}' 2>/dev/null`
     // A smoke test rather than a guard: the window is small enough that a
     // shared name only empties the file on some passes. What makes the trim
     // safe is a name this process alone writes, which is a property of the

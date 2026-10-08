@@ -131,7 +131,7 @@ so a shortcut can name them in **Launch options** without shell syntax around
 | ------------------- | --------------------------------------------------------------------------------- |
 | `--canary`          | `ROMMIX_CANARY=1` — [builds from the tip of `main`](#builds-from-the-tip-of-main) |
 | `--log=<level>`     | `ROMMIX_LOG` — [how much is written down](#the-log)                               |
-| `--home=<path>`     | `ROMMIX_HOME` — the RomMix folder                                                 |
+| `--home=<path>`     | `GALLEON_HOME` — the RomMix folder                                                |
 | `--appimage=<path>` | the image to start, for one kept away from the script                             |
 
 ### Build it yourself
@@ -285,7 +285,7 @@ is left on the drive it is on — named, rather than left to fail at launch.
 
 **System → RomMix folder.** Settings, credentials, the download index and any
 emulator RomMix installed live in `~/rommix`. Set a new path and RomMix copies
-it across and restarts; ROMs and emulators stay where they are. `ROMMIX_HOME`
+it across and restarts; ROMs and emulators stay where they are. `GALLEON_HOME`
 overrides it.
 
 **System → Updates.** Nothing updates an AppImage for you, so RomMix checks its
