@@ -710,7 +710,7 @@ export class Updater {
         Accept: accept,
         // GitHub refuses an anonymous request with no agent, and an honest one
         // is what makes RomMix's share of the rate limit attributable.
-        'User-Agent': `RomMix/${this.current.current}`
+        'User-Agent': `Galleon/${this.current.current}`
       }
     })
     if (!response.ok) {

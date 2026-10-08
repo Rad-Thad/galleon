@@ -256,7 +256,7 @@ describe('checking for a new version', () => {
 
     await subject.check()
 
-    assert.equal(agent, 'RomMix/1.0.0')
+    assert.equal(agent, 'Galleon/1.0.0')
   })
 })
 

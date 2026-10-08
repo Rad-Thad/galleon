@@ -93,7 +93,7 @@ export function registerSystemIpc(rommix: RomMixApp, handle: Handle): void {
    */
   const romRoots = async (): Promise<{ name: string; path: string }[]> => {
     if (store.settings.romStorage === 'rommix') {
-      return [{ name: 'RomMix', path: rootPaths().roms }]
+      return [{ name: 'Galleon', path: rootPaths().roms }]
     }
     const emulators = await rommix.ensureEmulators()
     return emulators

@@ -1,14 +1,14 @@
 <div align="center">
 
-<img src="packaging/icon.png" width="128" alt="RomMix logo">
+<img src="packaging/icon.png" width="128" alt="Galleon logo">
 
-# RomMix
+# Galleon
 
 **A Big Picture–style front end for your own [RomM](https://romm.app) server.**
 
-[![Build and tests](https://img.shields.io/github/actions/workflow/status/leclercb/rommix/release.yml?branch=main&label=build%20%26%20tests&style=flat-square&labelColor=0b0d13&color=2aa9e0)](https://github.com/leclercb/rommix/actions/workflows/release.yml)
-[![Latest release](https://img.shields.io/github/v/release/leclercb/rommix?style=flat-square&labelColor=0b0d13&color=2aa9e0)](https://github.com/leclercb/rommix/releases/latest)
-[![Downloads](https://img.shields.io/github/downloads/leclercb/rommix/total?style=flat-square&labelColor=0b0d13&color=2aa9e0)](https://github.com/leclercb/rommix/releases)
+[![Build and tests](https://img.shields.io/github/actions/workflow/status/Rad-Thad/galleon/release.yml?branch=main&label=build%20%26%20tests&style=flat-square&labelColor=0b0d13&color=2aa9e0)](https://github.com/Rad-Thad/galleon/actions/workflows/release.yml)
+[![Latest release](https://img.shields.io/github/v/release/Rad-Thad/galleon?style=flat-square&labelColor=0b0d13&color=2aa9e0)](https://github.com/Rad-Thad/galleon/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/Rad-Thad/galleon/total?style=flat-square&labelColor=0b0d13&color=2aa9e0)](https://github.com/Rad-Thad/galleon/releases)
 [![Linux](https://img.shields.io/badge/linux-x86__64%20%C2%B7%20arm64-2aa9e0?style=flat-square&labelColor=0b0d13)](#-install)
 [![Licence](https://img.shields.io/badge/licence-MIT-2aa9e0?style=flat-square&labelColor=0b0d13)](LICENSE)
 
@@ -17,9 +17,11 @@
 Browse your library like a console dashboard, download a game into your
 emulator's ROM folder, play it, and your saves go back to RomM when you quit.
 
-Website: https://leclercb.github.io/rommix/
-
-Demo: https://leclercb.github.io/rommix/demo/
+Galleon is a fork of [RomMix](https://github.com/leclercb/rommix) by Benjamin
+Leclerc, released under the same MIT licence. It is built for one handheld, a
+Retroid Pocket running armadaOS in Steam's Game Mode, and installs beside stock
+RomMix without sharing its folder, its settings or its updates. RomMix's own
+website is https://leclercb.github.io/rommix/.
 
 <div align="center">
 
@@ -58,7 +60,7 @@ Demo: https://leclercb.github.io/rommix/demo/
 - 📖 The manual RomM holds for a game, read on screen and turned with the pad
 - 🏆 RetroAchievements a game has, and which of them you have earned
 - 🧩 BIOS files installed from your own server
-- 🎛️ Emulators installed and assigned by RomMix, changeable per platform
+- 🎛️ Emulators installed and assigned by Galleon, changeable per platform
 - 📱 Sign in by scanning a code with your phone
 - 🎮 Controller-driven and fullscreen, desk to television
 - 🩺 A pre-flight check that names what is wrong before a launch fails
@@ -80,12 +82,12 @@ Demo: https://leclercb.github.io/rommix/demo/
 ## 📦 Requirements
 
 - **Linux**, x86_64 or arm64. Plus `flatpak` for the emulators packaged that
-  way; RomMix adds the Flathub remote itself.
+  way; Galleon adds the Flathub remote itself.
 - **A RomM server** you can reach, version 5.x or newer, with an account.
 - **A controller**, recommended but not required.
-- **At least one emulator**, from the ones RomMix drives:
+- **At least one emulator**, from the ones Galleon drives:
 
-  | Emulator      | Covers                            | Installed by RomMix                           |
+  | Emulator      | Covers                            | Installed by Galleon                          |
   | ------------- | --------------------------------- | --------------------------------------------- |
   | **RetroDECK** | The NES to the PS3                | ✅ Flatpak                                    |
   | **EmuDeck**   | The NES to the Switch and the 360 | ❌ Its own installer, see [EmuDeck](#emudeck) |
@@ -101,37 +103,37 @@ Demo: https://leclercb.github.io/rommix/demo/
 ## 📥 Install
 
 Download the AppImage from
-[Releases](https://github.com/leclercb/rommix/releases) and choose `x86_64` or
+[Releases](https://github.com/Rad-Thad/galleon/releases) and choose `x86_64` or
 `arm64` depending on your machine's architecture.
 
 ```bash
-chmod +x RomMix-x86_64.AppImage
-./RomMix-x86_64.AppImage                    # desktop
-gamescope -f -- ./RomMix-x86_64.AppImage    # gamescope session
+chmod +x Galleon-x86_64.AppImage
+./Galleon-x86_64.AppImage                    # desktop
+gamescope -f -- ./Galleon-x86_64.AppImage    # gamescope session
 ```
 
 No version in the file name: updates are written over that same file.
 
 ### From Steam
 
-Download `rommix-steam.sh` from the same release, keep it **beside** the
+Download `galleon-steam.sh` from the same release, keep it **beside** the
 AppImage, and add the _script_ as the non-Steam game. Steam launches games in a
-way that stops an AppImage mounting itself, and the script is what gets RomMix
+way that stops an AppImage mounting itself, and the script is what gets Galleon
 started around that.
 
 ```bash
-chmod +x RomMix-x86_64.AppImage rommix-steam.sh
+chmod +x Galleon-x86_64.AppImage galleon-steam.sh
 ```
 
-The script also takes as flags the settings RomMix reads from the environment,
+The script also takes as flags the settings Galleon reads from the environment,
 so a shortcut can name them in **Launch options** without shell syntax around
-`%command%`. Anything else there is handed to RomMix untouched.
+`%command%`. Anything else there is handed to Galleon untouched.
 
 | Flag                | Same as                                                                           |
 | ------------------- | --------------------------------------------------------------------------------- |
 | `--canary`          | `ROMMIX_CANARY=1` — [builds from the tip of `main`](#builds-from-the-tip-of-main) |
 | `--log=<level>`     | `ROMMIX_LOG` — [how much is written down](#the-log)                               |
-| `--home=<path>`     | `GALLEON_HOME` — the RomMix folder                                                |
+| `--home=<path>`     | `GALLEON_HOME` — the Galleon folder                                               |
 | `--appimage=<path>` | the image to start, for one kept away from the script                             |
 
 ### Build it yourself
@@ -139,10 +141,10 @@ so a shortcut can name them in **Launch options** without shell syntax around
 Node 24 or newer.
 
 ```bash
-git clone https://github.com/leclercb/rommix.git
-cd rommix
+git clone https://github.com/Rad-Thad/galleon.git
+cd galleon
 npm install
-npm run appimage        # writes dist/RomMix-<arch>.AppImage
+npm run appimage        # writes dist/Galleon-<arch>.AppImage
 ```
 
 That builds for the machine you are on; `npm run package -- --arm64` targets the
@@ -152,13 +154,13 @@ other one.
 
 ## 🔑 Signing in
 
-On first launch RomMix asks for your server address and one of:
+On first launch Galleon asks for your server address and one of:
 
 1. **Pair this device** _(best on a TV)_ — a code and a QR to approve in RomM.
 2. **API token** — an `rmm_…` token from RomM's _Administration → Client tokens_.
 3. **Username and password**.
 
-Credentials live in `~/rommix`, encrypted with the system keyring, or in a file
+Credentials live in `~/galleon`, encrypted with the system keyring, or in a file
 readable only by you where no keyring is reachable.
 
 ---
@@ -180,7 +182,7 @@ Search is bound on Home and in the Library; elsewhere the button does nothing.
 Back at the top of a section asks whether to quit. Where the machine can be
 asked — anything with `systemctl`, which is most desktop Linux — that dialog
 also offers **Sleep**, **Restart** and **Turn off**, for the sessions where
-RomMix is the whole of what is on screen and there is no desktop behind it to
+Galleon is the whole of what is on screen and there is no desktop behind it to
 quit to.
 
 ---
@@ -206,9 +208,9 @@ quit to.
   **Saves**, **Files**, **Screenshots**, **Manual** where RomM has one — upload
   it to RomM and it is read here, a page at a time — and **Achievements** where
   RetroAchievements covers the game. Achievements are earned in the emulator,
-  under your own RetroAchievements login; RomMix only shows what RomM has
+  under your own RetroAchievements login; Galleon only shows what RomM has
   fetched against the name on your RomM account.
-  Where an emulator offers more than one way to run a platform, RomMix asks once
+  Where an emulator offers more than one way to run a platform, Galleon asks once
   and remembers; **Run with…** changes the answer.
 
 When your server cannot be reached, the same screens narrow rather than
@@ -233,18 +235,18 @@ one the default for everything it can run.
 
 **Platforms.** One row per platform, showing which emulator runs it; press to
 pick another. Where **Games on disk** puts games in each emulator's own folder,
-pointing a platform elsewhere means RomMix offers those games for download
+pointing a platform elsewhere means Galleon offers those games for download
 again. Nothing is deleted, and pointing it back brings them straight back.
 
 ### EmuDeck
 
 Install [EmuDeck](https://www.emudeck.com) with its own installer and finish its
-setup; RomMix then finds it and needs no configuration. It reads your
+setup; Galleon then finds it and needs no configuration. It reads your
 `Emulation` folder from EmuDeck's settings, so a library on an SD card is found
 without being told, and it launches games through `Emulation/tools/launchers/` —
 EmuDeck's own configuration, cloud saves included, is what runs the game.
 
-Where EmuDeck installed several emulators for one system, RomMix asks which to
+Where EmuDeck installed several emulators for one system, Galleon asks which to
 use the first time you play something on that platform.
 
 ---
@@ -252,7 +254,7 @@ use the first time you play something on that platform.
 ## 🔧 Settings
 
 **General → Interface.** Language, **Theme** and **Scale**. A theme is a set of
-colours — the dark blue RomMix starts in, a light one, a room at night, the
+colours — the dark blue Galleon starts in, a light one, a room at night, the
 consoles and the desks beside them, a cabinet with the lines of a tube across
 it, a printed page, and one in black, white and yellow for a screen that has to
 be read from further off than the room allows. The list previews: everything
@@ -262,12 +264,12 @@ interface is laid out for a 1080p television, so **Auto** doubles the scale on a
 4K one; pick a number if your panel is nearer or further away.
 
 **Games → Games on disk.** Downloads go to each emulator's own ROM folder, or to
-one RomMix folder you point every emulator at.
+one Galleon folder you point every emulator at.
 
 **Games → Save sync.**
 
 - **Download newer saves before playing** — only ever replaces an _older_ local
-  save, keeping the last few copies of it under `saves/` in the RomMix folder
+  save, keeping the last few copies of it under `saves/` in the Galleon folder
   first.
 - **Upload saves after playing** — sends only what the session wrote.
 - **Ask before sending saves to RomM** — on by default. Lists the files and
@@ -275,7 +277,7 @@ one RomMix folder you point every emulator at.
 
 Saves named after the ROM sync cleanly, and Switch-family saves are matched by
 title id. Emulators that share one memory card between every game cannot be
-synced, and RomMix says so rather than uploading the wrong data.
+synced, and Galleon says so rather than uploading the wrong data.
 
 **Games → Downloads → Ask before deleting a downloaded game**, on by default.
 
@@ -283,13 +285,13 @@ synced, and RomMix says so rather than uploading the wrong data.
 each emulator has been run, whether the ROM folder is writable and how much room
 is left on the drive it is on — named, rather than left to fail at launch.
 
-**System → RomMix folder.** Settings, credentials, the download index and any
-emulator RomMix installed live in `~/rommix`. Set a new path and RomMix copies
+**System → Galleon folder.** Settings, credentials, the download index and any
+emulator Galleon installed live in `~/galleon`. Set a new path and Galleon copies
 it across and restarts; ROMs and emulators stay where they are. `GALLEON_HOME`
 overrides it.
 
-**System → Updates.** Nothing updates an AppImage for you, so RomMix checks its
-own [releases](https://github.com/leclercb/rommix/releases) shortly after
+**System → Updates.** Nothing updates an AppImage for you, so Galleon checks its
+own [releases](https://github.com/Rad-Thad/galleon/releases) shortly after
 starting, then every few hours.
 
 - **Automatic**, the default — downloaded in the background, used at the next
@@ -298,18 +300,18 @@ starting, then every few hours.
   downloaded until you press **Download**.
 - **Off** — never checks by itself. **Check now** still does.
 
-**Release candidates**, off by default, is a separate switch: on, RomMix also
+**Release candidates**, off by default, is a separate switch: on, Galleon also
 offers versions published for testing — tagged `0.9.0-rc.1` and marked as
 pre-releases — which arrive before a finished release and have had less use.
 
-Two cases RomMix cannot finish on its own, both of which it says on screen:
+Two cases Galleon cannot finish on its own, both of which it says on screen:
 **started from Steam**, where Steam forbids a program restarting itself — quit
 and press Play again; and an image it **cannot write to**, where the releases
 page is the way to get the new version.
 
 ### Settings that are not on screen
 
-Two rare options live in `~/rommix/config/settings.json`. Close RomMix before
+Two rare options live in `~/galleon/config/settings.json`. Close Galleon before
 editing it.
 
 ```json
@@ -322,8 +324,8 @@ editing it.
 ```
 
 `systemOverrides` maps a RomM platform slug to an ES-DE system folder, for a
-platform RomMix has none for. `emulatorPaths` points at an emulator kept
-somewhere RomMix would not look.
+platform Galleon has none for. `emulatorPaths` points at an emulator kept
+somewhere Galleon would not look.
 
 ### Builds from the tip of `main`
 
@@ -341,7 +343,7 @@ the shortcut's launch options:
 ROMMIX_CANARY=1 %command%
 ```
 
-`rommix-steam.sh` takes `--canary` for the same thing — see
+`galleon-steam.sh` takes `--canary` for the same thing — see
 [From Steam](#from-steam).
 
 The commit in the footer is what identifies one of these builds. The version
@@ -351,24 +353,24 @@ releases carries the same one.
 Unsetting the variable puts the updater back on the releases, but leaves you on
 the build you are running: it reports that earlier version, so nothing newer is
 found until the next release is published. Download one from the
-[releases page](https://github.com/leclercb/rommix/releases) to leave sooner.
+[releases page](https://github.com/Rad-Thad/galleon/releases) to leave sooner.
 
 ---
 
 ## 📁 Where your files go
 
-| What                                  | Where                                                  |
-| ------------------------------------- | ------------------------------------------------------ |
-| ROMs                                  | The emulator's `<roms>/<system>/`, or `~/rommix/roms/` |
-| Saves and states                      | The emulator's own save folders                        |
-| BIOS files                            | The emulator's own BIOS folder                         |
-| Settings, credentials, download index | `~/rommix/config/`                                     |
-| What RomM says about installed games  | `~/rommix/offline/`                                    |
-| Emulators RomMix installed            | `~/rommix/emulators/`                                  |
-| Log file                              | `~/rommix/logs/app.log`                                |
-| What happened before it started       | `~/rommix/logs/launcher.log`                           |
+| What                                  | Where                                                   |
+| ------------------------------------- | ------------------------------------------------------- |
+| ROMs                                  | The emulator's `<roms>/<system>/`, or `~/galleon/roms/` |
+| Saves and states                      | The emulator's own save folders                         |
+| BIOS files                            | The emulator's own BIOS folder                          |
+| Settings, credentials, download index | `~/galleon/config/`                                     |
+| What RomM says about installed games  | `~/galleon/offline/`                                    |
+| Emulators Galleon installed           | `~/galleon/emulators/`                                  |
+| Log file                              | `~/galleon/logs/app.log`                                |
+| What happened before it started       | `~/galleon/logs/launcher.log`                           |
 
-By default ROMs go into one RomMix folder, so a game can be fetched before the
+By default ROMs go into one Galleon folder, so a game can be fetched before the
 emulator that runs it is installed, and a platform pointed at another emulator
 moves nothing. Settings → Games → **Games on disk** switches that to each
 emulator's own library instead, where a game is still there when you start that
@@ -381,7 +383,7 @@ emulator yourself.
 Settings → System → **Pre-flight check** names the common problems, and **Re-run
 check** re-tests after you fix one.
 
-**RomMix does not start, or the Steam shortcut does nothing.** Run it from a
+**Galleon does not start, or the Steam shortcut does nothing.** Run it from a
 terminal — an AppImage that cannot start says why there and nowhere else. If it
 starts from a terminal but not from Steam, look in
 `~/.local/share/Steam/logs/console-linux.txt`.
@@ -389,22 +391,22 @@ starts from a terminal but not from Steam, look in
 **`Cannot mount AppImage`, `mount failed: Operation not permitted`, or `No
 suitable fusermount binary found`.** Steam launches games in a way that stops an
 AppImage mounting itself; no `PATH` or `FUSERMOUNT_PROG` value changes that. Use
-`rommix-steam.sh` from the release — see [From Steam](#from-steam).
+`galleon-steam.sh` from the release — see [From Steam](#from-steam).
 
-**`Failed to connect to Wayland display`, and RomMix exits before a window
+**`Failed to connect to Wayland display`, and Galleon exits before a window
 appears.** The session says it is a Wayland one and has no Wayland socket to
 show for it, which is how a gamescope session looks from the outside — Chromium
-believes the first half and quits. RomMix falls back to X11 there by itself; if
+believes the first half and quits. Galleon falls back to X11 there by itself; if
 you are on a session that needs a particular backend anyway, pass
 `--ozone-platform=x11` or `--ozone-platform=wayland` and it will be left alone.
 
-That choice is made before RomMix starts, and it is written down either way — a
+That choice is made before Galleon starts, and it is written down either way — a
 line per launch in `logs/launcher.log`, beside the log rather than in it, since
 a start that fails this early never reaches the log itself. Each line records
 which version and machine, what the session claimed and what was there to
-connect to, and how RomMix was started, along with what was decided.
+connect to, and how Galleon was started, along with what was decided.
 
-**It is the file to attach whenever RomMix will not start**, whatever the
+**It is the file to attach whenever Galleon will not start**, whatever the
 reason: `app.log` can say nothing about a run that ended before it opened.
 And the question is usually about more than one launch — it works from the
 desktop and not from Steam, or it worked yesterday — where two lines that
@@ -443,7 +445,7 @@ needs `programs.nix-ld.enable` too.
 **"flatpak is not installed".** Most of the emulators are flatpaks, so without
 the command none can be found or installed.
 
-**"Flathub is not set up for your user".** RomMix adds the remote the first time
+**"Flathub is not set up for your user".** Galleon adds the remote the first time
 you install an emulator; by hand:
 
 ```bash
@@ -459,19 +461,19 @@ it is on is mounted.
 **"No installed emulator can run …".** Nothing installed covers that platform —
 Emulators → Platforms shows what each resolves to.
 
-**"RomMix does not know which folder … maps to".** Add a `systemOverrides` entry.
+**"Galleon does not know which folder … maps to".** Add a `systemOverrides` entry.
 
 **A game shows as not downloaded although the file is there.** Its platform is
 pointed at a different emulator now, and the file is in the previous one's
 library. Point it back, or download a copy for the new one.
 
-**The game starts but RomMix keeps focus, and Steam does not list its window.**
+**The game starts but Galleon keeps focus, and Steam does not list its window.**
 Something is launching the emulator outside the tree Steam started. Add the
 AppImage to Steam directly, or a script that `exec`s it.
 
 **The controller does nothing.** Press a button on it and check the pre-flight
 check: Chromium hides pads until one is used. A pad listed as `(unmapped)` is
-one Chromium does not recognise; the buttons RomMix uses still work, and any
+one Chromium does not recognise; the buttons Galleon uses still work, and any
 that do not are worth reporting with that name.
 
 **The interface is tiny on a 4K television.** Settings → General → Interface →
@@ -479,12 +481,12 @@ that do not are worth reporting with that name.
 
 ### The log
 
-`~/rommix/logs/app.log` holds everything RomMix does — the command each
+`~/galleon/logs/app.log` holds everything Galleon does — the command each
 emulator was started with, what was asked of RomM, where every file was written.
 Credentials are stripped on the way in, so it is safe to paste into a bug report.
 
 ```bash
-tail -f ~/rommix/logs/app.log
+tail -f ~/galleon/logs/app.log
 ```
 
 A new file each day, or sooner if one gets large; the old ones sit beside it
@@ -507,7 +509,7 @@ npm run lint
 npm run typecheck
 npm test
 npm run test:coverage  # the same suite, against the floor in package.json
-npm run appimage       # build dist/RomMix-<arch>.AppImage
+npm run appimage       # build dist/Galleon-<arch>.AppImage
 ```
 
 Those four checks are what CI runs, in that order, and what `npm run release`
@@ -560,12 +562,14 @@ version everything that has happened since.
 each kind of change belongs.
 
 Security reports go through
-[private vulnerability reporting](https://github.com/leclercb/rommix/security/advisories/new)
+[private vulnerability reporting](https://github.com/Rad-Thad/galleon/security/advisories/new)
 rather than a public issue — see [SECURITY.md](SECURITY.md).
 
 ---
 
 ## ☕ Support
+
+To thank Benjamin Leclerc, who wrote RomMix:
 
 <a href="https://buymeacoffee.com/leclercb"><img src="https://img.shields.io/badge/buy%20me%20a%20coffee-2aa9e0?style=for-the-badge&logo=buymeacoffee&logoColor=0b0d13&labelColor=0b0d13" alt="Buy me a coffee"></a>
 
@@ -573,9 +577,10 @@ rather than a public issue — see [SECURITY.md](SECURITY.md).
 
 ## 📄 Licence
 
-MIT — see [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE), which keeps RomMix's copyright notice
+(Copyright (c) 2026 Benjamin Leclerc).
 
 The two pixel themes are set in [VT323](https://fonts.google.com/specimen/VT323)
 and [Silkscreen](https://fonts.google.com/specimen/Silkscreen), both under the
-SIL Open Font License 1.1. The fonts ship with RomMix, and each licence sits
+SIL Open Font License 1.1. The fonts ship with Galleon, and each licence sits
 beside its file in `src/renderer/src/assets/fonts/`.
