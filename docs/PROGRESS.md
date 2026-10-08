@@ -186,11 +186,11 @@ Lines the tooling reads (exact forms):
 
 - Device results: none new. `bridge/status.json`: bridge version 1, last seen 2026-10-08T15:06:00Z, skipping because no `nightly` release is published yet. No `results/` yet.
 - Worked on: issue #15 (agent.test.ts leaking into the repository's index under `git commit -a`), claimed with `agent-working`.
-- Result: PR (see below; fixes #15).
+- Result: PR #17 (fixes #15).
 - Evidence:
   - Reproduced: running `agent.test.ts` with `GIT_INDEX_FILE` set to a copy of `.git/index` put `docs/notes.md` into that copy.
   - New test "touches only its own repository when git's variables point elsewhere" sets `GIT_INDEX_FILE` to a scratch path: failed before the fix ("the caller's index was written to"), passes after. Fix (test only): `outsideGit()` drops `GIT_*` from the throwaway repository's `git` and Stop-hook spawns. 17/17, also under a set `GIT_INDEX_FILE`. `scripts/agent/check.sh` green (30 s). This commit was made with `git commit -a`.
-- CI wall time: in the PR.
+- CI wall time: x64 3:12, arm64 3:16 (on be32a25).
 - Evaluator: PASS (reverting only the fix fails the new test).
 - Device / acceptance: none.
 - Next: M0-03 (features guard), the lowest eligible id.
