@@ -50,11 +50,16 @@ export const REQUIRED_SOURCES = [
   ...range('BEYOND', 18)
 ]
 
-/** The `Device check` ids an acceptance line names, by its fixed prefix. */
+/**
+ * The `Device check` ids a feature's acceptance names. A line counts when it
+ * starts with the fixed prefix, and every check it then names counts, since
+ * one line may hold several (`Device check \`a\` and device check \`b\`: ...`).
+ */
 export function deviceChecks(feature) {
   return (Array.isArray(feature.acceptance) ? feature.acceptance : [])
-    .map((line) => /^device check `([^`]+)`/i.exec(String(line))?.[1])
-    .filter(Boolean)
+    .map(String)
+    .filter((line) => /^device check `/i.test(line))
+    .flatMap((line) => [...line.matchAll(/device check `([^`]+)`/gi)].map((match) => match[1]))
 }
 
 /**
@@ -297,7 +302,10 @@ function main(argv) {
 
   const errors = validate(head, { catalogue })
   if (argv.includes('--base') && errors.length === 0) {
-    const { errors: changes, flipped } = compare(showJson(base, 'docs/features.json') ?? [], head)
+    const before = showJson(base, 'docs/features.json')
+    // A base that cannot be read would make every feature look new.
+    if (!before) errors.push(`cannot read docs/features.json at ${base}`)
+    const { errors: changes, flipped } = compare(before ?? [], head)
     errors.push(...changes)
     if (flipped.length > 0) {
       const results = 'refs/remotes/origin/device-results'
