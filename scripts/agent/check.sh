@@ -3,7 +3,7 @@
 # Everything a push has to pass, run on the VM before every push (CLAUDE.md,
 # "Definition of done"): the upstream checks in upstream's order, then the unit
 # tests under coverage, which runs them once and holds them to the floors in
-# package.json, then the device bridge's own tests.
+# package.json, then the feature list guard and the device bridge's own tests.
 #
 # Stops at the first failure, so the last thing printed is what to fix.
 set -euo pipefail
@@ -25,6 +25,12 @@ step 'typecheck'
 npm run --silent typecheck
 step 'unit tests, with coverage'
 npm run --silent test:coverage
+step 'feature list'
+if git rev-parse -q --verify origin/main >/dev/null; then
+  node scripts/agent/features-check.mjs --base origin/main
+else
+  node scripts/agent/features-check.mjs
+fi
 step 'device bridge tests'
 python3 -m unittest discover -s tools/device-bridge
 

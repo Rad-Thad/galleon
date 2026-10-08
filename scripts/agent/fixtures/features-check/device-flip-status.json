@@ -1,0 +1,138 @@
+{
+  "rule": "A device flip from a run that is not complete or partial fails.",
+  "catalogue": [
+    "launch.<emulator>",
+    "grid.scroll@balanced",
+    "safety.owner-state",
+    "safety.server-readonly"
+  ],
+  "required": ["REQ-1"],
+  "base": [
+    {
+      "id": "M0-01",
+      "milestone": "M0",
+      "title": "Feature M0-01",
+      "description": "What M0-01 does.",
+      "source": ["REQ-1"],
+      "acceptance": ["M0-01 works."],
+      "verification": "ci",
+      "depends_on": [],
+      "passes": false
+    },
+    {
+      "id": "M1-01",
+      "milestone": "M1",
+      "title": "Feature M1-01",
+      "description": "What M1-01 does.",
+      "source": ["REQ-1"],
+      "acceptance": [
+        "Device check `launch.retroarch`: it starts.",
+        "device CHECK `grid.scroll@balanced`: smooth."
+      ],
+      "verification": "device",
+      "depends_on": [],
+      "passes": false
+    },
+    {
+      "id": "M8-01",
+      "milestone": "M8",
+      "title": "Feature M8-01",
+      "description": "What M8-01 does.",
+      "source": ["REQ-1"],
+      "acceptance": ["M8-01 works."],
+      "verification": "acceptance",
+      "depends_on": [],
+      "passes": false
+    }
+  ],
+  "head": [
+    {
+      "id": "M0-01",
+      "milestone": "M0",
+      "title": "Feature M0-01",
+      "description": "What M0-01 does.",
+      "source": ["REQ-1"],
+      "acceptance": ["M0-01 works."],
+      "verification": "ci",
+      "depends_on": [],
+      "passes": true
+    },
+    {
+      "id": "M1-01",
+      "milestone": "M1",
+      "title": "Feature M1-01",
+      "description": "What M1-01 does.",
+      "source": ["REQ-1"],
+      "acceptance": [
+        "Device check `launch.retroarch`: it starts.",
+        "device CHECK `grid.scroll@balanced`: smooth."
+      ],
+      "verification": "device",
+      "depends_on": [],
+      "passes": true
+    },
+    {
+      "id": "M8-01",
+      "milestone": "M8",
+      "title": "Feature M8-01",
+      "description": "What M8-01 does.",
+      "source": ["REQ-1"],
+      "acceptance": ["M8-01 works."],
+      "verification": "acceptance",
+      "depends_on": [],
+      "passes": true
+    },
+    {
+      "id": "M0-02",
+      "milestone": "M0",
+      "title": "Feature M0-02",
+      "description": "What M0-02 does.",
+      "source": ["REQ-1"],
+      "acceptance": ["M0-02 works."],
+      "verification": "ci",
+      "depends_on": ["M0-01"],
+      "passes": false
+    }
+  ],
+  "progress": "- passes: true for M0-01 (#6).\n- PASSES M1-01 device:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n- PASSES M8-01 acceptance:2026-12-01",
+  "summaries": {
+    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa": {
+      "schema": 1,
+      "sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "status": "withheld",
+      "checks": [
+        {
+          "id": "launch.retroarch",
+          "result": "pass"
+        },
+        {
+          "id": "grid.scroll@balanced",
+          "result": "pass"
+        },
+        {
+          "id": "safety.owner-state",
+          "result": "pass"
+        },
+        {
+          "id": "safety.server-readonly",
+          "result": "pass"
+        }
+      ]
+    }
+  },
+  "acceptance": {
+    "2026-12-01": {
+      "schema": 1,
+      "items": [
+        {
+          "feature": "M8-01",
+          "result": "pass"
+        }
+      ]
+    }
+  },
+  "ancestors": ["M1-01@aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+  "expect": [
+    "M1-01: the run for aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa is \"withheld\", which flips nothing"
+  ]
+}

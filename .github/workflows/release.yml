@@ -99,6 +99,22 @@ jobs:
       - run: npm run typecheck
       - run: npm test
 
+      # The guard on the feature list the project is accepted against — see
+      # scripts/agent/features-check.mjs. On a pull request it also compares the
+      # list with the base branch's, which a shallow checkout has not fetched.
+      # Once is enough: the list is the same on either architecture.
+      - name: Check the feature list
+        if: matrix.arch == 'x64'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
+            git fetch --no-tags --depth=1 origin "+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF"
+            node scripts/agent/features-check.mjs --base "origin/$BASE_REF"
+          else
+            node scripts/agent/features-check.mjs
+          fi
+
       # `npm run appimage` is these two together; they are split so that a
       # failing bundle and a failing package are separate red steps. The
       # `--publish never` that matters lives in the `package` script, so it

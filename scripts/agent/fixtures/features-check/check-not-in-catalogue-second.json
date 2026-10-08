@@ -1,0 +1,59 @@
+{
+  "rule": "Every check a line names must be in the catalogue, not only the first.",
+  "catalogue": [
+    "launch.<emulator>",
+    "grid.scroll@balanced",
+    "safety.owner-state",
+    "safety.server-readonly"
+  ],
+  "required": ["REQ-1"],
+  "head": [
+    {
+      "id": "M0-01",
+      "milestone": "M0",
+      "title": "Feature M0-01",
+      "description": "What M0-01 does.",
+      "source": ["REQ-1"],
+      "acceptance": ["M0-01 works."],
+      "verification": "ci",
+      "depends_on": [],
+      "passes": true
+    },
+    {
+      "id": "M1-01",
+      "milestone": "M1",
+      "title": "Feature M1-01",
+      "description": "What M1-01 does.",
+      "source": ["REQ-1"],
+      "acceptance": [
+        "Device check `launch.retroarch` and device check `exit.duckstation`: both work."
+      ],
+      "verification": "device",
+      "depends_on": [],
+      "passes": true
+    },
+    {
+      "id": "M8-01",
+      "milestone": "M8",
+      "title": "Feature M8-01",
+      "description": "What M8-01 does.",
+      "source": ["REQ-1"],
+      "acceptance": ["M8-01 works."],
+      "verification": "acceptance",
+      "depends_on": [],
+      "passes": true
+    },
+    {
+      "id": "M0-02",
+      "milestone": "M0",
+      "title": "Feature M0-02",
+      "description": "What M0-02 does.",
+      "source": ["REQ-1"],
+      "acceptance": ["M0-02 works."],
+      "verification": "ci",
+      "depends_on": ["M0-01"],
+      "passes": false
+    }
+  ],
+  "expect": ["M1-01: Device check `exit.duckstation` is not in docs/TESTING.md's catalogue"]
+}

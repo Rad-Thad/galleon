@@ -1,0 +1,24 @@
+{
+  "rule": "A device feature naming no Device check fails.",
+  "catalogue": [
+    "launch.<emulator>",
+    "grid.scroll@balanced",
+    "safety.owner-state",
+    "safety.server-readonly"
+  ],
+  "required": ["REQ-1"],
+  "head": [
+    {
+      "id": "M1-01",
+      "milestone": "M1",
+      "title": "Feature M1-01",
+      "description": "What M1-01 does.",
+      "source": ["REQ-1"],
+      "acceptance": ["M1-01 works."],
+      "verification": "device",
+      "depends_on": [],
+      "passes": false
+    }
+  ],
+  "expect": ["M1-01: a device feature names no Device check"]
+}

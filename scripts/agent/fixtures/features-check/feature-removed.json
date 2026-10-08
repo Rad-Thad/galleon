@@ -1,0 +1,48 @@
+{
+  "rule": "On a pull request, a feature that disappears fails.",
+  "catalogue": [
+    "launch.<emulator>",
+    "grid.scroll@balanced",
+    "safety.owner-state",
+    "safety.server-readonly"
+  ],
+  "required": ["REQ-1"],
+  "base": [
+    {
+      "id": "M0-01",
+      "milestone": "M0",
+      "title": "Feature M0-01",
+      "description": "What M0-01 does.",
+      "source": ["REQ-1"],
+      "acceptance": ["M0-01 works."],
+      "verification": "ci",
+      "depends_on": [],
+      "passes": false
+    },
+    {
+      "id": "M0-02",
+      "milestone": "M0",
+      "title": "Feature M0-02",
+      "description": "What M0-02 does.",
+      "source": ["REQ-1"],
+      "acceptance": ["M0-02 works."],
+      "verification": "ci",
+      "depends_on": [],
+      "passes": false
+    }
+  ],
+  "head": [
+    {
+      "id": "M0-01",
+      "milestone": "M0",
+      "title": "Feature M0-01",
+      "description": "What M0-01 does.",
+      "source": ["REQ-1"],
+      "acceptance": ["M0-01 works."],
+      "verification": "ci",
+      "depends_on": [],
+      "passes": false
+    }
+  ],
+  "expect": ["M0-02: removed"]
+}

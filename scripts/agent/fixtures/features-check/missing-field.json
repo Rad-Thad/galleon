@@ -1,0 +1,23 @@
+{
+  "rule": "A feature without one of the schema fields fails.",
+  "catalogue": [
+    "launch.<emulator>",
+    "grid.scroll@balanced",
+    "safety.owner-state",
+    "safety.server-readonly"
+  ],
+  "required": ["REQ-1"],
+  "head": [
+    {
+      "id": "M0-01",
+      "milestone": "M0",
+      "title": "Feature M0-01",
+      "source": ["REQ-1"],
+      "acceptance": ["M0-01 works."],
+      "verification": "ci",
+      "depends_on": [],
+      "passes": false
+    }
+  ],
+  "expect": ["M0-01: missing field \"description\""]
+}

@@ -1,0 +1,46 @@
+{
+  "rule": "A dependency cycle fails, and is named.",
+  "catalogue": [
+    "launch.<emulator>",
+    "grid.scroll@balanced",
+    "safety.owner-state",
+    "safety.server-readonly"
+  ],
+  "required": ["REQ-1"],
+  "head": [
+    {
+      "id": "M0-01",
+      "milestone": "M0",
+      "title": "Feature M0-01",
+      "description": "What M0-01 does.",
+      "source": ["REQ-1"],
+      "acceptance": ["M0-01 works."],
+      "verification": "ci",
+      "depends_on": ["M0-03"],
+      "passes": false
+    },
+    {
+      "id": "M0-02",
+      "milestone": "M0",
+      "title": "Feature M0-02",
+      "description": "What M0-02 does.",
+      "source": ["REQ-1"],
+      "acceptance": ["M0-02 works."],
+      "verification": "ci",
+      "depends_on": ["M0-01"],
+      "passes": false
+    },
+    {
+      "id": "M0-03",
+      "milestone": "M0",
+      "title": "Feature M0-03",
+      "description": "What M0-03 does.",
+      "source": ["REQ-1"],
+      "acceptance": ["M0-03 works."],
+      "verification": "ci",
+      "depends_on": ["M0-02"],
+      "passes": false
+    }
+  ],
+  "expect": ["depends_on has a cycle: M0-01 -> M0-03 -> M0-02 -> M0-01"]
+}
