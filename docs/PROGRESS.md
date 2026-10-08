@@ -172,12 +172,12 @@ Lines the tooling reads (exact forms):
 
 - Device results: none new. `bridge/status.json`: bridge version 1, last seen 2026-10-08T15:06:00Z, skipping because no `nightly` release is published yet. No `results/` yet.
 - Worked on: flaky issue #14 (claimed with `agent-working`).
-- Result: PR (this branch, `claude/peaceful-feynman-nzqgbl`).
+- Result: PR #16.
 - Evidence:
   - Root cause confirmed: the queue writes the first transfer's pending record before its first byte (`DownloadManager`'s `setPending` before the transfer), after some awaits, so whether it was on disk when the test read `store.pending` depended on timing. The assertion was about the queued second item but compared the whole list.
   - Reproduction: making the test wait until the first transfer is on the wire turned the old assertion into a failure every time (`actual: [ { romId: 1, … } ]`, the exact output from the issue).
   - Fix (test only): wait for the first transfer to reach `downloadRom`, then assert the records hold the first ROM and nothing of the second. `downloads.test.ts` 12 parallel runs: 12/12 green (65/65 each). `scripts/agent/check.sh` green.
-- CI wall time: see PR.
-- Evaluator: see PR.
+- CI wall time: x64 3:30, arm64 3:10 (on 3c68ff3).
+- Evaluator: PASS (its mutation check, a record written for the queued item, fails the test with `[1, 2]`).
 - Device / acceptance: none.
 - Next: issue #15 (agent.test.ts leaking into the index under `git commit -a`), then M0-03.
