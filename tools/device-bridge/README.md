@@ -1,6 +1,6 @@
 # Galleon device bridge
 
-The bridge is how Galleon gets tested on real hardware without the owner. It runs **on the Retroid Pocket Nova itself**, started every hour by a systemd user timer. When the device is idle, charging and in Game Mode inside the night window, it downloads the newest nightly, runs that nightly's own device tests, and pushes the sanitised results to the `device-results` branch of the repository. The cloud agent reads that branch at the start of every session.
+The bridge is how Galleon gets tested on real hardware without the owner. It runs **on the Retroid Pocket Nova itself**, started every hour by a systemd user timer. When the device is idle, charging and in Game Mode inside its time window (on the Nova, any hour: `WINDOW=00:00-00:00`), it downloads the newest `nightly` pre-release (published after every merge to `main` and on the nightly schedule), runs that nightly's own device tests, and pushes the sanitised results to the `device-results` branch of the repository. The cloud agent reads that branch at the start of every session.
 
 No computer has to be awake for any of this. The owner's Mac is used once, by the local Claude session, to install the bridge over SSH and register its deploy key.
 
@@ -47,7 +47,7 @@ If `doctor` says the sign-in cannot be imported (stock RomMix's credentials are 
 
 1. Takes a lock, so a timer firing during a long run does nothing.
 2. Checks, in order, and stops with a logged reason at the first failure:
-   - local time inside `WINDOW` (default `01:00-07:00`; `run --now` skips only this check)
+   - local time inside `WINDOW` (default `01:00-07:00`; equal ends such as `00:00-00:00` mean any hour, which is what the Nova's config uses; `run --now` skips only this check)
    - Game Mode active: `systemctl --user is-active gamescope-session-plus@steam.service`
    - on the charger (`/sys/class/power_supply/*/online` or a battery status of Charging/Full) and battery at or above `MIN_BATTERY` (default 40%)
    - nothing playing: no process whose exact `comm` is in `BUSY_PROCESSES`. Galleon and Steam's `reaper` for Galleon do not count when Galleon's own `$XDG_RUNTIME_DIR/galleon/state.json` says `"idle": true` and is less than two minutes old.
@@ -108,9 +108,9 @@ Set `PUBLISH=0` in the config to try a run without pushing anything; the staged 
 
 ## For the owner
 
-Whenever you can, leave the Nova **on its charger, in Game Mode, at Steam's library** (quit any game, RomMix or ES-DE first) overnight, with Steam's **Settings -> Power -> Sleep when plugged in** set to **Never**. Results then show up by themselves. If the device is away or asleep for days, nothing breaks; the features that need the device simply wait.
+Whenever you can, leave the Nova **on its charger, in Game Mode, at Steam's library** (quit any game, RomMix or ES-DE first) whenever you are not using it, with Steam's **Settings -> Power -> Sleep when plugged in** set to **Never**. Results then show up by themselves. If the device is away or asleep for days, nothing breaks; the features that need the device simply wait.
 
-During a test the screen shows Galleon and its emulators for up to about half an hour, with sound muted. Pressing any button stops the test straight away and hands the device back. You will also see a **Galleon Device Test** entry in your Steam library; starting it yourself does nothing.
+During a test, at any hour, the screen shows Galleon and its emulators for up to about half an hour, with sound muted. Pressing any button stops the test straight away and hands the device back. You will also see a **Galleon Device Test** entry in your Steam library; starting it yourself does nothing.
 
 ## Optional: nudging from a Mac
 

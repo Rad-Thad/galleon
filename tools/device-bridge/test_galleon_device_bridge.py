@@ -42,6 +42,12 @@ class WindowTests(unittest.TestCase):
         self.assertTrue(bridge.in_window(5 * 60, window))
         self.assertFalse(bridge.in_window(12 * 60, window))
 
+    def test_equal_ends_mean_any_hour(self):
+        # The Nova's own config uses this to test whenever it is idle and charging.
+        window = bridge.parse_window("00:00-00:00")
+        for minutes in (0, 7 * 60, 12 * 60, 23 * 60 + 59):
+            self.assertTrue(bridge.in_window(minutes, window))
+
     def test_bad_window(self):
         with self.assertRaises(bridge.BridgeError):
             bridge.parse_window("1am-7am")
