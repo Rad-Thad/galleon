@@ -744,7 +744,7 @@ export class Updater {
    * `ROMMIX_APPIMAGE` in a launch script. None of those is updated by us, and
    * each would fail as a game that no longer starts, on a television, with
    * nothing on screen to explain it. So the release is published as
-   * `RomMix-x86_64.AppImage` with no version in the name — see
+   * `Galleon-x86_64.AppImage` with no version in the name — see
    * `appImage.artifactName` in electron-builder.yml — and updating writes over
    * that file. Nothing is renamed, nothing is left behind, and the name is never
    * out of date because it never claimed a version in the first place.

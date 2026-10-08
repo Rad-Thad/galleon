@@ -33,7 +33,7 @@
 # for the launch it is on, and everything else in the field is left for the
 # image. README.md lists them, which is where the people setting them look.
 #
-# See scripts/after-pack.mjs, which puts this where AppRun looks for `rommix`.
+# See scripts/after-pack.mjs, which puts this where AppRun looks for `galleon`.
 set -eu
 
 # -- which backend ------------------------------------------------------------
