@@ -8,3 +8,8 @@ packaging/icon.png
 package-lock.json
 *.tsbuildinfo
 .claude/worktrees
+# Handoff kit material kept verbatim: research copied from elsewhere, and the
+# OpenAPI document captured from a real server. Reformatting either would make
+# it differ from its source for no gain.
+docs/research
+reference

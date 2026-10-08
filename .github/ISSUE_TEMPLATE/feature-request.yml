@@ -1,0 +1,36 @@
+name: Feature request
+description: Something you would like the launcher to do or do differently.
+title: '[idea] '
+labels: [enhancement, needs-triage]
+body:
+  - type: textarea
+    id: want
+    attributes:
+      label: What you would like
+      description: Describe it as you would use it on the Nova.
+    validations:
+      required: true
+
+  - type: textarea
+    id: why
+    attributes:
+      label: Why it matters to you
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: How much does it matter
+      options:
+        - Nice to have
+        - Important
+        - I can't use the launcher without it
+    validations:
+      required: true
+
+  - type: textarea
+    id: example
+    attributes:
+      label: Example, photo or sketch (optional)
+      description: A photo of how Argosy or another app does it is perfect.

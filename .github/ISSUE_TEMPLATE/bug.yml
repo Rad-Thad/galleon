@@ -1,73 +1,105 @@
 name: Bug report
-description: Something in RomMix does not work
-labels: [bug]
+description: Something does not work. The agent acts on reports from the repository owner; the owner can also just use Report a problem in the app.
+title: '[bug] '
+labels: [bug, needs-triage]
 body:
   - type: markdown
     attributes:
       value: |
-        Almost every failure in RomMix is environmental — an emulator that is not
-        where it says it is, a folder that cannot be written, a flatpak remote
-        that was never added. The pre-flight check and the log answer most of it
-        between them, so please start there.
+        Thanks. Please do **not** paste your RomM server address, tokens or passwords; this page is public.
+        On the Nova there is an easier way: Settings -> System -> *Report a problem* saves a cleaned-up report
+        that reaches the developer automatically the next night the Nova charges in Game Mode.
 
-  - type: textarea
-    id: what
+  - type: input
+    id: build
     attributes:
-      label: What happened
-      description: What you did, what you expected, and what happened instead.
+      label: Build
+      description: Shown in the footer and in Settings -> About, e.g. "0.21.0 (a1b2c3d) nightly".
+      placeholder: 0.21.0 (a1b2c3d) nightly
     validations:
       required: true
 
-  - type: input
-    id: version
+  - type: dropdown
+    id: area
     attributes:
-      label: RomMix version
-      description: The AppImage's filename, or the version in Settings.
-      placeholder: RomMix-0.4.2-x86_64.AppImage
-    validations:
-      required: true
-
-  - type: input
-    id: distro
-    attributes:
-      label: Distribution and how you started RomMix
-      placeholder: Bazzite 41, from Steam in game mode
+      label: Which part
+      options:
+        - Signing in / pairing
+        - Browsing the library
+        - Downloads
+        - Starting a game
+        - Leaving a game (hold Start)
+        - Saves / sync with RomM
+        - Steam games
+        - Settings
+        - Updating / installing
+        - Looks wrong / hard to read
+        - Slow / stutters
+        - Something else
     validations:
       required: true
 
   - type: dropdown
     id: emulator
     attributes:
-      label: Which emulator was involved
+      label: Which emulator, if any
       options:
-        - Not emulator-specific
-        - RetroDECK
-        - EmuDeck
+        - None / not about a game
         - RetroArch
-        - Eden
-        - shadPS4
+        - DuckStation
+        - ARMSX2
+        - Dolphin
+        - PPSSPP
+        - Flycast
+        - melonDS
+        - A Steam game
+        - Not sure
     validations:
       required: true
 
   - type: textarea
-    id: preflight
+    id: steps
     attributes:
-      label: Pre-flight check
-      description: Settings → Pre-flight check. The rows and any notes under them.
-      render: text
-
-  - type: textarea
-    id: log
-    attributes:
-      label: Log
-      description: |
-        `~/rommix/logs/app.log` — the part around the failure. Credentials are
-        stripped on the way in, so it is safe to paste as it is. If nothing there
-        explains it, re-run with `ROMMIX_LOG=debug`.
-
-        If RomMix does not start at all, that file cannot say why — it is opened
-        after the point such a launch stops. `~/rommix/logs/launcher.log` is the
-        one to attach then.
-      render: text
+      label: What you did
+      description: The steps, in order, as you would tell a friend.
+      placeholder: |
+        1. Opened Browse, picked PSP
+        2. Pressed A on a game, then Play
+        3. ...
     validations:
       required: true
+
+  - type: textarea
+    id: happened
+    attributes:
+      label: What happened, and what you expected
+    validations:
+      required: true
+
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: How often
+      options:
+        - Every time
+        - Sometimes
+        - Once so far
+    validations:
+      required: true
+
+  - type: dropdown
+    id: saves
+    attributes:
+      label: Could a save have been lost or overwritten?
+      options:
+        - 'No'
+        - 'Maybe'
+        - 'Yes'
+    validations:
+      required: true
+
+  - type: textarea
+    id: attachments
+    attributes:
+      label: Attachments
+      description: Drop the Report a problem zip here, plus any photos of the screen (with the frame-time overlay for anything about smoothness).

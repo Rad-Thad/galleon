@@ -259,3 +259,32 @@ test('a file somebody put there themselves is left alone, however old', () => {
   assert.equal(existsSync(kept), true)
   assert.equal(existsSync(notes), true)
 })
+
+test('a closed log lets go of its folder, and opens a fresh file under the next root', () => {
+  // What a test suite needs before it removes a scratch root: the path is
+  // otherwise held for the life of the process, so every line after the
+  // removal fails, and the first failure turns file logging off for good.
+  const elsewhere = mkdtempSync(join(tmpdir(), 'rommix-log-test-'))
+  try {
+    log.info('test', 'before the move')
+    log.close()
+    process.env.ROMMIX_HOME = elsewhere
+    log.info('test', 'after the move')
+
+    const moved = readFileSync(join(elsewhere, 'logs', 'app.log'), 'utf8')
+    assert.match(moved, /after the move/)
+    assert.equal(moved.includes('before the move'), false)
+    assert.equal(written().includes('after the move'), false)
+
+    // And the old folder can go with nothing left writing to it.
+    log.close()
+    rmSync(elsewhere, { recursive: true, force: true })
+    process.env.ROMMIX_HOME = root
+    log.info('test', 'back where it started')
+    assert.match(written(), /back where it started/)
+  } finally {
+    process.env.ROMMIX_HOME = root
+    log.close()
+    rmSync(elsewhere, { recursive: true, force: true })
+  }
+})
