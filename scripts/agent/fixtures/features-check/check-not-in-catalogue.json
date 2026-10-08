@@ -1,0 +1,38 @@
+{
+  "rule": "A Device check missing from the catalogue fails, in any feature.",
+  "catalogue": [
+    "launch.<emulator>",
+    "grid.scroll@balanced",
+    "safety.owner-state",
+    "safety.server-readonly"
+  ],
+  "required": ["REQ-1"],
+  "head": [
+    {
+      "id": "M0-01",
+      "milestone": "M0",
+      "title": "Feature M0-01",
+      "description": "What M0-01 does.",
+      "source": ["REQ-1"],
+      "acceptance": ["Device check `grid.scroll@performance`: smooth."],
+      "verification": "ci",
+      "depends_on": [],
+      "passes": false
+    },
+    {
+      "id": "M1-01",
+      "milestone": "M1",
+      "title": "Feature M1-01",
+      "description": "What M1-01 does.",
+      "source": ["REQ-1"],
+      "acceptance": [
+        "Device check `launch.retroarch`: it starts.",
+        "device CHECK `grid.scroll@balanced`: smooth."
+      ],
+      "verification": "device",
+      "depends_on": [],
+      "passes": false
+    }
+  ],
+  "expect": ["M0-01: Device check `grid.scroll@performance` is not in docs/TESTING.md's catalogue"]
+}
