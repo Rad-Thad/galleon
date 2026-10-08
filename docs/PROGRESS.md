@@ -107,3 +107,15 @@ Lines the tooling reads (exact forms):
   - `npm run test:coverage` fails its 96% line floor on untouched v0.20.0 (95.44%). CI doesn't run it yet; M0-05 has to meet the floor with tests.
   - `npx install-electron` in the app-suite steps still downloads from github.com; M0-05's caching should cover it.
   - `scripts/warm-package-cache.mjs` imports electron-builder's internal `app-builder-lib/out/toolsets/linux.js`. An electron-builder update that moves it fails the warm-up loudly; adjust the import then.
+
+## 2026-10-08 16:55 UTC session cloud (project thread)
+
+- Device results: none yet (`origin/device-results` does not exist).
+- Worked on: M0-01 (tracking issue #7). Dependabot triage started: asked for rebases of #2 and #3 onto the green baseline; #1 (Electron) held until the first device run on 44.4.5 exists, with a comment saying why (CLAUDE.md rule 8 needs a device baseline to compare against, and there is no nightly before M0-24).
+- Result: PR #8.
+- Evidence: on a fresh clone, the placeholder grep prints nothing, `.claude/skills/`, `.agents/` and `skills-lock.json` are absent, and `npm ci && npm run format:check && npm run lint && npm run typecheck && npm test` exits 0 with Node 24.21.0 (1237/1237). New `docs/UPSTREAM.md` records the upstream repo, the base `ea787b98…`, the studied commit `990e55e3…` and the porting rule (one port per PR, `Upstream:` trailer, never merged wholesale).
+- CI wall time: x64 3:39, arm64 3:17.
+- Evaluator: PASS.
+- Device / acceptance: none (`ci`).
+- Next: M0-02 (agent scripts). Merge #2 and #3 once Dependabot has rebased them and CI is green on the new baseline.
+- Notes: M0-00 merged as #6 (8894542). `main`'s first push build was green, including `canary`.

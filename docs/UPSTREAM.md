@@ -11,7 +11,7 @@ Galleon is a hard fork of RomMix ([ADR 0001](decisions/0001-fork-rommix.md)). Th
 | Studied for the plan  | `990e55e3855db5ef0c92324283664b71f14fd37d` (upstream `main` on 2026-10-08)       |
 | Ported since the base | none yet                                                                         |
 
-**Why v0.20.0 and not the studied commit.** v0.20.0 is what the tester ran in Phase 0, and its CI was green. Upstream's `main` at `990e55e` fails `npm run test:app` on both architectures after 68697e0 and 990e55e, which change how controllers are listed. Those two commits are worth having (M3-08) once upstream has fixed them.
+**Why v0.20.0 and not the studied commit.** v0.20.0 is what the tester ran in Phase 0, and its CI was green. Upstream's `main` at `990e55e` fails `npm run test:app` on both architectures after 68697e0 and 990e55e, which change how controllers are listed. Those two commits are worth having (M3-08) once their `test:app` failure is fixed, upstream or by the fork (rule 3 below).
 
 ## Pulling upstream changes
 
