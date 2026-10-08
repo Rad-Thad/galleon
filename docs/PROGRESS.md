@@ -152,3 +152,15 @@ Lines the tooling reads (exact forms):
   - `.claude/settings.json` now registers a Stop hook: a turn that changed `src/`, `test/`, `packaging/`, `scripts/` or `native/` does not end while `check.sh` fails.
   - `init.sh`'s RomM step assumes M0-06's layout (`test/romm/compose.yml`, `--profile v520`, `test/romm/provision.mjs`, heartbeat on `GALLEON_ROMM_URL`, default `http://127.0.0.1:3000`). M0-06 matches it or changes it.
   - Dependabot #1 (Electron 44.5.1) stays held until the first device run on 44.4.5.
+
+## 2026-10-08 18:10 UTC session cloud (routine run)
+
+- Device results: none new. `bridge/status.json`: bridge version 1, last seen 2026-10-08T15:06:00Z, skipping because no `nightly` release is published yet. No `results/` yet.
+- Worked on: owner issue #5, the parts that do not wait for M0-24 (tracking issue #12).
+- Result: see the PR linked from #12.
+- Evidence: ADR 0004 records the any-hour window and the per-merge `nightly` publish. PLAN.md section 4 (release.yml's per-merge publish step under the `nightly` concurrency group; nightly.yml's early-exit reference), section 5 (shape, window, risks), TESTING.md and the bridge README no longer say testing happens overnight. New bridge unit test `test_equal_ends_mean_any_hour` pins that `00:00-00:00` is the whole day; the bridge program itself is unchanged, so no version bump. `scripts/agent/check.sh` green; `python3 -m unittest discover -s tools/device-bridge` 21/21.
+- CI wall time: see the PR.
+- Evaluator: see the PR.
+- Device / acceptance: none.
+- Next: M0-03 (lowest eligible id). M0-24 must include the per-merge publish (ADR 0004) when it is built.
+- Notes: Docker's daemon was not running on this VM; `dockerd` started by hand before `init.sh` passed.

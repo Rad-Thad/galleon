@@ -1,6 +1,6 @@
 # How Galleon is tested
 
-Nobody tests by hand during development. CI proves the code on every pull request and every night; the **device bridge** on the Nova proves it on real hardware every night it can; the owner joins **once**, near the end, for an acceptance session of at most two hours ([ADR 0003](decisions/0003-autonomous-verification.md)). The tiers are listed in [PLAN.md section 3](PLAN.md#3-how-work-is-proven), the bridge's contract in [PLAN.md section 5](PLAN.md#5-the-device-bridge-hardware-in-the-loop), and the bridge program in [tools/device-bridge/README.md](../tools/device-bridge/README.md).
+Nobody tests by hand during development. CI proves the code on every pull request and every night; the **device bridge** on the Nova proves it on real hardware whenever the Nova is idle on its charger ([ADR 0004](decisions/0004-device-tests-any-hour.md)); the owner joins **once**, near the end, for an acceptance session of at most two hours ([ADR 0003](decisions/0003-autonomous-verification.md)). The tiers are listed in [PLAN.md section 3](PLAN.md#3-how-work-is-proven), the bridge's contract in [PLAN.md section 5](PLAN.md#5-the-device-bridge-hardware-in-the-loop), and the bridge program in [tools/device-bridge/README.md](../tools/device-bridge/README.md).
 
 This file has one short part for the owner and the reference the agent works from.
 
@@ -8,11 +8,11 @@ This file has one short part for the owner and the reference the agent works fro
 
 ## For the owner
 
-**One habit, when it suits you.** Leave the Nova **on its charger, in Game Mode, at Steam's library** overnight (quit any game, RomMix or ES-DE first), and set Steam's **Settings -> Power -> Sleep when plugged in** to **Never** once. Results then show up by themselves. If the Nova is away or asleep for days, nothing breaks; the features that need it simply wait.
+**One habit, when it suits you.** Leave the Nova **on its charger, in Game Mode, at Steam's library** whenever you are not using it (quit any game, RomMix or ES-DE first), and set Steam's **Settings -> Power -> Sleep when plugged in** to **Never** once. Results then show up by themselves. If the Nova is away or asleep for days, nothing breaks; the features that need it simply wait.
 
-**What you may notice.** Some nights, between 1 and 7 a.m., the screen shows Galleon and a few emulators for up to about half an hour, with the sound muted. **Press any button** and the test stops at once and hands the Nova back. Your Steam library gains an entry called **Galleon Device Test**; starting it yourself does nothing. Nothing in your own RomMix, saves, emulator settings or RomM server is changed, and every run checks that.
+**What you may notice.** At any hour while the Nova sits idle on its charger, the screen may show Galleon and a few emulators for up to about half an hour, with the sound muted. **Press any button** and the test stops at once and hands the Nova back. Your Steam library gains an entry called **Galleon Device Test**; starting it yourself does nothing. Nothing in your own RomMix, saves, emulator settings or RomM server is changed, and every run checks that.
 
-**If something goes wrong once you use Galleon,** open Settings -> System -> **Report a problem**. The report reaches the developer automatically the next night the Nova is charging. There is nothing to file anywhere.
+**If something goes wrong once you use Galleon,** open Settings -> System -> **Report a problem**. The report reaches the developer automatically the next time the Nova is idle on its charger. There is nothing to file anywhere.
 
 **Near the end** you get one GitHub notification e-mail: _Galleon is ready for your acceptance session_. Open the Claude session on your Mac and say **"start the Galleon acceptance session"**. It walks you through everything and does every terminal and GitHub step for you.
 
@@ -44,7 +44,7 @@ Acceptance lines use fixed prefixes the tooling reads:
 ## How a device feature passes
 
 1. The feature's code merges with `READY-FOR-DEVICE <id>` in that PR's PROGRESS.md entry.
-2. The next nightly carries it; the bridge tests it and publishes `results/<sha>/summary.json` on `device-results`.
+2. The next `nightly` pre-release carries it (one is published after every merge to `main` as well as on the nightly schedule, M0-24); the bridge tests it and publishes `results/<sha>/summary.json` on `device-results`.
 3. At the next session start, `node scripts/agent/device-results.mjs --summary` shows the result. With `--apply` it flips `passes` when, in one summary:
    - every `Device check` id of the feature has `result: "pass"`;
    - `safety.owner-state` and `safety.server-readonly` pass;
