@@ -4,6 +4,7 @@ import { after, describe, test } from 'node:test'
 import {
   chmodSync,
   copyFileSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -187,13 +188,23 @@ describe('a session that cannot start', () => {
 })
 
 /**
+ * The caller's environment without git's own variables. Under a git hook they
+ * name the caller's repository and index, and would win over `cwd`.
+ */
+function outsideGit(): NodeJS.ProcessEnv {
+  return Object.fromEntries(
+    Object.entries(process.env).filter(([name]) => !name.startsWith('GIT_'))
+  )
+}
+
+/**
  * A repository with an `origin/main`, the Stop hook in it, and a check that
  * fails on purpose, so whether the hook runs it is the only question.
  */
 function repositoryWithHook(): string {
   const repo = scratch()
   const git = (...args: string[]): void => {
-    const run = spawnSync('git', args, { cwd: repo, encoding: 'utf8' })
+    const run = spawnSync('git', args, { cwd: repo, encoding: 'utf8', env: outsideGit() })
     assert.equal(run.status, 0, run.stderr)
   }
   git('init', '-q', '-b', 'main')
@@ -218,7 +229,7 @@ function repositoryWithHook(): string {
 function stopHook(repo: string): ReturnType<typeof spawnSync> {
   return spawnSync('bash', [join(repo, 'scripts', 'agent', 'stop-hook.sh')], {
     encoding: 'utf8',
-    env: { ...process.env, CLAUDE_PROJECT_DIR: repo },
+    env: { ...outsideGit(), CLAUDE_PROJECT_DIR: repo },
     timeout: 60_000
   })
 }
@@ -252,6 +263,24 @@ describe('the Stop hook', () => {
     writeFileSync(join(repo, 'src', 'fixed.ts'), 'export const x = 1\n')
 
     assert.equal(stopHook(repo).status, 0)
+  })
+
+  test("touches only its own repository when git's variables point elsewhere", () => {
+    // A pre-commit hook under `git commit -a` exports the caller's temporary
+    // index; a spawn that inherits it writes the throwaway's files there.
+    const index = join(scratch(), 'index')
+    const saved = process.env.GIT_INDEX_FILE
+    process.env.GIT_INDEX_FILE = index
+    try {
+      const repo = repositoryWithHook()
+      writeFileSync(join(repo, 'docs', 'notes.md'), 'more notes\n')
+
+      assert.equal(stopHook(repo).status, 0)
+      assert.equal(existsSync(index), false, "the caller's index was written to")
+    } finally {
+      if (saved === undefined) delete process.env.GIT_INDEX_FILE
+      else process.env.GIT_INDEX_FILE = saved
+    }
   })
 })
 
