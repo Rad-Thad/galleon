@@ -1,5 +1,5 @@
 #!/bin/sh
-# Do not edit: RomMix replaces this file when it updates itself.
+# Do not edit: Galleon replaces this file when it updates itself.
 set -eu
 
 APPIMAGE_EXTRACT_AND_RUN=1
@@ -36,7 +36,7 @@ done
 
 if [ -z "${ROMMIX_APPIMAGE-}" ]; then
   here=$(dirname "$(readlink -f "$0")")
-  for candidate in "$here"/RomMix-*.AppImage; do
+  for candidate in "$here"/Galleon-*.AppImage; do
     [ -e "$candidate" ] || continue
     if [ -z "${ROMMIX_APPIMAGE-}" ] || [ "$candidate" -nt "$ROMMIX_APPIMAGE" ]; then
       ROMMIX_APPIMAGE=$candidate
@@ -45,14 +45,14 @@ if [ -z "${ROMMIX_APPIMAGE-}" ]; then
 fi
 
 if [ -z "${ROMMIX_APPIMAGE-}" ] || [ ! -e "$ROMMIX_APPIMAGE" ]; then
-  echo "rommix-steam.sh: no RomMix AppImage found beside this script." >&2
-  echo "  Put RomMix-x86_64.AppImage next to it, or pass" >&2
-  echo "  --appimage=/path/to/RomMix-x86_64.AppImage" >&2
+  echo "galleon-steam.sh: no Galleon AppImage found beside this script." >&2
+  echo "  Put Galleon-x86_64.AppImage next to it, or pass" >&2
+  echo "  --appimage=/path/to/Galleon-x86_64.AppImage" >&2
   exit 1
 fi
 
 if [ ! -x "$ROMMIX_APPIMAGE" ]; then
-  echo "rommix-steam.sh: $ROMMIX_APPIMAGE is not executable — chmod +x it." >&2
+  echo "galleon-steam.sh: $ROMMIX_APPIMAGE is not executable — chmod +x it." >&2
   exit 1
 fi
 

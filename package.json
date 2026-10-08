@@ -8,7 +8,7 @@
   "engines": {
     "node": ">=24"
   },
-  "desktopName": "be.bl_it.RomMix.desktop",
+  "desktopName": "io.github.Rad-Thad.Galleon.desktop",
   "scripts": {
     "dev": "electron-vite dev",
     "preview:app": "vite --config vite.web.config.ts",

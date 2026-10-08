@@ -16,7 +16,7 @@ import { chmod, copyFile, rename } from 'node:fs/promises'
 import { join } from 'node:path'
 
 /** `linux.executableName` in electron-builder.yml, which AppRun execs. */
-const EXECUTABLE = 'rommix'
+const EXECUTABLE = 'galleon'
 
 /** Where the Electron binary goes, named in packaging/rommix-launcher.sh. */
 const BINARY = 'rommix.bin'

@@ -11,7 +11,7 @@ import { isWebAddress } from './weblink.ts'
  */
 
 test('the two schemes the web is served over are opened', () => {
-  assert.equal(isWebAddress('https://github.com/leclercb/rommix/releases'), true)
+  assert.equal(isWebAddress('https://github.com/Rad-Thad/galleon/releases'), true)
   // A RomM server on the local network is plain http far more often than not.
   assert.equal(isWebAddress('http://192.168.1.10:8080'), true)
   // A scheme is case-insensitive, and a check that is not can be walked past.

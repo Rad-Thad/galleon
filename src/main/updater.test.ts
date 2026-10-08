@@ -99,7 +99,7 @@ function release(
   return new Response(
     JSON.stringify({
       tag_name: tag,
-      html_url: `https://github.com/leclercb/rommix/releases/tag/${tag}`,
+      html_url: `https://github.com/Rad-Thad/galleon/releases/tag/${tag}`,
       body: 'Release notes',
       assets: assets.map((name) => ({
         name,
@@ -118,7 +118,7 @@ function releaseList(entries: { tag: string; draft?: boolean }[]): Response {
       entries.map(({ tag, draft }) => ({
         tag_name: tag,
         draft: draft ?? false,
-        html_url: `https://github.com/leclercb/rommix/releases/tag/${tag}`,
+        html_url: `https://github.com/Rad-Thad/galleon/releases/tag/${tag}`,
         assets: []
       }))
     )
@@ -143,7 +143,7 @@ function updater(
 }
 
 /** The image name for whichever machine the tests are running on. */
-const image = process.arch === 'arm64' ? 'RomMix-aarch64.AppImage' : 'RomMix-x86_64.AppImage'
+const image = process.arch === 'arm64' ? 'Galleon-aarch64.AppImage' : 'Galleon-x86_64.AppImage'
 
 describe('checking for a new version', () => {
   test('the running version is what everything is compared against', () => {
@@ -221,7 +221,7 @@ describe('checking for a new version', () => {
   test('a release with no image for this machine is reported as one that cannot be taken', async () => {
     process.env.APPIMAGE = join(scratch(), image)
     const { updater: subject } = updater()
-    serve(() => release('v1.2.0', ['rommix-steam.sh']))
+    serve(() => release('v1.2.0', ['galleon-steam.sh']))
 
     const status = await subject.check()
 
@@ -269,7 +269,7 @@ describe('release candidates', () => {
 
     // The endpoint that never answers with a pre-release, so nothing else has
     // to decide whether a candidate counts.
-    assert.deepEqual(asked, ['https://api.github.com/repos/leclercb/rommix/releases/latest'])
+    assert.deepEqual(asked, ['https://api.github.com/repos/Rad-Thad/galleon/releases/latest'])
   })
 
   test('volunteering for them reads the list and takes the newest version', async () => {
@@ -307,8 +307,8 @@ describe('release candidates', () => {
 })
 
 describe('the canary channel', () => {
-  const COMMITS_API = 'https://api.github.com/repos/leclercb/rommix/commits/canary'
-  const RELEASE_API = 'https://api.github.com/repos/leclercb/rommix/releases/tags/canary'
+  const COMMITS_API = 'https://api.github.com/repos/Rad-Thad/galleon/commits/canary'
+  const RELEASE_API = 'https://api.github.com/repos/Rad-Thad/galleon/releases/tags/canary'
 
   /**
    * A canary run: the flag set, and a build that knows which commit it is.
@@ -578,7 +578,7 @@ describe('restarting into what was downloaded', () => {
 
 describe('the launcher beside the image', () => {
   /**
-   * An installation whose image carries a `rommix-steam.sh` saying `shipped`.
+   * An installation whose image carries a `galleon-steam.sh` saying `shipped`.
    *
    * The resources are this version's, which is the point of refreshing at
    * start-up: what the running image carries is what the running version was
@@ -589,8 +589,8 @@ describe('the launcher beside the image', () => {
     process.env.APPIMAGE = join(dir, image)
     const resources = scratch()
     resourcesAt(resources)
-    writeFileSync(join(resources, 'rommix-steam.sh'), shipped)
-    return { beside: join(dir, 'rommix-steam.sh') }
+    writeFileSync(join(resources, 'galleon-steam.sh'), shipped)
+    return { beside: join(dir, 'galleon-steam.sh') }
   }
 
   test('a stale copy is replaced with the one this version carries', async () => {

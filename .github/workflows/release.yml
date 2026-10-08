@@ -185,8 +185,9 @@ jobs:
 
       # Shipped beside the image, not inside it: it is what Steam's shortcut
       # points at, and the AppImage cannot set the variable that makes itself
-      # launchable from Steam. See packaging/rommix-steam.sh.
-      - run: cp packaging/rommix-steam.sh dist/
+      # launchable from Steam. Shipped under the product's name; see
+      # packaging/rommix-steam.sh.
+      - run: cp packaging/rommix-steam.sh dist/galleon-steam.sh
 
       # Named per leg: two jobs uploading one name is an error, and the release
       # job merges them back with a pattern.
@@ -195,7 +196,7 @@ jobs:
           name: appimage-${{ matrix.arch }}
           path: |
             dist/*.AppImage
-            dist/rommix-steam.sh
+            dist/galleon-steam.sh
           if-no-files-found: error
 
   # The tip of main, attached to one rolling pre-release so that a copy running
@@ -237,9 +238,9 @@ jobs:
         with:
           files: |
             dist/*.AppImage
-            dist/rommix-steam.sh
+            dist/galleon-steam.sh
           tag_name: canary
-          name: RomMix canary
+          name: Galleon canary
           # Shown and not read: the commit a copy on this channel compares
           # itself against comes from the tag. This is what the release page
           # says to whoever is looking at it, which is what the channel is
@@ -289,7 +290,7 @@ jobs:
         with:
           node-version: 24
 
-      # Both legs into one folder. `rommix-steam.sh` is identical in each, and
+      # Both legs into one folder. `galleon-steam.sh` is identical in each, and
       # `merge-multiple` overwrites rather than nesting, so it lands once.
       - uses: actions/download-artifact@v8
         with:
@@ -313,8 +314,8 @@ jobs:
         with:
           files: |
             dist/*.AppImage
-            dist/rommix-steam.sh
-          name: RomMix ${{ github.ref_name }}
+            dist/galleon-steam.sh
+          name: Galleon ${{ github.ref_name }}
           body_path: release-notes.md
           prerelease: ${{ contains(github.ref_name, '-') }}
           fail_on_unmatched_files: true

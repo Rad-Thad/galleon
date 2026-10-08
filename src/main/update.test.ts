@@ -70,10 +70,10 @@ test('the image built for this machine is the one chosen', () => {
 })
 
 test('the launcher script is never mistaken for the application', () => {
-  // Every release carries `rommix-steam.sh` beside the images. It is a shell
+  // Every release carries `galleon-steam.sh` beside the images. It is a shell
   // script that starts RomMix, and installing it as RomMix would replace the
   // program with three lines of sh.
-  assert.equal(pickImage([asset('rommix-steam.sh')]), null)
+  assert.equal(pickImage([asset('galleon-steam.sh')]), null)
 })
 
 test('a release with only another architecture offers nothing', () => {

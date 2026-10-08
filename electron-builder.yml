@@ -11,9 +11,9 @@
 # An AppImage is not a sandbox, so the emulator is an ordinary child process,
 # stays inside Steam's tree, and is tagged and focused like any other game. See
 # `execPrefix` in src/main/host.ts, which is now simply the program to run.
-appId: be.bl_it.RomMix
-productName: RomMix
-executableName: rommix
+appId: io.github.Rad-Thad.Galleon
+productName: Galleon
+executableName: galleon
 
 # The modern AppImage runtime. Without this electron-builder takes its legacy
 # path, which produces an image whose runtime dlopens `libfuse.so.2` — a library
@@ -36,13 +36,13 @@ files:
 # and scripts/after-pack.mjs for how it gets there.
 afterPack: ./scripts/after-pack.mjs
 
-# `rommix-steam.sh` as RomMix carries it, at `process.resourcesPath`. The copy a
+# `galleon-steam.sh` as Galleon carries it, at `process.resourcesPath`. The copy a
 # user downloaded once would otherwise keep whatever it said on the day they
 # downloaded it; carrying the current one lets the version that starts put it
 # back in step. See `Updater.refreshSteamLauncher` in src/main/update.ts.
 extraResources:
   - from: packaging/rommix-steam.sh
-    to: rommix-steam.sh
+    to: galleon-steam.sh
 
 # RomMix ships no native modules, so there is nothing to rebuild per-arch.
 npmRebuild: false
@@ -58,7 +58,7 @@ linux:
   # map, from this field falling back to package.json's `description` — which is
   # a sentence written for npm and far too long for a menu tooltip.
   description: Browse, download and play your RomM library
-  executableName: rommix
+  executableName: galleon
   # packaging/icon.png, rasterised from packaging/icon.svg — the same drawing the
   # `Logo` component redraws in the interface.
   icon: packaging/icon.png
@@ -79,14 +79,14 @@ linux:
   syncDesktopName: true
 
 appImage:
-  # `RomMix-x86_64.AppImage`. The architecture is there because it tells a user
+  # `Galleon-x86_64.AppImage`. The architecture is there because it tells a user
   # whether the file is for their machine; the version is deliberately *not*,
   # and that is a decision about updating rather than about naming.
   #
   # RomMix replaces its own image in place — see src/main/update.ts. A version in
   # the file name would leave that with two bad options: rename the file, which
   # breaks every Steam shortcut, desktop entry and script pointing at the old
-  # path, or keep the name, which leaves `RomMix-0.5.1-x86_64.AppImage` holding
+  # path, or keep the name, which leaves `Galleon-0.5.1-x86_64.AppImage` holding
   # 0.6.0. Naming the file for the program rather than for the release removes
   # the choice: the path is stable, the name is never wrong, and nobody has to
   # rename anything.

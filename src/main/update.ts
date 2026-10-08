@@ -35,8 +35,16 @@ import { t } from './i18n.ts'
  * a swap costs nobody a game in progress.
  */
 
-/** RomMix's own releases. `/latest` is the newest non-draft, non-prerelease. */
-const RELEASE_API = 'https://api.github.com/repos/leclercb/rommix/releases/latest'
+/**
+ * The repository Galleon is released from, which every address below is built
+ * on so that the updater can never read one project's releases and another's
+ * canary. Upstream RomMix (github.com/leclercb/rommix) is where this fork came
+ * from, and its releases are not ones this build can replace itself with.
+ */
+export const REPOSITORY = 'Rad-Thad/galleon'
+
+/** Galleon's own releases. `/latest` is the newest non-draft, non-prerelease. */
+const RELEASE_API = `https://api.github.com/repos/${REPOSITORY}/releases/latest`
 
 /**
  * The same releases as a list, for an installation that takes candidates.
@@ -45,7 +53,7 @@ const RELEASE_API = 'https://api.github.com/repos/leclercb/rommix/releases/lates
  * it will not pick is a pre-release — so taking those means reading the list and
  * choosing here. A page is far more releases than any copy of RomMix is behind.
  */
-const RELEASE_LIST_API = 'https://api.github.com/repos/leclercb/rommix/releases?per_page=30'
+const RELEASE_LIST_API = `https://api.github.com/repos/${REPOSITORY}/releases?per_page=30`
 
 /**
  * The rolling pre-release holding the tip of `main`, one commit at a time.
@@ -57,7 +65,7 @@ const RELEASE_LIST_API = 'https://api.github.com/repos/leclercb/rommix/releases?
  * `canaryWanted`.
  */
 const CANARY_TAG = 'canary'
-const CANARY_API = `https://api.github.com/repos/leclercb/rommix/releases/tags/${CANARY_TAG}`
+const CANARY_API = `https://api.github.com/repos/${REPOSITORY}/releases/tags/${CANARY_TAG}`
 
 /**
  * The commit the canary tag names, which is what the images on its release
@@ -89,11 +97,11 @@ const CANARY_API = `https://api.github.com/repos/leclercb/rommix/releases/tags/$
  * `vnd.github.sha` answers with the commit alone, rather than the commit with
  * its diff attached.
  */
-const CANARY_COMMIT_API = `https://api.github.com/repos/leclercb/rommix/commits/${CANARY_TAG}`
+const CANARY_COMMIT_API = `https://api.github.com/repos/${REPOSITORY}/commits/${CANARY_TAG}`
 const CANARY_COMMIT_ACCEPT = 'application/vnd.github.sha'
 
 /** Where to send someone whose copy cannot replace itself. */
-export const RELEASES_PAGE = 'https://github.com/leclercb/rommix/releases'
+export const RELEASES_PAGE = `https://github.com/${REPOSITORY}/releases`
 
 declare const BUILD_COMMIT: string | undefined
 
@@ -162,7 +170,7 @@ const CANARY_OFF: ReadonlySet<string> = new Set(['', '0', 'off', 'no', 'false'])
  * installation stays on that channel long after the person who turned it on
  * stopped meaning to be there, so this is consented to at every launch or not
  * at all — `ROMMIX_CANARY=1 %command%` in a Steam shortcut's launch options,
- * which reaches the image through `rommix-steam.sh`.
+ * which reaches the image through `galleon-steam.sh`.
  *
  * Anything but a plain no turns it on. The value is typed once, into a box
  * nobody opens twice, and refusing `yes` for not being `1` would be a flag
@@ -294,7 +302,7 @@ function newestOf(releases: readonly GithubRelease[]): GithubRelease {
 /**
  * The image from a release that this machine can run, or null.
  *
- * `.AppImage` and nothing else: a release also carries `rommix-steam.sh`, which
+ * `.AppImage` and nothing else: a release also carries `galleon-steam.sh`, which
  * is a launcher for the image and not a copy of RomMix. The architecture rule is
  * shared with the emulator installer, so an arm64 handheld is never offered the
  * x86_64 build — an image that is downloaded, made executable and dies with an
@@ -326,10 +334,10 @@ function startedBySteam(): boolean {
 }
 
 /** The launcher a Steam shortcut is aimed at, beside the image it starts. */
-const STEAM_LAUNCHER = 'rommix-steam.sh'
+const STEAM_LAUNCHER = 'galleon-steam.sh'
 
 /**
- * Write the shipped `rommix-steam.sh` over the copy beside the image, where the
+ * Write the shipped `galleon-steam.sh` over the copy beside the image, where the
  * two have come apart.
  *
  * That script is downloaded once and then owned by nobody. An update
@@ -736,7 +744,7 @@ export class Updater {
    * `ROMMIX_APPIMAGE` in a launch script. None of those is updated by us, and
    * each would fail as a game that no longer starts, on a television, with
    * nothing on screen to explain it. So the release is published as
-   * `RomMix-x86_64.AppImage` with no version in the name — see
+   * `Galleon-x86_64.AppImage` with no version in the name — see
    * `appImage.artifactName` in electron-builder.yml — and updating writes over
    * that file. Nothing is renamed, nothing is left behind, and the name is never
    * out of date because it never claimed a version in the first place.
@@ -856,7 +864,7 @@ export class Updater {
    *
    * `APPIMAGE` is the AppImage runtime's own statement of which file it started
    * from — set for a normal run and for the extract-and-run path
-   * `rommix-steam.sh` takes, and absent for `npm run dev` and for an unpacked
+   * `galleon-steam.sh` takes, and absent for `npm run dev` and for an unpacked
    * `electron-builder --linux dir` build.
    */
   private blockedReason(): string | null {
