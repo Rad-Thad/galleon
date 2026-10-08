@@ -965,7 +965,7 @@ export const de: Catalog = {
     'Einstellungen, Zugangsdaten, der Download-Index und jeder von RomMix installierte Emulator. ' +
     'Verschieben Sie diesen Ordner, um die ganze Installation zu verschieben.',
   'system.folder': 'Ordner',
-  'system.folderHintEnv': 'Durch ROMMIX_HOME gesetzt, was Vorrang vor allem hier Gewählten hat.',
+  'system.folderHintEnv': 'Durch GALLEON_HOME gesetzt, was Vorrang vor allem hier Gewählten hat.',
   'system.folderHint':
     'Einstellungen, Spielstände und die Offline-Bibliothek werden kopiert. Spiele und ' +
     'installierte Emulatoren werden nicht verschoben.',
@@ -1090,7 +1090,7 @@ export const de: Catalog = {
 
   'error.rootMustBeAbsolute': 'Der RomMix-Ordner muss ein absoluter Pfad sein',
   'error.romMixHomeSet':
-    'ROMMIX_HOME ist gesetzt und hat Vorrang vor dem hier gewählten Ordner. Entfernen Sie es und ' +
+    'GALLEON_HOME ist gesetzt und hat Vorrang vor dem hier gewählten Ordner. Entfernen Sie es und ' +
     'starten Sie RomMix neu, um den Ordner aus den Einstellungen heraus zu verschieben.',
   'error.onlyWebAddresses': 'RomMix öffnet nur Webadressen',
 

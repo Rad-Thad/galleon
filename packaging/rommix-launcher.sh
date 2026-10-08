@@ -213,21 +213,21 @@ note() {
   esac
 
   # Where RomMix keeps its log, resolved the way `resolveRoot` in
-  # src/main/root.ts resolves it: ROMMIX_HOME, then the pointer file beside the
-  # desktop's configuration, then ~/rommix. Trimmed at both ends as that does,
+  # src/main/root.ts resolves it: GALLEON_HOME, then the pointer file beside the
+  # desktop's configuration, then ~/galleon. Trimmed at both ends as that does,
   # since a variable set to a space is a variable somebody meant to leave unset.
   trim() {
     printf '%s' "${1-}" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//'
   }
 
-  root=$(trim "${ROMMIX_HOME-}")
+  root=$(trim "${GALLEON_HOME-}")
   if [ -z "$root" ]; then
     # No home is no default root either. `resolveRoot` falls back to the passwd
-    # entry there, which nothing out here can read — and guessing `/rommix`
+    # entry there, which nothing out here can read — and guessing `/galleon`
     # instead would be a folder in the root of the disk, refused on every
     # ordinary machine and complained about on every launch.
     [ -n "${HOME-}" ] || return 0
-    pointer="${XDG_CONFIG_HOME:-$HOME/.config}/rommix/root"
+    pointer="${XDG_CONFIG_HOME:-$HOME/.config}/galleon/root"
     if [ -r "$pointer" ]; then
       # `|| true` rather than a test on the read: a pointer written without a
       # trailing newline still hands back the path it holds and then reports
@@ -235,7 +235,7 @@ note() {
       IFS= read -r pointed < "$pointer" || true
       root=$(trim "${pointed-}")
     fi
-    [ -n "$root" ] || root="$HOME/rommix"
+    [ -n "$root" ] || root="$HOME/galleon"
   fi
   # Absolute or nothing. A relative one would put a `logs` folder wherever this
   # script happened to be started from, which is neither RomMix's nor findable.

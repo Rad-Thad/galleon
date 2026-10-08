@@ -19,7 +19,7 @@ export interface RootLocation {
   current: string
   /** What it would be with nothing configured. */
   fallback: string
-  /** Set by ROMMIX_HOME, which overrides the stored pointer and cannot be changed here. */
+  /** Set by GALLEON_HOME, which overrides the stored pointer and cannot be changed here. */
   fromEnvironment: boolean
 }
 

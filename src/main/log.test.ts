@@ -26,14 +26,14 @@ import { join } from 'node:path'
  * runs through level filtering, JSON encoding and the message/detail split, any
  * of which could route a secret around the redaction.
  *
- * `ROMMIX_HOME` has to be set before `log.ts` is imported — it resolves the root
+ * `GALLEON_HOME` has to be set before `log.ts` is imported — it resolves the root
  * once, lazily, and caches it — hence the dynamic import below.
  */
 
 const root = mkdtempSync(join(tmpdir(), 'rommix-log-test-'))
 after(() => rmSync(root, { recursive: true, force: true }))
 
-process.env.ROMMIX_HOME = root
+process.env.GALLEON_HOME = root
 delete process.env.ROMMIX_LOG
 
 const { log } = await import('./log.ts')
@@ -268,7 +268,7 @@ test('a closed log lets go of its folder, and opens a fresh file under the next 
   try {
     log.info('test', 'before the move')
     log.close()
-    process.env.ROMMIX_HOME = elsewhere
+    process.env.GALLEON_HOME = elsewhere
     log.info('test', 'after the move')
 
     const moved = readFileSync(join(elsewhere, 'logs', 'app.log'), 'utf8')
@@ -279,11 +279,11 @@ test('a closed log lets go of its folder, and opens a fresh file under the next 
     // And the old folder can go with nothing left writing to it.
     log.close()
     rmSync(elsewhere, { recursive: true, force: true })
-    process.env.ROMMIX_HOME = root
+    process.env.GALLEON_HOME = root
     log.info('test', 'back where it started')
     assert.match(written(), /back where it started/)
   } finally {
-    process.env.ROMMIX_HOME = root
+    process.env.GALLEON_HOME = root
     log.close()
     rmSync(elsewhere, { recursive: true, force: true })
   }

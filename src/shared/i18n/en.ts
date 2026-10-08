@@ -942,7 +942,7 @@ export const en = {
     'Settings, credentials, the download index, and any emulator RomMix installed. Move this ' +
     'folder to move the whole installation.',
   'system.folder': 'Folder',
-  'system.folderHintEnv': 'Set by ROMMIX_HOME, which wins over anything chosen here.',
+  'system.folderHintEnv': 'Set by GALLEON_HOME, which wins over anything chosen here.',
   'system.folderHint':
     'Settings, saves and the offline library are copied. Games and installed emulators are not ' +
     'moved.',
@@ -1057,7 +1057,7 @@ export const en = {
 
   'error.rootMustBeAbsolute': 'The RomMix folder must be an absolute path',
   'error.romMixHomeSet':
-    'ROMMIX_HOME is set, and it overrides the folder chosen here. Unset it and restart RomMix to ' +
+    'GALLEON_HOME is set, and it overrides the folder chosen here. Unset it and restart RomMix to ' +
     'move the folder from Settings.',
   'error.onlyWebAddresses': 'RomMix only opens web addresses',
 

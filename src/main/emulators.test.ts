@@ -43,7 +43,7 @@ function home(): string {
   process.env.HOME = dir
   process.env.XDG_CONFIG_HOME = join(dir, '.config')
   process.env.XDG_DATA_HOME = join(dir, '.local', 'share')
-  process.env.ROMMIX_HOME = join(dir, '.rommix')
+  process.env.GALLEON_HOME = join(dir, '.rommix')
   return dir
 }
 

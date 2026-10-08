@@ -39,18 +39,18 @@ import { Store } from './store.ts'
  *
  * Downloads are driven with a client that writes bytes to the path it is given
  * rather than a real server — the transfer itself is `romm.test.ts`'s subject.
- * The root is redirected with `ROMMIX_HOME`, so nothing here touches the
+ * The root is redirected with `GALLEON_HOME`, so nothing here touches the
  * RomMix folder of whoever is running the tests.
  */
 
 const scratches: string[] = []
-const realHome = process.env.ROMMIX_HOME
+const realHome = process.env.GALLEON_HOME
 
 afterEach(() => {
   // The log holds its path into whichever scratch root logged first.
   log.close()
-  if (realHome === undefined) delete process.env.ROMMIX_HOME
-  else process.env.ROMMIX_HOME = realHome
+  if (realHome === undefined) delete process.env.GALLEON_HOME
+  else process.env.GALLEON_HOME = realHome
   for (const dir of scratches.splice(0)) rmSync(dir, { recursive: true, force: true })
 })
 
@@ -242,7 +242,7 @@ function manager(
   asked: { limit: number; offset: number }[]
 } {
   const root = scratch()
-  process.env.ROMMIX_HOME = root
+  process.env.GALLEON_HOME = root
   const store = new Store(join(root, 'config'))
   store.updateSettings({ romStorage: options.shared === false ? 'emulator' : 'rommix' })
   const { client, resumed, asked } = fakeClient(options)

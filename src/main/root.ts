@@ -13,18 +13,35 @@ import { realHome, xdgConfigHome } from './xdg.ts'
  * Relocating it is circular: the setting saying where the root is would live
  * inside the root. It is therefore resolved from, in order,
  *
- *   1. the ROMMIX_HOME environment variable
+ *   1. the GALLEON_HOME environment variable
  *   2. a one-line pointer file in the platform's default config location
- *   3. ~/rommix
+ *   3. ~/galleon
  *
  * The pointer is deliberately tiny and outside the root, so a root on a
  * removable disk that is not mounted degrades to "cannot find it" rather than
  * to a silently different, empty configuration.
+ *
+ * None of these is stock RomMix's (`ROMMIX_HOME`, `~/.config/rommix/root`,
+ * `~/rommix`): the fork runs beside it on the same machine, and following any
+ * of RomMix's would have the two share one configuration and one ROM index
+ * that each rewrites in its own way.
  */
+
+/** The one variable that overrides the root. See `homeFromEnvironment`. */
+export const HOME_VARIABLE = 'GALLEON_HOME'
 
 // Lowercase: it sits beside the user's own directories in $HOME, where the
 // convention for an application's folder is lowercase.
-const DEFAULT_DIR_NAME = 'rommix'
+const DEFAULT_DIR_NAME = 'galleon'
+
+/**
+ * The folder Electron keeps Chromium's profile in, under the desktop's config
+ * directory. Named for the product, as Electron would name it, and stated here
+ * rather than left to Electron because Electron derives it from package.json,
+ * which still carries upstream's name and would put the profile, and with it
+ * the single-instance lock, in stock RomMix's.
+ */
+const PROFILE_DIR_NAME = 'Galleon'
 
 /**
  * The pointer file's own location, which cannot itself be configurable.
@@ -32,7 +49,17 @@ const DEFAULT_DIR_NAME = 'rommix'
  * and before the userData path has been redirected at the root.
  */
 function pointerPath(): string {
-  return join(xdgConfigHome(), 'rommix', 'root')
+  return join(xdgConfigHome(), DEFAULT_DIR_NAME, 'root')
+}
+
+/** Electron's userData folder. See `PROFILE_DIR_NAME`. */
+export function profilePath(): string {
+  return join(xdgConfigHome(), PROFILE_DIR_NAME)
+}
+
+/** The root the environment asks for, or nothing when it asks for none. */
+export function homeFromEnvironment(): string | undefined {
+  return process.env[HOME_VARIABLE]?.trim() || undefined
 }
 
 export function defaultRoot(): string {
@@ -41,7 +68,7 @@ export function defaultRoot(): string {
 
 /** Resolve the root without creating anything. */
 export function resolveRoot(): string {
-  const fromEnv = process.env.ROMMIX_HOME?.trim()
+  const fromEnv = homeFromEnvironment()
   if (fromEnv) return fromEnv
 
   try {

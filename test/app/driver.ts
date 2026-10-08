@@ -562,7 +562,7 @@ export async function startApp(options: StartOptions): Promise<App> {
     stdio: ['ignore', 'pipe', 'pipe'],
     env: {
       ...process.env,
-      ROMMIX_HOME: home,
+      GALLEON_HOME: home,
       /**
        * Electron's profile too, not only RomMix's own root.
        *

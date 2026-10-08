@@ -51,7 +51,7 @@ function launch(args: string[] = [], env: Record<string, string> = {}): Launch {
   chmodSync(join(dir, 'rommix-steam.sh'), 0o755)
   writeFileSync(
     join(dir, 'RomMix-x86_64.AppImage'),
-    `#!/bin/sh\nprintf '%s\\n' "$@" > ${dir}/argv\nenv | grep '^ROMMIX_' > ${dir}/env || :\n`
+    `#!/bin/sh\nprintf '%s\\n' "$@" > ${dir}/argv\nenv | grep -E '^(ROMMIX|GALLEON)_' > ${dir}/env || :\n`
   )
   chmodSync(join(dir, 'RomMix-x86_64.AppImage'), 0o755)
 
@@ -87,9 +87,9 @@ describe('the flags it takes', () => {
   })
 
   test('and --log= and --home= carry their value across', () => {
-    const { env } = launch(['--log=debug', '--home=/games/rommix'])
+    const { env } = launch(['--log=debug', '--home=/games/galleon'])
     assert.equal(env.ROMMIX_LOG, 'debug')
-    assert.equal(env.ROMMIX_HOME, '/games/rommix')
+    assert.equal(env.GALLEON_HOME, '/games/galleon')
   })
 
   test('and a flag wins over the variable it sets', () => {

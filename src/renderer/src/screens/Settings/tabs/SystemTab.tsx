@@ -91,7 +91,7 @@ export function SystemTab({
           field="root"
           value={draft}
           onChange={setRootDraft}
-          placeholder={root?.fallback ?? '/home/you/rommix'}
+          placeholder={root?.fallback ?? '/home/you/galleon'}
           hint={root?.fromEnvironment ? t('system.folderHintEnv') : t('system.folderHint')}
         />
         <div className="btn-row">

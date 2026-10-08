@@ -2,7 +2,7 @@ import { BrowserWindow, app, protocol } from 'electron'
 import { IMAGE_SCHEME, RomMixApp } from './app.ts'
 import { registerIpc } from './ipc/index.ts'
 import { log, logSession } from './log.ts'
-import { ensureRoot } from './root.ts'
+import { ensureRoot, profilePath } from './root.ts'
 
 /** RomMix main process bootstrap. */
 
@@ -51,6 +51,10 @@ function applyDisplayFlags(): void {
 // that later switches are read too late to matter.
 applyDisplayFlags()
 
+// Before the lock, which lives in the profile: a profile shared with stock
+// RomMix would let only one of the two run at a time. See `profilePath`.
+app.setPath('userData', profilePath())
+
 // Only one instance may own the ROM tree and the download queue.
 if (!app.requestSingleInstanceLock()) {
   // Nothing is written here and nothing is read: everything below touches the
@@ -60,9 +64,9 @@ if (!app.requestSingleInstanceLock()) {
   app.quit()
 } else {
   // The root has to exist before the Store reads from it. Electron's own
-  // userData is deliberately left alone: it holds Chromium's caches, cookies,
-  // GPU state and singleton locks, none of which belong in a folder meant to
-  // hold the handful of files RomMix itself writes.
+  // userData stays outside it, in the profile above: it holds Chromium's
+  // caches, cookies, GPU state and singleton locks, none of which belong in a
+  // folder meant to hold the handful of files RomMix itself writes.
   ensureRoot()
 
   logSession({

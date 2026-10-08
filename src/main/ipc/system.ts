@@ -13,7 +13,7 @@ import { power, powerActions } from '../power.ts'
 import { flatpakAvailable, flathubConfigured, isWritable } from '../host.ts'
 import { setLanguage, t } from '../i18n.ts'
 import { log } from '../log.ts'
-import { defaultRoot, relocateRoot, resolveRoot, rootPaths } from '../root.ts'
+import { defaultRoot, homeFromEnvironment, relocateRoot, resolveRoot, rootPaths } from '../root.ts'
 import { RommError } from '../romm/index.ts'
 import { isWebAddress } from '../weblink.ts'
 import type { Handle } from './handler.ts'
@@ -198,7 +198,7 @@ export function registerSystemIpc(rommix: RomMixApp, handle: Handle): void {
   handle('system:root', (): RootLocation => ({
     current: resolveRoot(),
     fallback: defaultRoot(),
-    fromEnvironment: Boolean(process.env.ROMMIX_HOME?.trim())
+    fromEnvironment: homeFromEnvironment() !== undefined
   }))
 
   handle('system:setRoot', (next: string): RootLocation => {
@@ -206,11 +206,11 @@ export function registerSystemIpc(rommix: RomMixApp, handle: Handle): void {
     if (!target.startsWith('/')) {
       throw new RommError(t('error.rootMustBeAbsolute'))
     }
-    // `ROMMIX_HOME` wins over the pointer file — see `resolveRoot` — so writing
+    // `GALLEON_HOME` wins over the pointer file — see `resolveRoot` — so writing
     // one here would copy the configuration across, report success, and then be
     // ignored on the next launch. Settings already disables the button; this is
     // the same rule where it is actually enforceable.
-    if (process.env.ROMMIX_HOME?.trim()) {
+    if (homeFromEnvironment() !== undefined) {
       throw new RommError(t('error.romMixHomeSet'))
     }
     // Copies the configuration across and repoints; the move only takes effect

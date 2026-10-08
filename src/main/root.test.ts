@@ -1,9 +1,25 @@
 import assert from 'node:assert/strict'
 import { afterEach, describe, test } from 'node:test'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { defaultRoot, ensureRoot, relocateRoot, resolveRoot, rootPaths } from './root.ts'
+import {
+  defaultRoot,
+  ensureRoot,
+  homeFromEnvironment,
+  profilePath,
+  relocateRoot,
+  resolveRoot,
+  rootPaths
+} from './root.ts'
 
 /**
  * Finding the folder RomMix keeps everything in.
@@ -18,14 +34,16 @@ import { defaultRoot, ensureRoot, relocateRoot, resolveRoot, rootPaths } from '.
 
 const scratches: string[] = []
 const held = {
-  home: process.env.ROMMIX_HOME,
+  home: process.env.GALLEON_HOME,
+  theirs: process.env.ROMMIX_HOME,
   config: process.env.XDG_CONFIG_HOME,
   userHome: process.env.HOME
 }
 
 afterEach(() => {
   for (const [name, value] of Object.entries({
-    ROMMIX_HOME: held.home,
+    GALLEON_HOME: held.home,
+    ROMMIX_HOME: held.theirs,
     XDG_CONFIG_HOME: held.config,
     HOME: held.userHome
   })) {
@@ -46,6 +64,7 @@ function bareMachine(): { home: string; config: string } {
   const home = scratch()
   const config = join(home, '.config')
   mkdirSync(config, { recursive: true })
+  delete process.env.GALLEON_HOME
   delete process.env.ROMMIX_HOME
   process.env.HOME = home
   process.env.XDG_CONFIG_HOME = config
@@ -55,17 +74,17 @@ function bareMachine(): { home: string; config: string } {
 describe('resolving the root', () => {
   test('the environment wins over everything, which is what makes it testable', () => {
     const { config } = bareMachine()
-    mkdirSync(join(config, 'rommix'), { recursive: true })
-    writeFileSync(join(config, 'rommix', 'root'), '/pointed/elsewhere\n')
-    process.env.ROMMIX_HOME = '/from/the/environment'
+    mkdirSync(join(config, 'galleon'), { recursive: true })
+    writeFileSync(join(config, 'galleon', 'root'), '/pointed/elsewhere\n')
+    process.env.GALLEON_HOME = '/from/the/environment'
 
     assert.equal(resolveRoot(), '/from/the/environment')
   })
 
   test('a pointer file is followed when nothing in the environment says otherwise', () => {
     const { config } = bareMachine()
-    mkdirSync(join(config, 'rommix'), { recursive: true })
-    writeFileSync(join(config, 'rommix', 'root'), '  /on/the/sd/card  \n')
+    mkdirSync(join(config, 'galleon'), { recursive: true })
+    writeFileSync(join(config, 'galleon', 'root'), '  /on/the/sd/card  \n')
 
     assert.equal(resolveRoot(), '/on/the/sd/card')
   })
@@ -73,16 +92,16 @@ describe('resolving the root', () => {
   test('with no pointer at all it is the folder beside the user own directories', () => {
     const { home } = bareMachine()
 
-    assert.equal(resolveRoot(), join(home, 'rommix'))
-    assert.equal(defaultRoot(), join(home, 'rommix'))
+    assert.equal(resolveRoot(), join(home, 'galleon'))
+    assert.equal(defaultRoot(), join(home, 'galleon'))
   })
 
   test('an empty pointer is ignored rather than resolving to nothing', () => {
     const { home, config } = bareMachine()
-    mkdirSync(join(config, 'rommix'), { recursive: true })
-    writeFileSync(join(config, 'rommix', 'root'), '\n')
+    mkdirSync(join(config, 'galleon'), { recursive: true })
+    writeFileSync(join(config, 'galleon', 'root'), '\n')
 
-    assert.equal(resolveRoot(), join(home, 'rommix'))
+    assert.equal(resolveRoot(), join(home, 'galleon'))
   })
 })
 
@@ -99,7 +118,7 @@ describe('the layout inside it', () => {
   })
 
   test('creating it makes the ROM folder too, before anything is downloaded', () => {
-    const root = join(scratch(), 'rommix')
+    const root = join(scratch(), 'galleon')
 
     ensureRoot(root)
 
@@ -111,7 +130,7 @@ describe('the layout inside it', () => {
   })
 
   test('creating a root that already exists is not a failure', () => {
-    const root = join(scratch(), 'rommix')
+    const root = join(scratch(), 'galleon')
 
     ensureRoot(root)
     ensureRoot(root)
@@ -124,13 +143,13 @@ describe('moving the root', () => {
     const from = join(scratch(), 'old-root')
     ensureRoot(from)
     writeFileSync(join(from, 'config', 'settings.json'), '{"settings":{}}')
-    process.env.ROMMIX_HOME = from
+    process.env.GALLEON_HOME = from
     const to = join(scratch(), 'new-root')
 
     relocateRoot(to)
 
     assert.equal(readFileSync(join(to, 'config', 'settings.json'), 'utf8'), '{"settings":{}}')
-    assert.equal(readFileSync(join(config, 'rommix', 'root'), 'utf8').trim(), to)
+    assert.equal(readFileSync(join(config, 'galleon', 'root'), 'utf8').trim(), to)
   })
 
   test('the old root is left complete, so changing your mind costs nothing', () => {
@@ -138,7 +157,7 @@ describe('moving the root', () => {
     const from = join(scratch(), 'old-root')
     ensureRoot(from)
     writeFileSync(join(from, 'config', 'settings.json'), '{"settings":{}}')
-    process.env.ROMMIX_HOME = from
+    process.env.GALLEON_HOME = from
 
     relocateRoot(join(scratch(), 'new-root'))
 
@@ -153,5 +172,85 @@ describe('moving the root', () => {
 
     assert.equal(existsSync(join(to, 'roms')), true)
     assert.equal(existsSync(join(to, 'emulators')), true)
+  })
+})
+
+/**
+ * Every file under a directory with its contents, so a before and an after can
+ * be compared whole.
+ */
+function snapshot(dir: string): Record<string, string> {
+  const files: Record<string, string> = {}
+  for (const entry of readdirSync(dir, { recursive: true, withFileTypes: true })) {
+    const path = join(entry.parentPath, entry.name)
+    files[path] = entry.isFile() ? readFileSync(path, 'utf8') : '<dir>'
+  }
+  return files
+}
+
+describe('beside stock RomMix', () => {
+  /**
+   * The machine the fork is installed on: stock RomMix already set up, with
+   * its folder, its pointer and its Electron profile.
+   */
+  function withRomMix(): { home: string; config: string } {
+    const machine = bareMachine()
+    const theirs = join(machine.home, 'rommix')
+    mkdirSync(join(theirs, 'config'), { recursive: true })
+    writeFileSync(join(theirs, 'config', 'settings.json'), '{"settings":{"theirs":true}}')
+    mkdirSync(join(machine.config, 'rommix', 'Local Storage'), { recursive: true })
+    writeFileSync(join(machine.config, 'rommix', 'root'), `${theirs}\n`)
+    writeFileSync(join(machine.config, 'rommix', 'Local Storage', 'state'), 'theirs')
+    return machine
+  }
+
+  test("neither RomMix's variable nor its pointer is followed", () => {
+    const { home } = withRomMix()
+    process.env.ROMMIX_HOME = join(home, 'rommix')
+
+    assert.equal(homeFromEnvironment(), undefined)
+    assert.equal(resolveRoot(), join(home, 'galleon'))
+  })
+
+  test('only GALLEON_HOME overrides the root', () => {
+    withRomMix()
+    process.env.GALLEON_HOME = '  /from/the/environment '
+
+    assert.equal(homeFromEnvironment(), '/from/the/environment')
+    assert.equal(resolveRoot(), '/from/the/environment')
+  })
+
+  test('the Electron profile is a folder of its own', () => {
+    const { config } = withRomMix()
+
+    assert.equal(profilePath(), join(config, 'Galleon'))
+  })
+
+  test("setting up, moving and pointing the root leave RomMix's files as they were", () => {
+    const { home, config } = withRomMix()
+    const before = snapshot(home)
+
+    ensureRoot()
+    relocateRoot(join(home, 'elsewhere'))
+    ensureRoot()
+
+    const after = snapshot(home)
+    for (const [path, contents] of Object.entries(before)) {
+      assert.equal(after[path], contents, path)
+    }
+    const added = Object.keys(after).filter((path) => !(path in before))
+    assert.deepEqual(
+      added.filter(
+        (path) =>
+          !path.startsWith(join(home, 'galleon')) &&
+          !path.startsWith(join(home, 'elsewhere')) &&
+          !path.startsWith(join(config, 'galleon'))
+      ),
+      []
+    )
+    assert.equal(
+      readFileSync(join(config, 'galleon', 'root'), 'utf8').trim(),
+      join(home, 'elsewhere')
+    )
   })
 })

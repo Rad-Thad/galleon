@@ -26,13 +26,13 @@ import { Store } from './store.ts'
  */
 
 const scratches: string[] = []
-const realHome = process.env.ROMMIX_HOME
+const realHome = process.env.GALLEON_HOME
 
 afterEach(() => {
   // The log holds its path into whichever scratch root logged first.
   log.close()
-  if (realHome === undefined) delete process.env.ROMMIX_HOME
-  else process.env.ROMMIX_HOME = realHome
+  if (realHome === undefined) delete process.env.GALLEON_HOME
+  else process.env.GALLEON_HOME = realHome
   for (const dir of scratches.splice(0)) rmSync(dir, { recursive: true, force: true })
 })
 
@@ -106,7 +106,7 @@ function manager(options: {
   root?: string
 }): { bios: BiosManager; root: string; downloaded: string[] } {
   const root = options.root ?? scratch()
-  process.env.ROMMIX_HOME = root
+  process.env.GALLEON_HOME = root
   const store = new Store(join(root, 'config'))
   const downloaded: string[] = []
   const client = {

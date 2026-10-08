@@ -1480,12 +1480,12 @@ describe('the folder RomMix keeps everything in', () => {
       root.current
     )
 
-    // And it cannot be moved from here, because `ROMMIX_HOME` wins over the
+    // And it cannot be moved from here, because `GALLEON_HOME` wins over the
     // pointer file this button writes — so moving it would report success and
     // be ignored on the next launch. Every application in this suite is run
     // that way, which is also why the move itself is `root.test.ts` rather
     // than a scenario.
-    assert.equal(root.fromEnvironment, true, 'the harness pins this with ROMMIX_HOME')
+    assert.equal(root.fromEnvironment, true, 'the harness pins this with GALLEON_HOME')
     await app.waitFor(
       `document.querySelector('[data-action="move-root"]')?.dataset.disabled === 'true'`,
       'the move to be off'

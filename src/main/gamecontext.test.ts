@@ -29,16 +29,16 @@ import { RommError } from './romm/index.ts'
  */
 
 const roots: string[] = []
-const realHome = process.env.ROMMIX_HOME
+const realHome = process.env.GALLEON_HOME
 // The calls below log, and the log goes wherever the root is: a scratch one,
 // so nothing lands in the RomMix folder of whoever runs the tests.
 const logRoot = mkdtempSync(join(tmpdir(), 'rommix-gamecontext-test-'))
 roots.push(logRoot)
-process.env.ROMMIX_HOME = logRoot
+process.env.GALLEON_HOME = logRoot
 after(() => {
   log.close()
-  if (realHome === undefined) delete process.env.ROMMIX_HOME
-  else process.env.ROMMIX_HOME = realHome
+  if (realHome === undefined) delete process.env.GALLEON_HOME
+  else process.env.GALLEON_HOME = realHome
   for (const dir of roots) rmSync(dir, { recursive: true, force: true })
 })
 

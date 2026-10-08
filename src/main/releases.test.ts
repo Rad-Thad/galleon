@@ -31,21 +31,21 @@ import { zipDirectory } from './zip.ts'
 
 const real = globalThis.fetch
 const scratches: string[] = []
-const realHome = process.env.ROMMIX_HOME
+const realHome = process.env.GALLEON_HOME
 
 afterEach(() => {
   globalThis.fetch = real
   // The log holds its path into whichever scratch root logged first.
   log.close()
-  if (realHome === undefined) delete process.env.ROMMIX_HOME
-  else process.env.ROMMIX_HOME = realHome
+  if (realHome === undefined) delete process.env.GALLEON_HOME
+  else process.env.GALLEON_HOME = realHome
   for (const dir of scratches.splice(0)) rmSync(dir, { recursive: true, force: true })
 })
 
 function scratchRoot(): string {
   const dir = mkdtempSync(join(tmpdir(), 'rommix-releases-test-'))
   scratches.push(dir)
-  process.env.ROMMIX_HOME = dir
+  process.env.GALLEON_HOME = dir
   return dir
 }
 

@@ -944,7 +944,7 @@ export const es: Catalog = {
     'Los ajustes, las credenciales, el índice de descargas y cualquier emulador que RomMix haya ' +
     'instalado. Mueve esta carpeta para mover toda la instalación.',
   'system.folder': 'Carpeta',
-  'system.folderHintEnv': 'Fijada por ROMMIX_HOME, que manda sobre cualquier cosa elegida aquí.',
+  'system.folderHintEnv': 'Fijada por GALLEON_HOME, que manda sobre cualquier cosa elegida aquí.',
   'system.folderHint':
     'Los ajustes, las partidas y la biblioteca sin conexión se copian. Los juegos y los ' +
     'emuladores instalados no se mueven.',
@@ -1065,7 +1065,7 @@ export const es: Catalog = {
 
   'error.rootMustBeAbsolute': 'La carpeta de RomMix debe ser una ruta absoluta',
   'error.romMixHomeSet':
-    'ROMMIX_HOME está definida, y manda sobre la carpeta elegida aquí. Quítala y reinicia RomMix ' +
+    'GALLEON_HOME está definida, y manda sobre la carpeta elegida aquí. Quítala y reinicia RomMix ' +
     'para mover la carpeta desde Ajustes.',
   'error.onlyWebAddresses': 'RomMix solo abre direcciones web',
 
