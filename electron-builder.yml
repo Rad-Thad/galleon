@@ -43,6 +43,10 @@ afterPack: ./scripts/after-pack.mjs
 extraResources:
   - from: packaging/rommix-steam.sh
     to: galleon-steam.sh
+  # ES-DE's linuxarm find rules and systems, which the emulator probe reads with
+  # Armada's custom_systems on top. See `RomMixApp.findRules` in src/main/app.ts.
+  - from: packaging/es-de
+    to: es-de
 
 # RomMix ships no native modules, so there is nothing to rebuild per-arch.
 npmRebuild: false

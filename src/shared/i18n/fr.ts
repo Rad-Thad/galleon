@@ -992,6 +992,10 @@ export const fr: Catalog = {
   'system.romsWritable': 'Dossiers de ROM accessibles en écriture',
   'system.freeSpace': 'Espace libre',
   'system.freeOf': '{free} libres sur {total} dans {path}',
+  'system.foundBy': 'Found by', // TODO(i18n)
+  'system.foundByBundled': "{name}: ES-DE's {rule} rule, {entry}", // TODO(i18n)
+  'system.foundByCustom': '{name}: custom_systems {rule} rule, {entry}', // TODO(i18n)
+  'system.foundByRoute': '{name}: {path}', // TODO(i18n)
   'system.controller': 'Manette',
   'system.noController': 'aucune détectée — appuyez sur un de ses boutons',
   'system.logFile': 'Fichier journal',

@@ -316,6 +316,8 @@ export const emudeck: EmulatorDescriptor = {
   // behind by an uninstall, whereas the launchers are what RomMix actually
   // runs. Where they are comes from the tools directory `layout` reads.
   install: [{ kind: 'scripts', dir: { from: 'tools', path: 'launchers' } }],
+  // A set of scripts, which no ES-DE find rule describes.
+  findRule: undefined,
   // Only a homepage, because RomMix cannot install EmuDeck: its own installer
   // sets up a dozen emulators and asks a page of questions about how they
   // should be configured.

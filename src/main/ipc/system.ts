@@ -188,6 +188,13 @@ export function registerSystemIpc(rommix: RomMixApp, handle: Handle): void {
       flatpakAvailable: hasFlatpak,
       flathubConfigured: hasFlathub,
       available: emulators.filter((emulator) => emulator.available).map((emulator) => emulator.id),
+      // Which ES-DE rule found each one, so a wrong pick on armadaOS points at
+      // the file and entry that made it.
+      foundBy: Object.fromEntries(
+        emulators
+          .filter((emulator) => emulator.install)
+          .map((emulator) => [emulator.id, emulator.install?.foundBy ?? emulator.install?.kind])
+      ),
       romsWritable,
       notes
     })

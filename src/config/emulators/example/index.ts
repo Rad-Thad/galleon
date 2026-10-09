@@ -89,6 +89,8 @@ export const example: EmulatorDescriptor = {
     { kind: 'flatpak', appId: 'org.example.Example' },
     { kind: 'binary', names: ['example'] }
   ],
+  // The name of ES-DE's `<emulator>` rule for the program, when it has one.
+  findRule: undefined,
   /**
    * The project's own page. Carried by every emulator: for one RomMix cannot
    * install it is the whole answer, and for the rest it is what the settings

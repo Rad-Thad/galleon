@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { mkdir } from 'node:fs/promises'
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import { emulatorById, launchVariants, orderedEmulators } from '@config/emulators'
 import type {
   DirBase,
@@ -13,6 +13,7 @@ import type {
   ResolvedInstall
 } from '@config/emulators'
 import type { Settings } from '@shared/types'
+import { emptyFindRules, findEmulator, type FindRules } from './findrules.ts'
 import { log } from './log.ts'
 import { managedEmulatorDir } from './releases.ts'
 import { rootPaths } from './root.ts'
@@ -44,7 +45,8 @@ const NO_PATHS: EmulationPaths = { home: null, roms: null, saves: null, states: 
  */
 async function resolveInstall(
   descriptor: EmulatorDescriptor,
-  settings: Settings
+  settings: Settings,
+  rules: FindRules
 ): Promise<ResolvedInstall | null> {
   const configured = settings.emulatorPaths[descriptor.id]
   if (configured && existsSync(configured)) {
@@ -63,6 +65,9 @@ async function resolveInstall(
     const managed = await findMatchingFile(managedEmulatorDir(descriptor.id), spec.patterns)
     if (managed) return { kind: 'appimage', ref: managed }
   }
+
+  const ruled = await findRuleInstall(descriptor, rules)
+  if (ruled) return ruled
 
   for (const spec of descriptor.install) {
     if (spec.kind === 'flatpak') {
@@ -86,6 +91,43 @@ async function resolveInstall(
     }
   }
   return null
+}
+
+/**
+ * The install ES-DE's find rule for this emulator points at, if any.
+ *
+ * Tried before the descriptor's own routes because it is what ES-DE would
+ * launch on armadaOS, and the store installs to match it. A rule that reaches
+ * a flatpak's exported command is the flatpak, not a binary: its folders are
+ * under `~/.var/app`, which only the `flatpak` kind knows.
+ */
+async function findRuleInstall(
+  descriptor: EmulatorDescriptor,
+  rules: FindRules
+): Promise<ResolvedInstall | null> {
+  if (!descriptor.findRule) return null
+  const found = await findEmulator(rules, descriptor.findRule, {
+    home: realHome(),
+    pathVariable: process.env.PATH ?? ''
+  })
+  if (!found) return null
+  const foundBy = {
+    rule: found.emulator,
+    type: found.type,
+    entry: found.entry,
+    source: found.source
+  }
+
+  const command = basename(found.path)
+  for (const spec of descriptor.install) {
+    if (spec.kind !== 'flatpak' || spec.appId !== command) continue
+    const location = await flatpakLocation(spec.appId)
+    // An export left behind by an uninstall answers no `flatpak info`; the
+    // descriptor's own routes get their turn.
+    return location ? { kind: 'flatpak', ref: spec.appId, location, foundBy } : null
+  }
+  const kind = command.toLowerCase().endsWith('.appimage') ? 'appimage' : 'binary'
+  return { kind, ref: found.path, foundBy }
 }
 
 /**
@@ -386,8 +428,12 @@ export function usableVariants(
 // Detection
 // ---------------------------------------------------------------------------
 
-async function probe(descriptor: EmulatorDescriptor, settings: Settings): Promise<EmulatorState> {
-  const install = await resolveInstall(descriptor, settings)
+async function probe(
+  descriptor: EmulatorDescriptor,
+  settings: Settings,
+  rules: FindRules
+): Promise<EmulatorState> {
+  const install = await resolveInstall(descriptor, settings, rules)
   const paths = !install
     ? NO_PATHS
     : descriptor.layout
@@ -413,6 +459,7 @@ async function probe(descriptor: EmulatorDescriptor, settings: Settings): Promis
   log.debug('probe', descriptor.id, {
     install: install?.kind ?? null,
     ref: install?.ref ?? null,
+    foundBy: install?.foundBy ?? null,
     roms: paths.roms,
     saves: paths.saves,
     states: paths.states,
@@ -468,15 +515,24 @@ export async function prepareRomFolders(state: EmulatorState): Promise<string[]>
   return made
 }
 
-/** Probe every registered emulator and report what is usable right now. */
-export async function detectEmulators(settings: Settings): Promise<EmulatorState[]> {
+/**
+ * Probe every registered emulator and report what is usable right now.
+ * `rules` are ES-DE's find rules as `loadFindRules` layered them; with none,
+ * only the descriptors' own routes are tried.
+ */
+export async function detectEmulators(
+  settings: Settings,
+  rules: FindRules = emptyFindRules()
+): Promise<EmulatorState[]> {
   // Probed in the user's order, because that order *is* the answer to "which
   // emulator runs this": `resolveEmulator` takes the first available one that
   // covers the system, so sorting here is what makes reordering in Settings
   // change anything at all.
   const took = log.since()
   const states = await Promise.all(
-    orderedEmulators(settings.emulatorPriority).map((descriptor) => probe(descriptor, settings))
+    orderedEmulators(settings.emulatorPriority).map((descriptor) =>
+      probe(descriptor, settings, rules)
+    )
   )
 
   // In probe order, which is also priority order: the first entry covering a

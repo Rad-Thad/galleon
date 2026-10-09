@@ -954,3 +954,20 @@ Lines the tooling reads (exact forms):
 - Evaluator: see the PR.
 - Device / acceptance: none (`ci`).
 - Next: M1-09 part 2: ship `packaging/es-de/` in the image (`extraResources`), load it with `~/ES-DE/custom_systems/` at start, and have the pre-flight check name the rule that found each emulator (line 3).
+
+## 2026-10-09 20:46 UTC session b698cc4a (routine run, second unit)
+
+- Device results: none new.
+- Worked on: M1-09 part 2 of 2 (tracking issue #96): acceptance line 3. Part 1, PR #97, merged at a80e028; its CI wall time was x64 4:50, arm64 0:59.
+- Result: PR (this one). PASSES M1-09 (ci).
+- Evidence:
+  - Descriptors carry `findRule` (ES-DE's `<emulator>` name: `DUCKSTATION`, `RETROARCH`, `EDEN`; `undefined` where ES-DE has none). `resolveInstall` tries the rule after a settings path and a Galleon-managed copy and before the descriptor's own routes; a rule reaching a flatpak's exported command becomes that flatpak (only if `flatpak info` still knows it). The install records `foundBy` (rule, type, entry, bundled or custom).
+  - `RomMixApp.findRules` reads the bundled copy (`process.resourcesPath/es-de/linuxarm` in the image, shipped by `extraResources`; `packaging/` from a checkout) with `~/ES-DE/custom_systems/` on top for every probe, and logs a file that did not parse.
+  - Line 3: the pre-flight check's log line carries `foundBy` per emulator, and Settings → System → Pre-flight check has a "Found by" row naming, per installed emulator, the ES-DE rule and entry (or the path, when no rule found it). `test/app/findrules.test.ts` "the pre-flight check names the rule and entry that found an emulator": the built app with HOME holding `~/Applications/DuckStation-arm64.AppImage` returns `foundBy` `DUCKSTATION` / staticpath / `~/Applications/DuckStation*.AppImage` / bundled from `system.diagnostics()`, and Settings → System shows "DuckStation: ES-DE's DUCKSTATION rule, ~/Applications/DuckStation*.AppImage". `emulators.test.ts` "the catalog's AppImage is found by the bundled rule, and the probe says which", "a rule reaching a flatpak's exported command is that flatpak", "a systempath rule finds a program on PATH as a binary".
+  - Intended: with a rule tried first, a machine holding both a native `retroarch` on PATH and the RetroArch flatpak now gets the native one, as ES-DE's RETROARCH rule (systempath first) would launch; with one install nothing changes. A settings path or a Galleon-managed copy still wins over any rule.
+  - Lines 1 and 2: part 1 (#97).
+  - `scripts/agent/check.sh` green: 1583 tests, coverage 96.24 / 93.69 / 95.94. `npm run test:app` 201/201 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root). `npm run shots:nova`: `settings-system.png` unchanged above the fold; a temporary scrolled shot (not committed) shows the Pre-flight list with "Found by — Eden: <stand-in path>" between Free space and Controller, aligned, nothing clipped.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none (`ci`).
+- Next: `next.mjs`'s first feature (M1-12).

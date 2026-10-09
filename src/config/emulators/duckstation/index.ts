@@ -43,6 +43,7 @@ export const duckstation: EmulatorDescriptor = {
     { kind: 'flatpak', appId: 'org.duckstation.DuckStation' },
     { kind: 'binary', names: ['duckstation-qt'] }
   ],
+  findRule: 'DUCKSTATION',
   homepage: 'https://www.duckstation.org',
   systems: ['psx'],
   variants: undefined,

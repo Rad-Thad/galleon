@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict'
 import { afterEach, describe, test } from 'node:test'
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { EmulatorState } from '@config/emulators'
 import type { Settings } from '@shared/types'
 import { detectEmulators, expandShell, prepareRomFolders } from './emulators.ts'
+import { addFindRules, emptyFindRules, loadFindRules } from './findrules.ts'
 import { log } from './log.ts'
 
 /**
@@ -545,5 +546,91 @@ describe('the game folders an emulator is pointed at', () => {
     // No install means no folders were resolved, so there is nowhere to make
     // anything under.
     assert.deepEqual(await prepareRomFolders(found), [])
+  })
+})
+
+describe("ES-DE's find rules, tried before the descriptors' own routes", () => {
+  const BUNDLED = join(import.meta.dirname, '..', '..', 'packaging', 'es-de', 'linuxarm')
+
+  /** A `flatpak` that answers `info` for this one app id, alone on PATH. */
+  function onlyFlatpak(dir: string, appId: string): void {
+    const bin = join(dir, 'only-bin')
+    write(
+      join(bin, 'flatpak'),
+      `#!/bin/sh\nif [ "$1" = "info" ] && [ "$3" = "${appId}" ]; then echo "${dir}/deploy"; exit 0; fi\nexit 1\n`
+    )
+    chmodSync(join(bin, 'flatpak'), 0o755)
+    process.env.PATH = bin
+  }
+
+  test("the catalog's AppImage is found by the bundled rule, and the probe says which", async () => {
+    const dir = home()
+    const appimage = join(dir, 'Applications', 'DuckStation-arm64.AppImage')
+    write(appimage, '')
+    const { rules } = await loadFindRules(BUNDLED, join(dir, 'ES-DE', 'custom_systems'))
+
+    const found = (await detectEmulators(settings(), rules)).find((s) => s.id === 'duckstation')
+    assert.deepEqual(found?.install, {
+      kind: 'appimage',
+      ref: appimage,
+      foundBy: {
+        rule: 'DUCKSTATION',
+        type: 'staticpath',
+        entry: '~/Applications/DuckStation*.AppImage',
+        source: 'bundled'
+      }
+    })
+    // Without rules the descriptor's own route finds the same file, and names no rule.
+    assert.deepEqual((await probeOne('duckstation', settings())).install, {
+      kind: 'appimage',
+      ref: appimage
+    })
+  })
+
+  test("a rule reaching a flatpak's exported command is that flatpak", async () => {
+    const dir = home()
+    const appId = 'org.libretro.RetroArch'
+    write(join(dir, 'exports', appId), '')
+    const rules = emptyFindRules()
+    addFindRules(
+      rules,
+      `<ruleList><emulator name="RETROARCH"><rule type="staticpath"><entry>~/exports/${appId}</entry></rule></emulator></ruleList>`,
+      'custom'
+    )
+
+    onlyFlatpak(dir, appId)
+    const found = (await detectEmulators(settings(), rules)).find((s) => s.id === 'retroarch')
+    assert.deepEqual(found?.install, {
+      kind: 'flatpak',
+      ref: appId,
+      location: join(dir, 'deploy'),
+      foundBy: {
+        rule: 'RETROARCH',
+        type: 'staticpath',
+        entry: `~/exports/${appId}`,
+        source: 'custom'
+      }
+    })
+
+    // An export flatpak no longer knows is left to the descriptor's routes,
+    // which find nothing here either.
+    onlyFlatpak(dir, 'org.example.Other')
+    const gone = (await detectEmulators(settings(), rules)).find((s) => s.id === 'retroarch')
+    assert.equal(gone?.install, null)
+  })
+
+  test('a systempath rule finds a program on PATH as a binary', async () => {
+    const dir = home()
+    const bin = join(dir, 'bin')
+    write(join(bin, 'eden'), '')
+    chmodSync(join(bin, 'eden'), 0o755)
+    process.env.PATH = bin
+    const { rules } = await loadFindRules(BUNDLED, join(dir, 'nowhere'))
+
+    const found = (await detectEmulators(settings(), rules)).find((s) => s.id === 'eden')
+    assert.equal(found?.install?.kind, 'binary')
+    assert.equal(found?.install?.ref, join(bin, 'eden'))
+    assert.equal(found?.install?.foundBy?.type, 'systempath')
+    assert.equal(found?.install?.foundBy?.entry, 'eden')
   })
 })

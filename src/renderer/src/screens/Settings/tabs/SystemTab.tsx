@@ -157,6 +157,33 @@ export function SystemTab({
                 </dd>
               </>
             ) : null}
+            {/* How each emulator was found: on armadaOS, the ES-DE rule and
+                entry, so a wrong pick points at the file that made it. */}
+            {diagnostics.emulators.some((e) => e.install) ? (
+              <>
+                <dt>{t('system.foundBy')}</dt>
+                <dd>
+                  {diagnostics.emulators.map((e) =>
+                    !e.install ? null : (
+                      <div key={e.id}>
+                        {e.install.foundBy
+                          ? t(
+                              e.install.foundBy.source === 'custom'
+                                ? 'system.foundByCustom'
+                                : 'system.foundByBundled',
+                              {
+                                name: e.name,
+                                rule: e.install.foundBy.rule,
+                                entry: e.install.foundBy.entry
+                              }
+                            )
+                          : t('system.foundByRoute', { name: e.name, path: e.install.ref })}
+                      </div>
+                    )
+                  )}
+                </dd>
+              </>
+            ) : null}
             <dt>{t('system.controller')}</dt>
             <dd>{controller ?? t('system.noController')}</dd>
             {/* The file to attach to a bug report, named where the problems are. */}
@@ -164,7 +191,7 @@ export function SystemTab({
             <dd>{diagnostics.logPath}</dd>
           </dl>
 
-          {/* Per-emulator detail lives only in the Emulators tab. */}
+          {/* Everything else about each emulator lives in the Emulators tab. */}
 
           {diagnostics.notes.length > 0 ? (
             diagnostics.notes.map((note) => (
