@@ -571,3 +571,19 @@ Lines the tooling reads (exact forms):
 - Evaluator: see the PR.
 - Device / acceptance: none yet. Part 3 is the `build.identity` and `update.verify` self-test scenarios, which need M0-21's self-test mode.
 - Next: with M0-13's CI-testable lines in, M0-24 waits only on M0-13's device checks; owner issue #5 makes it next.
+
+## 2026-10-09 11:27 UTC session cloud (routine run)
+
+- Device results: none. `bridge/status.json` unchanged (bridge 1, last seen 2026-10-08T15:06:00Z, no `nightly` release yet); no `results/`.
+- Worked on: M0-24 part 1 of 2 (tracking issue #60), for owner issue #5 (ADR 0004). M0-13 part 2, PR #59, merged at 16483f6. M0-24's `depends_on` names M0-13, which can pass only through a device run on a `nightly` that M0-24 publishes; it is taken now because it waits on nothing else.
+- Result: PR (this one). M0-24 stays false until part 2 (`nightly.yml`).
+- Evidence:
+  - `test/device/`: `bundle.json` (`contract` 1, `minBridge` 1) and the minimal `run.sh` (acceptance line 4): it starts nothing, writes `summary.json` with one check, `harness.run`, passing when the bundle's `build-info.json` names `GALLEON_SHA` and the AppImage is executable; `--cleanup` is a no-op.
+  - `scripts/device-bundle.mjs --sha <sha> --out <dir>` writes `galleon-device-tests.tar.gz` (`test/device/`, `build-info.json`, and `bridge/`, the bridge files `install.sh --update` installs) and `build-info.json` `{sha, version, builtAt, bundleContract}`. Packed with fixed owner, times and order, so a commit packs to the same bytes.
+  - `release.yml`: x64 builds the bundle on every leg and uploads it as `device-bundle` from `main`. The `canary` job, now in `concurrency: {group: nightly, cancel-in-progress: false}`, after moving the canary tag gathers both AppImages, `galleon-steam.sh`, the bundle and `build-info.json`, writes `SHA256SUMS` over all of them, publishes the rolling `nightly` pre-release (`make_latest: false`, a body saying it is for the device bridge) and moves the `nightly` tag last. Pull requests never publish.
+  - Tests: `scripts/device-bundle.test.ts` (8): build-info refuses a short or upper-case sha; names commit, version and contract; same bytes twice; the bridge's own `safe_extract` unpacks it and finds `run.sh`, `bundle.json`, `build-info.json` and `bridge/` without its tests; `run.sh` passes `harness.run` for its own commit, fails it for another commit or a missing AppImage; `--cleanup` exits 0; the CLI writes both files and exits 1 on a short sha.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: the first merge after this publishes the first `nightly`; the bridge should then report `harness.run`.
+- Next: M0-24 part 2: `nightly.yml` (schedule plus dispatch, early exit when `main` has not moved since the last scheduled run, full suites on both architectures, the same publish), then flip M0-24.
