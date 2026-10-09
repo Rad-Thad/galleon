@@ -343,11 +343,11 @@ Lines the tooling reads (exact forms):
 - Worked on: flaky issue #31: `test/app/setup.test.ts` "it comes up asking for a server rather than showing a library" failed on PR #30's x64 leg with `undefined !== ''` and passed on its one re-run.
 - Result: PR (this one). M0-07's PR #30 merged at 726216c; its CI wall time was arm64 3:25, x64 4:26 (the re-run; the first x64 run, 4:20, hit this flake).
 - Evidence:
-  - Cause: the scenario waited for `[data-screen="setup"]` and read `.field__input` once. `SetupScreen` renders an empty content area under that marker until the settings arrive and choose a page, so a slow first render had no field to read. The test now waits for the field, and still asserts it starts empty.
-  - Reproduction: not forced locally. The unfixed test passed 3/3 on the VM as an unprivileged user with twelve busy loops on four CPUs; the race is shown by the code path above and by the CI failure.
+  - Cause: the scenario waited for `[data-screen="setup"]` and read `.field__input` once. `SetupScreen` renders an empty content area under that marker until its effect chooses a page, so a slow first render had no field to read. The test now waits for the field, and still asserts it starts empty.
+  - Reproduction: CPU load did not force it (the unfixed test passed 3/3 on the VM with twelve busy loops on four CPUs). The evaluator forced it in a throwaway copy by delaying `SetupScreen`'s page choice: the unfixed test failed with the CI's `undefined !== ''`, the fixed test passed 13/13.
   - `setup.test.ts` with the fix: 13/13 on the VM. Stress run (`stress.yml`, app suite, x64, 10 runs) on ec5ef11: see the PR.
   - `scripts/agent/check.sh` green.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (cause fixed rather than the test weakened; the empty-value assertion kept; no timeout raised; the reproduction above is its).
 - Device / acceptance: none (`ci`).
 - Next: M0-09 (screenshot harness).
