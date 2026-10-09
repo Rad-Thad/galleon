@@ -719,3 +719,19 @@ Lines the tooling reads (exact forms):
 - Evaluator: see the PR.
 - Device / acceptance: none (`ci` tooling).
 - Next: whatever `next.mjs` lists first (M0-10 is left only with line 4's perf-state.json half, which waits for the file's real format; then M0-11).
+
+## 2026-10-09 15:59 UTC session 6d123f95 (routine run, third unit)
+
+- Device results: none new.
+- Worked on: flaky issue #70, `romm.test.ts` "a transfer that keeps breaking is a failure, and leaves what arrived" reading an empty `.part`. #72's fix, PR #73, merged at cc5e0c1; its CI wall time was x64 4:33, arm64 0:49.
+- Result: PR (this one).
+- Evidence:
+  - Root cause, in `src/main/romm/transfer.ts`: `fetchToFile` piped the body into a write stream that had not opened its file yet. A write stream holds chunks until its file is open and discards them when destroyed first, so a connection lost before the open (under load, the test's 20 ms break) took bytes that had already arrived with it, and the last attempt left an empty `.part`. Resuming was never corrupted by it, since a retry re-reads the `.part` size from disk; the bytes were only fetched again.
+  - Fix: `await once(sink, 'open')` before the pipeline.
+  - Test first: "bytes that arrive before the part-file is open still reach it" breaks the connection from `onProgress`, the moment the transfer has counted the bytes. Without the fix it failed 3 runs in 3 (`'' !== '01'`), with it it passed 3 in 3. A first draft broke on the very next read instead; that loses the chunk inside `Readable.fromWeb` before the transfer sees it, so it failed with the fix too and was replaced.
+  - `src/main/romm.test.ts` 110/110, 3 runs. `fetchfile.ts` was left alone: it does not resume, and a failed fetch there is discarded whole.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none.
+- Next: M0-10 waits only on line 4's perf-state.json format; then M0-11 (`next.mjs`).
