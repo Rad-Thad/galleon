@@ -92,3 +92,38 @@ Each licence text sits beside its font.
 None ported yet. ES-DE's MIT data files (system and emulator tables) are listed
 here, with the commit they came from and their licence text, by the change that
 ports the first of them.
+
+## ES-DE
+
+- Project: https://gitlab.com/es-de/emulationstation-de
+- Licence: MIT. Copyright (c) 2024-2026 Northwestern Software AB, (c) 2020-2024 Leon Styhre,
+  (c) 2014 Alec Lofquist.
+- Vendored unchanged: `resources/systems/linuxarm/es_find_rules.xml` and `es_systems.xml` at
+  a8cf738d6805180e07abb82403511254c5433826, in `packaging/es-de/linuxarm/`. `src/main/findrules.ts`
+  reads them; no ES-DE code is ported.
+
+ES-DE's licence:
+
+```
+Copyright (c) 2024-2026 Northwestern Software AB
+Copyright (c) 2020-2024 Leon Styhre
+Copyright (c) 2014 Alec Lofquist
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+```
