@@ -28,13 +28,23 @@ export const REMOVED = '<removed>'
  */
 const SECRET_WORDS =
   'password|passwd|token|secret|api[-_]?key|cookie|authorization|device_?code|user_?code|pairing_?code'
-const SECRET_KEY = `[A-Za-z0-9_.-]*(?:${SECRET_WORDS})[A-Za-z0-9_.-]*`
+/**
+ * Bounded on both sides of the word and anchored at the start of a key rather
+ * than at any word boundary: a log can hold a long run of `a-b-c...` with no
+ * space in it, and an unbounded class tried from every boundary inside that
+ * run is quadratic in its length, which on the main process is a hang.
+ */
+const KEY_PART = '[A-Za-z0-9_.-]{0,64}'
+const SECRET_KEY = `${KEY_PART}(?:${SECRET_WORDS})${KEY_PART}`
 
 const KEYED_JSON = new RegExp(
-  `("${SECRET_KEY}"\\s*:\\s*)("(?:[^"\\\\]|\\\\.)*"|\\[[^\\]]*\\]|[^,}\\s]+)`,
+  `("${SECRET_KEY}"\\s*:\\s*)("(?:[^"\\\\]|\\\\.)*"|\\[[^\\]]*\\]|(?!null\\b)[^,}\\s]+)`,
   'gi'
 )
-const KEYED_TEXT = new RegExp(`\\b(${SECRET_KEY}\\s*[=:]\\s*)("[^"]*"|'[^']*'|[^\\s&,;}]+)`, 'gi')
+const KEYED_TEXT = new RegExp(
+  `(?<![A-Za-z0-9_.-])(${SECRET_KEY}\\s*[=:]\\s*)("[^"]*"|'[^']*'|[^\\s&,;}]+)`,
+  'gi'
+)
 /** A pairing code named in prose, as a person or a message would write it. */
 const PAIRING_PROSE = /\b((?:pairing|device|user) code\s*[=:]?\s*)[A-Za-z0-9-]+/gi
 /** The user and password a pasted `https://user:password@host` carries. */

@@ -86,3 +86,16 @@ test('a token in a query string or as a key is removed, with the key kept to say
   assert.equal(redact('"access_token": "abc"'), `"access_token": "${REMOVED}"`)
   assert.equal(redact('Basic dXNlcjpwYXNz'), `Basic ${REMOVED}`)
 })
+
+test('an unset secret stays unset, so a reader can tell it from a removed one', () => {
+  assert.equal(redact('{"token":null}'), '{"token":null}')
+})
+
+test('a long run with no space in it is redacted in linear time, not hung on', () => {
+  for (const unit of ['a-', 'a.', 'a_', 'ab']) {
+    const run = unit.repeat(100_000)
+    const started = performance.now()
+    assert.equal(redact(`${run} password=x`), `${run} password=${REMOVED}`)
+    assert.ok(performance.now() - started < 2000, `${unit} took ${performance.now() - started} ms`)
+  }
+})
