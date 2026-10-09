@@ -39,6 +39,13 @@ docker compose -f test/romm/compose.yml --profile v520 down
   database. `client.real.ts` drives RomMix's own client (heartbeat, platforms,
   paged listing, downloads broken mid-body and resumed by range, the per-file
   endpoint); `pairing.real.ts` walks device pairing end to end;
-  `library.real.ts` checks the scanned platforms and the multi-file flags.
+  `library.real.ts` checks the scanned platforms and the multi-file flags;
+  `sync.real.ts` holds the calls that write (device registration, save and
+  state round trips, play sessions) beside firmware and the whole-game
+  archive. `server.ts` is what they share: the provisioned state, the client
+  signed in to it, and a record of every request it sends.
+- `schema.mjs`: holds a recorded request to the version's OpenAPI document in
+  `schema/` (operation, query names, body shape). The real suites assert
+  every request they record fits; `schema.test.ts` tests the checker.
 - `lib.mjs` holds the provisioner's server-free half; `lib.test.ts` tests it
   and runs in `npm test`.

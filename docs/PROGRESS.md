@@ -368,3 +368,24 @@ Lines the tooling reads (exact forms):
 - Evaluator: see the PR.
 - Device / acceptance: none (`ci`).
 - Next: M0-08 part 2: firmware, the multi-file download, save and state upload and download, device registration, play sessions, request bodies against `schema/` (needs a 5.3.1 snapshot), then flip M0-08.
+
+## 2026-10-09 01:47 UTC session cloud (routine run, second unit)
+
+- Device results: none new (as above).
+- Worked on: M0-08 part 2 of 2 (tracking issue #33): the calls that write, and every recorded request held to `schema/`. Flips M0-08.
+- Result: PR (this one). Part 1, PR #34, merged at 0ca527a; its CI wall time was x64 5:08, arm64 3:48 (on 9aaf9cd).
+- Evidence:
+  - `schema/romm-5.3.1.json` fetched from Docker RomM 5.3.1 with `scripts/fetch-openapi.mjs` (272 schemas); 5.2.0 re-fetched from Docker and identical to the committed file. `src/shared/types/romm.test.ts` and the client tests pass with it.
+  - `test/romm/schema.mjs` holds a request to its version's document: the operation exists for the method and path template, every query name is declared and required ones are sent, a JSON body fits its schema (`$ref`, `anyOf`/`oneOf`/`allOf`, enums, arrays, required and undeclared fields), a form's field names fit its schema. `schema.test.ts` (7 tests, in `npm test`) covers each problem and that every committed 5.2+ document has the four write operations.
+  - `test/romm/server.ts` is what the real suites share (state, client, the request recorder now keeping bodies, `assertFitsSchema`); `client.real.ts` now uses it and checks its downloads' requests too.
+  - `sync.real.ts` (6 tests): firmware listed and `scph5501.bin` downloaded with its md5 checked; a multi-file game downloaded whole is a zip naming both discs; a machine the server has not seen registers once (one `POST /api/devices` over two asks) and is listed; a save uploads with this device's `device_id`, is listed and downloads byte for byte; a state the same; a 90-second play session raises `playTime` by 90. Every test asserts all its requests fit the version's document.
+  - `npm run test:romm`: v520 20/20, v531 20/20 on running servers; v520 20/20 again from `down -v`.
+  - `passes: true` for M0-08: line 1 (`run.mjs`), lines 2 and 3 by #34, line 4 by this PR.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none (`ci`).
+- Next: M0-09 (screenshot harness).
+- Notes:
+  - The inherited `uploadSave` sends `overwrite=true` on every upload. Only Docker RomM sees it here, and the save engine (M2, ADR 0002) replaces that path; nothing in this PR relies on it.
+  - Electron's stub refuses `app.getVersion`, which device registration asks for; `server.ts` answers it, as `romm.test.ts` does. Without that, registration failed quietly and uploads named no device.

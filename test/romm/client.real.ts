@@ -7,107 +7,25 @@
  *   ROMM_PROFILE=v520 npm run test:romm-real
  *
  * Read-only against the library: nothing here uploads, registers or reports,
- * so it can run on a server another suite has already used.
+ * so it can run on a server another suite has already used. `sync.real.ts`
+ * holds the calls that write.
  */
-import { afterEach, test, type TestContext } from 'node:test'
+import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
-import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { RommClient } from '../../src/main/romm/client.ts'
-import type { Store } from '../../src/main/store.ts'
 import type { RommRom } from '../../src/shared/types/romm.ts'
-import { statePath, type State } from './lib.mjs'
 import { ROMS } from './make-library.mjs'
-
-const profile = process.env.ROMM_PROFILE ?? 'v520'
-
-function readState(): State {
-  try {
-    return JSON.parse(readFileSync(statePath(profile), 'utf8')) as State
-  } catch {
-    throw new Error(
-      `no provisioned ${profile}: run node test/romm/provision.mjs --profile ${profile}`
-    )
-  }
-}
-
-const state = readState()
-
-/** The slice of `Store` the client reads, signed in with the provisioned token. */
-function client(): RommClient {
-  const credentials = { accessToken: null, refreshToken: null, clientToken: state.clientToken }
-  const store = {
-    server: { baseUrl: state.baseUrl },
-    settings: { deviceId: state.deviceId, deviceName: 'Galleon test:romm' },
-    credentials,
-    setCredentials: (patch: object) => Object.assign(credentials, patch),
-    clearCredentials: () => undefined
-  } as unknown as Store
-  return new RommClient(store)
-}
-
-/** Every request the client sends, with the one header these tests are about. */
-interface Sent {
-  url: string
-  method: string
-  range: string | null
-}
-
-const realFetch = globalThis.fetch
-
-/**
- * Record what goes out, and let a test break the body of one reply.
- *
- * Broken in the middle of the body, after the server has answered, which is
- * the interruption a transfer meets in practice: a proxy cutting the response
- * or a link dropping mid-copy.
- */
-function watch(breakAt?: { path: string; fraction: number }): Sent[] {
-  const sent: Sent[] = []
-  let broken = false
-  globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
-    const url = String(input instanceof Request ? input.url : input)
-    const headers = new Headers(init?.headers)
-    sent.push({ url, method: init?.method ?? 'GET', range: headers.get('range') })
-    const res = await realFetch(input, init)
-    if (!breakAt || broken || !url.includes(breakAt.path) || headers.has('range')) return res
-    broken = true
-    const bytes = new Uint8Array(await res.arrayBuffer())
-    const cut = Math.floor(bytes.length * breakAt.fraction)
-    // Ended cleanly at the cut, still declaring the whole length: what a
-    // proxy closing the response looks like, and unlike a stream that errors,
-    // it cannot lose the half on its way to the disk.
-    const body = new ReadableStream<Uint8Array>({
-      start(controller) {
-        controller.enqueue(bytes.subarray(0, cut))
-        controller.close()
-      }
-    })
-    return new Response(body, { status: res.status, headers: res.headers })
-  }) as typeof fetch
-  return sent
-}
-
-afterEach(() => {
-  globalThis.fetch = realFetch
-})
-
-const md5 = (path: string): string => createHash('md5').update(readFileSync(path)).digest('hex')
-
-function scratch(t: TestContext): string {
-  const dir = mkdtempSync(join(tmpdir(), 'galleon-test-romm-'))
-  t.after(() => rmSync(dir, { recursive: true, force: true }))
-  return dir
-}
-
-async function romNamed(fsName: string): Promise<RommRom> {
-  const page = await client().roms({ search_term: fsName.replace(/\.[^.]+$/, ''), limit: 50 })
-  const rom = page.items.find((item) => item.fs_name === fsName)
-  assert.ok(rom, `${fsName} is not in the library`)
-  return rom
-}
+import {
+  assertFitsSchema,
+  client,
+  md5,
+  realFetch,
+  romNamed,
+  scratch,
+  state,
+  watch
+} from './server.ts'
 
 test(`the heartbeat names RomM ${state.version}`, async () => {
   assert.deepEqual(await client().heartbeat(), { version: state.version })
@@ -165,6 +83,7 @@ test('a single-file download broken at 50% resumes by range and matches its md5'
     [null, `bytes=${half}-`]
   )
   assert.equal(md5(destination), file.md5_hash)
+  assertFitsSchema(sent)
 })
 
 test('one file of a multi-file game downloads by its own id and resumes', async (t) => {
@@ -183,6 +102,7 @@ test('one file of a multi-file game downloads by its own id and resumes', async 
     [null, `bytes=${half}-`]
   )
   assert.equal(md5(destination), file.md5_hash)
+  assertFitsSchema(sent)
 })
 
 /**
