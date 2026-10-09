@@ -1,0 +1,20 @@
+{
+  "files": [
+    {
+      "path": "roms/gba/gba-tests hello.gba",
+      "url": "https://raw.githubusercontent.com/jsmolka/gba-tests/a7113b67e63f83a9b321696ddd7042ccfad6c881/ppu/hello.gba",
+      "sha256": "38aed48b67bc0f701e8aa222b0c3334bd306bd29888707bb7224d81f5576c264",
+      "bytes": 1300,
+      "licence": "MIT",
+      "attribution": "gba-tests by Julian Smolka, https://github.com/jsmolka/gba-tests. Copyright (c) 2019 Julian Smolka."
+    },
+    {
+      "path": "roms/gba/gba-tests sram.gba",
+      "url": "https://raw.githubusercontent.com/jsmolka/gba-tests/a7113b67e63f83a9b321696ddd7042ccfad6c881/save/sram.gba",
+      "sha256": "a37ad99c31e3f805eb05a00e498b65bd78e6f43a0a139cd695bea1f88229af2c",
+      "bytes": 2084,
+      "licence": "MIT",
+      "attribution": "gba-tests by Julian Smolka, https://github.com/jsmolka/gba-tests. Copyright (c) 2019 Julian Smolka."
+    }
+  ]
+}
