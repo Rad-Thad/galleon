@@ -971,3 +971,19 @@ Lines the tooling reads (exact forms):
 - Evaluator: see the PR.
 - Device / acceptance: none (`ci`).
 - Next: `next.mjs`'s first feature (M1-12).
+
+## 2026-10-09 21:40 UTC session 4e493a14 (routine run)
+
+- Device results: none new. The bridge last checked in at 20:06 UTC (no new nightly).
+- Worked on: M1-12 (tracking issue #99): emulators start with a clean environment, inside Steam's tree. M1-09's part 2, PR #98, merged at eaed1a5.
+- Result: PR (this one). PASSES M1-12 (ci).
+- Evidence:
+  - `src/main/childenv.ts`: `childEnvironment(parentEnv, descriptorEnv)` drops `APPDIR`, `APPIMAGE`, `ARGV0` and `OWD`, drops `LD_LIBRARY_PATH` and `PATH` entries inside the mounted image (`APPDIR`), drops Steam's `gameoverlayrenderer.so` from `LD_PRELOAD` (colon- or space-separated) and keeps any other preload, puts `/usr/bin:/usr/local/bin:/bin` first on PATH with the rest in order, keeps everything else (display, session, Steam), and applies the descriptor's variables last. `spawnEmulator` builds it, logs the differences, and spawns with `detached` (setsid) and no double fork; both launch paths in `launcher.ts` (a game session and an emulator opened on its own) use it.
+  - Line 1: `childenv.test.ts`, one test per rule: "the AppImage runtime's own variables are dropped", "library path entries inside the image are dropped, and the session's own kept", "outside an AppImage the library path is left alone", "Steam's overlay preload is dropped, and any other preload kept", "the system directories come first on PATH …", "display, session and Steam variables are kept unchanged", "the descriptor's variables apply last …", "the parent environment is not modified".
+  - Line 2: "the emulator is a direct child of the launcher in a session of its own, and the differences are logged once": `/proc/<pid>/stat` gives the test process as the parent and the child as its own session leader; `/proc/<pid>/environ` carries the built environment. Only the recorded pid is signalled.
+  - Line 3: the same test finds exactly one `DEBUG emulator child environment {"removed":[…],"set":{…}}` line per launch; "the differences name every variable dropped and every value set" checks its content.
+  - `scripts/agent/check.sh` green: 1593 tests, coverage 96.29 / 93.76 / 95.96 (childenv.ts 100%). `npm run test:app` 201/201 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root).
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none (`ci`).
+- Next: `next.mjs`'s first feature after M1-12 (M1-15 or M1-26 need screenshots; M2-01 is the save-sync spec).

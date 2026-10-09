@@ -1,7 +1,8 @@
-import { spawn, type ChildProcess } from 'node:child_process'
+import type { ChildProcess } from 'node:child_process'
 import { emulatorById } from '@config/emulators'
 import type { ResolvedInstall } from '@config/emulators'
 import type { EmulatorState, LaunchResult, RommRom, SavePushPreview } from '@shared/types'
+import { spawnEmulator } from './childenv.ts'
 import { installCore, missingCore } from './cores.ts'
 import { complaint, readExit, stageFor, type ExitReport } from './emulatorexit.ts'
 import {
@@ -578,21 +579,15 @@ export class Launcher {
     env: Readonly<Record<string, string>> = {}
   ): Promise<ExitReport> {
     return new Promise((resolvePromise) => {
-      const [cmd, ...args] = argv
-      const child = spawn(cmd, args, {
-        stdio: ['ignore', 'pipe', 'pipe'],
-        // The session the emulator is closed through: `detached` is `setsid`,
-        // which makes the spawned process lead a new group, and everything it
-        // goes on to start joins that group. Without it the emulator sits in
-        // RomMix's group, where the only thing that could be signalled without
-        // signalling RomMix too is the one process that turns out not to be the
-        // emulator. See `askToQuit`.
-        //
-        // Not `unref`ed, unlike the one in `runEmulator`: this is a session, and
-        // RomMix waits on it.
-        detached: true,
-        env: { ...process.env, ...env }
-      })
+      // The session the emulator is closed through: `spawnEmulator` makes the
+      // spawned process lead a new group, and everything it goes on to start
+      // joins that group. Without it the emulator sits in RomMix's group, where
+      // the only thing that could be signalled without signalling RomMix too is
+      // the one process that turns out not to be the emulator. See `askToQuit`.
+      //
+      // Not `unref`ed, unlike the one in `runEmulator`: this is a session, and
+      // RomMix waits on it.
+      const child = spawnEmulator(argv, env)
 
       const tail = watchOutput(child)
 
@@ -779,14 +774,7 @@ export class Launcher {
     const command = argv.join(' ')
     log.info('emulator', 'starting on its own, with no game', { emulator: emulator.id, command })
 
-    const [cmd, ...args] = argv
-    const child = spawn(cmd, args, {
-      // Piped rather than ignored: the two lines saying why it died are the
-      // whole point of watching, and they go to these streams.
-      stdio: ['ignore', 'pipe', 'pipe'],
-      detached: true,
-      env: { ...process.env, ...(descriptor.env ?? {}) }
-    })
+    const child = spawnEmulator(argv, descriptor.env)
 
     const tail = watchOutput(child)
 
