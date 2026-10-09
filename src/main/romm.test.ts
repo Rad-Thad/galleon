@@ -114,6 +114,26 @@ function broken(prefix: string): ReadableStream {
   })
 }
 
+/**
+ * The same, with the connection lost the moment the transfer has counted the
+ * bytes: `counted` is resolved from `onProgress`. Sooner than a file can be
+ * opened, so what is tested is what becomes of bytes the transfer has taken
+ * before its `.part` is open.
+ */
+function brokenOnceCounted(prefix: string, counted: Promise<unknown>): ReadableStream {
+  let delivered = false
+  return new ReadableStream({
+    async pull(controller) {
+      if (delivered) {
+        await counted
+        return controller.error(new Error('terminated'))
+      }
+      delivered = true
+      controller.enqueue(new TextEncoder().encode(prefix))
+    }
+  })
+}
+
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -745,6 +765,59 @@ describe('downloading a ROM', () => {
     assert.equal(readFileSync(`${destination}.part`, 'utf8'), '01')
     // Tried again rather than given up on at the first break.
     assert.ok(sent.length > 1)
+  })
+
+  test('bytes that arrive before the part-file is open still reach it', async () => {
+    const { store } = fakeStore()
+    const destination = join(scratch(), 'sonic.md')
+    let count = (): void => undefined
+    serve(
+      () =>
+        new Response(
+          brokenOnceCounted(
+            '01',
+            new Promise<void>((resolve) => {
+              count = resolve
+            })
+          )
+        )
+    )
+
+    await assert.rejects(() =>
+      new RommClient(store).downloadRom(
+        rom,
+        destination,
+        (progress) => {
+          if (progress.received > 0) count()
+        },
+        new AbortController().signal
+      )
+    )
+
+    assert.equal(readFileSync(`${destination}.part`, 'utf8'), '01')
+  })
+
+  test('a transfer cancelled while its part-file opens fails quietly', async () => {
+    const { store } = fakeStore()
+    const destination = join(scratch(), 'sonic.md')
+    const controller = new AbortController()
+    serve((request) => {
+      // The body errors when its request is aborted, as the network layer's
+      // does, and the abort lands while the transfer waits for its file.
+      const body = new ReadableStream({
+        start(stream) {
+          request.signal?.addEventListener('abort', () => stream.error(new Error('aborted')))
+        }
+      })
+      queueMicrotask(() => controller.abort())
+      return new Response(body)
+    })
+
+    await assert.rejects(() =>
+      new RommClient(store).downloadRom(rom, destination, () => undefined, controller.signal)
+    )
+    // An error nobody listened for is reported after the test that caused it.
+    await new Promise((resolve) => setTimeout(resolve, 50))
   })
 
   test('a cancelled transfer is not picked up again', async () => {

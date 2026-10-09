@@ -13,6 +13,7 @@
  * of those is a seam a test can stand in for.
  */
 
+import { once } from 'node:events'
 import { createWriteStream, type WriteStream } from 'node:fs'
 import { rename, rm, stat } from 'node:fs/promises'
 import { Readable } from 'node:stream'
@@ -257,9 +258,20 @@ export async function fetchToFile(
        */
       const promised = declared > 0 ? received + declared : 0
 
-      const source = Readable.fromWeb(res.body as Parameters<typeof Readable.fromWeb>[0])
+      const body = res.body
       const sink = createWriteStream(partial, { flags: resumed ? 'a' : 'w' })
       try {
+        // Open before anything flows into it. A write stream holds what it is
+        // given until its file is open and drops it if destroyed first, so a
+        // connection lost that early would take bytes that had already
+        // arrived with it. The body is left a web stream until then: wrapped,
+        // it would error with nothing listening if the attempt were stopped
+        // during the wait, and the pipeline below is what listens.
+        await once(sink, 'open').catch(async (cause: unknown) => {
+          await body.cancel().catch(() => undefined)
+          throw cause
+        })
+        const source = Readable.fromWeb(body as Parameters<typeof Readable.fromWeb>[0])
         await pipeline(
           source,
           // Counted as the bytes pass through, the same way `streamToFile` and
