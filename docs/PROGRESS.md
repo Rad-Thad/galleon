@@ -768,3 +768,23 @@ Lines the tooling reads (exact forms):
 - Evaluator: see the PR.
 - Device / acceptance: none.
 - Next: M0-11 part 2b: Settings → System "Report a problem" and the quit-dialog entry (four catalogues), the pad-driven test:app scenario, `npm run shots:nova`.
+
+## 2026-10-09 17:30 UTC session a85849a6 (routine run)
+
+- Device results: DEVICE-RESULTS 32e6fd3 complete. Minimal harness again: no `safety.*` check, nothing flips. Bridge last seen 0.3 h before the run.
+- Worked on: owner issue #78 (HD texture packs from a private mirror), claimed on #78 itself. Part 2a of M0-11, PR #77, merged at 32e6fd3 before this run; its CI wall time was x64 4:30, arm64 0:54.
+- Result: PR (this one), docs and the feature guard only. No research or implementation, as #78 asks.
+- Evidence:
+  - `docs/features.json`: M7-18..M7-23 appended after M7-17, exactly #78's JSON, `ISSUE-78` in each `source`. The owner's text needed no change: both device features name catalogued checks.
+  - `docs/emulator-tuning/textures-seed.json`: #78's seed catalog, 48 packs, upstream links only.
+  - `docs/TESTING.md`: catalogue rows `textures.install` (self-test; M7-21) and `textures.load` (run.sh; M7-22), and M7-23 beside the shader and aspect rounds in the acceptance session's contents.
+  - `scripts/agent/features-check.mjs`: REQ-17 is owed a feature like REQ-1..16; the coverage fixture and the REQUIRED_SOURCES count include it. 37/37.
+  - `docs/REQUIREMENTS-FROM-TESTER.md` item 17 (the owner's words, the hand-installed packs, where it is scheduled); `docs/PLAN.md` M7 lists M7-18..M7-23, a risk line on pack licences, and the exit gate names M7-23.
+  - `scripts/agent/check.sh` green (`features-check: 168 features, all rules hold`).
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none (`ci`).
+- Next: M0-11 part 2b (Settings → System "Report a problem", the quit-dialog entry, the pad-driven test:app scenario).
+- Notes:
+  - #78's hand install is owner state on the device: `Textures/` on the SD card, its links in eight emulator folders, and the texture settings it lists (each backed up to `<file>.bak-texpacks`). Device tests must leave them as they are; M7-21's device check snapshots them.
+  - RetroArch's dolphin core shipped without `system/dolphin-emu/Sys` until the owner's side installed it on 2026-10-09. M1-23's emulator check should notice missing core system files (#78).

@@ -1,0 +1,562 @@
+[
+  {
+    "key": "psp-crisis-core",
+    "system": "psp",
+    "layout": "ppsspp",
+    "ids": ["ULUS10336"],
+    "upstream": [{ "kind": "http", "url": "http://eqprog.com/static/ff7ccupreleases/0.9.9.zip" }]
+  },
+  {
+    "key": "psp-kh-bbs-fm",
+    "system": "psp",
+    "layout": "ppsspp",
+    "ids": ["ULJM05775"],
+    "upstream": [
+      {
+        "kind": "http",
+        "url": "https://github.com/AkiraJkr/Birth-by-Sleep-HD-ReMix/archive/refs/heads/master.zip"
+      }
+    ]
+  },
+  {
+    "key": "psp-ys-seven",
+    "system": "psp",
+    "layout": "ppsspp",
+    "ids": ["ULUS10551"],
+    "upstream": [
+      {
+        "kind": "http",
+        "url": "https://github.com/Saramagrean/Ys-Seven---HD-Texture-Pack/archive/refs/heads/master.zip"
+      }
+    ]
+  },
+  {
+    "key": "psp-persona3p",
+    "system": "psp",
+    "layout": "ppsspp",
+    "ids": ["ULUS10512"],
+    "upstream": [
+      { "kind": "mega", "url": "https://mega.nz/folder/JypCWLjY#purhpSGq93HCsI09Cg88fw" }
+    ]
+  },
+  {
+    "key": "psp-patapon",
+    "system": "psp",
+    "layout": "ppsspp",
+    "ids": ["UCUS98711"],
+    "upstream": [
+      {
+        "kind": "http",
+        "url": "https://github.com/shockturtle/Patapon-Remastered-PPSSPP/archive/refs/heads/master.zip"
+      }
+    ]
+  },
+  {
+    "key": "psp-patapon2",
+    "system": "psp",
+    "layout": "ppsspp",
+    "ids": ["UCUS98732"],
+    "upstream": [
+      {
+        "kind": "http",
+        "url": "https://github.com/Hozzzd/p2hd-remastered/archive/refs/heads/main.zip"
+      }
+    ]
+  },
+  {
+    "key": "psp-patapon3",
+    "system": "psp",
+    "layout": "ppsspp",
+    "ids": ["UCUS98751"],
+    "upstream": [
+      {
+        "kind": "http",
+        "url": "https://github.com/Lin-zl522/Patapon-3-HD-Texture-Pack/archive/refs/heads/main.zip"
+      }
+    ]
+  },
+  {
+    "key": "psp-fft-wotl",
+    "system": "psp",
+    "layout": "ppsspp",
+    "ids": ["ULUS10297"],
+    "upstream": [
+      {
+        "kind": "http",
+        "url": "https://github.com/Zodi-ark/Final-Fantasy-Tactics-The-War-of-the-Lions-Texture-Pack/archive/refs/tags/v1.6.4.1.zip"
+      }
+    ]
+  },
+  {
+    "key": "psp-mhfu",
+    "system": "psp",
+    "layout": "ppsspp",
+    "ids": ["ULUS10391"],
+    "upstream": [
+      {
+        "kind": "http",
+        "url": "https://github.com/three5media/mfhu-hd-retexture/archive/refs/heads/main.zip"
+      }
+    ]
+  },
+  {
+    "key": "psp-god-eater2",
+    "system": "psp",
+    "layout": "ppsspp",
+    "ids": ["NPJH50832"],
+    "upstream": [
+      {
+        "kind": "http",
+        "url": "https://github.com/Saramagrean/GE2-HD-Texture-Pack/archive/refs/heads/master.zip"
+      }
+    ]
+  },
+  {
+    "key": "psp-gta-lcs",
+    "system": "psp",
+    "layout": "ppsspp",
+    "ids": ["ULUS10041"],
+    "upstream": [
+      {
+        "kind": "http",
+        "url": "https://github.com/SonofUgly/LCS-Texture-Pack/releases/download/e6ff894/LCS-Texture-Pack.zip"
+      }
+    ]
+  },
+  {
+    "key": "psp-gta-vcs",
+    "system": "psp",
+    "layout": "ppsspp",
+    "ids": ["ULUS10160"],
+    "upstream": [
+      {
+        "kind": "http",
+        "url": "https://github.com/ASI-Factory/GTA-VCS-Texture-Pack-PSP/releases/download/latest/GTA-VCS-Texture-Pack-PSP.zip"
+      }
+    ]
+  },
+  {
+    "key": "psp-wipeout-pulse",
+    "system": "psp",
+    "layout": "ppsspp",
+    "ids": ["UCUS98712"],
+    "upstream": [
+      {
+        "kind": "http",
+        "url": "https://github.com/reTokyo/WipEout-Pulse-Upscale-Version/archive/refs/heads/master.zip"
+      }
+    ]
+  },
+  {
+    "key": "gc-wind-waker",
+    "system": "gc",
+    "layout": "dolphin",
+    "ids": ["GZLE01"],
+    "upstream": [
+      {
+        "kind": "http",
+        "url": "https://drive.usercontent.google.com/download?id=1qBK8YOeSAwLpNP3NUkwcXgvUnQPKlgj7&export=download&confirm=t"
+      }
+    ]
+  },
+  {
+    "key": "gc-sunshine",
+    "system": "gc",
+    "layout": "dolphin",
+    "ids": ["GMSE01"],
+    "upstream": [
+      {
+        "kind": "http",
+        "url": "https://github.com/qashto/Super_Mario_Sunshine_UHD_Texture_Pack/releases/download/2.1.1/GMS.7z"
+      }
+    ]
+  },
+  {
+    "key": "gc-metroid-prime",
+    "system": "gc",
+    "layout": "dolphin",
+    "ids": ["GM8E01"],
+    "upstream": [
+      {
+        "kind": "mega",
+        "url": "https://mega.nz/#!2JEDHIQT!9UVh6ML_DH8zSjZbukqiNuReDkdKFwsDz8V2xQiQST4"
+      }
+    ]
+  },
+  {
+    "key": "gc-fzero-gx",
+    "system": "gc",
+    "layout": "dolphin",
+    "ids": ["GFZE01"],
+    "upstream": [
+      {
+        "kind": "mega",
+        "url": "https://mega.nz/#!PTpgxRwC!IEqzyOLdrMs7T8iwvGI6fnr7DEdTht72aZsnyszTlNI"
+      }
+    ]
+  },
+  {
+    "key": "gc-mgs-twin-snakes",
+    "system": "gc",
+    "layout": "dolphin",
+    "ids": ["GGSEA4"],
+    "upstream": [
+      {
+        "kind": "http",
+        "url": "https://drive.usercontent.google.com/download?id=1rZzjBi6UOFS8p6jAJ4LTISwm_HoG-xlw&export=download&confirm=t"
+      }
+    ]
+  },
+  {
+    "key": "gc-animal-crossing",
+    "system": "gc",
+    "layout": "dolphin",
+    "ids": ["GAFE01"],
+    "upstream": [
+      {
+        "kind": "http",
+        "url": "https://drive.usercontent.google.com/download?id=1Z8-pMx20xO8q3caiqy4NOrSNVT1veDSk&export=download&confirm=t"
+      }
+    ]
+  },
+  {
+    "key": "gc-eternal-darkness",
+    "system": "gc",
+    "layout": "dolphin",
+    "ids": ["GEDE01"],
+    "upstream": [
+      {
+        "kind": "mega",
+        "url": "https://mega.nz/file/6m5TQToI#v09Y_gYdtZ24WTT6BlfCeM5uvw1nRs3QozcYZkUVVqg"
+      }
+    ]
+  },
+  {
+    "key": "ps2-god-of-war",
+    "system": "ps2",
+    "layout": "pcsx2",
+    "ids": ["SCUS-97399"],
+    "upstream": [
+      {
+        "kind": "http",
+        "url": "https://archive.org/download/pcsx2-hd-texture-packs/God%20of%20War%20%28USA%29%20%5BSCUS-97399%5D%20HD%20Remaster.rar"
+      }
+    ]
+  },
+  {
+    "key": "ps2-god-of-war2",
+    "system": "ps2",
+    "layout": "pcsx2",
+    "ids": ["SCUS-97481"],
+    "upstream": [
+      { "kind": "http", "url": "https://archive.org/download/bl4ckh4nd-ps2/God%20of%20War%202.7z" }
+    ]
+  },
+  {
+    "key": "ps2-sotc",
+    "system": "ps2",
+    "layout": "pcsx2",
+    "ids": ["SCUS-97472"],
+    "upstream": [
+      {
+        "kind": "http",
+        "url": "https://archive.org/download/bl4ckh4nd-ps2/Shadow%20of%20the%20Colossus.7z"
+      }
+    ]
+  },
+  {
+    "key": "ps2-ico",
+    "system": "ps2",
+    "layout": "pcsx2",
+    "ids": ["SCUS-97113"],
+    "upstream": [
+      {
+        "kind": "http",
+        "url": "https://archive.org/download/pcsx2-hd-texture-packs/Ico%20%28USA%29%20%5BSCUS-97113%5D%20HD%20Remaster.rar"
+      }
+    ]
+  },
+  {
+    "key": "ps2-jak2",
+    "system": "ps2",
+    "layout": "pcsx2",
+    "ids": ["SCUS-97265"],
+    "upstream": [
+      {
+        "kind": "http",
+        "url": "https://archive.org/download/pcsx2-hd-texture-packs/Jak%20II%20%28USA%29%20%5BSCUS-97265%5D%20HD%20Remaster.rar"
+      }
+    ]
+  },
+  {
+    "key": "ps2-rc-uya",
+    "system": "ps2",
+    "layout": "pcsx2",
+    "ids": ["SCUS-97353"],
+    "upstream": [
+      {
+        "kind": "http",
+        "url": "https://archive.org/download/pcsx2-hd-texture-packs/Ratchet%20%26%20Clank%20Up%20Your%20Arsenal%20%28USA%29%20%5BSCUS-97353%5D%20HD%20Remaster.rar"
+      }
+    ]
+  },
+  {
+    "key": "ps2-sly2",
+    "system": "ps2",
+    "layout": "pcsx2",
+    "ids": ["SCUS-97316"],
+    "upstream": [
+      {
+        "kind": "http",
+        "url": "https://archive.org/download/bl4ckh4nd-ps2/Sly%202%20Band%20of%20Thieves.7z"
+      }
+    ]
+  },
+  {
+    "key": "ps2-sly3",
+    "system": "ps2",
+    "layout": "pcsx2",
+    "ids": ["SCUS-97464"],
+    "upstream": [
+      {
+        "kind": "http",
+        "url": "https://archive.org/download/bl4ckh4nd-ps2/Sly%203%20Honor%20Among%20Thieves.7z"
+      }
+    ]
+  },
+  {
+    "key": "ps2-mgs2-substance",
+    "system": "ps2",
+    "layout": "pcsx2",
+    "ids": ["SLUS-20554"],
+    "upstream": [
+      {
+        "kind": "http",
+        "url": "https://archive.org/download/bl4ckh4nd-ps2/Metal%20Gear%20Solid%202%20Substance.7z"
+      }
+    ]
+  },
+  {
+    "key": "ps2-dq8",
+    "system": "ps2",
+    "layout": "pcsx2",
+    "ids": ["SLUS-21207"],
+    "upstream": [
+      {
+        "kind": "http",
+        "url": "https://archive.org/download/pcsx2-hd-texture-packs/Dragon%20Quest%20VIII%20Journey%20of%20the%20Cursed%20King%20%28USA%29%20%5BSLUS-21207%5D%20HD%20Remaster.rar"
+      }
+    ]
+  },
+  {
+    "key": "ps2-ffx-int",
+    "system": "ps2",
+    "layout": "pcsx2",
+    "ids": ["SLPS-25088"],
+    "upstream": [
+      {
+        "kind": "http",
+        "url": "https://archive.org/download/pcsx2-hd-texture-packs/Final%20Fantasy%20X%20International%20%28Japan%29%20%5BSLPS-25088%5D%20HD%20Remaster.rar"
+      }
+    ]
+  },
+  {
+    "key": "ps2-ffxii-int",
+    "system": "ps2",
+    "layout": "pcsx2",
+    "ids": ["SLPM-66750"],
+    "upstream": [
+      {
+        "kind": "http",
+        "url": "https://archive.org/download/pcsx2-hd-texture-packs/Final%20Fantasy%20XII%20International%20Zodiac%20Job%20System%20%28Japan%29%20%5BSLPM-66750%5D%20HD%20Remaster.rar"
+      }
+    ]
+  },
+  {
+    "key": "ps2-gta-sa",
+    "system": "ps2",
+    "layout": "pcsx2",
+    "ids": ["SLUS-20946"],
+    "upstream": [
+      {
+        "kind": "http",
+        "url": "https://archive.org/download/cover_20231010/Grand%20Theft%20Auto%20San%20Andreas%20%28USA%29%20%5BSLUS-20946%5D%20HD%20Remaster.rar"
+      }
+    ]
+  },
+  {
+    "key": "ps2-dmc3-se",
+    "system": "ps2",
+    "layout": "pcsx2",
+    "ids": ["SLUS-21361"],
+    "upstream": [
+      {
+        "kind": "http",
+        "url": "https://archive.org/download/cover_20231010/Devil%20May%20Cry%203%20Special%20Edition%20%28USA%29%20%5BSLUS-21361%5D%20HD%20Remaster.rar"
+      }
+    ]
+  },
+  {
+    "key": "ps2-xenosaga1",
+    "system": "ps2",
+    "layout": "pcsx2",
+    "ids": ["SLUS-20469"],
+    "upstream": [
+      {
+        "kind": "http",
+        "url": "https://archive.org/download/pcsx2-hd-texture-packs/Xenosaga%20Episode%20I%20Der%20Wille%20zur%20Macht%20%28USA%29%20%5BSLUS-20469%5D%20HD%20Remaster.rar"
+      }
+    ]
+  },
+  {
+    "key": "ps2-persona3-fes",
+    "system": "ps2",
+    "layout": "pcsx2",
+    "ids": ["SLUS-21621"],
+    "upstream": [
+      {
+        "kind": "http",
+        "url": "https://drive.usercontent.google.com/download?id=1JPirqG0SHntyC_zVa3F178cSAsZwHWTl&export=download&confirm=t"
+      }
+    ]
+  },
+  {
+    "key": "ps1-mgs",
+    "system": "ps1",
+    "layout": "duckstation",
+    "ids": ["SLUS-00594", "SLUS-00776"],
+    "upstream": [
+      {
+        "kind": "http",
+        "url": "https://archive.org/download/bl4ckh4nd-psx/Metal%20Gear%20Solid%20%28Duckstation%29.7z"
+      }
+    ]
+  },
+  {
+    "key": "ps1-ff7",
+    "system": "ps1",
+    "layout": "duckstation",
+    "ids": ["SCUS-94163"],
+    "upstream": [
+      { "kind": "http", "url": "https://gamebanana.com/dl/1831104" },
+      { "kind": "http", "url": "https://gamebanana.com/dl/1831128" }
+    ]
+  },
+  {
+    "key": "ps1-soul-reaver",
+    "system": "ps1",
+    "layout": "duckstation",
+    "ids": ["SLUS-00708"],
+    "upstream": [
+      {
+        "kind": "http",
+        "url": "https://drive.usercontent.google.com/download?id=1uz6hBhlc4Zd1v-MmciAjbrJUsu6oXJwm&export=download&confirm=t"
+      }
+    ]
+  },
+  {
+    "key": "dc-sonic-adventure",
+    "system": "dc",
+    "layout": "flycast",
+    "ids": ["MK-51000"],
+    "upstream": [
+      {
+        "kind": "http",
+        "url": "https://archive.org/download/dreamcast-emulator-hd-textura/Sonic%20Adventure%20%28Dreamcast%20Emulator%20HD%20Texture%29.7z"
+      }
+    ]
+  },
+  {
+    "key": "dc-sonic-adventure2",
+    "system": "dc",
+    "layout": "flycast",
+    "ids": ["MK-51117"],
+    "upstream": [
+      {
+        "kind": "http",
+        "url": "https://archive.org/download/dreamcast-emulator-hd-textura/Sonic%20Adventure%202%20%28Dreamcast%20Emulator%20HD%20Texture%29.7z"
+      }
+    ]
+  },
+  {
+    "key": "dc-shenmue",
+    "system": "dc",
+    "layout": "flycast",
+    "ids": ["MK-51059"],
+    "upstream": [
+      {
+        "kind": "http",
+        "url": "https://archive.org/download/dreamcast-emulator-hd-textura/Shenmue%20%28Dreamcast%20Emulator%20HD%20Texture%29.7z"
+      }
+    ]
+  },
+  {
+    "key": "dc-jet-grind-radio",
+    "system": "dc",
+    "layout": "flycast",
+    "ids": ["MK-51058"],
+    "upstream": [
+      {
+        "kind": "http",
+        "url": "https://archive.org/download/dreamcast-emulator-hd-textura/Jet%20Grind%20Radio%20%28Dreamcast%20Emulator%20HD%20Texture%29.7z"
+      }
+    ]
+  },
+  {
+    "key": "dc-crazy-taxi",
+    "system": "dc",
+    "layout": "flycast",
+    "ids": ["MK-51035"],
+    "upstream": [
+      { "kind": "http", "url": "https://archive.org/download/bl4ckh4nd-dreamcast/Crazy%20Taxi.7z" }
+    ]
+  },
+  {
+    "key": "dc-soulcalibur",
+    "system": "dc",
+    "layout": "flycast",
+    "ids": ["T1401N"],
+    "upstream": [
+      {
+        "kind": "http",
+        "url": "https://archive.org/download/dreamcast-emulator-hd-textura/Soul%20Calibur%20%28Dreamcast%20Emulator%20HD%20Texture%29.7z"
+      }
+    ]
+  },
+  {
+    "key": "dc-power-stone",
+    "system": "dc",
+    "layout": "flycast",
+    "ids": ["T1201N"],
+    "upstream": [
+      {
+        "kind": "http",
+        "url": "https://archive.org/download/dreamcast-emulator-hd-textura/Power%20Stone%20%28Dreamcast%20Emulator%20HD%20Texture%29.7z"
+      }
+    ]
+  },
+  {
+    "key": "dc-power-stone2",
+    "system": "dc",
+    "layout": "flycast",
+    "ids": ["T1211N"],
+    "upstream": [
+      {
+        "kind": "http",
+        "url": "https://archive.org/download/flycasthq/Power%20Stone%202%20%28T1211N%29.rar"
+      }
+    ]
+  },
+  {
+    "key": "dc-re3",
+    "system": "dc",
+    "layout": "flycast",
+    "ids": ["T1220N"],
+    "upstream": [
+      {
+        "kind": "http",
+        "url": "https://archive.org/download/dreamcast-emulator-hd-textura/Resident%20Evil%203%20%28Dreamcast%20Emulator%20HD%20Texture%29.7z"
+      }
+    ]
+  }
+]
