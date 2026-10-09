@@ -1,3 +1,4 @@
+import { duckstation } from './duckstation/index.ts'
 import { eden } from './eden/index.ts'
 import { emudeck } from './emudeck/index.ts'
 import { retroarch } from './retroarch/index.ts'
@@ -25,7 +26,8 @@ export const EMULATORS: readonly EmulatorDescriptor[] = [
   emudeck,
   retroarch,
   eden,
-  shadps4
+  shadps4,
+  duckstation
 ]
 
 /**
@@ -176,6 +178,7 @@ export function isInstallableAsset(assetName: string, source: ReleaseSource): bo
   return source.asset.test(assetName)
 }
 
+export { duckstation } from './duckstation/index.ts'
 export { eden } from './eden/index.ts'
 export { emudeck, EMUDECK_LAUNCHERS, emuDeckLaunchers } from './emudeck/index.ts'
 export { retroarch } from './retroarch/index.ts'

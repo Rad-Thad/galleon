@@ -923,3 +923,18 @@ Lines the tooling reads (exact forms):
 - Evaluator: see the PR.
 - Device / acceptance: none (`ci`).
 - Next: after any real release, open a PR appending its job summary (release, commit, run) to this file, as M0-14 line 4 asks (docs/TESTING.md, the acceptance session, says so too). Then `next.mjs`'s first feature (M1-02).
+
+## 2026-10-09 20:02 UTC session caf24103 (routine run, second unit)
+
+- Device results: none new.
+- Worked on: M1-02 (tracking issue #94): the DuckStation descriptor. M0-14's flip, PR #93, merged at d4c2d35; its CI wall time was x64 4:02, arm64 0:28. M0-14 passes; #91 closed.
+- Result: PR (this one). PASSES M1-02 (ci).
+- Evidence:
+  - `src/config/emulators/duckstation/index.ts`, registered last in `EMULATORS`: AppImage `duckstation*.appimage` first (the catalog's `~/Applications/DuckStation-<arch>.AppImage`; release source stenzek/duckstation, Linux AppImages only), flatpak `org.duckstation.DuckStation` second, `duckstation-qt` on PATH last; system `psx`; argv `-batch -fullscreen -nogui -- <rom>`; BIOS `data/duckstation/bios`, saves `data/duckstation/memcards` matched by ROM stem (per-game `<title>_<slot>.mcd`); `flatLibrary: false`, so a multi-file game keeps its own folder (the evaluator's first pass caught `true`, which would have unpacked disc sets loose into `psx/`); no states, since DuckStation names them by serial. The comments cite qthost.cpp at the pinned commit in docs/research/armada_integration.md (line 3).
+  - Line 1: `registry.test.ts` "DuckStation is found as the catalog AppImage first, then on Flathub" (install order, flatpak id, and `findMatchingFile` finding `DuckStation-arm64.AppImage` in a scratch folder and nothing beside it), "DuckStation downloads only its Linux AppImages", "DuckStation runs PlayStation games only", "DuckStation boots a .chd or an .m3u fullscreen, exits with the game, and ends options first" (AppImage and flatpak exec), "DuckStation's BIOS and memory cards are its own XDG folders"; `savepaths.test.ts` "DuckStation's per-game memory cards are matched to the ROM, and nothing is said of states". `stemMatches('Final Fantasy VII_1', 'Final Fantasy VII (USA) (Disc 1)', '.mcd')` is true.
+  - Line 2: `grep -rn -i duckstation src --include=*.ts | grep -v src/config` is empty apart from i18n. Two comments (savefiles.ts, saves.test.ts) and a test tag (romm.test.ts, now `swanstation`) named it before; they are reworded.
+  - `scripts/agent/check.sh` green (coverage 96.23 / 93.61 / 95.87); `npm run test:app` 200/200 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root; CI keeps the sandbox). `npm run shots:nova`: looked at `emulators.png`: DuckStation is the last row, "Not installed", "1 platform", Install, its down arrow disabled; nothing clipped.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none (`ci`).
+- Next: `next.mjs`'s first feature (M1-12).

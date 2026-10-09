@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
+import { duckstation } from './duckstation/index.ts'
 import { eden } from './eden/index.ts'
 import { emudeck, EMUDECK_LAUNCHERS } from './emudeck/index.ts'
 import {
@@ -1387,4 +1388,23 @@ test('every RetroDECK save layout is one a command label reaches', () => {
     [],
     'a save layout no label reaches: name it in COMPONENT_BY_LABEL, or drop the row'
   )
+})
+
+test("DuckStation's per-game memory cards are matched to the ROM, and nothing is said of states", () => {
+  // A card is `<title>_<slot>.mcd`, which the stem matcher pairs with a .chd
+  // or with the .m3u of a multi-disc game alike.
+  for (const romPath of [
+    '/roms/psx/Suikoden II (USA).chd',
+    '/roms/psx/Final Fantasy VII (USA).m3u'
+  ]) {
+    const paths = resolve(duckstation, {
+      romPath,
+      system: 'psx',
+      paths: { saves: '/data/duckstation/memcards' }
+    })
+    assert.deepEqual(paths.saves, { dir: '/data/duckstation/memcards', match: 'rom-stem' })
+    assert.equal(paths.states, null)
+    // A standalone emulator: its own id is already the right tag.
+    assert.equal(paths.emulator, undefined)
+  }
 })
