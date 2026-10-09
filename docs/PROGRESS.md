@@ -25,6 +25,7 @@ Lines the tooling reads (exact forms):
 - `PASSES <id> device:<sha>`: `passes` was flipped on the evidence of `results/<sha>/summary.json` on `device-results`.
 - `PASSES <id> acceptance:<date>`: `passes` was flipped on the evidence of `acceptance/<date>/results.json`.
 - `DEVICE-RESULTS <sha> <status>`: a device result was ingested; the next session starts after it.
+- `ACCEPTANCE-RESULTS <date>`: `acceptance/<date>/results.json` was ingested; its passes flipped and its fails became `[acceptance]` bugs.
 
 ---
 
@@ -829,3 +830,19 @@ Lines the tooling reads (exact forms):
 - Evaluator: see the PR.
 - Device / acceptance: none (`ci`).
 - Next: M0-15 part 2 (results.json read-back in `device-results.mjs`).
+
+## 2026-10-09 18:44 UTC session fe0b4bc0 (routine run, second unit)
+
+- Device results: none new.
+- Worked on: M0-15 part 2 (tracking issue #81): acceptance line 3. Part 1, PR #82, merged at 447022e; its CI wall time was x64 4:42, arm64 1:01.
+- Result: PR (this one). PASSES M0-15 (ci): lines 1, 2 and 4 by #82, line 3 here.
+- Evidence:
+  - `scripts/agent/device-results.mjs`: `readBranch` reads every `acceptance/<date>/results.json`; `analyse` takes the sessions no `ACCEPTANCE-RESULTS <date>` line names, oldest first. An `acceptance` feature with a pass and no fail flips to true; a failed item sets it back to false; a skip decides nothing; a later session decides over an earlier one. A file not in TESTING.md's shape (schema 1, items with feature and pass/fail/skip) decides nothing and stays new. `issuesToOpen` adds one `[acceptance] <id> [<system>]` issue per failed item (labels `bug`, `acceptance`), informational items included, quoting the notes as data and skipping titles already open. `progressLines` prints `ACCEPTANCE-RESULTS <date>` and `PASSES <id> acceptance:<date>`, which `features-check` already demands for an acceptance flip.
+  - Session newness moved from "dated on or after the last device result" to the `ACCEPTANCE-RESULTS` marker: a date compared with a device result's time would skip a session results.json pushed late, or read one twice. The PROGRESS.md legend names the new line.
+  - `scripts/agent/device-results.test.ts` 23/23, new: "an acceptance item marked pass flips its feature and is recorded with its date", "one failed item keeps the feature false, reverts a passed one, and each fail is a bug", "skipped items decide nothing, and a later session decides over an earlier one", "a session without a valid results.json decides nothing and stays new", and, on a scratch repository through the command, "an acceptance session on the branch flips its passes with --apply".
+  - `docs/TESTING.md` "Reading them back" states the rules.
+  - `scripts/agent/check.sh` green: coverage 96.26 / 93.75 / 95.86.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: PASSES M0-15 (ci).
+- Next: `next.mjs`'s first feature (M0-19 or M1-01).

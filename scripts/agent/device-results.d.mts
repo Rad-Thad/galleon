@@ -33,6 +33,15 @@ export interface Analysis {
   changes: { id: string; passes: boolean }[]
   reports: string[]
   acceptance: string[]
+  acceptanceInvalid: string[]
+  acceptanceFlips: { id: string; date: string }[]
+  acceptanceFails: {
+    date: string
+    sha: string | null
+    feature: string
+    system: string | null
+    notes: string | null
+  }[]
   bridge: {
     lastSeen: string
     hours: number | null
@@ -42,6 +51,8 @@ export interface Analysis {
 }
 
 export function ingestedShas(progress: string): Set<string>
+export function ingestedDates(progress: string): Set<string>
+export function acceptanceTitle(feature: string, system?: string | null): string
 export function analyse(input: {
   features: readonly Feature[]
   index: readonly IndexEntry[]
@@ -49,6 +60,7 @@ export function analyse(input: {
   progress: string
   reports?: readonly string[]
   acceptance?: readonly string[]
+  acceptanceResults?: ReadonlyMap<string, unknown>
   status?: Record<string, unknown> | null
   now: string
   readyIsAncestor(id: string, sha: string): boolean
@@ -70,4 +82,5 @@ export function readBranch(
   summaries: Map<string, Summary | null>
   reports: string[]
   acceptance: string[]
+  acceptanceResults: Map<string, unknown>
 }
