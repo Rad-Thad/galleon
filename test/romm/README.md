@@ -23,6 +23,11 @@ docker compose -f test/romm/compose.yml --profile v520 down
   pair, a PSP folder with extras, an entry with no extension, Dreamcast `.chd`
   and `.cdi`) as files of a few hundred bytes, and zero-filled firmware stubs.
   No real game or BIOS bytes. `make-library.test.ts` holds it to that.
+- `scripts/agent/fetch-fixtures.mjs`: adds the homebrew ROMs pinned in
+  `test/fixtures/roms/manifest.json` (URL, SHA-256, size, licence, author) to
+  `library/`, refusing any file whose bytes differ. Run it after
+  `make-library.mjs`, which clears the tree. Optional: the suites here need
+  only the synthetic files.
 - `*.real.ts` (`npm run test:romm-real`): need a server provisioned on a fresh
   database. `pairing.real.ts` walks device pairing end to end;
   `library.real.ts` checks the scanned platforms and the multi-file flags.
