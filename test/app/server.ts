@@ -697,6 +697,13 @@ export interface FakeRommOptions {
    * they are beside it. See `BULK_PLATFORM`.
    */
   bulk?: number
+  /**
+   * A GameCube and a Wii U platform under the slugs RomM gives library folders
+   * it matched to nothing, `gc` and `wii-u`: the two whose icons a real server
+   * answered 404 for (docs/DEVICE-FACTS.md). This server has no icons at all,
+   * so every platform on screen falls back.
+   */
+  iconless?: boolean
 }
 
 /** The platform `FakeRommOptions.bulk` fills, by id. */
@@ -746,6 +753,13 @@ export async function startFakeRomm(options: FakeRommOptions = {}): Promise<Fake
     slow
   ]
   const platforms = [megadrive, gameboy, nintendoSwitch, segacd]
+  if (options.iconless) {
+    const gamecube = platform(6, 'gc', 'Nintendo GameCube')
+    const wiiu = platform(7, 'wii-u', 'Nintendo Wii U')
+    platforms.push(gamecube, wiiu)
+    roms.push(rom(30, 'Cube Homebrew', gamecube, 'cubehomebrew.iso'))
+    roms.push(rom(31, 'Wii U Homebrew', wiiu, 'wiiuhomebrew.wua'))
+  }
   if (options.bulk) {
     const nes = { ...platform(BULK_PLATFORM, 'nes', 'Nintendo Entertainment System') }
     nes.rom_count = options.bulk

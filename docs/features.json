@@ -844,7 +844,7 @@
     ],
     "verification": "agent-screenshot",
     "depends_on": ["M0-09"],
-    "passes": false
+    "passes": true
   },
   {
     "id": "M1-27",

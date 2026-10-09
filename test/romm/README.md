@@ -40,6 +40,8 @@ docker compose -f test/romm/compose.yml --profile v520 down
   paged listing, downloads broken mid-body and resumed by range, the per-file
   endpoint); `pairing.real.ts` walks device pairing end to end;
   `library.real.ts` checks the scanned platforms and the multi-file flags;
+  `icons.real.ts` walks every platform's icon candidates twice and holds each
+  404 to one request;
   `sync.real.ts` holds the calls that write (device registration, save and
   state round trips, play sessions) beside firmware and the whole-game
   archive. `server.ts` is what they share: the provisioned state, the client

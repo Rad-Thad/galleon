@@ -2127,3 +2127,74 @@ describe('what may take as long as it takes', () => {
     }
   })
 })
+
+describe('platform icons', () => {
+  const ICON = '/assets/platforms/systematic/wii-u.svg'
+
+  test('an icon the server has no file for is asked for once, and answered 404 after', async () => {
+    const { store } = fakeStore()
+    const sent = serve(() => new Response('not found', { status: 404 }))
+    const client = new RommClient(store)
+
+    assert.equal((await client.asset(ICON)).status, 404)
+    assert.equal((await client.asset(ICON)).status, 404)
+    assert.equal(
+      (await client.asset(ICON.slice(1))).status,
+      404,
+      'with or without the leading slash'
+    )
+    assert.equal(sent.length, 1)
+  })
+
+  test('an icon that was found is asked for every time, since the protocol caches it', async () => {
+    const { store } = fakeStore()
+    const sent = serve(() => new Response('<svg/>', { status: 200 }))
+    const client = new RommClient(store)
+
+    await client.asset('/assets/platforms/ngc.svg')
+    await client.asset('/assets/platforms/ngc.svg')
+    assert.equal(sent.length, 2)
+  })
+
+  test('only a 404 is remembered: a server error or no answer at all says nothing about the icon', async () => {
+    const { store } = fakeStore()
+    let calls = 0
+    globalThis.fetch = (async () => {
+      calls += 1
+      if (calls === 1) throw new Error('ECONNREFUSED')
+      return new Response('busy', { status: 503 })
+    }) as typeof globalThis.fetch
+    const client = new RommClient(store)
+
+    await client.asset(ICON).catch(() => null)
+    await client.asset(ICON)
+    await client.asset(ICON)
+    assert.equal(calls, 3)
+  })
+
+  test('a 404 for anything but a platform icon is not remembered', async () => {
+    const { store } = fakeStore()
+    const sent = serve(() => new Response('not found', { status: 404 }))
+    const client = new RommClient(store)
+
+    await client.asset('/assets/romm/resources/roms/1/cover/small.png')
+    await client.asset('/assets/romm/resources/roms/1/cover/small.png')
+    assert.equal(sent.length, 2)
+  })
+
+  test('a miss on one server is not taken as a miss on another', async () => {
+    const { store } = fakeStore()
+    const sent = serve(() => new Response('not found', { status: 404 }))
+    const client = new RommClient(store)
+
+    await client.asset(ICON)
+    ;(store as unknown as { server: { baseUrl: string } }).server = {
+      baseUrl: 'https://other.example'
+    }
+    await client.asset(ICON)
+    assert.deepEqual(
+      sent.map((request) => request.url),
+      [`https://romm.example${ICON}`, `https://other.example${ICON}`]
+    )
+  })
+})

@@ -93,7 +93,9 @@ const TABLE: readonly SystemInfo[] = [
   { id: 'n64dd', label: 'Nintendo 64DD', short: '64DD', icon: '64dd', slugs: ['64dd'], core: 'mupen64plus_next' },
   { id: 'gc', label: 'Nintendo GameCube', short: 'GC', icon: 'ngc', slugs: ['ngc'], core: 'dolphin' },
   { id: 'wii', label: 'Nintendo Wii', short: 'WII', icon: 'wii', slugs: ['wii'], core: 'dolphin' },
-  { id: 'wiiu', label: 'Nintendo Wii U', short: 'WIIU', icon: 'wiiu', slugs: ['wiiu'] },
+  // `wii-u` is the spelling of a library folder RomM matched to nothing, which
+  // keeps the folder's name as its slug.
+  { id: 'wiiu', label: 'Nintendo Wii U', short: 'WIIU', icon: 'wiiu', slugs: ['wiiu', 'wii-u'] },
   { id: 'switch', label: 'Nintendo Switch', short: 'NSW', icon: 'switch', slugs: ['switch'] },
   { id: 'gb', label: 'Game Boy', short: 'GB', icon: 'gb', slugs: ['gb'], core: 'gambatte' },
   { id: 'gbc', label: 'Game Boy Color', short: 'GBC', icon: 'gbc', slugs: ['gbc'], core: 'gambatte' },
@@ -409,6 +411,9 @@ export const PLATFORM_ICON_PATHS: readonly string[] = [
   '/assets/platforms/systematic/{name}.svg',
   '/assets/platforms/{name}.svg'
 ]
+
+/** The folder every path in `PLATFORM_ICON_PATHS` is under. */
+export const PLATFORM_ICON_ROOT = '/assets/platforms/'
 
 /** Libretro core for an ES-DE system, or null if we do not have a mapping. */
 export function coreForSystem(system: string): string | null {

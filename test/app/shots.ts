@@ -285,9 +285,46 @@ function escape(text: string): string {
   return text.replace(/[&<>"]/g, (one) => `&#${one.charCodeAt(0)};`)
 }
 
+/**
+ * The library with platforms whose icons the server does not have, which must
+ * show their short codes rather than a broken image.
+ */
+async function iconless(): Promise<void> {
+  const scenario = await startScenario({
+    viewport: NOVA,
+    home: join(HOMES, 'iconless'),
+    server: { iconless: true }
+  })
+  const { app } = scenario
+  try {
+    await attempt('library-iconless', async () => {
+      await app.goTo('library')
+      await app.waitFor(`document.querySelector('[data-rom="31"]')`, 'the Wii U game')
+      await app.waitFor(
+        `[...document.querySelectorAll('img.system-icon')].length === 0`,
+        'every icon to fall back'
+      )
+      const broken = await app.read<string[]>(
+        `[...document.querySelectorAll('img')].filter((img) => img.complete && img.naturalWidth === 0).map((img) => img.getAttribute('src') ?? '')`
+      )
+      if (broken.length > 0) throw new Error(`broken images: ${broken.join(', ')}`)
+      // The table's short codes, which say both folders resolved to their systems.
+      const badges = await app.read<string[]>(
+        `[...document.querySelectorAll('.platform-badge')].map((badge) => badge.textContent ?? '')`
+      )
+      for (const code of ['GC', 'WIIU'])
+        if (!badges.includes(code)) throw new Error(`no ${code} badge among ${badges.join(', ')}`)
+      await shoot(app, 'library-iconless')
+    })
+  } finally {
+    await scenario.stop()
+  }
+}
+
 rmSync(OUT, { recursive: true, force: true })
 mkdirSync(OUT, { recursive: true })
 await signedIn()
+if (wanted('library-iconless')) await iconless()
 await setup()
 contactSheet()
 
