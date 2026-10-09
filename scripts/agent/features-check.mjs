@@ -36,10 +36,10 @@ const FROZEN = FIELDS.filter((field) => field !== 'id' && field !== 'passes')
 const VERIFICATIONS = ['ci', 'agent-screenshot', 'device', 'acceptance']
 
 /** The checks that must pass in the same run as a device feature's own. */
-const SAFETY_CHECKS = ['safety.owner-state', 'safety.server-readonly']
+export const SAFETY_CHECKS = ['safety.owner-state', 'safety.server-readonly']
 
 /** Device statuses whose checks count (docs/TESTING.md, "summary.json"). */
-const COUNTING_STATUSES = ['complete', 'partial']
+export const COUNTING_STATUSES = ['complete', 'partial']
 
 function range(prefix, last) {
   return Array.from({ length: last }, (_, index) => `${prefix}-${index + 1}`)
@@ -344,6 +344,29 @@ function tryGit(...args) {
   }
 }
 
+/**
+ * Whether the commit that added `READY-FOR-DEVICE <id>` to docs/PROGRESS.md
+ * is an ancestor of `sha`, in the repository at `cwd`. The adding commit is
+ * the oldest whose diff changes how often the marker occurs.
+ */
+export function readyIsAncestor(id, sha, cwd) {
+  const run = (...args) => {
+    try {
+      return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+    } catch {
+      return null
+    }
+  }
+  const ready = (
+    run('log', '--format=%H', `-SREADY-FOR-DEVICE ${id}`, '--', 'docs/PROGRESS.md') ?? ''
+  )
+    .trim()
+    .split('\n')
+    .filter(Boolean)
+    .at(-1)
+  return Boolean(ready) && run('merge-base', '--is-ancestor', ready, sha) !== null
+}
+
 function showJson(ref, path) {
   const text = tryGit('show', `${ref}:${path}`)
   return text === null ? null : JSON.parse(text)
@@ -402,17 +425,7 @@ function main(argv) {
           progress,
           summary: (sha) => showJson(results, `results/${sha}/summary.json`),
           acceptance: (date) => showJson(results, `acceptance/${date}/results.json`),
-          readyIsAncestor: (id, sha) => {
-            const ready = (
-              tryGit('log', '--format=%H', `-SREADY-FOR-DEVICE ${id}`, '--', 'docs/PROGRESS.md') ??
-              ''
-            )
-              .trim()
-              .split('\n')
-              .filter(Boolean)
-              .at(-1)
-            return Boolean(ready) && tryGit('merge-base', '--is-ancestor', ready, sha) !== null
-          }
+          readyIsAncestor: (id, sha) => readyIsAncestor(id, sha)
         })
       )
     }

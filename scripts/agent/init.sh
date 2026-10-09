@@ -120,22 +120,11 @@ smoke_test() {
 }
 
 # What the Nova last said. Read before choosing work (CLAUDE.md, "Device
-# results first"); before M0-23 there is no summary script, so the raw files.
+# results first"); the script fetches the branch itself and says when there is
+# nothing on it yet.
 device_results() {
   step 'device results'
-  if ! (cd "$ROOT" && git fetch -q origin device-results 2>/dev/null); then
-    echo 'no device results yet'
-    return
-  fi
-  if [ -f "$ROOT/scripts/agent/device-results.mjs" ]; then
-    (cd "$ROOT" && node scripts/agent/device-results.mjs --summary)
-    return
-  fi
-  local file
-  for file in results/latest.json bridge/status.json; do
-    echo "--- origin/device-results:$file"
-    (cd "$ROOT" && git show "origin/device-results:$file" 2>/dev/null) || echo '(not there yet)'
-  done
+  (cd "$ROOT" && node scripts/agent/device-results.mjs --summary)
 }
 
 main() {

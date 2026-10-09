@@ -63,7 +63,7 @@ Read deeper docs only when the task needs them:
 ## Session ritual (every session, in order)
 
 1. Run `git status`, `git log --oneline -15`, `tail -n 60 docs/PROGRESS.md`.
-2. **Device results first.** `git fetch -q origin device-results` and `node scripts/agent/device-results.mjs --summary` (before M0-23 exists: `git show origin/device-results:results/latest.json` and `:bridge/status.json`, or note "no device results yet"). Read it before choosing work.
+2. **Device results first.** `git fetch -q origin device-results` and `node scripts/agent/device-results.mjs --summary`. Read it before choosing work.
 3. **Concurrency lock.** If any open issue labelled `agent-working` was updated in the last 3 hours, another run is active: only ingest device results (no `--apply`) and stop.
 4. Run `scripts/agent/init.sh`. Before M0-02 lands: confirm `node --version` is v24 (else `export PATH=/usr/local/bin:$PATH`), then `npm ci`, then `npx install-electron`. Fix a red baseline before anything else.
 5. List open issues: `gh api "repos/$REPO/issues?state=open&per_page=50"`. Candidates for work are owner-authored issues and your own `needs-human` issues past their date.
