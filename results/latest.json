@@ -1,0 +1,14 @@
+{
+  "bridgeVersion": 1,
+  "counts": {
+    "error": 0,
+    "fail": 0,
+    "pass": 1,
+    "skip": 0
+  },
+  "finishedAt": "2026-10-09T14:01:03Z",
+  "path": "results/4c5b675a2df2f21a7a27e94ba97a12699762d222/summary.json",
+  "runSeconds": 0,
+  "sha": "4c5b675a2df2f21a7a27e94ba97a12699762d222",
+  "status": "complete"
+}
