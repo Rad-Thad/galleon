@@ -67,7 +67,7 @@ test('the report carries its parts, and nothing from config/ but redacted settin
     'config/keyring/secret': 'keyring data',
     'logs/app.log': [
       line('romm', `GET ${SERVER}/api from 192.168.1.9`),
-      line('perf', 'perf summary {"screen":"library"}')
+      line('perf', 'summary {"screen":"library"}')
     ].join('\n'),
     'logs/launcher.log': 'launcher started\n',
     'etc/os-release': 'NAME="armadaOS"\n',
@@ -128,7 +128,7 @@ test('the report carries its parts, and nothing from config/ but redacted settin
   })
   assert.equal(JSON.parse(files['system.json']).kernel, '6.6.0-armada')
   assert.equal(JSON.parse(files['versions.json']).channel, 'nightly')
-  assert.match(files['perf.log'], /perf summary/)
+  assert.match(files['perf.log'], /perf\s+summary \{"screen":"library"\}/)
 })
 
 test('signed out, the host the settings name is still hidden', async () => {
@@ -191,13 +191,14 @@ test('the last launches come with the lines that followed each, and nothing else
   assert.deepEqual(launches(line('romm', 'nothing launched')), [])
 })
 
-test('perf summaries are picked from the log', () => {
+test('perf summaries are picked from the log in the shape the log writes them', () => {
   const log = [
-    line('perf', 'perf summary {"screen":"a"}'),
+    line('perf', 'summary {"screen":"a"}'),
     line('romm', 'x'),
-    line('perf', 'perf summary {"screen":"b"}')
+    line('romm', 'a perf summary mentioned in passing'),
+    line('perf', 'summary {"screen":"b"}')
   ]
-  assert.deepEqual(perfSummaries(log.join('\n')).length, 2)
+  assert.deepEqual(perfSummaries(log.join('\n')), [log[0], log[3]])
 })
 
 test('only named variables go in, and none whose name says secret', () => {

@@ -381,6 +381,8 @@ export interface RomMixBridge {
     runEmulator(id: string): Promise<string>
     onInstallProgress(listener: (progress: EmulatorInstallProgress) => void): () => void
     diagnostics(): Promise<DiagnosticsReport>
+    /** Write a problem report into the root's `reports/` folder and return its path. */
+    report(): Promise<string>
     /**
      * How much room is left on each drive downloads go to.
      *

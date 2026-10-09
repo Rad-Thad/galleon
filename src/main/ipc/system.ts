@@ -13,11 +13,12 @@ import type { RomMixApp } from '../app.ts'
 import { drivesOf } from '../disk.ts'
 import { power, powerActions } from '../power.ts'
 import { readPowerState } from '../powerstate.ts'
-import { flatpakAvailable, flathubConfigured, isWritable } from '../host.ts'
+import { commandVersion, flatpakAvailable, flathubConfigured, isWritable } from '../host.ts'
 import { setLanguage, t } from '../i18n.ts'
 import { log } from '../log.ts'
 import { defaultRoot, homeFromEnvironment, relocateRoot, resolveRoot, rootPaths } from '../root.ts'
 import { RommError } from '../romm/index.ts'
+import { writeReport } from '../report.ts'
 import { isWebAddress } from '../weblink.ts'
 import type { Handle } from './handler.ts'
 
@@ -116,7 +117,12 @@ export function registerSystemIpc(rommix: RomMixApp, handle: Handle): void {
    */
   handle('system:drives', async (): Promise<DriveSpace[]> => drivesOf(await romFolders()))
 
-  handle('system:diagnostics', async (): Promise<DiagnosticsReport> => {
+  /**
+   * The pre-flight check: what the machine has, what it lacks, and what to
+   * do about it. Shared by the screen that shows it and the problem report
+   * that carries it.
+   */
+  async function preflight(): Promise<DiagnosticsReport> {
     const emulators = await rommix.refreshEmulators()
     const hasFlatpak = await flatpakAvailable()
     // Only worth asking when there is a flatpak to ask: without the command the
@@ -195,6 +201,37 @@ export function registerSystemIpc(rommix: RomMixApp, handle: Handle): void {
       logPath: log.path(),
       notes
     }
+  }
+
+  handle('system:diagnostics', preflight)
+
+  /**
+   * Report a problem: everything `writeReport` gathers, with what only the
+   * running application can say. The pre-flight check carries the emulator
+   * probes; Chromium's GPU information carries the Mesa version.
+   */
+  handle('system:report', async (): Promise<string> => {
+    const status = rommix.updates.status
+    return writeReport({
+      root: rootPaths().root,
+      serverUrl: store.server?.baseUrl ?? null,
+      versions: {
+        app: status.current,
+        commit: status.buildCommit,
+        channel: status.channel,
+        electron: process.versions.electron,
+        chrome: process.versions.chrome,
+        node: process.versions.node
+      },
+      sections: {
+        preflight,
+        power: readPowerState,
+        graphics: async () => ({
+          gpu: await app.getGPUInfo('basic'),
+          gamescope: await commandVersion(['gamescope', '--version'])
+        })
+      }
+    })
   })
 
   /** Where RomMix keeps its own files, and where it would by default. */

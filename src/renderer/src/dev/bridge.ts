@@ -1044,6 +1044,8 @@ const bridge: RomMixBridge = {
         logPath: `${PREVIEW_ROOT}/logs/app.log`,
         notes: [say('demo.nothingChecked')]
       }),
+    // Named where the real app would write it; the preview writes nothing.
+    report: () => later(`${PREVIEW_ROOT}/reports/2026-01-01T00-00-00Z.zip`),
     root: () =>
       later({
         current: PREVIEW_ROOT,

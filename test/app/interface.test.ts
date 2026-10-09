@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { after, before, describe, test } from 'node:test'
 import { dateFormatters } from '@shared/i18n/dates.ts'
 import { en } from '@shared/i18n/en.ts'
@@ -7,6 +9,7 @@ import { fr } from '@shared/i18n/fr.ts'
 import { POLL_MS, SETTLE_TIMEOUT_MS, type App } from './driver.ts'
 import { startScenario, type Scenario } from './harness.ts'
 import type { FakeRomm } from './server.ts'
+import { extractZip } from '../../src/main/zip.ts'
 
 /**
  * The screens, and the three ways of driving them.
@@ -1570,6 +1573,39 @@ describe('the performance overlay', () => {
     for (const key of ['frames', 'p50', 'p90', 'p99', 'jankyPct'])
       assert.equal(typeof found[key], 'number', `${key} should be a number`)
     assert.ok((found.frames as number) > 0)
+  })
+
+  test('a problem report carries that summary, the probes and no server address', async () => {
+    const zip = await app.read<string>(`window.rommix.system.report()`)
+    assert.match(zip, /\/reports\/[0-9T-]+Z\.zip$/)
+    const out = mkdtempSync(join(tmpdir(), 'galleon-app-report-'))
+    try {
+      const files = await extractZip(zip, out)
+      const names = files.map((file) => file.slice(out.length + 1)).toSorted()
+      for (const name of [
+        'graphics.json',
+        'logs/app.log',
+        'perf.log',
+        'power.json',
+        'preflight.json',
+        'versions.json'
+      ])
+        assert.ok(names.includes(name), `${name} should be in the report: ${names.join(', ')}`)
+      assert.ok(!names.some((name) => name.startsWith('config/') || name.includes('credentials')))
+      const text = (name: string): string => readFileSync(join(out, name), 'utf8')
+      assert.match(text('perf.log'), /"screen":"library"/)
+      assert.ok(
+        Array.isArray(JSON.parse(text('preflight.json')).emulators),
+        'the probes ride the pre-flight'
+      )
+      const everything = files.map((file) => readFileSync(file, 'utf8')).join('\n')
+      assert.ok(
+        !everything.includes(new URL(server.baseUrl).host),
+        'the server address is redacted'
+      )
+    } finally {
+      rmSync(out, { recursive: true, force: true })
+    }
   })
 
   test('and goes again from the same switch', async () => {

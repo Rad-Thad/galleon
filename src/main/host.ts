@@ -543,3 +543,25 @@ export async function isWritable(path: string | null): Promise<boolean> {
 export async function flatpakAvailable(): Promise<boolean> {
   return (await run(['flatpak', '--version'], 5000)) != null
 }
+
+/**
+ * The first line a command prints about its own version, or null when it is
+ * not there or says nothing.
+ *
+ * Either stream: gamescope, among others, prints its version to stderr. For
+ * a problem report, so a command that is missing or slow is an absence in
+ * the report rather than a report that never arrives.
+ */
+export async function commandVersion(argv: readonly string[]): Promise<string | null> {
+  const [cmd, ...args] = argv
+  try {
+    const { stdout, stderr } = await execFileAsync(cmd, args, { timeout: 5000 })
+    const line = `${stdout}\n${stderr}`
+      .split('\n')
+      .map((text) => text.trim())
+      .find(Boolean)
+    return line ?? null
+  } catch {
+    return null
+  }
+}

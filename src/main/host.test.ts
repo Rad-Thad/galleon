@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import type { ResolvedInstall } from '@config/emulators'
 import { spawn } from 'node:child_process'
 import {
+  commandVersion,
   binaryPath,
   descendantsOf,
   execPrefix,
@@ -521,4 +522,13 @@ test('signalling a group nothing is left in is not an error', async () => {
   await new Promise((resolve) => gone.on('exit', resolve))
 
   assert.equal(signalProcessGroup(pid, 'SIGTERM'), false)
+})
+
+test('a version is read from whichever stream the command prints it on', async () => {
+  const node = process.execPath
+  assert.equal(await commandVersion([node, '-e', 'console.log("\\nout 1.0\\n")']), 'out 1.0')
+  assert.equal(await commandVersion([node, '-e', 'console.error("err 2.0")']), 'err 2.0')
+  assert.equal(await commandVersion([node, '-e', '']), null)
+  assert.equal(await commandVersion([node, '-e', 'process.exit(3)']), null)
+  assert.equal(await commandVersion(['galleon-no-such-command']), null)
 })
