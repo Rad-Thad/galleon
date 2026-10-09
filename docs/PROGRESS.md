@@ -461,3 +461,18 @@ Lines the tooling reads (exact forms):
 - Next: M0-11 (diagnostics bundle).
 - Notes:
   - Under the same artificial delay, `games.test.ts` "saves either side of a session" lost two tests ("cancelling the question sends nothing at all", "so the next push goes without a word"). The highlight stayed on the Manual tab and never reached `push-saves`. That is a different mechanism, never seen without the delay, and it is recorded on #44 rather than fixed here.
+
+## 2026-10-09 08:26 UTC session cloud (routine run)
+
+- Device results: none. `bridge/status.json` unchanged (bridge 1, last seen 2026-10-08T15:06:00Z, no `nightly` release yet); no `results/`.
+- Worked on: M0-05 part 1 of 2 (tracking issue #46), on the way to owner issue #5 (which waits on M0-24, which waits on M0-05). The flaky fix PR #45 merged at ba24930; its CI wall time was x64 3:31, arm64 3:25.
+- Result: PR (this one). M0-05 stays false until part 2.
+- Evidence:
+  - `release.yml`'s `build` has `timeout-minutes: 20`. format:check, lint, typecheck and `npm run test:coverage` (in place of `npm test`) run on x64 only, before features-check; the bridge unit tests are a new x64 step after it. arm64 still type-checks through `npm run build`.
+  - The `changes` step runs right after `npm ci` and also writes `docs_only` (every changed path is Markdown, under `docs/` or an issue template) and `package` (false only on a docs-only pull request). The warm-up, package, `galleon-steam.sh` copy and `appimage-*` upload steps take `package`. Checked the shell against four lists: prose only → true; prose plus `src/` → false; an issue template → true; nothing → false.
+  - `node scripts/agent/ci-times.mjs` (new, unit-tested in `scripts/agent/ci-times.test.ts`) prints the median per required leg over the last 10 merged pull requests, timing only successful legs. Today: x64 4:01, arm64 3:25, both under the 10-minute target.
+  - `scripts/agent/check.sh` green (1423 tests, lines 96.15%).
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none (`ci`).
+- Next: M0-05 part 2: `npm run smoke:app` on arm64 in place of `test:app`, RomM and MariaDB images pulled by digest, and the scratch-branch red check; then flip M0-05.

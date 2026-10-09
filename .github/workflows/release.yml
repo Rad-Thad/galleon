@@ -40,6 +40,9 @@ jobs:
             arch: arm64
 
     runs-on: ${{ matrix.runner }}
+    # The hard limit of the CI time budget (docs/PLAN.md section 4). A leg that
+    # reaches it has a hang to find, not a limit to raise.
+    timeout-minutes: 20
 
     steps:
       - uses: actions/checkout@v7
@@ -95,34 +98,13 @@ jobs:
 
       - run: npm ci
 
-      # The same gates `.release-it.js` runs before it will cut a tag, repeated
-      # here because a pull request never goes through release-it.
-      - run: npm run format:check
-      - run: npm run lint
-      - run: npm run typecheck
-      - run: npm test
-
-      # The guard on the feature list the project is accepted against — see
-      # scripts/agent/features-check.mjs. On a pull request it also compares the
-      # list with the base branch's, which a shallow checkout has not fetched.
-      # Once is enough: the list is the same on either architecture.
-      - name: Check the feature list
-        if: matrix.arch == 'x64'
-        env:
-          BASE_REF: ${{ github.base_ref }}
-        run: |
-          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
-            git fetch --no-tags --depth=1 origin "+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF"
-            node scripts/agent/features-check.mjs --base "origin/$BASE_REF"
-          else
-            node scripts/agent/features-check.mjs
-          fi
-
-      # Which slow suites this change needs (docs/PLAN.md section 4). A pull
+      # Which slow work this change needs (docs/PLAN.md section 4). A pull
       # request is checked out as a merge commit and main moves by squash
       # merges, so the first parent is the base in both cases. Docker RomM 5.2.0
       # runs once, on x64, when client, save or fixture code changed; a manual
-      # dispatch runs every version on both architectures.
+      # dispatch runs every version on both architectures. Packaging is left out
+      # only for a pull request that changes nothing but prose: a push to main
+      # always packages, because the canary job publishes what it made.
       - name: changes
         id: changes
         env:
@@ -141,8 +123,56 @@ jobs:
           else
             profiles=
           fi
+          docs_only=false
+          if [ -n "$changed" ] && ! grep -qvE '(\.md$|^docs/|^\.github/ISSUE_TEMPLATE/)' <<<"$changed"; then
+            docs_only=true
+          fi
+          package=true
+          if [ "$GITHUB_EVENT_NAME" = pull_request ] && [ "$docs_only" = true ]; then
+            package=false
+          fi
           echo "romm=$romm" >>"$GITHUB_OUTPUT"
+          echo "docs_only=$docs_only" >>"$GITHUB_OUTPUT"
+          echo "package=$package" >>"$GITHUB_OUTPUT"
           echo "romm_profiles=$profiles" >>"$GITHUB_OUTPUT"
+
+      # The same gates `.release-it.js` runs before it will cut a tag, repeated
+      # here because a pull request never goes through release-it. Once, on x64:
+      # the code they read is the same on either architecture, and the arm64
+      # leg's job is to prove the package for the device (PLAN.md section 4).
+      # Coverage runs every unit test once and holds them to the floors in
+      # package.json, so it stands in for `npm test`.
+      - if: matrix.arch == 'x64'
+        run: npm run format:check
+      - if: matrix.arch == 'x64'
+        run: npm run lint
+      - if: matrix.arch == 'x64'
+        run: npm run typecheck
+      - if: matrix.arch == 'x64'
+        run: npm run test:coverage
+
+      # The guard on the feature list the project is accepted against — see
+      # scripts/agent/features-check.mjs. On a pull request it also compares the
+      # list with the base branch's, which a shallow checkout has not fetched.
+      # Once is enough: the list is the same on either architecture.
+      - name: Check the feature list
+        if: matrix.arch == 'x64'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
+            git fetch --no-tags --depth=1 origin "+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF"
+            node scripts/agent/features-check.mjs --base "origin/$BASE_REF"
+          else
+            node scripts/agent/features-check.mjs
+          fi
+
+      # The program that runs on the Nova and tests every nightly — see
+      # tools/device-bridge/README.md. Python's standard library only, so the
+      # runner's interpreter is enough.
+      - name: Device bridge tests
+        if: matrix.arch == 'x64'
+        run: python3 -m unittest discover -s tools/device-bridge
 
       # A disposable RomM per version, provisioned through its own API, then
       # the suites that need a real server — see test/romm/README.md.
@@ -167,10 +197,12 @@ jobs:
       # retried, so a network hiccup is better met here, before it starts.
       - name: Warm the packaging cache
         id: warm
+        if: steps.changes.outputs.package == 'true'
         run: node scripts/warm-package-cache.mjs ${{ matrix.arch }}
 
       # Handed the archive the step above checked, so it fetches nothing.
-      - run: npm run package -- --${{ matrix.arch }} -c.electronDist="$ELECTRON_ZIP"
+      - if: steps.changes.outputs.package == 'true'
+        run: npm run package -- --${{ matrix.arch }} -c.electronDist="$ELECTRON_ZIP"
         env:
           ELECTRON_ZIP: ${{ steps.warm.outputs.electron-zip }}
 
@@ -243,11 +275,13 @@ jobs:
       # points at, and the AppImage cannot set the variable that makes itself
       # launchable from Steam. Shipped under the product's name; see
       # packaging/rommix-steam.sh.
-      - run: cp packaging/rommix-steam.sh dist/galleon-steam.sh
+      - if: steps.changes.outputs.package == 'true'
+        run: cp packaging/rommix-steam.sh dist/galleon-steam.sh
 
       # Named per leg: two jobs uploading one name is an error, and the release
       # job merges them back with a pattern.
       - uses: actions/upload-artifact@v7
+        if: steps.changes.outputs.package == 'true'
         with:
           name: appimage-${{ matrix.arch }}
           path: |
