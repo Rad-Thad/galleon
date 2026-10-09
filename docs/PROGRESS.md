@@ -703,3 +703,19 @@ Lines the tooling reads (exact forms):
 - Evaluator: see the PR.
 - Device / acceptance: none.
 - Next: `device-results.mjs --summary` should count a published result as the bridge being seen, or the 7-day silence rule fires on a bridge that is testing every night. Then whatever `next.mjs` lists first.
+
+## 2026-10-09 15:52 UTC session 6d123f95 (routine run, second unit)
+
+- Device results: none new (the two above, already ingested).
+- Worked on: issue #72, a fix to `scripts/agent/device-results.mjs` (M0-23's tool). M0-10 part 3b, PR #71, merged at 00bc1df; its CI wall time was x64 4:34, arm64 0:59.
+- Result: PR (this one).
+- Evidence:
+  - Cause: `--summary` took the bridge's last sighting from `bridge/status.json` alone. The bridge writes that file only when it skips (`maybe_heartbeat`), so on 2026-10-09 it said "last seen 24.4 h ago" an hour after the bridge published a result. Left alone, a bridge testing every night would trip CLAUDE.md's 7-day silence rule.
+  - Fix: `analyse` takes the newest of `status.lastSeen` and every result's `finishedAt`; a branch with results and no status is seen too. Last skip and version still come from the status.
+  - Test first: `scripts/agent/device-results.test.ts` "a published result is the bridge being seen, since only a skip writes its status" failed before the fix and passes after: results newer than the status win, a later skip wins, and results with no status still render a sighting. 18/18 in the file.
+  - On the real branch: `--summary` now prints `Bridge: last seen 0.7 h ago (2026-10-09T15:05:03Z)`.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none (`ci` tooling).
+- Next: whatever `next.mjs` lists first (M0-10 is left only with line 4's perf-state.json half, which waits for the file's real format; then M0-11).

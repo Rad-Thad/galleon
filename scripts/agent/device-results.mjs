@@ -62,7 +62,8 @@ function compact(iso) {
  * - `changes`: the `passes` value each touched feature ends on, when it
  *   differs from where it started;
  * - `reports`, `acceptance`: folders newer than the last ingested result;
- * - `bridge`: when it was last seen and why it last skipped.
+ * - `bridge`: when it was last seen, by its status or its newest result, and
+ *   why it last skipped.
  *
  * `index` is `results/index.json` (newest first), `summaries` maps a sha to
  * its summary (absent when pruned), `readyIsAncestor(id, sha)` answers the
@@ -174,13 +175,24 @@ export function analyse({
     .sort()
     .filter((date) => since === null || date >= since.slice(0, 10))
 
-  if (status && typeof status.lastSeen === 'string') {
-    const hours = (Date.parse(now) - Date.parse(status.lastSeen)) / 3_600_000
+  // The newest of the two sightings: the bridge writes its status only when
+  // it skips (see `maybe_heartbeat` in tools/device-bridge), so one testing
+  // every night is seen through its results alone.
+  const sightings = [
+    typeof status?.lastSeen === 'string' ? status.lastSeen : null,
+    ...entries.map((e) => (typeof e.finishedAt === 'string' ? e.finishedAt : null))
+  ].filter((at) => at !== null && Number.isFinite(Date.parse(at)))
+  const lastSeen = sightings.reduce(
+    (newest, at) => (newest === null || Date.parse(at) > Date.parse(newest) ? at : newest),
+    null
+  )
+  if (lastSeen !== null) {
+    const hours = (Date.parse(now) - Date.parse(lastSeen)) / 3_600_000
     out.bridge = {
-      lastSeen: status.lastSeen,
+      lastSeen,
       hours: Number.isFinite(hours) ? hours : null,
-      lastSkip: status.lastSkip ?? null,
-      version: status.bridgeVersion ?? null
+      lastSkip: status?.lastSkip ?? null,
+      version: status?.bridgeVersion ?? null
     }
   }
   return out
