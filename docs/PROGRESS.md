@@ -698,7 +698,7 @@ Lines the tooling reads (exact forms):
     - Line 1, "costs under 0.3 ms of main-thread work per frame": the library narrowed to the 1,300 games, a frame-counting rAF loop running on both sides, `TaskDuration` per frame over 5 s with the overlay off, then on (L3+R3 held on a pad). Three runs on the VM: off 0.383 / on 0.420, 0.369 / 0.378, 0.351 / 0.383 ms per frame, so the overlay adds 0.01 to 0.04 ms.
     - Line 3, "a 30 s scroll down the grid logs its summary": D-pad Down held for 30 s on the 1,300-game platform with the overlay on; the grid paged past its first page (asserted from the server's requests); leaving the screen writes `perf summary {"screen":"library","frames":1781,"p50":16.7,"p90":16.7,"p99":33.4,"jankyPct":4.0,...}` to app.log (1787 and 1787 frames on the other two runs).
   - The whole file takes about 50 s.
-  - `scripts/agent/check.sh` green: coverage 96.17 / 93.67 / 95.77 (no unit code changed). Full `npm run test:app`: see the PR.
+  - `scripts/agent/check.sh` green: coverage 96.17 / 93.67 / 95.77 (no unit code changed). Full `npm run test:app` 197/197 (3:22).
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Evaluator: see the PR.
 - Device / acceptance: none.

@@ -26,6 +26,12 @@ const COST_BUDGET_MS = 0.3
 const COST_WINDOW_MS = 5000
 /** How long the scripted scroll runs. */
 const SCROLL_MS = 30_000
+/**
+ * The fewest frames per second of scroll its summary may cover: well short of
+ * any display's rate, so a slow runner passes, and far above what the moment
+ * after the scroll alone would give.
+ */
+const MIN_SCROLL_FPS = 30
 
 /** Buttons as the standard mapping numbers them. See `BUTTON` in `input/gamepad.ts`. */
 const L3 = 10
@@ -151,10 +157,8 @@ describe(`the performance overlay on a ${GAMES}-game platform`, () => {
     console.log(`scroll summary: ${JSON.stringify(found)}`)
     for (const key of ['frames', 'p50', 'p90', 'p99', 'jankyPct'])
       assert.equal(typeof found[key], 'number', `${key} should be a number`)
-    // Most of the frames a 60 Hz screen draws in that time, so the summary
-    // is of the scroll rather than of the moment after it.
     assert.ok(
-      (found.frames as number) > (SCROLL_MS / 1000) * 30,
+      (found.frames as number) > (SCROLL_MS / 1000) * MIN_SCROLL_FPS,
       `${found.frames} frames is too few for the scroll`
     )
   })
