@@ -47,7 +47,7 @@ function range(prefix, last) {
 
 /** Every requirement the research names, each owed at least one feature. */
 export const REQUIRED_SOURCES = [
-  ...range('REQ', 16),
+  ...range('REQ', 17),
   ...range('PARITY', 48),
   ...range('BEYOND', 18)
 ]

@@ -27,6 +27,10 @@ Added 2026-10-08, in [#36](https://github.com/Rad-Thad/galleon/issues/36):
 
 16. **4:3 and single-screen patches for every system that isn't 4:3**, in the owner's words: "doing extensive research for all non 4:3 systems and finding patches, even single screen patches for 3ds and ds titles. Add it to the todo list next to the shader task". The owner did this by hand for PSP on 2026-10-08: 4:3 cheats for 90 of their 1,291 PSP games, in both standalone PPSSPP and RetroArch's ppsspp core (the files and how they were made are in #36). Those files are the owner's settings and must keep their effect. Scheduled in M7 next to the shader work: M7-14 (research), M7-15 (PSP), M7-16 (every other system), M7-17 (the acceptance look-over).
 
+Added 2026-10-09, in [#78](https://github.com/Rad-Thad/galleon/issues/78):
+
+17. **HD texture packs, downloaded on demand**, in the owner's words: "can you do some research on games in my collection that have HD texture packs and install them. [...] We should look into maybe supporting HD texture packs in galleon", and "what would the scope be of hosting these packs on a server somewhere and downloading them on demand? as a feature of galleon?" On 2026-10-09 HD packs for 48 games (PSP, GameCube, PS2, PS1 and Dreamcast) were installed by hand on the SD card and linked into every emulator's texture folder, with the emulators' texture settings turned on (the folders, links and settings are in #78). Those packs, links and settings are the owner's and must keep working. Packs come from the owner's private mirror on their home server, never from anywhere public. Scheduled in M7 next to the aspect work: M7-18 (research and the catalog format, seeded from `docs/emulator-tuning/textures-seed.json`), M7-19 (the mirror tool), M7-20 (the game-page badge), M7-21 (install and removal with the game), M7-22 (loading and resolution per game), M7-23 (the acceptance look-over).
+
 ## Process constraints
 
 13. **The tester only tests.** Development runs autonomously in a Claude Code cloud session from a **public GitHub repo**, set-and-forget style.

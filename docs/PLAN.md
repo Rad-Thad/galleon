@@ -524,6 +524,7 @@ Each milestone lists its goal, its tasks in order (feature ids; details and acce
    - an A/B plan per system for the acceptance session, and the defaults until then
    - start from the Argosy fork's prior choices, which the owner now overrides for modern systems
    - beside it, **M7-14** researches `docs/emulator-tuning/ASPECT.md`: 4:3 patches and settings for every system that isn't 4:3, and single-screen DS and 3DS (REQ-16)
+   - and **M7-18** researches `docs/emulator-tuning/TEXTURES.md`: HD texture packs per emulator and the pack catalog format, starting from `textures-seed.json` (REQ-17)
 2. **M7-02** Launcher-owned config overlays (`--appendconfig`, Dolphin `-C`, Flycast `-config`, ini journals).
 3. Per system, each with a device check (shader loaded, full speed, layout):
    - **M7-03** SNES and GBA (RetroArch; covers PARITY-36 built-in emulation features)
@@ -534,7 +535,8 @@ Each milestone lists its goal, its tasks in order (feature ids; details and acce
    - **M7-08** Dreamcast
    - **M7-09** DS
    - **M7-15** PSP 4:3 patches, adopting the owner's hand-made ones; **M7-16** aspect and single-screen patches for every other system
-4. **M7-10** 60 fps pacing on 120 Hz. **M7-11** Truthful settings and shader errors. **M7-12** Controls (feel, in the acceptance session). **M7-13** Shader picks (in the acceptance session). **M7-17** 4:3 and single-screen look-over (in the acceptance session).
+   - HD texture packs from the owner's private mirror (REQ-17): **M7-19** the mirror tool; **M7-20** the game-page badge; **M7-21** the pack installed and removed with the game, adopting the owner's hand-installed packs; **M7-22** texture loading and resolution per game
+4. **M7-10** 60 fps pacing on 120 Hz. **M7-11** Truthful settings and shader errors. **M7-12** Controls (feel, in the acceptance session). **M7-13** Shader picks (in the acceptance session). **M7-17** 4:3 and single-screen look-over (in the acceptance session). **M7-23** HD texture look-over (in the acceptance session).
 
 **Verified by:** config snapshot tests in CI; device checks for what can be measured (shader compiled, speed, pacing, layout); the owner's eyes and hands for the final shader picks and button feel.
 
@@ -542,9 +544,10 @@ Each milestone lists its goal, its tasks in order (feature ids; details and acce
 
 - Shader cost under Balanced. Measure with the device bridge, and offer lighter variants.
 - GPL shader licences. Never bundle them.
+- Texture packs are third-party work. Never bundle, cache or mirror them anywhere public, CI artifacts and release assets included; the repo carries only the catalog format, the tool, upstream links and checksums.
 - Editing users' configs. Use overlays and journals only; on the device, sandboxes.
 
-**Exit gate:** every M7 device feature passes; M7-12, M7-13 and M7-17 are READY-FOR-ACCEPTANCE.
+**Exit gate:** every M7 device feature passes; M7-12, M7-13, M7-17 and M7-23 are READY-FOR-ACCEPTANCE.
 
 ### M8: Polish, the acceptance session, stable release, distribution
 

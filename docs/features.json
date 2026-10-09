@@ -2365,6 +2365,97 @@
     "passes": false
   },
   {
+    "id": "M7-18",
+    "milestone": "M7",
+    "title": "Research: HD texture packs per emulator, and the pack catalog format",
+    "description": "Produce `docs/emulator-tuning/TEXTURES.md`, the companion to SHADERS.md and ASPECT.md. For each emulator Galleon launches that supports texture replacement it covers the standalone builds and the RetroArch cores: PPSSPP, Dolphin, ARMSX2/PCSX2, DuckStation, Flycast, plus any others in systems.ts. Document: the folder layout and the game-ID scheme; the image formats accepted and what the Adreno 740 under Turnip can sample directly (for example BC7 DDS); the settings keys; preload versus async loading and the RAM each costs; multi-disc rules; and a dump-then-replace round trip usable for device checks. Measure or cite the cost of the internal-resolution raise a pack needs, on the Balanced and Performance profiles. Define the catalog schema (JSON Schema): pack key, system, layout, game ids, upstream sources, licence and redistribution terms, quality notes (hand-made or AI-upscaled), archive size, unpacked size, file count, sha256, and per-game settings hints such as resolution and preload policy. Start from `docs/emulator-tuning/textures-seed.json` (48 popular packs that were installed and checked by hand). Extend it from public sources with the free packs per system, giving the region and serial each pack targets.",
+    "source": ["REQ-17", "REQ-11", "ISSUE-78", "RESEARCH"],
+    "acceptance": [
+      "Every texture-capable emulator and core in systems.ts has an entry with layout, id scheme, settings keys, loading modes and RAM guidance, and confidence H/M/L.",
+      "Every claim cites a source (emulator source at a commit, official docs, the pack's own page).",
+      "The catalog schema is committed with valid and invalid fixtures, and the seed validates against it.",
+      "Each catalog entry records the pack's licence or redistribution terms; packs whose authors forbid rehosting are flagged for owner-mirror-only use.",
+      "An independent evaluator challenge pass is attached."
+    ],
+    "verification": "ci",
+    "depends_on": ["M1-23"],
+    "passes": false
+  },
+  {
+    "id": "M7-19",
+    "milestone": "M7",
+    "title": "Texture mirror tool: fetch, unpack, normalise and catalog packs on the owner's server",
+    "description": "`tools/texture-mirror/` is a CLI that the owner's helper runs on the home server; the agent never runs it against real packs. The tool: fetches each catalog pack from upstream (plain HTTP with resume, GitHub archives, Google Drive, MEGA one job at a time, GameBanana), and treats a size or checksum mismatch as a failure even when the downloader exits 0. It unpacks with libarchive (including RAR5 with the newer compression method) and 7z, and normalises each pack to its emulator layout using the rules in the issue, with per-pack overrides. It repacks each pack into one archive in the format M7-18 chose, records sha256, sizes and file count, and writes `catalog.json`. It is idempotent and resumable, never uploads anything, and keeps no server address in the repo. A `check-links` mode lets a scheduled workflow check the public seed's upstream links with HEAD requests only.",
+    "source": ["REQ-17", "REQ-11", "ISSUE-78"],
+    "acceptance": [
+      "Unit tests with synthetic fixture archives for every layout rule: textures.ini at the root and nested, a Dolphin pack with no ID folder (override), a 3-character Dolphin ID, PCSX2 and DuckStation packs missing `replacements/`, a Flycast product-number folder, and a RAR5 fixture.",
+      "End-to-end test against a local fake upstream: catalog.json validates against the M7-18 schema, checksums match, and a second run downloads nothing.",
+      "The link-check workflow never stores pack contents in artifacts or caches (asserted in the workflow test)."
+    ],
+    "verification": "ci",
+    "depends_on": ["M7-18"],
+    "passes": false
+  },
+  {
+    "id": "M7-20",
+    "milestone": "M7",
+    "title": "HD textures shown on the game page when the owner's mirror has a pack",
+    "description": "Settings get an optional texture mirror address, with optional credentials stored the same way as the RomM server's and a connection test. With nothing set, no texture UI appears. Galleon fetches and caches `catalog.json` and matches games by their game ID: PSP `UMD_DATA.BIN`/`PARAM.SFO`; GameCube header bytes 0–5; PS2 and PS1 `SYSTEM.CNF`; Dreamcast `IP.BIN`. IDs are read with capped Range reads from RomM (read-only), cached per ROM, with the Redump DAT as fallback. The game page shows an 'HD textures' badge with the pack size and the emulators it works with.",
+    "source": ["REQ-17", "REQ-11", "ISSUE-78"],
+    "acceptance": [
+      "ID-reader unit tests on fixtures for each system, including multi-disc PS1.",
+      "Catalog parsing and matching tests, including multi-id packs and the 3-character Dolphin prefix.",
+      "Agent screenshot at 1280x960 of a game page with the badge, against a fake mirror in Docker, and of the same page with no mirror configured.",
+      "The mirror address and credentials are redacted from logs and diagnostics reports (test)."
+    ],
+    "verification": "agent-screenshot",
+    "depends_on": ["M7-19", "M4-13"],
+    "passes": false
+  },
+  {
+    "id": "M7-21",
+    "milestone": "M7",
+    "title": "Texture packs installed with the game and removed with it",
+    "description": "When a game with a pack is downloaded (and the per-game or global 'HD textures' switch is on), its pack is queued right after it in the same queue, with progress, speed, cancel and resume. The pack is checksum-verified and unpacked under a textures root on the library's volume (the SD card by default), then linked into the texture folder of every installed emulator for that system (the table in the issue lists the folders). A pack shared by several ids, such as a multi-disc game, is linked under each id. The pack is removed with the game unless another installed game still uses it, and its size counts in 'On device'. Adopt the owner's hand-installed packs: existing `Textures/<system>/<id>` folders and their links count as installed, and are never deleted or relinked unless the player removes them through Galleon.",
+    "source": ["REQ-17", "REQ-11", "ISSUE-78"],
+    "acceptance": [
+      "Unit tests: link planning per emulator, reference counting on removal, a checksum failure leaves nothing behind, and an existing folder or link at a target is never replaced.",
+      "Device check `textures.install`: a small synthetic pack served from a fake mirror inside the test home is installed for the bundled homebrew payload; links appear in every installed emulator's folder; free space drops by the unpacked size; removal restores it.",
+      "The same device check snapshots the owner's `Textures/` tree and every link (count and readlink) before and after; they are unchanged."
+    ],
+    "verification": "device",
+    "depends_on": ["M7-20", "M1-18", "M1-10", "M6-02", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M7-22",
+    "milestone": "M7",
+    "title": "Texture loading and resolution set per game at launch",
+    "description": "For games with an installed pack, M7-02's overlays turn on texture loading in the emulator that launches: async loading with no preload above the M7-18 threshold; for DuckStation, the texture cache it requires; and the internal-resolution raise M7-18 measured as affordable. Each change is listed on the game page and can be switched off per game. The owner's existing global settings listed in the issue are the user's own and win.",
+    "source": ["REQ-17", "REQ-11", "ISSUE-78"],
+    "acceptance": [
+      "Config snapshot tests per emulator and core.",
+      "Device check `textures.load`, per emulator where dumping is supported: dump a texture from the homebrew payload, recolour it, enable replacement through the overlay, and the screenshot differs in the expected region. For PPSSPP, the log line `[TexReplacement] Texture pack activated` is accepted instead.",
+      "Frame-time capture on Balanced for one GameCube and one PS2 game with packs. The game is read via GET into a scratch folder that is removed afterwards. The result is recorded against M7-18's budget."
+    ],
+    "verification": "device",
+    "depends_on": ["M7-21", "M7-02", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M7-23",
+    "milestone": "M7",
+    "title": "HD texture look-over in the acceptance session",
+    "description": "In the final acceptance session, beside the shader and aspect rounds, play one game with a pack per system. Confirm the HD textures show, loading doesn't stutter, and the per-game switch works. The owner picks the default per system (on or off) and the resolution raise.",
+    "source": ["REQ-17"],
+    "acceptance": [
+      "Acceptance session: for each system with packs, one game shows HD textures without loading stutter, the switch turns them off, and the owner's per-system defaults are recorded."
+    ],
+    "verification": "acceptance",
+    "depends_on": ["M7-22"],
+    "passes": false
+  },
+  {
     "id": "M8-01",
     "milestone": "M8",
     "title": "Version 1.0 criteria and the first stable release",
