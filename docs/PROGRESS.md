@@ -506,3 +506,19 @@ Lines the tooling reads (exact forms):
 - Evaluator: see the PR.
 - Device / acceptance: none (`ci`).
 - Next: M0-18 part 2 (features-check holds a pull request to a PROGRESS.md entry dated within its lifetime), then M0-05 part 2. A later change could have the licence guard (M0-20) also refuse `SPDX-License-Identifier: GPL-…` lines; the evaluator noted it as optional on #49.
+
+## 2026-10-09 08:54 UTC session cloud (routine run, fourth unit)
+
+- Device results: none new (as above).
+- Worked on: M0-18 part 2 of 2 (tracking issue #52). Part 1, PR #51, merged at a7a455d; its CI wall time was x64 3:49, arm64 2:57.
+- Result: PR (this one). Flips M0-18 (`ci`).
+- Evidence:
+  - Line 1 (every merged PR carries `Evaluator: PASS` and `Feature:`): #47, #49 and #51 do, and the body step from #51 now enforces `Feature:` on every PR after them.
+  - Line 2 (the template, and CI failing a body without `Feature:`): #51.
+  - Line 3 (one PROGRESS.md entry per session): features-check's new `progressEntryErrors`. On pull requests CI passes `--opened <created_at> --author <login>`, and features-check fails unless the PR adds a `## YYYY-MM-DD HH:MM UTC session` heading dated from `PROGRESS_GRACE_HOURS` before the PR opened up to the check. The entry is written in the session that opens the PR, just before opening it. Dependabot is exempt. Tests in `scripts/agent/features-check.test.ts`: an entry minutes before opening passes; none, one from too early, and one dated after the check each fail; the template heading and a date-like bullet do not count; the CLI run with `--opened` on a repo whose entries carry no heading exits 1.
+  - Line 4 (CI wall time per leg from `ci-times.mjs <pr>`): #51, and this entry's figures came from it.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none (`ci`).
+- Next: M0-05 part 2 (`smoke:app` on arm64, image digests, the red-check proof), then flip M0-05.

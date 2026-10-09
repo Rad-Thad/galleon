@@ -279,6 +279,44 @@ export function forbiddenNames(files) {
   )
 }
 
+/**
+ * How long before a pull request opens its PROGRESS.md entry may be dated. The
+ * entry is written in the session that opens the pull request, before it does,
+ * and a session is as long as the concurrency lock lets one run (CLAUDE.md).
+ */
+export const PROGRESS_GRACE_HOURS = 3
+
+/** Authors whose pull requests nobody here writes, and so carry no entry. */
+const GENERATED_AUTHORS = new Set(['dependabot[bot]'])
+
+const ENTRY_HEADING = /^## (\d{4}-\d{2}-\d{2}) (\d{2}):(\d{2}) UTC session /
+
+/**
+ * A pull request appends a PROGRESS.md entry dated within its lifetime: from
+ * the session that opened it until the check runs (M0-18). `added` is what it
+ * added to the file; `opened` and `now` are ISO timestamps.
+ */
+export function progressEntryErrors(added, { opened, now, author }) {
+  if (GENERATED_AUTHORS.has(author)) return []
+  const earliest = Date.parse(opened) - PROGRESS_GRACE_HOURS * 3_600_000
+  // Headings are written to the minute, so the minute being checked counts.
+  const latest = Date.parse(now) + 60_000
+  const dates = added
+    .split('\n')
+    .map((line) => ENTRY_HEADING.exec(line))
+    .filter(Boolean)
+    .map(([, day, hour, minute]) => Date.parse(`${day}T${hour}:${minute}:00Z`))
+  if (dates.length === 0)
+    return [
+      'docs/PROGRESS.md gains no "## <YYYY-MM-DD HH:MM> UTC session" entry in this pull request'
+    ]
+  if (!dates.some((date) => date >= earliest && date <= latest))
+    return [
+      `no PROGRESS.md entry this pull request adds is dated between ${new Date(earliest).toISOString()} and ${new Date(now).toISOString()}`
+    ]
+  return []
+}
+
 /** Lines of `after` that `before` does not have: what an append-only file gained. */
 export function addedLines(before, after) {
   const left = new Map()
@@ -313,7 +351,9 @@ function showJson(ref, path) {
 
 /**
  * `--base <ref>` compares against that ref (CI passes the pull request's base
- * branch, fetched); with no base only the list itself is checked.
+ * branch, fetched); with no base only the list itself is checked. With
+ * `--opened <iso>` (and `--author <login>`), CI also holds the pull request to
+ * a PROGRESS.md entry of its own.
  */
 function main(argv) {
   const root = new URL('../../', import.meta.url)
@@ -337,6 +377,18 @@ function main(argv) {
     if (!before) errors.push(`cannot read docs/features.json at ${base}`)
     const { errors: changes, flipped } = compare(before ?? [], head)
     errors.push(...changes)
+    const progress = addedLines(
+      tryGit('show', `${base}:docs/PROGRESS.md`) ?? '',
+      readFileSync(new URL('docs/PROGRESS.md', root), 'utf8')
+    )
+    if (argv.includes('--opened'))
+      errors.push(
+        ...progressEntryErrors(progress, {
+          opened: argv[argv.indexOf('--opened') + 1],
+          now: new Date().toISOString(),
+          author: argv.includes('--author') ? argv[argv.indexOf('--author') + 1] : undefined
+        })
+      )
     if (flipped.length > 0) {
       const results = 'refs/remotes/origin/device-results'
       if (flipped.some((feature) => feature.verification !== 'ci')) {
@@ -345,10 +397,6 @@ function main(argv) {
         if (git('rev-parse', '--is-shallow-repository').trim() === 'true')
           tryGit('fetch', '--no-tags', '--unshallow', 'origin')
       }
-      const progress = addedLines(
-        tryGit('show', `${base}:docs/PROGRESS.md`) ?? '',
-        readFileSync(new URL('docs/PROGRESS.md', root), 'utf8')
-      )
       errors.push(
         ...flipErrors(flipped, {
           progress,

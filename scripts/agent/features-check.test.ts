@@ -19,6 +19,8 @@ import {
   compare,
   flipErrors,
   forbiddenNames,
+  PROGRESS_GRACE_HOURS,
+  progressEntryErrors,
   REQUIRED_SOURCES,
   validate
 } from './features-check.mjs'
@@ -233,5 +235,48 @@ describe('the command, against a repository', () => {
     )
     assert.equal(lost.status, 1, 'a base it cannot read is not a list with nothing in it')
     assert.match(String(lost.stderr), /cannot read docs\/features\.json at no-such-ref/)
+
+    // As CI runs it on a pull request: the entries above carry no dated
+    // heading, so the pull request has not written its own.
+    const undated = spawnSync(
+      process.execPath,
+      ['scripts/agent/features-check.mjs', '--base', 'base', '--opened', new Date().toISOString()],
+      { cwd: dir, encoding: 'utf8' }
+    )
+    assert.equal(undated.status, 1)
+    assert.match(String(undated.stderr), /gains no "## <YYYY-MM-DD HH:MM> UTC session" entry/)
+  })
+})
+
+describe('every pull request writes its own PROGRESS entry', () => {
+  const opened = '2026-10-09T08:48:00Z'
+  const now = '2026-10-09T09:30:00Z'
+  const entry = (stamp: string) =>
+    `\n## ${stamp} UTC session cloud (routine run)\n\n- Worked on: M0-18\n`
+
+  test('an entry written in the session that opened it passes', () => {
+    assert.deepEqual(progressEntryErrors(entry('2026-10-09 08:47'), { opened, now }), [])
+    assert.deepEqual(progressEntryErrors(entry('2026-10-09 09:30'), { opened, now }), [])
+  })
+
+  test('no entry, or only one from another time, fails', () => {
+    assert.match(progressEntryErrors('- a bullet\n', { opened, now })[0], /gains no/)
+    const stale = `2026-10-09 ${String(8 - PROGRESS_GRACE_HOURS - 1).padStart(2, '0')}:00`
+    assert.match(progressEntryErrors(entry(stale), { opened, now })[0], /no PROGRESS.md entry/)
+    assert.match(
+      progressEntryErrors(entry('2026-10-09 09:45'), { opened, now })[0],
+      /no PROGRESS.md entry/,
+      'an entry dated after the check is not one written yet'
+    )
+  })
+
+  test('the template heading and a bullet that looks like a date do not count', () => {
+    const template =
+      '## <YYYY-MM-DD HH:MM UTC> session local (interactive)\n- 2026-10-09 08:50 UTC session\n'
+    assert.match(progressEntryErrors(template, { opened, now })[0], /gains no/)
+  })
+
+  test("Dependabot's pull requests carry none", () => {
+    assert.deepEqual(progressEntryErrors('', { opened, now, author: 'dependabot[bot]' }), [])
   })
 })

@@ -25,3 +25,8 @@ export function flipErrors(flipped: readonly Feature[], evidence: Evidence): str
 export function addedLines(before: string, after: string): string
 export const FORBIDDEN_IN_GITHUB: string[]
 export function forbiddenNames(files: readonly { path: string; text: string }[]): string[]
+export const PROGRESS_GRACE_HOURS: number
+export function progressEntryErrors(
+  added: string,
+  context: { opened: string; now: string; author?: string }
+): string[]
