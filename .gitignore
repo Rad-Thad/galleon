@@ -7,3 +7,4 @@ dist/
 .DS_Store
 test/app/failures/
 test/romm/.state/
+test/romm/library/

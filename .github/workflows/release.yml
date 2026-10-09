@@ -151,6 +151,7 @@ jobs:
         env:
           PROFILES: ${{ steps.changes.outputs.romm_profiles }}
         run: |
+          node test/romm/make-library.mjs
           for profile in $PROFILES; do
             echo "::group::RomM $profile"
             start=$SECONDS
@@ -160,7 +161,7 @@ jobs:
               exit 1
             fi
             echo "RomM $profile provisioned in $((SECONDS - start))s"
-            ROMM_PROFILE="$profile" npm run test:romm-pairing
+            ROMM_PROFILE="$profile" npm run test:romm-real
             echo "::endgroup::"
           done
 
