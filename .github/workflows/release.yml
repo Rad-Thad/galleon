@@ -265,7 +265,22 @@ jobs:
       # size the suite needs — see scripts/test-app.sh — so this job runs the
       # same line a contributor does.
       - run: sudo apt-get update && sudo apt-get install -y xvfb
-      - run: npm run test:app
+      - if: matrix.arch == 'x64'
+        run: npm run test:app
+
+      # The arm64 leg proves the image the Nova gets rather than the code, which
+      # x64 has just driven: the AppImage's own tree starts, reaches Home against
+      # the fake server and quits — see test/app/smoke.ts. Extracted first so
+      # its Chromium sandbox helper can be made setuid root, the same fix as
+      # the one above for the development Electron.
+      - name: Smoke-test the package
+        if: matrix.arch == 'arm64' && steps.changes.outputs.package == 'true'
+        run: |
+          work=$(mktemp -d)
+          (cd "$work" && "$GITHUB_WORKSPACE/dist/Galleon-arm64.AppImage" --appimage-extract >/dev/null)
+          sudo chown root:root "$work/squashfs-root/chrome-sandbox"
+          sudo chmod 4755 "$work/squashfs-root/chrome-sandbox"
+          GALLEON_APPIMAGE="$work/squashfs-root/AppRun" npm run smoke:app
 
       # Every screen a pull request touches, at the Nova's 1280x960, for the
       # agent and the evaluator to look at — see test/app/shots.ts. Once, on

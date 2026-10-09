@@ -227,6 +227,15 @@ export interface App {
   /** What the window shows now, as a PNG. */
   screenshot: () => Promise<Buffer>
   home: string
+  /**
+   * Quit the way a player does, through the application's own quit, and wait
+   * for the process to be gone.
+   *
+   * `stop` ends it from outside, which proves nothing about quitting; a smoke
+   * test of a package needs the application to close itself and the AppImage
+   * runtime to follow it out.
+   */
+  quit: (timeoutMs: number) => Promise<void>
   stop: () => Promise<void>
 }
 
@@ -336,6 +345,13 @@ export interface StartOptions {
    * same one each time.
    */
   home?: string
+  /**
+   * A packaged build to run in place of `out/` under the development Electron:
+   * the AppImage, for `npm run smoke:app`. It is started the way
+   * packaging/rommix-steam.sh starts it on the device, extracted rather than
+   * mounted, so a runner without FUSE runs it too.
+   */
+  executable?: string
 }
 
 /** How long the stand-in emulator stays up. See `standInEmulator`. */
@@ -579,10 +595,17 @@ export async function startApp(options: StartOptions): Promise<App> {
 
   // Port 0 asks the operating system to choose, which is what lets several of
   // these run at once; the debugger prints the one it took on stderr.
-  const child: ChildProcess = spawn(electronBinary(), ['.', '--remote-debugging-port=0'], {
+  const program = options.executable ?? electronBinary()
+  const args = options.executable ? [] : ['.']
+  const child: ChildProcess = spawn(program, [...args, '--remote-debugging-port=0'], {
     stdio: ['ignore', 'pipe', 'pipe'],
+    // A group of its own when it is an AppImage: the runtime forks Electron
+    // rather than becoming it, so a signal to the runtime alone leaves Electron
+    // running with the output pipes open and the run never ends. See `signal`.
+    detached: Boolean(options.executable),
     env: {
       ...process.env,
+      ...(options.executable ? { APPIMAGE_EXTRACT_AND_RUN: '1' } : {}),
       GALLEON_HOME: home,
       /**
        * Electron's profile too, not only RomMix's own root.
@@ -643,7 +666,7 @@ export async function startApp(options: StartOptions): Promise<App> {
       clearTimeout(timer)
       reject(
         new Error(
-          `${electronBinary()} could not be started (${cause.message}). ` +
+          `${program} could not be started (${cause.message}). ` +
             'Run `npx install-electron`, or point ELECTRON_EXEC_PATH at an Electron ' +
             'this machine can execute.'
         )
@@ -678,6 +701,19 @@ export async function startApp(options: StartOptions): Promise<App> {
       throw new Error(`${result.exceptionDetails.text} while evaluating: ${expression}`)
     }
     return result.result?.value as T
+  }
+
+  /** The process this started, and with an AppImage everything in its group. */
+  const signal = (name: NodeJS.Signals): void => {
+    if (options.executable && child.pid !== undefined) {
+      try {
+        process.kill(-child.pid, name)
+      } catch {
+        // The group has already gone.
+      }
+    } else {
+      child.kill(name)
+    }
   }
 
   let shots = 0
@@ -1201,16 +1237,35 @@ export async function startApp(options: StartOptions): Promise<App> {
       return Buffer.from(shot.data, 'base64')
     },
     home,
+    quit: async (timeoutMs) => {
+      const gone = new Promise<void>((resolve, reject) => {
+        if (child.exitCode !== null || child.signalCode !== null) return resolve()
+        const timer = setTimeout(
+          () => reject(new Error(`the application was still running ${timeoutMs} ms after quit`)),
+          timeoutMs
+        )
+        child.once('exit', () => {
+          clearTimeout(timer)
+          resolve()
+        })
+      })
+      // Not awaited: the page goes away with the process, and the answer with it.
+      void read('window.rommix.system.quit()').catch(() => undefined)
+      await gone
+      session.close()
+    },
     stop: async () => {
       session.close()
-      child.kill('SIGTERM')
+      const running = child.exitCode === null && child.signalCode === null
+      if (running) signal('SIGTERM')
       await new Promise((resolve) => {
+        if (!running) return resolve(null)
         // Cleared on a clean exit. Left running, every `stop` held the event
         // loop open for the whole of its own deadline after the application
         // had already gone — several scenarios per file, and the run waits it
         // out each time.
         const kill = setTimeout(() => {
-          child.kill('SIGKILL')
+          signal('SIGKILL')
           resolve(null)
         }, FORCE_KILL_MS)
         child.once('exit', () => {
