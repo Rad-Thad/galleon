@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { startApp, type App } from './driver.ts'
 import { startScenario } from './harness.ts'
+import { layoutOffenders, MEASURE_LAYOUT, type Layout } from './layout.ts'
 import { startFakeRomm } from './server.ts'
 
 /**
@@ -14,6 +15,10 @@ import { startFakeRomm } from './server.ts'
  * the focus engine rather than by a call into the application, so a screen
  * that stops being reachable fails here instead of being photographed from a
  * back door.
+ *
+ * Each picture is also measured: a control outside the window, cut off, or
+ * drawn over another fails its screen and is named by its `data-*` handle (see
+ * `layoutOffenders`).
  *
  * `npm run shots:nova` runs this; `-- --subset pr` takes the screens a pull
  * request needs, the full set being the nightly's.
@@ -71,6 +76,10 @@ async function shoot(app: App, name: string): Promise<void> {
     `new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => done(true))))`
   )
   writeFileSync(join(OUT, `${name}.png`), await app.screenshot())
+  // After the picture, so a screen that does not fit can still be looked at.
+  const offenders = layoutOffenders(await app.read<Layout>(MEASURE_LAYOUT))
+  if (offenders.length > 0)
+    throw new Error(`does not fit ${NOVA.width}x${NOVA.height}:\n    ${offenders.join('\n    ')}`)
   taken.push({ name })
   console.log(`  ${name}.png`)
 }
