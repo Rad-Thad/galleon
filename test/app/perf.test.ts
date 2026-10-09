@@ -20,10 +20,16 @@ const GAMES = 1300
 /** What the overlay may add to a frame's main-thread work, at most. */
 const COST_BUDGET_MS = 0.3
 /**
- * How long each side of the cost comparison is measured for. Long enough that
- * one garbage collection spread over it is well under the budget.
+ * How many times the overlay's cost is measured, each time as one window off
+ * and the next on. Odd, so the median is one round's figure; enough that the
+ * median ignores a round another process on the machine slowed.
  */
-const COST_WINDOW_MS = 5000
+const COST_ROUNDS = 5
+/**
+ * How long each side of one round is measured for. Long enough that one
+ * garbage collection spread over it is well under the budget.
+ */
+const COST_WINDOW_MS = 2000
 /** How long the scripted scroll runs. */
 const SCROLL_MS = 30_000
 /**
@@ -76,6 +82,28 @@ async function msPerFrame(): Promise<number> {
   return ((end.TaskDuration - start.TaskDuration) * 1000) / drawn
 }
 
+/** Holds the chord that shows or hides the overlay, and waits until it has. */
+async function toggleOverlay(): Promise<void> {
+  const shown = await app.read<boolean>(`!!document.querySelector('[data-perf-overlay]')`)
+  await pad.hold(L3)
+  await pad.hold(R3)
+  await sleep(CHORD_HOLD_MS)
+  await pad.release(L3)
+  await pad.release(R3)
+  if (shown)
+    await app.waitFor(`!document.querySelector('[data-perf-overlay]')`, 'the overlay to go')
+  else
+    await app.waitFor(
+      `document.querySelector('[data-perf-overlay]')?.textContent.includes('p99')`,
+      'the overlay to measure'
+    )
+}
+
+/** The middle value of an odd number of them. */
+function median(values: number[]): number {
+  return [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)]
+}
+
 /** Every `perf summary` app.log holds for a screen, oldest first. */
 function summaries(screen: string): Record<string, unknown>[] {
   return readFileSync(logPath, 'utf8')
@@ -106,23 +134,25 @@ describe(`the performance overlay on a ${GAMES}-game platform`, () => {
       `(() => { window.__frames = 0; const count = () => { window.__frames += 1; requestAnimationFrame(count) }; requestAnimationFrame(count); return true })()`
     )
     assert.equal(await app.read<boolean>(`!!document.querySelector('.perf-overlay')`), false)
-    const off = await msPerFrame()
 
-    await pad.hold(L3)
-    await pad.hold(R3)
-    await sleep(CHORD_HOLD_MS)
-    await pad.release(L3)
-    await pad.release(R3)
-    await app.waitFor(
-      `document.querySelector('[data-perf-overlay]')?.textContent.includes('p99')`,
-      'the overlay to measure'
-    )
-    const on = await msPerFrame()
+    // Off and on alternate, and each round's on is compared with the off just
+    // before it, so load from elsewhere on the machine lands on both sides of a
+    // round or spoils that round alone. The rounds end with the overlay on.
+    const rounds: { off: number; on: number }[] = []
+    for (let round = 0; round < COST_ROUNDS; round += 1) {
+      if (round > 0) await toggleOverlay()
+      const off = await msPerFrame()
+      await toggleOverlay()
+      rounds.push({ off, on: await msPerFrame() })
+    }
 
-    console.log(`overlay cost: off ${off.toFixed(3)} ms/frame, on ${on.toFixed(3)} ms/frame`)
+    const costs = rounds.map(({ off, on }) => on - off)
+    const cost = median(costs)
+    const shown = rounds.map(({ off, on }) => `off ${off.toFixed(3)} on ${on.toFixed(3)}`)
+    console.log(`overlay cost: ${cost.toFixed(3)} ms/frame (${shown.join('; ')})`)
     assert.ok(
-      on - off < COST_BUDGET_MS,
-      `the overlay added ${(on - off).toFixed(3)} ms per frame (off ${off.toFixed(3)}, on ${on.toFixed(3)})`
+      cost < COST_BUDGET_MS,
+      `the overlay added ${cost.toFixed(3)} ms per frame, the median of ${costs.map((one) => one.toFixed(3)).join(', ')}`
     )
   })
 

@@ -1006,3 +1006,18 @@ Lines the tooling reads (exact forms):
 - Evaluator: see the PR.
 - Device / acceptance: none (`agent-screenshot`).
 - Next: `next.mjs`'s first feature (M1-15, or M2-01 the save-sync spec).
+
+## 2026-10-09 22:26 UTC session 47b946e9 (routine run)
+
+- Device results: none new. The bridge last checked in at 20:06 UTC (no new nightly).
+- Worked on: flaky issue #103, `test/app/perf.test.ts` "costs under 0.3 ms of main-thread work per frame". M1-26, PR #102, merged at e83709e; its CI wall time was x64 5:35, arm64 1:00. M1-26 passes; #101 closed.
+- Result: PR (this one). Root-cause fix for #103; no feature flag changes.
+- Evidence:
+  - Cause: the test took one 5 s window with the overlay off, then one with it on, and compared the two. Load from another process during one window and not the other moves that single difference by more than the budget. On the VM, with no other load, single windows on the same setting differ by up to 0.25 ms (off 0.585 next to off 0.33). Under bursty load (8 busy loops on 4 cores, on and off), one round's off-to-on difference moved by 0.475 ms.
+  - Fix: `COST_ROUNDS` rounds, each an off window followed by an on window (`COST_WINDOW_MS` each), with the overlay toggled by the real L3+R3 chord between them (`toggleOverlay`). The test compares the median of the per-round differences with the unchanged `COST_BUDGET_MS`. The rounds end with the overlay on, which the scroll test after it needs for its summary.
+  - Runs: under the bursty load, the median was -0.024 ms (rounds: off 0.401 on 0.376; off 0.491 on 0.369; off 0.315 on 0.464; off 0.836 on 0.361; off 0.399 on 0.403), so the round that load spoiled did not decide the result. Unloaded, the median was 0.036 ms. The cost test takes 44.6 s, up from about 13 s; the x64 leg stays well inside 10 minutes.
+  - `scripts/agent/check.sh` green: 1600 tests, coverage 96.29 / 93.77 / 95.98.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none.
+- Next: `next.mjs`'s first feature that does not wait on the device (M1-15, or M2-01 the save-sync spec).
