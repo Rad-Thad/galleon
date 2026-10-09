@@ -129,11 +129,14 @@ export function launches(appLog: string): string[] {
   })
 }
 
-/** The last `PERF_SUMMARIES` per-screen frame summaries from the app log. */
+/**
+ * The last `PERF_SUMMARIES` per-screen frame summaries from the app log: the
+ * `perf` area's `summary` lines, as `system:perfSummary` writes them.
+ */
 export function perfSummaries(appLog: string): string[] {
   return appLog
     .split('\n')
-    .filter((line) => line.includes(' perf summary '))
+    .filter((line) => area(line) === 'perf' && /^\S+ \S+\s+perf\s+summary\b/.test(line))
     .slice(-PERF_SUMMARIES)
 }
 

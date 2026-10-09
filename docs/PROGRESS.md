@@ -752,3 +752,19 @@ Lines the tooling reads (exact forms):
 - Evaluator: see the PR.
 - Device / acceptance: none.
 - Next: M0-11 part 2.
+
+## 2026-10-09 16:52 UTC session 4199a15f (routine run, second unit)
+
+- Device results: none new.
+- Worked on: M0-11 part 2a (tracking issue #75): the main-process side of Report a problem. Part 1, PR #76, merged at e99093e; its CI wall time was x64 4:37, arm64 0:52.
+- Result: PR (this one). M0-11 stays false: the pad-driven test:app scenario (line 4) needs the Settings and quit-dialog entries, which are part 2b.
+- Evidence:
+  - Part 1 bug, test first: `perfSummaries` looked for `perf summary`, but `system:perfSummary` writes area `perf`, message `summary`, padded into columns, so no summary would ever have reached a report. `report.test.ts` now writes the line in the log's real shape; with the old matcher it failed 2 tests ("the report carries its parts…", "perf summaries are picked from the log in the shape the log writes them"), with the fix 9/9.
+  - `src/main/ipc/system.ts`: the pre-flight check is a function `preflight` shared by `system:diagnostics` and the new `system:report`, which calls `writeReport` with versions (app, commit, channel from the updater's status; Electron, Chromium, Node), the stored server for redaction, and sections `preflight` (carries the emulator probes), `power` (`readPowerState`) and `graphics` (Chromium's basic GPU info, which names the Mesa driver, and `gamescope --version`). `src/shared/api.ts` and the preload expose `system.report()`; the preview bridge answers with a path.
+  - `src/main/host.ts` `commandVersion`: the first line a command prints on either stream, null when it is missing, silent or fails. `host.test.ts` "a version is read from whichever stream the command prints it on".
+  - `test/app/interface.test.ts` "a problem report carries that summary, the probes and no server address": in the built app, `system.report()` returns a `reports/<stamp>.zip` path; the zip holds graphics, app log, perf, power, pre-flight and versions, nothing from `config/`; `perf.log` has the library's summary; `preflight.json` has the emulator list; the fake RomM's host:port appears nowhere. Passed under Xvfb (Electron through a `--no-sandbox` wrapper in the scratchpad, as root).
+  - `scripts/agent/check.sh` green: coverage 96.22 / 93.71 / 95.77.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none.
+- Next: M0-11 part 2b: Settings → System "Report a problem" and the quit-dialog entry (four catalogues), the pad-driven test:app scenario, `npm run shots:nova`.
