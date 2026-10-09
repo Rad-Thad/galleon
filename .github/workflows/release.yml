@@ -151,19 +151,9 @@ jobs:
         env:
           PROFILES: ${{ steps.changes.outputs.romm_profiles }}
         run: |
-          node test/romm/make-library.mjs
-          for profile in $PROFILES; do
-            echo "::group::RomM $profile"
-            start=$SECONDS
-            docker compose -f test/romm/compose.yml --profile "$profile" up -d
-            if ! node test/romm/provision.mjs --profile "$profile"; then
-              docker compose -f test/romm/compose.yml --profile "$profile" logs --tail 200
-              exit 1
-            fi
-            echo "RomM $profile provisioned in $((SECONDS - start))s"
-            ROMM_PROFILE="$profile" npm run test:romm-real
-            echo "::endgroup::"
-          done
+          args=()
+          for profile in $PROFILES; do args+=(--profile "$profile"); done
+          npm run test:romm -- "${args[@]}"
 
       # `npm run appimage` is these two together; they are split so that a
       # failing bundle and a failing package are separate red steps. The

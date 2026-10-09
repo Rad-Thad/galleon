@@ -351,3 +351,20 @@ Lines the tooling reads (exact forms):
 - Evaluator: PASS (cause fixed rather than the test weakened; the empty-value assertion kept; no timeout raised; the reproduction above is its).
 - Device / acceptance: none (`ci`).
 - Next: M0-09 (screenshot harness).
+
+## 2026-10-09 01:26 UTC session cloud (routine run)
+
+- Device results: none new. `bridge/status.json` unchanged: bridge version 1, last seen 2026-10-08T15:06:00Z, skipping because no `nightly` release is published yet. No `results/` yet.
+- Worked on: M0-08 part 1 of 2 (tracking issue #33): `npm run test:romm`, and RomMix's client against Docker RomM for listing and downloads. Owner issue #5 waits on M0-24 (its depends_on, M0-05 and M0-13, do not pass yet); M0-08 is the first feature `next.mjs` names. The flaky fix, PR #32, merged at 138eebf.
+- Result: PR (this one).
+- Evidence:
+  - `npm run test:romm` (`test/romm/run.mjs`) builds the library, then for each profile in turn (5.2.0, then 5.3.1, or each `--profile` named) brings the server up, provisions it and runs every `*.real.ts`; a failing version does not stop the next, and the exit code is 1 if any failed (seen on the VM: `test:romm failed on v520, v531` before the fixes below). CI's `Docker RomM` step now calls it.
+  - `client.real.ts` (7 tests) drives `RommClient` with the provisioned token: heartbeat names the version; platforms are the library folder names; paging by 3 covers the whole listing in order with files on every row; `with_files=false` lists the same ids with no files; a single-file ROM whose body ends at 50% (declaring the full length) is picked up with `Range: bytes=170-` and the file's md5 equals `files[].md5_hash`; one disc of a multi-file game downloads through `/api/roms/{file id}/files/content/` and resumes the same way; `GET` on that endpoint serves the file with the right md5, with the HEAD answer in the test name (`HEAD answers 405` on 5.2.0 and on 5.3.1).
+  - `npm run test:romm` on the VM: v520 14/14, v531 14/14, from `down -v` and again on the running servers.
+  - Fixed on the way: `make-library.mjs` removed and re-made the library folder, so a server already running kept a bind mount to the deleted folder and answered 404 for every file. It now empties the folder. `make-library.test.ts` holds a directory handle across a rebuild (fails on the old code, passes on the new).
+  - `profilesFrom` (lib.mjs) tested in `lib.test.ts`.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none (`ci`).
+- Next: M0-08 part 2: firmware, the multi-file download, save and state upload and download, device registration, play sessions, request bodies against `schema/` (needs a 5.3.1 snapshot), then flip M0-08.

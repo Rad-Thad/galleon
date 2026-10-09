@@ -9,6 +9,7 @@ import {
   eventPacket,
   mergeCookies,
   parseArgs,
+  profilesFrom,
   parsePacket,
   splitPackets,
   statePath,
@@ -129,4 +130,15 @@ test('the heartbeat wait names the last failure when it gives up', async () => {
     waitForHeartbeat('http://127.0.0.1:1', { timeoutMs: 1, intervalMs: 1, fetchImpl: refusing }),
     /\(down\)/
   )
+})
+
+test('test:romm runs every profile by default, or the ones named, once each', () => {
+  assert.deepEqual(profilesFrom([]), ['v520', 'v531'])
+  assert.deepEqual(profilesFrom(['--profile', 'v531']), ['v531'])
+  assert.deepEqual(profilesFrom(['--profile', 'v531', '--profile', 'v520', '--profile', 'v531']), [
+    'v531',
+    'v520'
+  ])
+  assert.throws(() => profilesFrom(['--profile', 'v999']), /unknown profile v999/)
+  assert.throws(() => profilesFrom(['--profile']), /unknown argument/)
 })

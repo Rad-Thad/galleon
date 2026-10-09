@@ -43,6 +43,7 @@ export function mergeCookies(
 export function cookieHeader(jar: Record<string, string>): string
 export function basicAuth(credentials: Credentials): string
 export function parseArgs(argv: readonly string[]): { profile: keyof typeof PROFILES }
+export function profilesFrom(argv: readonly string[]): (keyof typeof PROFILES)[]
 export function waitForHeartbeat(
   baseUrl: string,
   options?: { timeoutMs?: number; intervalMs?: number; fetchImpl?: typeof fetch }
