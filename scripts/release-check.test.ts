@@ -116,6 +116,7 @@ describe('cut-release.yml', () => {
     assert.match(verify, /required_reviewers/)
     assert.match(verify, /node scripts\/release-check\.mjs "\$VERSION"/)
     assert.match(verify, /git\/ref\/tags\/v\$VERSION/)
+    assert.match(verify, /grep -q 'HTTP 404'/)
     assert.match(
       cut.get('build') ?? '',
       /needs: verify\n\s+uses: \.\/\.github\/workflows\/release\.yml/

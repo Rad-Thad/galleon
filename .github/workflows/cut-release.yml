@@ -61,14 +61,19 @@ jobs:
           VERSION: ${{ inputs.version }}
         run: node scripts/release-check.mjs "$VERSION"
 
-      # A release is never published over another one's tag.
+      # A release is never published over another one's tag. Only a 404 says
+      # the tag is free: any other failure to ask is a refusal too.
       - name: Check that the tag is free
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ inputs.version }}
         run: |
-          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v$VERSION" >/dev/null 2>&1; then
+          if out=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v$VERSION" 2>&1); then
             echo "::error::v$VERSION is already tagged"
+            exit 1
+          fi
+          if ! grep -q 'HTTP 404' <<<"$out"; then
+            echo "::error::could not tell whether v$VERSION is tagged: $out"
             exit 1
           fi
 
