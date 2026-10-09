@@ -50,6 +50,9 @@ after(async () => {
 describe('signing in for the first time', () => {
   test('it comes up asking for a server rather than showing a library', async () => {
     await app.waitFor(`document.querySelector('[data-screen="setup"]')`, 'the setup screen')
+    // The screen is marked before its form is drawn: it waits for the settings
+    // to choose a page. See `SetupScreen`.
+    await app.waitFor(`document.querySelector('.field__input')`, 'the address field')
 
     // The address is empty, which is the state the button below is disabled by.
     assert.equal(
