@@ -686,3 +686,20 @@ Lines the tooling reads (exact forms):
 - Evaluator: see the PR.
 - Device / acceptance: none yet.
 - Next: M0-10 part 3b, the two test:app measurement scenarios.
+
+## 2026-10-09 15:26 UTC session 6d123f95 (routine run)
+
+- Device results: DEVICE-RESULTS 4c5b675a2df2f21a7a27e94ba97a12699762d222 complete; DEVICE-RESULTS 9390ac87198d706a64e7a96ea2792118406b1e7f complete. Both are the minimal harness ("only harness.run until M0-22"): `harness.run` passed on each, no `safety.*` check ran, so nothing flips (`--apply` printed no PASSES line and changed nothing). `bridge/status.json` still says last seen 2026-10-08T15:06Z: the bridge writes it only when it skips (`maybe_heartbeat`), so a bridge that tests every night looks silent to `--summary`.
+- Worked on: M0-10 part 3b of 3 (tracking issue #66): acceptance lines 1 and 3. Part 3a, PR #69, merged at 9390ac8; its CI wall time was x64 3:41, arm64 1:05.
+- Result: PR (this one). M0-10 stays false: line 4's `/run/armada/perf-state.json` half still waits for that file's real format.
+- Evidence:
+  - `test/app/server.ts`: `startFakeRomm({ bulk })` adds platform `BULK_PLATFORM` (NES) with that many generated games (ids from 10001, with covers), beside the hand-written ones every other scenario names. `startScenario({ server })` passes it through. `test/app/driver.ts`: `app.metrics()` returns Chromium's `Performance.getMetrics` from outside the page.
+  - `test/app/perf.test.ts` "the performance overlay on a 1300-game platform", its own application and server:
+    - Line 1, "costs under 0.3 ms of main-thread work per frame": the library narrowed to the 1,300 games, a frame-counting rAF loop running on both sides, `TaskDuration` per frame over 5 s with the overlay off, then on (L3+R3 held on a pad). Three runs on the VM: off 0.383 / on 0.420, 0.369 / 0.378, 0.351 / 0.383 ms per frame, so the overlay adds 0.01 to 0.04 ms.
+    - Line 3, "a 30 s scroll down the grid logs its summary": D-pad Down held for 30 s on the 1,300-game platform with the overlay on; the grid paged past its first page (asserted from the server's requests); leaving the screen writes `perf summary {"screen":"library","frames":1781,"p50":16.7,"p90":16.7,"p99":33.4,"jankyPct":4.0,...}` to app.log (1787 and 1787 frames on the other two runs).
+  - The whole file takes about 50 s.
+  - `scripts/agent/check.sh` green: coverage 96.17 / 93.67 / 95.77 (no unit code changed). Full `npm run test:app`: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none.
+- Next: `device-results.mjs --summary` should count a published result as the bridge being seen, or the 7-day silence rule fires on a bridge that is testing every night. Then whatever `next.mjs` lists first.

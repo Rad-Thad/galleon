@@ -688,8 +688,22 @@ function serveBytes(req: IncomingMessage, res: ServerResponse, bytes: Buffer): v
   res.end(slice)
 }
 
+export interface FakeRommOptions {
+  /**
+   * Games on one more platform of their own, generated rather than written out.
+   *
+   * A library the size of a real one, for a scenario that measures how the
+   * screens hold up under it; the games every other scenario names stay as
+   * they are beside it. See `BULK_PLATFORM`.
+   */
+  bulk?: number
+}
+
+/** The platform `FakeRommOptions.bulk` fills, by id. */
+export const BULK_PLATFORM = 5
+
 /** Start it on a port the operating system picks, so tests can run at once. */
-export async function startFakeRomm(): Promise<FakeRomm> {
+export async function startFakeRomm(options: FakeRommOptions = {}): Promise<FakeRomm> {
   const asked: Asked[] = []
   const held: { save: RommSave; content: string }[] = []
   /** States this server holds, seeded by `holdState` or left by a push. */
@@ -731,6 +745,16 @@ export async function startFakeRomm(): Promise<FakeRomm> {
     discSet(4, 'Disc Adventure', segacd, 'Disc Adventure'),
     slow
   ]
+  const platforms = [megadrive, gameboy, nintendoSwitch, segacd]
+  if (options.bulk) {
+    const nes = { ...platform(BULK_PLATFORM, 'nes', 'Nintendo Entertainment System') }
+    nes.rom_count = options.bulk
+    nes.fs_size_bytes = options.bulk * ROM_BYTES.length
+    platforms.push(nes)
+    // Ids well clear of the hand-written games, which scenarios name by id.
+    for (let n = 1; n <= options.bulk; n += 1)
+      roms.push(rom(10_000 + n, `Homebrew ${String(n).padStart(4, '0')}`, nes, `homebrew${n}.nes`))
+  }
 
   /**
    * One shelf somebody made, holding games from two different platforms.
@@ -978,8 +1002,7 @@ export async function startFakeRomm(): Promise<FakeRomm> {
       }
 
       if (url.pathname === '/api/users/me') return json(user)
-      if (url.pathname === '/api/platforms')
-        return json([megadrive, gameboy, nintendoSwitch, segacd])
+      if (url.pathname === '/api/platforms') return json(platforms)
       /**
        * The shelves, and the one RomM makes on its own.
        *
@@ -1279,7 +1302,7 @@ export async function startFakeRomm(): Promise<FakeRomm> {
   return {
     baseUrl: `http://127.0.0.1:${port}`,
     asked,
-    platforms: [megadrive, gameboy, nintendoSwitch, segacd],
+    platforms,
     uploaded,
     holdPlaySession: ({ romId, seconds }) => {
       PLAY_SESSIONS.set(romId, [...(PLAY_SESSIONS.get(romId) ?? []), seconds * 1000])
