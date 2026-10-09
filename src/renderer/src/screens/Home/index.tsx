@@ -1,5 +1,6 @@
 import { type JSX, type Ref, useMemo, useState } from 'react'
 import type { RommRom, RomQuery } from '@shared/types'
+import { resolveSystem } from '@config/systems'
 import {
   ArtBackdrop,
   CoverArt,
@@ -259,6 +260,7 @@ function Hero({
 }): JSX.Element {
   const { ref, props } = useFocusable({ onSelect, autoFocus: true })
   const { t } = useI18n()
+  const { settings } = useApp()
   const keyLabel = useKeyLabel()
   const title = rom.name ?? rom.fs_name
   const year = rom.metadatum.first_release_date
@@ -278,7 +280,16 @@ function Hero({
         <h1 className="hero__title">{title}</h1>
         <div className="hero__meta">
           <span className="chip chip--icon">
-            <PlatformIcon slug={rom.platform_slug} size={20} label={rom.platform_display_name} />
+            <PlatformIcon
+              slug={rom.platform_slug}
+              system={resolveSystem(
+                rom.platform_slug,
+                rom.platform_fs_slug,
+                settings?.systemOverrides
+              )}
+              size={20}
+              label={rom.platform_display_name}
+            />
             {rom.platform_display_name}
           </span>
           {/* The same two facts the game's own banner leads with, marked the

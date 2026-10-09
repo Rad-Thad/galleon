@@ -987,3 +987,22 @@ Lines the tooling reads (exact forms):
 - Evaluator: see the PR.
 - Device / acceptance: none (`ci`).
 - Next: `next.mjs`'s first feature after M1-12 (M1-15 or M1-26 need screenshots; M2-01 is the save-sync spec).
+
+## 2026-10-09 21:58 UTC session 4e493a14 (routine run, second unit)
+
+- Device results: none new.
+- Worked on: M1-26 (tracking issue #101): platform icons never show as broken. M1-12, PR #100, merged at 0a33021; its CI wall time was x64 4:34, arm64 0:59. M1-12 passes; #99 closed.
+- Result: PR (this one). PASSES M1-26 (agent-screenshot).
+- Evidence:
+  - Cause: RomM 5.2.0 serves `ngc.svg` and `wiiu.svg` under both icon folders (checked in the pinned image's `/var/www/html/assets/platforms/`). The 404s Phase 0 saw are for the slugs RomM keeps for library folders it matched to nothing (`gc`, `wii-u`). `gc` already resolved to its system (icon `ngc`); `wii-u` resolved to nothing, so its only candidate was the missing one. The Library platform filter and the Home hero passed only the slug, never the table's icon.
+  - `src/config/systems.ts`: Wii U also answers to `wii-u`; `PLATFORM_ICON_ROOT` names the icon folder. The Library filter and the Home hero pass the resolved system to `PlatformIcon`, as the other screens do.
+  - `RommClient.asset` remembers a platform icon's 404 per server for the process and answers it from memory after that; a server error or a request that never reached the server is not remembered. `romm.test.ts` "platform icons": asked once and then 404 from memory, with or without the leading slash; a hit is asked every time; a 503 or a refused connection is not remembered; a cover's 404 is not remembered; a miss on one server is not a miss on another.
+  - Line 1: `test/romm/icons.real.ts` against Docker RomM 5.2.0 (`npm run test:romm -- --profile v520`, 21/21): every fixture platform walks `PlatformIcon`'s candidates twice; each answers 200 or falls back to a short code (dc, gba, ngc, ps2, psp found under `systematic/`; `ps1` and `SNES` fall back to PS1 and SNES), and every path that was a 404 reached the server exactly once.
+  - Line 2: the fallback is the existing `PlatformBadge`, the system's short code in the app's type, with no artwork.
+  - Line 3: `shots:nova` gains `library-iconless` (fake RomM option `iconless`: GameCube as `gc`, Wii U as `wii-u`, no icons served). The shot fails on any `img` that loaded with no width and needs `GC` and `WIIU` badges. Looked at `library-iconless.png`: the filter row shows GC "Nintendo GameCube (1)" and WIIU "Nintendo Wii U (1)" badges, and the Cube Homebrew card shows GC. Nothing broken or clipped. `home.png` is unchanged. The first run showed WII-U on the filter chip (the chip did not resolve the slug), which is fixed above.
+  - `systems.test.ts` "a GameCube or Wii U folder RomM matched to nothing still resolves, and to its icon", "every icon path is under the icon root".
+  - `scripts/agent/check.sh` green: 1600 tests, coverage 96.29 / 93.78 / 95.95. `npm run test:app` 201/201.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none (`agent-screenshot`).
+- Next: `next.mjs`'s first feature (M1-15, or M2-01 the save-sync spec).

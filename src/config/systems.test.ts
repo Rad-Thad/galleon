@@ -2,6 +2,8 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { BIOS_REQUIREMENTS } from './bios.ts'
 import {
+  PLATFORM_ICON_PATHS,
+  PLATFORM_ICON_ROOT,
   ROMM_SLUG_TO_ESDE,
   SYSTEMS,
   allSystems,
@@ -77,6 +79,17 @@ test('resolves common RomM platform slugs', () => {
   assert.equal(resolveSystem('ngc', 'gamecube'), 'gc')
   assert.equal(resolveSystem('dc', 'dreamcast'), 'dreamcast')
   assert.equal(resolveSystem('3ds', 'n3ds'), 'n3ds')
+})
+
+test('a GameCube or Wii U folder RomM matched to nothing still resolves, and to its icon', () => {
+  assert.equal(resolveSystem('gc', 'gc'), 'gc')
+  assert.equal(resolveSystem('wii-u', 'wii-u'), 'wiiu')
+  assert.equal(systemInfo('gc').icon, 'ngc')
+  assert.equal(systemInfo('wiiu').icon, 'wiiu')
+})
+
+test('every icon path is under the icon root', () => {
+  for (const path of PLATFORM_ICON_PATHS) assert.ok(path.startsWith(PLATFORM_ICON_ROOT), path)
 })
 
 test('falls back to the filesystem slug when the platform slug is unknown', () => {

@@ -330,7 +330,16 @@ export function LibraryScreen({ view }: { view?: LibraryView }): JSX.Element {
                         })
                   }
                   icon={
-                    <PlatformIcon slug={platform.slug} size={20} label={platform.display_name} />
+                    <PlatformIcon
+                      slug={platform.slug}
+                      system={resolveSystem(
+                        platform.slug,
+                        platform.fs_slug,
+                        settings?.systemOverrides
+                      )}
+                      size={20}
+                      label={platform.display_name}
+                    />
                   }
                   active={platform.id === selectedPlatform}
                   onSelect={() => setSelectedPlatform(platform.id)}

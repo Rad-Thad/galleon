@@ -1,4 +1,5 @@
 import { app } from 'electron'
+import { PLATFORM_ICON_ROOT } from '@config/systems'
 import { Blob } from 'node:buffer'
 import { readFile, rename, rm } from 'node:fs/promises'
 import type {
@@ -778,11 +779,27 @@ export class RommClient {
     return this.json<RommRom>(`/api/roms/${id}`)
   }
 
+  /**
+   * Platform icons this server has answered 404 for, by server and path.
+   *
+   * Most icon candidates miss by design (see `PLATFORM_ICON_PATHS`), and every
+   * platform tile on every screen walks the same candidates, so a miss is
+   * remembered for the life of the process rather than asked again. Only a 404
+   * the server gave counts: a request that failed to reach it says nothing
+   * about the icon.
+   */
+  private readonly missingIcons = new Set<string>()
+
   /** Streamed asset fetch used by the custom image protocol. */
   async asset(path: string): Promise<Response> {
     const clean = path.startsWith('/') ? path : `/${path}`
+    const icon = clean.startsWith(PLATFORM_ICON_ROOT)
+    const key = icon ? `${this.baseUrl}${clean}` : ''
+    if (icon && this.missingIcons.has(key)) return new Response(null, { status: 404 })
     // The caller reads the body; see `REQUEST_TIMEOUT_MS`.
-    return this.request(clean, {}, { timeoutMs: null })
+    const response = await this.request(clean, {}, { timeoutMs: null })
+    if (icon && response.status === 404) this.missingIcons.add(key)
+    return response
   }
 
   // -- ROM content ----------------------------------------------------------
