@@ -444,3 +444,20 @@ Lines the tooling reads (exact forms):
 - Evaluator: see the PR.
 - Device / acceptance: none.
 - Next: M0-11 (diagnostics bundle).
+
+## 2026-10-09 07:44 UTC session cloud (routine run, second unit)
+
+- Device results: none new (as above).
+- Worked on: flaky issue #44, `test:app` "driving it with a mouse instead > and a click opens what it is on", which failed once in three runs during PR #43's evaluation. The wordmark PR #43 merged at 49c7808; its CI wall time was x64 3:39, arm64 3:12.
+- Result: PR (this one).
+- Evidence:
+  - Cause: `data-screen="game"` is set as soon as the route changes, but the game screen draws a placeholder until the ROM arrives over IPC (`setRom(null)`, then `setRom(fetched)` in `screens/Game/index.tsx`). The test read `.game-hero__title` in between. "the home screen > and it opens that game rather than being a picture of one" had the same race.
+  - Reproduced deterministically with a scratch (uncommitted) 400 ms delay on the fake server's `GET /api/roms/<id>`. Both tests failed (`actual: undefined`, expected 'Tobu Tobu Girl'). With the fix, both pass under the delay.
+  - Fix: both tests wait for `.game-hero__title` before reading it. The game screen resets to null on every open, so the title that appears belongs to the game just opened.
+  - Without the delay: `npm run test:app` 192/192; `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none.
+- Next: M0-11 (diagnostics bundle).
+- Notes:
+  - Under the same artificial delay, `games.test.ts` "saves either side of a session" lost two tests ("cancelling the question sends nothing at all", "so the next push goes without a word"). The highlight stayed on the Manual tab and never reached `push-saves`. That is a different mechanism, never seen without the delay, and it is recorded on #44 rather than fixed here.
