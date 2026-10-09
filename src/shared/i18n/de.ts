@@ -733,6 +733,12 @@ export const de: Catalog = {
   'settings.soundsHint':
     'Ein leises Klicken, wenn die Auswahl wandert, bestätigt oder zurückgegangen wird.',
   'system.performance': 'Leistung',
+  'system.reportTitle': 'Problem melden',
+  'system.reportExplainer':
+    'Speichert die Protokolle, die Vorabprüfung und die verwendeten Versionen in einer ZIP-Datei. Serveradressen, Passwörter und Tokens werden vorher entfernt.',
+  'system.reportProblem': 'Problem melden',
+  'system.reportWriting': 'Bericht wird geschrieben…',
+  'system.reportWritten': 'Problembericht gespeichert unter {path}',
   'settings.perfOverlay': 'Leistungsanzeige',
   'settings.perfOverlayHint':
     'Bildzeiten und Taktraten in einer Ecke. L3 und R3 zusammen halten, um sie überall ein- oder auszublenden.',

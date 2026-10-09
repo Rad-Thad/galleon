@@ -1,6 +1,6 @@
 import { type JSX, useState } from 'react'
 import type { DiagnosticsReport, RootLocation } from '@shared/types'
-import { FocusButton, Spinner, TextField, Toggle } from '../../../components'
+import { FocusButton, ReportProblemButton, Spinner, TextField, Toggle } from '../../../components'
 import { useGamepadName } from '../../../input/focus'
 import { useApp, useI18n } from '../../../state'
 import { UpdatePanel } from '../UpdatePanel'
@@ -188,6 +188,16 @@ export function SystemTab({
           </div>
         </>
       )}
+
+      {/* Outside the pre-flight block, because a report is wanted most when the
+          check itself is what will not answer. */}
+      <h2 className="section-title">{t('system.reportTitle')}</h2>
+      <p className="faint" style={{ fontSize: 14 }}>
+        {t('system.reportExplainer')}
+      </p>
+      <div className="btn-row">
+        <ReportProblemButton />
+      </div>
 
       {/* Last, because it is a measuring tool rather than anything a player
           needs to set up. */}

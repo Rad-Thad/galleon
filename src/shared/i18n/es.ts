@@ -719,6 +719,12 @@ export const es: Catalog = {
   'settings.soundsHint':
     'Un clic discreto cuando se mueve la selección, al elegir y al volver atrás.',
   'system.performance': 'Rendimiento',
+  'system.reportTitle': 'Informar de un problema',
+  'system.reportExplainer':
+    'Guarda los registros, la comprobación previa y las versiones en uso en un único archivo zip. Antes se quitan las direcciones de servidor, contraseñas y tokens.',
+  'system.reportProblem': 'Informar de un problema',
+  'system.reportWriting': 'Escribiendo el informe…',
+  'system.reportWritten': 'Informe del problema guardado en {path}',
   'settings.perfOverlay': 'Indicador de rendimiento',
   'settings.perfOverlayHint':
     'Tiempos de fotograma y frecuencias en una esquina. Mantén L3 y R3 a la vez para mostrarlo u ocultarlo en cualquier lugar.',

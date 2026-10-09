@@ -218,3 +218,16 @@ test('only named variables go in, and none whose name says secret', () => {
 test('a report name sorts by time and is a legal file name', () => {
   assert.equal(reportName(new Date('2026-01-02T03:04:05.678Z')), '2026-01-02T03-04-05Z.zip')
 })
+
+test('a second report in the same second is kept beside the first, not over it', async () => {
+  const root = tree({})
+  const now = new Date('2026-01-02T03:04:05.678Z')
+  const input = { root, serverUrl: null, versions: {}, env: {}, systemRoot: root, now }
+  const first = await writeReport(input)
+  const second = await writeReport(input)
+  assert.notEqual(second, first)
+  assert.deepEqual(readdirSync(join(root, 'reports')).toSorted(), [
+    '2026-01-02T03-04-05Z-2.zip',
+    '2026-01-02T03-04-05Z.zip'
+  ])
+})

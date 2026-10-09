@@ -170,12 +170,32 @@ export function settingsServer(settings: string | null): string | null {
   }
 }
 
-/** `2026-10-09T16-27-01Z`: sortable, and a legal file name everywhere. */
-export function reportName(now: Date): string {
-  return `${now
+/**
+ * `2026-10-09T16-27-01Z`: sortable, and a legal file name everywhere. A later
+ * report in the same second takes `-2`, `-3` and on, so none replaces another.
+ */
+export function reportName(now: Date, copy = 1): string {
+  const stamp = now
     .toISOString()
     .replace(/\.\d+Z$/, 'Z')
-    .replace(/:/g, '-')}.zip`
+    .replace(/:/g, '-')
+  return copy > 1 ? `${stamp}-${copy}.zip` : `${stamp}.zip`
+}
+
+/**
+ * Claim the first report name nobody holds yet. Created exclusively, so two
+ * reports asked for at once cannot both take the same one.
+ */
+async function claimName(reports: string, now: Date): Promise<string> {
+  for (let copy = 1; ; copy += 1) {
+    const path = join(reports, reportName(now, copy))
+    try {
+      await (await open(path, 'wx')).close()
+      return path
+    } catch (cause) {
+      if ((cause as NodeJS.ErrnoException).code !== 'EEXIST') throw cause
+    }
+  }
 }
 
 /**
@@ -237,8 +257,13 @@ export async function writeReport(input: ReportInput): Promise<string> {
       await put(`${name}.json`, json(value ?? null))
     }
 
-    const path = join(reports, reportName(now))
-    await zipDirectory(staging, path)
+    const path = await claimName(reports, now)
+    try {
+      await zipDirectory(staging, path)
+    } catch (cause) {
+      await rm(path, { force: true })
+      throw cause
+    }
     const { size } = await stat(path)
     log.info('report', 'report written', { path, bytes: size })
     return path

@@ -725,6 +725,12 @@ export const en = {
   'settings.sounds': 'Navigation sounds',
   'settings.soundsHint': 'A quiet click as the highlight moves, and when you choose or go back.',
   'system.performance': 'Performance',
+  'system.reportTitle': 'Report a problem',
+  'system.reportExplainer':
+    'Saves the logs, the pre-flight check and the versions in use to one zip file. Server addresses, passwords and tokens are removed first.',
+  'system.reportProblem': 'Report a problem',
+  'system.reportWriting': 'Writing the report…',
+  'system.reportWritten': 'Problem report saved to {path}',
   'settings.perfOverlay': 'Performance overlay',
   'settings.perfOverlayHint':
     'Frame times and clock speeds in a corner. Hold L3 and R3 together to show or hide it anywhere.',
