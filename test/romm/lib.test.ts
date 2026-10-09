@@ -132,6 +132,19 @@ test('the heartbeat wait names the last failure when it gives up', async () => {
   )
 })
 
+test('the heartbeat wait asks at least once, however little time it is given', async () => {
+  let asked = 0
+  const fetchImpl = async () => {
+    asked += 1
+    return new Response('', { status: 503 })
+  }
+  await assert.rejects(
+    waitForHeartbeat('http://127.0.0.1:1', { timeoutMs: 0, intervalMs: 1, fetchImpl }),
+    /\(HTTP 503\)/
+  )
+  assert.equal(asked, 1)
+})
+
 test('test:romm runs every profile by default, or the ones named, once each', () => {
   assert.deepEqual(profilesFrom([]), ['v520', 'v531'])
   assert.deepEqual(profilesFrom(['--profile', 'v531']), ['v531'])

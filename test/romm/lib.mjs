@@ -145,8 +145,10 @@ export async function waitForHeartbeat(
   { timeoutMs = 180_000, intervalMs = 1000, fetchImpl = fetch } = {}
 ) {
   const deadline = Date.now() + timeoutMs
-  let last = 'no answer'
-  while (Date.now() < deadline) {
+  let last
+  // Asked before the deadline is looked at, so the error always names a real
+  // answer rather than a deadline that ran out before the first question.
+  for (;;) {
     try {
       const res = await fetchImpl(`${baseUrl}/api/heartbeat`)
       if (res.ok) return res
@@ -154,6 +156,7 @@ export async function waitForHeartbeat(
     } catch (error) {
       last = error instanceof Error ? error.message : String(error)
     }
+    if (Date.now() >= deadline) break
     await sleep(intervalMs)
   }
   throw new Error(`${baseUrl} did not answer its heartbeat in time (${last})`)

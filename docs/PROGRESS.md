@@ -422,8 +422,9 @@ Lines the tooling reads (exact forms):
   - `-- --subset pr`: `home`, `library`, `game-details`, `downloads`, `settings-general`, `setup`, in 11 s on the VM. CI runs it on x64 after `test:app` and uploads `shots-x64` even when a screen fails. The full set's nightly run belongs to M0-24 (`nightly.yml` does not exist yet).
   - Looked at all 14 PNGs. Every screen fills 4:3 with nothing clipped at the edges. Lists continue below the fold where they are longer than the screen (home's second shelf, emulators' platforms, settings). The running overlay is centred over the dimmed game page. The top bar's wordmark still reads "RomMix". It is text in `App.tsx` (`topbar__wordmark`), outside the i18n catalogues that M0-04's acceptance covers, so M0-04 missed it. It is a separate small fix (see Next).
   - `npm run test:app` with the driver changes: 191/191 on the VM. `scripts/agent/check.sh` green.
-- CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+  - Flaky issue #41: PR #40's first arm64 leg failed in `npm test` on `test/romm/lib.test.ts` "the heartbeat wait names the last failure when it gives up" (`(no answer)` where `(down)` was expected). Cause: `waitForHeartbeat` checked its deadline before the first attempt, so with a 1 ms timeout it could give up without asking. It now asks first. The new test "the heartbeat wait asks at least once, however little time it is given" fails on the old code and passes on the new one; the old test passed 40/40 after the fix.
+- CI wall time: first run on 23cc9c2: x64 4:04 (the shots step 9 s); arm64 failed at 0:40 (the flake above). Final run: recorded in the next entry.
+- Evaluator: PASS (all five acceptance lines met; it opened 8 PNGs; two full runs differed by at most 0.09%; flipping now is justified because M0-24's description owns the nightly full set).
 - Device / acceptance: none (`agent-screenshot`).
 - Next: the wordmark fix above, then M0-11 (diagnostics bundle).
 - Notes:
