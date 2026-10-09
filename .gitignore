@@ -8,3 +8,4 @@ dist/
 test/app/failures/
 test/romm/.state/
 test/romm/library/
+/artifacts/

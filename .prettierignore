@@ -13,3 +13,4 @@ package-lock.json
 # it differ from its source for no gain.
 docs/research
 reference
+artifacts/

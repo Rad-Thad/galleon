@@ -122,7 +122,7 @@ Pull-request legs: target 10 minutes, hard limit 20. Nightly: 30. Expensive chec
 | `npm test`, `npm run test:coverage`                               | Unit tests; coverage with floors 96/88/89                        |
 | `npm run test:app`                                                | Built app under Xvfb against `test/app/server.ts`                |
 | `npm run preview:app`                                             | UI in a browser against a stub library (`src/renderer/src/dev/`) |
-| `npm run test:romm`, `npm run test:saves`, `npm run shots:nova`   | Added in M0/M2 (see PLAN.md)                                     |
+| `npm run test:romm`, `npm run test:saves`, `npm run shots:nova`   | Docker RomM; saves (M2); 1280x960 shots into `artifacts/shots/`  |
 | `npm run smoke:app`                                               | Packaged app starts, reaches Home, quits (arm64 leg)             |
 | `python3 -m unittest discover -s tools/device-bridge`             | Device bridge unit tests                                         |
 | `node scripts/agent/device-results.mjs --summary`                 | Newest device results, regressions, reports, bridge last seen    |

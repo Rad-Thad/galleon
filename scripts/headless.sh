@@ -118,6 +118,8 @@ unset ELECTRON_RUN_AS_NODE
 # fold of a window too small to hold them, where they are focusable and
 # invisible — which reads as a focus engine that has stopped working, and
 # photographs as a landing page missing the shelf it is there to show.
+# `ROMMIX_SCREEN` replaces it for a caller drawing for another screen, as
+# `npm run shots:nova` does for the Nova's.
 #
 # `-a` is not decoration either. Without it `xvfb-run` always takes display :99,
 # and where something already holds that one its own server exits on the spot:
@@ -129,7 +131,7 @@ if on_desktop; then
   echo "==> Drawing on this desktop, as ROMMIX_ON_DISPLAY asks"
   window=()
 else
-  window=(xvfb-run -a --server-args="-screen 0 1920x1080x24")
+  window=(xvfb-run -a --server-args="-screen 0 ${ROMMIX_SCREEN:-1920x1080}x24")
 fi
 
 exec "${window[@]}" "$@"

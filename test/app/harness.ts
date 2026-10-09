@@ -1,4 +1,4 @@
-import { atHome, standInEmulator, startApp, type App } from './driver.ts'
+import { atHome, standInEmulator, startApp, type App, type StartOptions } from './driver.ts'
 import { startFakeRomm, type FakeRomm } from './server.ts'
 
 /**
@@ -18,10 +18,13 @@ export interface Scenario {
   stop: () => Promise<void>
 }
 
-export async function startScenario(): Promise<Scenario> {
+export async function startScenario(
+  options: Pick<StartOptions, 'viewport' | 'home'> = {}
+): Promise<Scenario> {
   const server = await startFakeRomm()
   const emulator = standInEmulator()
   const app = await startApp({
+    ...options,
     baseUrl: server.baseUrl,
     token: server.token,
     settings: {
