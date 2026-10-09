@@ -311,6 +311,21 @@ jobs:
           path: test/app/failures/
           if-no-files-found: ignore
 
+      # The device test bundle and the build-info.json naming this commit,
+      # which the `nightly` publish below carries to the Nova — see
+      # scripts/device-bundle.mjs. Built on every x64 leg, pull requests too,
+      # so a bundle that cannot be built is red before it is merged; kept only
+      # from main, the one place it is published from.
+      - name: Build the device test bundle
+        if: matrix.arch == 'x64'
+        run: node scripts/device-bundle.mjs --sha "$GITHUB_SHA" --out device
+      - uses: actions/upload-artifact@v7
+        if: matrix.arch == 'x64' && github.ref == 'refs/heads/main'
+        with:
+          name: device-bundle
+          path: device/
+          if-no-files-found: error
+
       # Shipped beside the image, not inside it: it is what Steam's shortcut
       # points at, and the AppImage cannot set the variable that makes itself
       # launchable from Steam. Shipped under the product's name; see
@@ -346,12 +361,19 @@ jobs:
     # merged, and not a tag, which the release job below answers for.
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
+    # The group nightly.yml runs in, because the `nightly` publish at the end of
+    # this job writes the same release: two publishes interleaving their
+    # uploads would leave assets from different commits under one tag. Never
+    # cancelled, so a publish that has started always finishes.
+    concurrency:
+      group: nightly
+      cancel-in-progress: false
 
     permissions:
       contents: write
 
     steps:
-      # For the tag moved at the end of the job.
+      # For the tags moved in this job.
       - uses: actions/checkout@v7
 
       # Both legs, exactly as the release job takes them.
@@ -409,6 +431,50 @@ jobs:
         run: |
           git tag -f canary "$GITHUB_SHA"
           git push -f origin refs/tags/canary
+
+      # The device-testable build of this merge, for the bridge on the Nova
+      # (docs/PLAN.md section 5, ADR 0004): the same images as the canary,
+      # plus the device test bundle and build-info.json, under the rolling
+      # `nightly` pre-release that nightly.yml also publishes to, with the same
+      # asset names, so the bridge picks up every merge unchanged.
+      - uses: actions/download-artifact@v8
+        with:
+          name: device-bundle
+          path: device
+
+      # SHA256SUMS over every asset, which is what the bridge verifies its
+      # downloads against before it runs anything.
+      - name: Gather the nightly's assets
+        run: |
+          mkdir nightly
+          cp dist/*.AppImage dist/galleon-steam.sh device/* nightly/
+          (cd nightly && sha256sum -- * > SHA256SUMS)
+          cat nightly/SHA256SUMS
+
+      - name: Publish the nightly build
+        # Pinned as the canary step above is.
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          files: nightly/*
+          tag_name: nightly
+          name: Galleon nightly
+          body: |
+            Built from `main` at ${{ github.sha }}, for the Galleon device
+            bridge, which tests it on the test handheld and publishes what it
+            found on the `device-results` branch.
+
+            This is not a release and not an update channel: it has passed CI
+            and nothing else, and it is replaced by the next build.
+          prerelease: true
+          make_latest: false
+          fail_on_unmatched_files: true
+
+      # Last, as for the canary tag above: the tag never names a commit whose
+      # assets are still uploading.
+      - name: Move the nightly tag
+        run: |
+          git tag -f nightly "$GITHUB_SHA"
+          git push -f origin refs/tags/nightly
 
   release:
     needs: build
