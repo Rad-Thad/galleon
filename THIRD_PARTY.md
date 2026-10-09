@@ -76,3 +76,19 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+## Fonts
+
+Shipped inside the AppImage, from RomMix, under the SIL Open Font License 1.1.
+Each licence text sits beside its font.
+
+- Silkscreen (Copyright 2001, The Silkscreen Project Authors):
+  `src/renderer/src/assets/fonts/silkscreen-latin.woff2`, licence in `OFL-silkscreen.txt`.
+- VT323 (Copyright 2011, The VT323 Project Authors):
+  `src/renderer/src/assets/fonts/vt323-latin.woff2`, licence in `OFL-vt323.txt`.
+
+## ES-DE data
+
+None ported yet. ES-DE's MIT data files (system and emulator tables) are listed
+here, with the commit they came from and their licence text, by the change that
+ports the first of them.
