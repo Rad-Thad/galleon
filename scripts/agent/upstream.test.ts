@@ -50,6 +50,12 @@ describe('the upstream watch', () => {
     assert.equal(title(1), 'upstream: 1 new commit')
   })
 
+  test('an upstream subject neither mentions anyone nor links an issue here', () => {
+    const text = body(BASE, { total_commits: 1, commits: [commit(3, 'fix #12, thanks @someone')] })
+    assert.match(text, /fix #\u200b12, thanks @\u200bsomeone/)
+    assert.doesNotMatch(text, /@someone|#12/)
+  })
+
   test('a range longer than the list the API returns says how many more there are', () => {
     assert.match(
       body(BASE, { ...COMPARE, total_commits: 300 }),

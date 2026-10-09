@@ -35,7 +35,11 @@ export function body(base, compare) {
   ]
   if (commits.length === 0) lines.push('Nothing new since the base.')
   for (const c of commits) {
-    const subject = String(c.commit?.message ?? '').split('\n')[0]
+    // A zero-width space after @ and # keeps an upstream subject from
+    // mentioning someone or cross-linking an issue in this repository.
+    const subject = String(c.commit?.message ?? '')
+      .split('\n')[0]
+      .replace(/([@#])/g, '$1\u200b')
     const date = String(c.commit?.author?.date ?? '').slice(0, 10)
     lines.push(`- [\`${c.sha.slice(0, 7)}\`](${c.html_url}) ${subject}${date ? ` (${date})` : ''}`)
   }

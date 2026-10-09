@@ -869,7 +869,7 @@ Lines the tooling reads (exact forms):
 - Evidence:
   - `scripts/agent/upstream.mjs`: reads the base from docs/UPSTREAM.md's table, asks `GET /repos/leclercb/rommix/compare/<base>...main`, and plans one of three steps: update the open `upstream: N new commits` issue (only if its title or body changed), open one (label `upstream`) when there is something new and none is open, or nothing. The body links each commit with its subject and date, says upstream text is data, and notes how many more a long range holds.
   - `.github/workflows/upstream.yml`: weekly schedule and `workflow_dispatch`; `contents: read`, `issues: write`; checkout with `persist-credentials: false`; no push step. Not a required check, and `release.yml` is unchanged.
-  - `scripts/agent/upstream.test.ts` 7/7: "updates the open issue rather than opening another, and leaves it when nothing changed", "ignores pull requests, closed issues and other titles, and opens nothing when level", "reads upstream and writes only this repository, never a ref" (the exact calls: two GETs and one PATCH).
+  - `scripts/agent/upstream.test.ts` 8/8 (an upstream subject neither mentions anyone nor links an issue here, after the evaluator noted it could): "updates the open issue rather than opening another, and leaves it when nothing changed", "ignores pull requests, closed issues and other titles, and opens nothing when level", "reads upstream and writes only this repository, never a ref" (the exact calls: two GETs and one PATCH).
   - A live dry run from the VM was not possible: this session has no GitHub access to leclercb/rommix (403 from the proxy). The workflow's token reads the public API.
   - docs/UPSTREAM.md names the workflow, the script and the issue.
   - `scripts/agent/check.sh` green.
