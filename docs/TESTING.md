@@ -230,7 +230,7 @@ Written only by the bridge (deploy key) and, during the acceptance session, by t
 
 ## The acceptance session
 
-**When.** Every `ci` and `device` feature of M0-M7 passes (or is deferred by an ADR), and every `acceptance` feature is READY-FOR-ACCEPTANCE (M8-07). The agent generates `docs/ACCEPTANCE.md` (M0-15) and opens one `needs-human` issue, _Galleon is ready for your acceptance session_, which reaches the owner as a GitHub notification e-mail.
+**When.** Every `ci` and `device` feature of M0-M7 passes (or is deferred by an ADR), and every `acceptance` feature is READY-FOR-ACCEPTANCE (M8-07). The agent generates `docs/ACCEPTANCE.md` (M0-15: `node scripts/agent/acceptance.mjs`, from each ready feature's acceptance line and its entry in `docs/acceptance-plan.json`, which gives the place, the minutes, the exact steps and what a pass looks like; a unit test fails while the file is stale or the plan exceeds two hours) and opens one `needs-human` issue, _Galleon is ready for your acceptance session_, which reaches the owner as a GitHub notification e-mail.
 
 **Who does what.** The owner holds the Nova and their phone and judges; the local Claude session on the Mac reads `docs/ACCEPTANCE.md`, explains each step in plain words, and does every terminal and GitHub step: SSH to the Nova, the read-only save backup, installing Galleon for real, approving the `release` environment on the owner's word, and pushing the results.
 
