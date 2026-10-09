@@ -922,4 +922,4 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Evaluator: see the PR.
 - Device / acceptance: none (`ci`).
-- Next: after any real release, open a PR appending its job summary (release, commit, run) to this file, as M0-14 line 4 asks. Then `next.mjs`'s first feature (M1-02).
+- Next: after any real release, open a PR appending its job summary (release, commit, run) to this file, as M0-14 line 4 asks (docs/TESTING.md, the acceptance session, says so too). Then `next.mjs`'s first feature (M1-02).
