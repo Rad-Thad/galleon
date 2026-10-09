@@ -908,3 +908,18 @@ Lines the tooling reads (exact forms):
 - Evaluator: see the PR.
 - Device / acceptance: none (`ci`).
 - Next: after merge, dispatch Cut a release on main with a version package.json does not carry; a red `verify` with no tag is line 2's run evidence and shows the environment check reads the protection. Then flip M0-14.
+
+## 2026-10-09 19:47 UTC session caf24103 (routine run, the flip)
+
+- Device results: none new.
+- Worked on: M0-14 (tracking issue #91). PR #92 merged at e76fcf9; its CI wall time was x64 4:34, arm64 1:00.
+- Result: PR (this one). PASSES M0-14 (ci).
+- Evidence:
+  - Cut a release run 37982261554 (`workflow_dispatch` on main, version `9.9.9`): `verify` failed with "package.json says 0.20.0, not 9.9.9" and "CHANGELOG.md has no '## 9.9.9' section"; `build` and `release` skipped; `v9.9.9` does not exist (404) and the releases are still only `nightly` and `canary` (line 2).
+  - The same run's "Check that the release environment needs an approval" step passed: the `release` environment exists with required reviewers, and the `release` job is the only one that tags or publishes (line 1, #92's tests and evaluator PASS).
+  - Build, tag and publish are one run, with release.yml called through `workflow_call` and no tag-push trigger left (line 3).
+  - The run's job summary carries the release, commit and run for the PROGRESS entry (line 4).
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none (`ci`).
+- Next: after any real release, open a PR appending its job summary (release, commit, run) to this file, as M0-14 line 4 asks. Then `next.mjs`'s first feature (M1-02).
