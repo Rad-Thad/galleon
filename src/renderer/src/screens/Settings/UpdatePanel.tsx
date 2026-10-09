@@ -105,6 +105,8 @@ export function UpdatePanel(): JSX.Element {
             ? t('update.installedBuild', { version: update.current, commit: update.buildCommit })
             : (update?.current ?? '—')}
         </dd>
+        <dt>{t('update.channel')}</dt>
+        <dd>{update ? t(`update.channel.${update.channel}`) : '—'}</dd>
         <dt>{t('update.newestPublished')}</dt>
         {/* Never checked and checked-and-current are different answers, and the
             second one is the reassuring one. */}

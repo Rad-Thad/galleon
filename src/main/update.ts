@@ -1,7 +1,7 @@
 import { app } from 'electron'
 import { chmod, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import type { UpdatePolicy, UpdateStatus } from '@shared/types'
+import type { UpdateChannel, UpdatePolicy, UpdateStatus } from '@shared/types'
 import { fetchToFile } from './fetchfile.ts'
 import { digestFromChecksums, parseDigest, verifyDownload, type Digest } from './integrity.ts'
 import { log } from './log.ts'
@@ -411,6 +411,8 @@ function initialStatus(): UpdateStatus {
     // Decided once, at start, like the Steam block below: the commit in the
     // bundle cannot change under a running process.
     buildCommit: shortBuild() || null,
+    // Corrected by the constructor, which has the settings to read.
+    channel: canaryWanted() ? 'canary' : 'releases',
     notes: null,
     url: null,
     receivedBytes: 0,
@@ -443,6 +445,16 @@ export class Updater {
   constructor(store: Store, emit: (status: UpdateStatus) => void) {
     this.store = store
     this.emit = emit
+    this.current = { ...this.current, channel: this.channel() }
+  }
+
+  /**
+   * Where updates come from: the environment's canary flag first, since it
+   * replaces the releases rather than adding to them, then the setting.
+   */
+  private channel(): UpdateChannel {
+    if (canaryWanted()) return 'canary'
+    return this.store.settings.updatePrereleases ? 'candidates' : 'releases'
   }
 
   get status(): UpdateStatus {
@@ -484,6 +496,8 @@ export class Updater {
     // change of the setting, and three visits to the segmented control must not
     // leave three checks queued.
     this.stop()
+    // Here because this is what a change of the setting reaches.
+    if (this.current.channel !== this.channel()) this.update({ channel: this.channel() })
     if (this.policy() === 'off') {
       log.info('update', 'automatic checks are off')
       return
