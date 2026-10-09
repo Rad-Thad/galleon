@@ -735,3 +735,20 @@ Lines the tooling reads (exact forms):
 - Evaluator: see the PR.
 - Device / acceptance: none.
 - Next: M0-10 waits only on line 4's perf-state.json format; then M0-11 (`next.mjs`).
+
+## 2026-10-09 16:27 UTC session 4199a15f (routine run)
+
+- Device results: DEVICE-RESULTS cc5e0c1ca9669ad0441af04d3fbce129b162798d complete. Minimal harness again: no `safety.*` check, nothing flips. Bridge last seen 0.3 h before the run.
+- Worked on: M0-11 part 1 of 2 (tracking issue #75): acceptance lines 1 to 3. #70's fix, PR #74, merged at c5c67ad before this run.
+- Result: PR (this one). M0-11 stays false until part 2.
+- Evidence:
+  - `src/main/redact.ts` `redact(text, { serverUrl })`, pure: the RomM host becomes `<server>`; `rmm_` tokens, bearer and basic credentials, `Authorization`/`Cookie`/`Set-Cookie` header values, the user and password in `https://user:password@host`, and the value of any key containing password, token, secret, cookie, authorization or a pairing code (`ROMM_PASSWORD`, `csrf_token`, `deviceCode` as well as the bare words) in JSON, `key=value` and `key: value` form, and a pairing code named in prose, become `<removed>`; IPv4 and IPv6 (full form, or with `::`) become `<ip>`. `src/main/redact.test.ts` "nothing the acceptance names survives a log that holds all of it" feeds one of each and asserts none survives; clock times, `std::vector`, `4:3` and three-part versions are left alone.
+  - `src/main/report.ts` `writeReport` writes `<root>/reports/<UTC stamp>.zip` with the existing `zipDirectory`, from a staging folder it removes whatever happens: `logs/app.log` and `logs/launcher.log` (each its last `LOG_TAIL_BYTES`, cut at a whole line), `launches.log` (the last `LAUNCHES` launch starts with the launch and emulator lines after each), `perf.log` (the last perf summaries), `settings.json`, `versions.json`, `system.json` (os-release, kernel), `environment.json` (an allow-list of names and prefixes, minus any whose name says secret), and one `<name>.json` per caller section (a throwing section records its error). Every file passes through `redact`, with the caller's server and the one `config/settings.json` names, so a report written signed out still hides it.
+  - `src/main/report.test.ts`: "the report carries its parts, and nothing from config/ but redacted settings" asserts the exact file list against a root holding `config/credentials.bin` and `config/keyring/`, and that neither their contents nor the host nor an address survive; "logs far past the limit are cut to their tail and the report stays under it" (two 30 MB logs: the zip and its unpacked contents both under `REPORT_LIMIT`).
+  - `scripts/agent/check.sh` green: coverage 96.21 / 93.70 / 95.76.
+- The evaluator's first pass failed it on URL userinfo and prefixed keys (`ROMM_PASSWORD=`, `"romm_password":`) surviving; both, a camelCase `deviceCode` and a JSON `Authorization` of any scheme are now in the "nothing survives" test. Its second pass found the widened key pattern quadratic (200 KB of `a-a-a...` took 45 s); the key is now bounded and anchored at a key's start (7 ms), and "a long run with no space in it is redacted in linear time, not hung on" guards it.
+- Not done (part 2): the IPC call, the Settings → System entry and the quit-dialog entry, the live sections (pre-flight, emulator probes, power state, Mesa and gamescope versions), and line 4's test:app scenario.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none.
+- Next: M0-11 part 2.
