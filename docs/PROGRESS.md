@@ -891,3 +891,20 @@ Lines the tooling reads (exact forms):
 - Evaluator: see the PR.
 - Device / acceptance: none (`ci`).
 - Next: `next.mjs`'s first feature. #89 lists the controller commits M3-08 wants; port them when M3-08 is taken up (docs/UPSTREAM.md, rule 3).
+
+## 2026-10-09 19:33 UTC session caf24103 (routine run)
+
+- Device results: DEVICE-RESULTS 2cf29a16b18aa563091e9197aa75c7a9a265394a complete. Minimal harness: `harness.run` passed, no `safety.*` check ran, `--apply` flipped nothing. Bridge last seen 0.5 h before the run.
+- Worked on: M0-14 (tracking issue #91): `cut-release.yml`. M0-19's flip, PR #90, merged at 17fa7ed.
+- Result: PR (this one). M0-14 stays false until the workflow's first run on main shows it refusing a version before tagging.
+- Evidence:
+  - `scripts/release-check.mjs` `releaseErrors`: refuses a version that is not plain or suffixed semver (no `v`, no build metadata), that package.json does not carry, or that has no `## <version>` CHANGELOG.md heading (matched as release-notes.mjs finds it). The command prints one `::error::` per reason and exits 1 (line 2).
+  - `.github/workflows/cut-release.yml`: `workflow_dispatch` with `version`, main only. `verify` refuses a `release` environment without required reviewers (a job naming a missing environment would create it unprotected and run), then the version (`release-check.mjs`), then a tag already taken (only a 404 counts as free). `build` calls `release.yml` (`workflow_call`), the same matrix in full. `release` needs both, runs in `environment: release` (line 1), and is the only job that tags or publishes: softprops pinned by SHA with `tag_name: v<version>`, `target_commitish: github.sha`, both images, the Steam script and SHA256SUMS, and writes the release, commit and run to the job summary for the PROGRESS entry (lines 3 and 4).
+  - `release.yml`: the `tags: v*` trigger, its tag check and its `release` job are gone (PLAN.md section 4); `workflow_call` added; the canary skips a release's build (`!inputs.version`); a release's build gets its own concurrency group. The `build` job, its name and matrix keys are unchanged.
+  - `.release-it.js` commits the bump and changelog on the current branch without tagging or pushing; README "Releasing", CONTRIBUTING and PLAN.md describe the new path.
+  - `scripts/release-check.test.ts` 9/9, among them "only the job behind the release environment tags or publishes, after the build" and "no tag push publishes anything, and a release build publishes no canary". actionlint 1.7.7 clean on both workflows.
+  - `scripts/agent/check.sh` green: coverage 96.22 / 93.62 / 95.88.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none (`ci`).
+- Next: after merge, dispatch Cut a release on main with a version package.json does not carry; a red `verify` with no tag is line 2's run evidence and shows the environment check reads the protection. Then flip M0-14.

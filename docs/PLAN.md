@@ -193,7 +193,7 @@ The repository is public, so GitHub-hosted runner minutes (including `ubuntu-24.
 
 ### `.github/workflows/release.yml` (extend the existing file)
 
-- Triggers stay: `push` to `main`, `pull_request`, `workflow_dispatch`. Drop the `tags: v*` trigger once `cut-release.yml` exists.
+- Triggers: `push` to `main`, `pull_request`, `workflow_dispatch`, and `workflow_call` for `cut-release.yml`. No `tags: v*` trigger: releases are cut-release.yml's.
 - `build` matrix job (M0-05), `timeout-minutes: 20`:
   - **x64:** checkout (with the base commit for the diff); setup-node 24 with npm cache; Electron caches; `npm ci`; `changes`; `npm run format:check`, `npm run lint`, `npm run typecheck`; `npm run test:coverage`; `node scripts/agent/features-check.mjs` (reads `GITHUB_TOKEN` and `origin/device-results` read-only; pull requests compare against `github.base_ref`); `python3 -m unittest discover -s tools/device-bridge`; PR-body check (`Feature:` line, pull requests only, M0-18); licence and dependency guard (M0-20); when `romm`: Docker RomM 5.2.0 up, provision, `npm run test:romm` and, from M2, `npm run test:saves`; `npm run build`; `npm run package -- --x64` (unless docs-only); `npx install-electron`, the chrome-sandbox setuid fix (as upstream), `npm run test:app`; `npm run shots:nova -- --subset pr`; the device test bundle and `build-info.json` (`scripts/device-bundle.mjs`, on every x64 run, pull requests too; uploaded as `device-bundle` from `main` only); upload `appimage-x64`, `shots-x64` and, on failure, `app-test-failures-x64`.
   - **arm64:** checkout; setup-node 24; Electron caches; `npm ci`; `changes`; `npm run build`; warm-up fetch; `npm run package -- --arm64` (unless docs-only); `npm run smoke:app`; upload `appimage-arm64`.

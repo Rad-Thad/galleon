@@ -2,8 +2,8 @@
 //
 // The body of a GitHub release, printed for the release workflow to publish.
 //
-// The changelog is the release note. `.github/workflows/release.yml` refuses a
-// tag whose version has no section in CHANGELOG.md, so the section is always
+// The changelog is the release note. `.github/workflows/cut-release.yml` refuses
+// a version that has no section in CHANGELOG.md, so the section is always
 // there, and it is the one description of the release that somebody wrote on
 // purpose — GitHub's own generated notes are the commit subjects, which is what
 // the section falls back to anyway. Printing both would put the same list on
