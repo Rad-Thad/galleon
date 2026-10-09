@@ -5,6 +5,9 @@
 // section 4. A leg over the target makes fixing CI the next unit of work
 // (CLAUDE.md, "Picking the next unit of work").
 //
+// `ci-times.mjs <pr>` prints one pull request's legs instead, for its
+// PROGRESS.md entry (M0-18).
+//
 // Reads the check-runs API through `gh api`, the REST route that works from the
 // cloud VM; changes nothing.
 import { execFileSync } from 'node:child_process'
@@ -66,6 +69,15 @@ function format(value) {
   return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, '0')}`
 }
 
+/** One pull request's legs, as its PROGRESS.md entry records them. */
+export function renderOne(number, times) {
+  return LEGS.map((leg) =>
+    times[leg] === undefined
+      ? `#${number} ${leg}: not green yet`
+      : `#${number} ${leg}: ${format(times[leg])}`
+  ).join('\n')
+}
+
 export function render(summary) {
   return summary
     .map(({ leg, runs, median: value, over }) =>
@@ -83,6 +95,21 @@ function gh(path) {
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   const remote = execFileSync('git', ['remote', 'get-url', 'origin'], { encoding: 'utf8' }).trim()
   const repo = remote.replace(/\.git$/, '').replace(/.*[/:]([^/]+\/[^/]+)$/, '$1')
+  const number = process.argv[2]
+  if (number !== undefined) {
+    if (!/^\d+$/.test(number)) {
+      console.error('usage: ci-times.mjs [<pull request number>]')
+      process.exit(2)
+    }
+    const sha = gh(`repos/${repo}/pulls/${number}`).head.sha
+    console.log(
+      renderOne(
+        number,
+        legTimes(gh(`repos/${repo}/commits/${sha}/check-runs?per_page=100`).check_runs)
+      )
+    )
+    process.exit(0)
+  }
   const merged = gh(`repos/${repo}/pulls?state=closed&sort=updated&direction=desc&per_page=50`)
     .filter((pull) => pull.merged_at)
     .sort((a, b) => Date.parse(b.merged_at) - Date.parse(a.merged_at))

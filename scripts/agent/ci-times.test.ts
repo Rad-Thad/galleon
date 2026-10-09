@@ -1,6 +1,15 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
-import { LEGS, SAMPLE, TARGET_MINUTES, legTimes, median, render, summarise } from './ci-times.mjs'
+import {
+  LEGS,
+  SAMPLE,
+  TARGET_MINUTES,
+  legTimes,
+  median,
+  render,
+  renderOne,
+  summarise
+} from './ci-times.mjs'
 
 /**
  * The CI time budget is only enforced by this report being right: a median
@@ -55,5 +64,12 @@ describe('ci-times', () => {
     const text = render(summary)
     assert.match(text, new RegExp(`median ${TARGET_MINUTES + 1}:30 over 1 pull requests \\(over`))
     assert.match(text, /arm64\): no successful runs/)
+  })
+
+  test("one pull request's legs, and a leg that has not gone green", () => {
+    assert.equal(
+      renderOne(47, { [x64]: 3 + 58 / 60 }),
+      `#47 ${x64}: 3:58\n#47 ${arm64}: not green yet`
+    )
   })
 })

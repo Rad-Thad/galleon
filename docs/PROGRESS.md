@@ -491,3 +491,18 @@ Lines the tooling reads (exact forms):
 - Evaluator: see the PR.
 - Device / acceptance: none (`ci`).
 - Next: M0-18 (PR template, the `Feature:` body check in `build`, `ci-times.mjs <pr>`), then M0-05 part 2 (`smoke:app` on arm64, image digests, the red-check proof). M0-05 flips only after both.
+
+## 2026-10-09 08:47 UTC session cloud (routine run, third unit)
+
+- Device results: none new (as above).
+- Worked on: M0-18 part 1 of 2 (tracking issue #50). M0-05 needs its PR-body step. M0-20's PR #49 merged at 8860441, flipping M0-20; its CI wall time was x64 3:43, arm64 3:05 (`node scripts/agent/ci-times.mjs 49`).
+- Result: PR (this one). M0-18 stays false until part 2.
+- Evidence:
+  - `.github/pull_request_template.md`: feature ids, what, evidence, device checks, CI wall time per leg, risk, and the evaluator's verdict.
+  - New x64 step "Check the pull-request body", on pull requests only. It runs `scripts/agent/pr-body.mjs`, which fails when the body has no `Feature:` line, names an id missing from features.json, or says `none` without a reason in brackets. Dependabot is exempt because its bodies are generated. The body and author reach it through the environment. Unit and process tests: `scripts/agent/pr-body.test.ts`, 5 tests, including exit 1 with the reason on a body without the line.
+  - `node scripts/agent/ci-times.mjs <pr>` prints one pull request's legs: `#47` x64 3:58, arm64 3:13; `#49` x64 3:43, arm64 3:05.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none (`ci`).
+- Next: M0-18 part 2 (features-check holds a pull request to a PROGRESS.md entry dated within its lifetime), then M0-05 part 2. A later change could have the licence guard (M0-20) also refuse `SPDX-License-Identifier: GPL-…` lines; the evaluator noted it as optional on #49.

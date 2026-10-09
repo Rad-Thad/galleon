@@ -20,4 +20,5 @@ export const SAMPLE: number
 export function median(values: readonly number[]): number | null
 export function legTimes(checkRuns: readonly CheckRun[]): Record<string, number>
 export function summarise(perCommit: readonly Record<string, number>[]): LegSummary[]
+export function renderOne(number: string | number, times: Record<string, number>): string
 export function render(summary: readonly LegSummary[]): string
