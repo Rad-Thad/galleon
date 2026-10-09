@@ -601,3 +601,20 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Evaluator: see the PR.
 - Device / acceptance: none (`ci`).
+
+## 2026-10-09 11:53 UTC session cloud (routine run, third unit)
+
+- Device results: none yet. The first `nightly` (65777b9) was published at 11:40 UTC and the Nova has not reported on it.
+- Worked on: flipping M0-24 (tracking issue #60). Part 2, PR #62, merged at 2f8a1b1; its CI wall time was x64 3:48, arm64 0:51.
+- Result: PR (this one). Flips M0-24 (`ci`).
+- Evidence:
+  - Line 1 (timeouts and concurrency, a typical run within 30 minutes): nightly.yml dispatched on `main` at 2f8a1b1, actions run 37925800111, success in 5:44 (`moved` 0:04; `suites` x64 5:01, arm64 5:12; `publish` 0:16).
+  - Line 2 (`build-info.json` names the commit, `SHA256SUMS` covers every asset, tag moved last): the `nightly` release carries `build-info.json` (`sha` 2f8a1b1…), both AppImages, `galleon-steam.sh`, `galleon-device-tests.tar.gz` and `SHA256SUMS` over all five; `refs/tags/nightly` moved by the last step. The per-merge publish did the same for 65777b9 (actions run 37924780473).
+  - Line 3 (a failing suite publishes nothing): `publish` needs `suites` (#62). CLAUDE.md already puts a red nightly on `main` first in line.
+  - Line 4 (minimal run.sh with only `harness.run`): #61, `scripts/device-bundle.test.ts`.
+  - Line 5 (never latest, body for the bridge): `prerelease: true`, `make_latest: false`, body in `.github/actions/publish-nightly`.
+  - Docker RomM 5.2.0 and 5.3.1 on both architectures: release.yml dispatched on the #62 branch, run 37925135054, success.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: the bridge should now report `harness.run` on the next idle hour on the charger.
+- Next: M0-23 (device results ingestion), so the first results can be read through `device-results.mjs --summary`.
