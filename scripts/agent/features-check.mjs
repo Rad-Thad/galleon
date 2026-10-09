@@ -73,6 +73,42 @@ export function catalogueIds(markdown) {
   return [...section.matchAll(/^\|\s*`([^`]+)`\s*\|/gm)].map((match) => match[1])
 }
 
+/**
+ * The rows of docs/PLAN.md's Phase 0 caveat table, each with the feature ids
+ * it names, so Gate 0's caveats stay traceable to work that exists (M1-01).
+ */
+export function caveatRows(markdown) {
+  const section = markdown.split(
+    /^\*\*Phase 0 caveats and the features that address them\*\*.*$/m
+  )[1]
+  if (section === undefined) return null
+  const rows = section
+    .split(/^---\s*$/m)[0]
+    .split('\n')
+    .filter((line) => line.startsWith('|'))
+    .slice(2)
+  return rows.map((line) => {
+    const cells = line.split('|').map((cell) => cell.trim())
+    return { caveat: cells[1], ids: cells[2].match(/\bM\d+-\d+\b/g) ?? [] }
+  })
+}
+
+/** What is wrong with the caveat table against the feature list. */
+export function caveatErrors(rows, features) {
+  if (rows === null) return ['docs/PLAN.md has no Phase 0 caveat table']
+  const ids = new Set(features.map((feature) => feature.id))
+  const errors = []
+  if (rows.length === 0) errors.push('docs/PLAN.md: the Phase 0 caveat table has no rows')
+  for (const row of rows) {
+    if (row.ids.length === 0)
+      errors.push(`docs/PLAN.md: the Phase 0 caveat "${row.caveat}" names no feature`)
+    for (const id of row.ids)
+      if (!ids.has(id))
+        errors.push(`docs/PLAN.md: the Phase 0 caveat "${row.caveat}" names unknown ${id}`)
+  }
+  return errors
+}
+
 function inCatalogue(id, catalogue) {
   // A feature applied per system names the catalogue's own placeholder id,
   // since its concrete ids come from research done later.
@@ -385,6 +421,9 @@ function main(argv) {
   const catalogue = catalogueIds(readFileSync(new URL('docs/TESTING.md', root), 'utf8'))
 
   const errors = validate(head, { catalogue })
+  errors.push(
+    ...caveatErrors(caveatRows(readFileSync(new URL('docs/PLAN.md', root), 'utf8')), head)
+  )
   const github = fileURLToPath(new URL('.github/', root))
   errors.push(
     ...forbiddenNames(

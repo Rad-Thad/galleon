@@ -61,11 +61,11 @@ Feature ids (M1-11 and so on) are used throughout. When this file and features.j
 - Manuals failed: "refused an image request that is not an asset path {path: roms/<p>/<r>/manual/<id>.pdf}".
 - RomMix data on the device: `~/rommix` (`config/settings.json`, `logs/app.log`, `logs/launcher.log`, `roms/`) and Electron profile `~/.config/rommix`. The fork must leave these alone.
 
-**Gate 0 decision: PASS. Proceed with the RomMix hard fork.** The next decision point is **Gate 1**.
+**Gate 0 decision: PASS. Proceed with the RomMix hard fork.** The next decision point is **Gate 1**. The decision is on record in the closed `gate` issue [#84](https://github.com/Rad-Thad/galleon/issues/84).
 
 **Revision, 2026-10-08 (ADR 0003).** Development no longer uses the owner for testing. Where G0-8 says M2 "covers it with the test account", read: device tests never write to the server, save checks run against a fake RomM on the device (M2-20), and the real round trip happens once, in the final acceptance session (M2-19). Stock RomMix's sign-in on the Nova is reused, read-only, by the device tests and by Galleon's first-run import (M1-30).
 
-**Phase 0 caveats and the features that address them** (M1-01 checks every id exists):
+**Phase 0 caveats and the features that address them** (`scripts/agent/features-check.mjs` checks that every row names a feature and every id exists):
 
 | Caveat                                                                                | Feature(s)                                                    |
 | ------------------------------------------------------------------------------------- | ------------------------------------------------------------- |

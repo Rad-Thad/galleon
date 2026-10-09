@@ -436,7 +436,7 @@
     ],
     "verification": "ci",
     "depends_on": ["M0-03"],
-    "passes": false
+    "passes": true
   },
   {
     "id": "M1-02",
