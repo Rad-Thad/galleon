@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { after, before, describe, test } from 'node:test'
 import { dateFormatters } from '@shared/i18n/dates.ts'
 import { en } from '@shared/i18n/en.ts'
@@ -1510,6 +1511,72 @@ describe('the folder RomMix keeps everything in', () => {
       `document.querySelector('[data-action="recheck-system"]')?.dataset.disabled === 'false'`,
       'the button to come back'
     )
+  })
+})
+
+/**
+ * The performance overlay: on from Settings -> System, drawn over every screen
+ * without moving it, and a summary per screen into the log. The arithmetic is
+ * `frames.test.ts`'s; this is the seam from requestAnimationFrame through the
+ * bridge to app.log.
+ */
+describe('the performance overlay', () => {
+  test('is off until asked for, and asked for in Settings -> System', async () => {
+    await app.goTo('settings')
+    await app.waitFor(`document.querySelector('[data-tab="system"]')`, 'the settings tabs')
+    await app.choose('[data-tab="system"]')
+    assert.equal(await app.read<boolean>(`!!document.querySelector('.perf-overlay')`), false)
+
+    await app.choose('[data-setting="perfOverlay"] [data-option="on"]')
+    await app.waitFor(
+      `(await window.rommix.system.settings()).perfOverlay === true`,
+      'the choice to be kept'
+    )
+    await app.waitFor(
+      `document.querySelector('[data-perf-overlay]')?.textContent.includes('p99')`,
+      'the overlay to measure'
+    )
+    assert.equal(
+      await app.read<string>(`getComputedStyle(document.querySelector('.perf-overlay')).position`),
+      'fixed',
+      'drawn over the screen, never in its flow'
+    )
+  })
+
+  test('writes a summary of each screen it measured to the log', async () => {
+    await app.goTo('library')
+    await app.waitFor(`document.querySelector('[data-rom]')`, 'the library to fill')
+    await app.waitFor(
+      `document.querySelector('[data-perf-overlay]')?.textContent.includes('library')`,
+      'the overlay to follow the screen'
+    )
+    // Long enough for frames to be counted on the library before it is left.
+    await app.read(`new Promise((done) => setTimeout(() => done(true), 600))`)
+    await app.goTo('settings')
+
+    const logPath = await app.read<string>(`(await window.rommix.system.diagnostics()).logPath`)
+    const summary = /perf\s+summary\s+(\{.*\})$/
+    let found: Record<string, unknown> | undefined
+    for (let tries = 0; tries < 50 && !found; tries += 1) {
+      found = readFileSync(logPath, 'utf8')
+        .split('\n')
+        .map((line) => summary.exec(line)?.[1])
+        .filter((json): json is string => json !== undefined)
+        .map((json) => JSON.parse(json) as Record<string, unknown>)
+        .find((one) => one.screen === 'library')
+      if (!found) await new Promise((done) => setTimeout(done, 100))
+    }
+    assert.ok(found, 'a perf summary for the library should be in app.log')
+    for (const key of ['frames', 'p50', 'p90', 'p99', 'jankyPct'])
+      assert.equal(typeof found[key], 'number', `${key} should be a number`)
+    assert.ok((found.frames as number) > 0)
+  })
+
+  test('and goes again from the same switch', async () => {
+    await app.waitFor(`document.querySelector('[data-tab="system"]')`, 'the settings tabs')
+    await app.choose('[data-tab="system"]')
+    await app.choose('[data-setting="perfOverlay"] [data-option="off"]')
+    await app.waitFor(`!document.querySelector('.perf-overlay')`, 'the overlay to go')
   })
 })
 

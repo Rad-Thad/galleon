@@ -13,6 +13,7 @@ import type {
   InstalledRom,
   EmulatorAsset,
   EmulatorInstallProgress,
+  PerfSummary,
   PowerAction,
   RomQuery,
   RomUserStatus,
@@ -156,6 +157,8 @@ const bridge: RomMixBridge = {
     quit: () => ipcRenderer.invoke('system:quit'),
     powerActions: () => ipcRenderer.invoke('system:powerActions'),
     power: (action: PowerAction) => ipcRenderer.invoke('system:power', action),
+    perfState: () => ipcRenderer.invoke('system:perfState'),
+    perfSummary: (summary: PerfSummary) => ipcRenderer.invoke('system:perfSummary', summary),
     openExternal: (url: string) => ipcRenderer.invoke('system:openExternal', url),
     onError: (listener: (message: string) => void) => subscribe<string>('app:error', listener)
   }

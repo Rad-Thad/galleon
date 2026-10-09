@@ -72,3 +72,40 @@ export interface DiagnosticsReport {
   logPath: string
   notes: string[]
 }
+
+/**
+ * What the machine's power management is doing, for the performance overlay.
+ * See `readPowerState`.
+ */
+export interface PowerState {
+  cpuGovernor: string
+  /** Prime-cluster frequencies, in kHz as cpufreq reports them. */
+  cpuCurKHz: number | null
+  cpuMaxKHz: number | null
+  gpuGovernor: string
+  /** GPU frequencies, in Hz as devfreq reports them. */
+  gpuCurHz: number | null
+  gpuMaxHz: number | null
+  /**
+   * The profile Armada starts in, from its profile definitions: not
+   * necessarily the one in force, which Steam may have switched.
+   */
+  defaultProfile: string
+}
+
+/** What the performance overlay measures against. See the `system:perfState` handler. */
+export interface PerfState {
+  /** The display's refresh rate, which decides what counts as a janky frame. */
+  displayHz: number
+  power: PowerState
+}
+
+/** One screen's frame statistics, as the `perf summary` log line records them. */
+export interface PerfSummary {
+  screen: string
+  frames: number
+  p50: number
+  p90: number
+  p99: number
+  jankyPct: number
+}

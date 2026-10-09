@@ -112,6 +112,19 @@ async function eachTab(app: App, screen: string): Promise<void> {
   }
 }
 
+/** Switch the performance overlay from Settings -> System. */
+async function perfOverlay(app: App, option: 'on' | 'off'): Promise<void> {
+  await app.goTo('settings')
+  await app.waitFor(`document.querySelector('[data-tab="system"]')`, 'the system tab')
+  while (
+    !(await app.read<boolean>(
+      `document.querySelector('[data-tab="system"]')?.dataset.active === 'true'`
+    ))
+  )
+    await app.press('TabNext')
+  await app.choose(`[data-setting="perfOverlay"] [data-option="${option}"]`)
+}
+
 /** Every screen of a signed-in Galleon, ending with a game on screen. */
 async function signedIn(): Promise<void> {
   const scenario = await startScenario({ viewport: NOVA, home: join(HOMES, 'signed-in') })
@@ -146,6 +159,22 @@ async function signedIn(): Promise<void> {
       await app.waitFor(`document.querySelector('[data-screen="settings"]')`, 'settings')
       await eachTab(app, 'settings')
     })
+
+    // Turned on the way a player does, from Settings -> System, then shown
+    // over the library it is most often turned on to measure; off again after,
+    // so the shots that follow are of the screens alone.
+    if (wanted('perf-overlay'))
+      await attempt('perf-overlay', async () => {
+        await perfOverlay(app, 'on')
+        await app.goTo('library')
+        await app.waitFor(`document.querySelector('[data-rom]')`, 'the library to fill')
+        await app.waitFor(
+          `document.querySelector('[data-perf-overlay]')?.textContent.includes('p99')`,
+          'the overlay to measure'
+        )
+        await shoot(app, 'perf-overlay')
+        await perfOverlay(app, 'off')
+      })
 
     if (wanted('running'))
       await attempt('running', async () => {

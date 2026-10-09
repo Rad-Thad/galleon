@@ -1,6 +1,6 @@
 import { type JSX, useState } from 'react'
 import type { DiagnosticsReport, RootLocation } from '@shared/types'
-import { FocusButton, Spinner, TextField } from '../../../components'
+import { FocusButton, Spinner, TextField, Toggle } from '../../../components'
 import { useGamepadName } from '../../../input/focus'
 import { useApp, useI18n } from '../../../state'
 import { UpdatePanel } from '../UpdatePanel'
@@ -25,7 +25,7 @@ export function SystemTab({
   onRecheck: () => Promise<DiagnosticsReport | null>
 }): JSX.Element {
   const { t, formatBytes } = useI18n()
-  const { notify } = useApp()
+  const { notify, settings, saveSettings } = useApp()
   const [rootDraft, setRootDraft] = useState<string | null>(null)
   const [rechecking, setRechecking] = useState(false)
   const controller = useGamepadName()
@@ -188,6 +188,17 @@ export function SystemTab({
           </div>
         </>
       )}
+
+      {/* Last, because it is a measuring tool rather than anything a player
+          needs to set up. */}
+      <h2 className="section-title">{t('system.performance')}</h2>
+      <Toggle
+        label={t('settings.perfOverlay')}
+        setting="perfOverlay"
+        hint={t('settings.perfOverlayHint')}
+        on={settings?.perfOverlay ?? false}
+        onToggle={() => void saveSettings({ perfOverlay: !settings?.perfOverlay })}
+      />
     </>
   )
 }

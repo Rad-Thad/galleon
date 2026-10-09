@@ -2,8 +2,13 @@
 
 export type Direction = 'up' | 'down' | 'left' | 'right'
 
-/** Buttons the UI reacts to, named by intent rather than by index. */
-export type Action = 'back' | 'menu' | 'search' | 'tabLeft' | 'tabRight'
+/**
+ * Buttons the UI reacts to, named by intent rather than by index.
+ *
+ * `perfOverlay` is the one that belongs to no screen: it shows or hides the
+ * performance overlay over whatever is open, a dialog included.
+ */
+export type Action = 'back' | 'menu' | 'search' | 'tabLeft' | 'tabRight' | 'perfOverlay'
 
 /**
  * What the player is driving the UI with right now.

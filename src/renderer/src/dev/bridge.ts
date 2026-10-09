@@ -569,6 +569,7 @@ const SETTINGS: Settings = {
   // before the themes existed, and nothing in the demo is older than the
   // demo. See `ThemesNotice`.
   dismissedNotices: [THEMES_NOTICE],
+  perfOverlay: false,
   // The browser's own language, so the published demo reads in whatever the
   // visitor's browser is set to — and the Settings row still switches it.
   language: 'auto',
@@ -1064,6 +1065,22 @@ const bridge: RomMixBridge = {
     // dialog draws only what comes back from here.
     powerActions: () => later([]),
     power: () => refuse(),
+    // A browser tab has no sysfs to read, so every value is the overlay's
+    // "unknown", which is what a desktop without these files shows too.
+    perfState: () =>
+      later({
+        displayHz: 60,
+        power: {
+          cpuGovernor: 'unknown',
+          cpuCurKHz: null,
+          cpuMaxKHz: null,
+          gpuGovernor: 'unknown',
+          gpuCurHz: null,
+          gpuMaxHz: null,
+          defaultProfile: 'unknown'
+        }
+      }),
+    perfSummary: () => later(undefined),
     // The preview is already in a browser, so the desktop's link handler is
     // simply a new tab.
     openExternal: (url: string) => {

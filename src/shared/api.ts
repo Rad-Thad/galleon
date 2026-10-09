@@ -5,6 +5,8 @@ import type {
   ConnectionStatus,
   DiagnosticsReport,
   DriveSpace,
+  PerfState,
+  PerfSummary,
   PowerAction,
   DownloadItem,
   InstalledRom,
@@ -406,6 +408,10 @@ export interface RomMixBridge {
      */
     powerActions(): Promise<PowerAction[]>
     power(action: PowerAction): Promise<void>
+    /** The refresh rate and power state the performance overlay shows. */
+    perfState(): Promise<PerfState>
+    /** Write one screen's frame statistics to the log. */
+    perfSummary(summary: PerfSummary): Promise<void>
     /** Open an http(s) address in the desktop's browser. Nothing else is allowed. */
     openExternal(url: string): Promise<void>
     /**

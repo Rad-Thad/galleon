@@ -592,9 +592,24 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
        * A pool that yields nothing on screen is measured whole, so a press that
        * had an answer still lands on one — which is also how an element the
        * observer has not reported on yet is reached. See `onScreen`.
+       *
+       * Only while the highlight is itself on screen. A press can land on the
+       * last row of a long page before the page has scrolled to it, and from
+       * there what is on screen is the part of the page being left: Right off
+       * the row's first button would skip its neighbour for a button far above
+       * that happens to be in view.
        */
+      // Measured rather than asked of the observer, which may not yet have
+      // reported on an element the highlight has only just reached.
+      const fromOnScreen =
+        from.bottom > 0 &&
+        from.top < window.innerHeight &&
+        from.right > 0 &&
+        from.left < window.innerWidth
       const pick = (pool: FocusableEntry[]): string | null =>
-        nearest(pool.filter((entry) => onScreen.current.has(entry.element))) ?? nearest(pool)
+        (fromOnScreen
+          ? nearest(pool.filter((entry) => onScreen.current.has(entry.element)))
+          : null) ?? nearest(pool)
 
       /**
        * Where a press that arrives in a group from outside every group lands.
@@ -724,7 +739,10 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
   /** Run the most recently registered handler on the active layer. */
   const fireAction = useCallback((action: Action): void => {
     const list = actionHandlers.current.get(action) ?? []
-    const onLayer = list.filter((h) => h.layer === layerRef.current)
+    // The overlay toggle is answered wherever it was registered: a dialog on
+    // top is often exactly the screen whose frames are worth measuring.
+    const onLayer =
+      action === 'perfOverlay' ? list : list.filter((h) => h.layer === layerRef.current)
     const target = onLayer.length > 0 ? onLayer[onLayer.length - 1] : undefined
     if (!target) return
     // Leaving has its own cue; the rest — the menu, the search box, a tab — are

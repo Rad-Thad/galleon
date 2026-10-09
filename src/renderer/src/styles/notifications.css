@@ -61,3 +61,21 @@
   flex: 0 0 auto;
   object-fit: contain;
 }
+
+/* The performance overlay. In the corner nothing else uses, out of the way of
+   the toasts, and fixed so that showing it moves nothing it is measuring. */
+.perf-overlay {
+  position: fixed;
+  left: var(--safe-x);
+  bottom: var(--safe-y);
+  z-index: 70;
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+  font-family: ui-monospace, 'DejaVu Sans Mono', monospace;
+  font-size: 13px;
+  line-height: 1.4;
+  pointer-events: none;
+  font-variant-numeric: tabular-nums;
+}

@@ -88,6 +88,7 @@ function defaultSettings(): Settings {
     confirmUninstall: true,
     confirmSavePush: true,
     dismissedNotices: [],
+    perfOverlay: false,
     uiScale: 0,
     theme: DEFAULT_THEME,
     // The desktop's own language, until somebody says otherwise in Settings.
@@ -147,6 +148,7 @@ const SETTINGS_SHAPE: { [K in keyof Settings]: Check<Settings[K]> } = {
   confirmUninstall: isBoolean,
   confirmSavePush: isBoolean,
   dismissedNotices: isStringList,
+  perfOverlay: isBoolean,
   uiScale: isNumber,
   theme: oneOf(THEMES),
   language: oneOf(['auto', ...LOCALES]),

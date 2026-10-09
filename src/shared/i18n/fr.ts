@@ -724,6 +724,18 @@ export const fr: Catalog = {
   'settings.sounds': 'Sons de navigation',
   'settings.soundsHint':
     'Un clic discret quand la sélection se déplace, à la validation et au retour.',
+  'system.performance': 'Performances',
+  'settings.perfOverlay': 'Indicateur de performances',
+  'settings.perfOverlayHint':
+    'Temps d’image et fréquences dans un coin. Maintenez L3 et R3 ensemble pour l’afficher ou le masquer partout.',
+  'perf.screen': 'Écran : {screen}',
+  'perf.frameTimes': 'Temps d’image p50 {p50} · p90 {p90} · p99 {p99} ms',
+  'perf.janky': 'Images saccadées {pct} % à {hz} Hz',
+  'perf.measuring': 'Mesure en cours…',
+  'perf.cpu': 'CPU {governor} {cur}/{max} MHz',
+  'perf.gpu': 'GPU {governor} {cur}/{max} MHz',
+  'perf.defaultProfile': 'Armada démarre en : {profile}',
+  'perf.unknown': 'inconnu',
   'settings.scaleHint': 'Auto suit l’écran : deux fois plus grand sur un téléviseur 4K.',
   'settings.language': 'Langue',
   'settings.languageHint': 'Auto suit la langue configurée sur cette machine.',

@@ -17,6 +17,7 @@ import {
   useSuspendGamepad
 } from './input/focus'
 import { Icon, type IconName } from './icons'
+import { PerfOverlay } from './perf/PerfOverlay'
 import { useApp, useDownloads, useI18n, type Route } from './state'
 import { BiosScreen } from './screens/Bios'
 
@@ -166,7 +167,9 @@ export function App(): JSX.Element {
     runningRomId,
     runningEmulator,
     status,
-    update
+    update,
+    settings,
+    saveSettings
   } = useApp()
   const { enterZone } = useFocusContext()
   const [confirmingQuit, setConfirmingQuit] = useState(false)
@@ -209,6 +212,11 @@ export function App(): JSX.Element {
   // has mounted.
   const covered = runningRomId !== null || runningEmulator !== null
   useSuspendGamepad(covered)
+
+  // L3 and R3 held: the same switch as Settings -> System, from any screen,
+  // because the screen worth measuring is rarely the Settings one.
+  const perfOverlay = settings?.perfOverlay ?? false
+  useAction('perfOverlay', () => void saveSettings({ perfOverlay: !perfOverlay }))
 
   if (route.name === 'setup') {
     return (
@@ -352,6 +360,7 @@ export function App(): JSX.Element {
 
       {covered ? <RunningOverlay /> : null}
       <Toasts />
+      {perfOverlay ? <PerfOverlay screen={route.name} /> : null}
     </div>
   )
 }
