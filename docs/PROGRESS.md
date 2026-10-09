@@ -1021,3 +1021,19 @@ Lines the tooling reads (exact forms):
 - Evaluator: see the PR.
 - Device / acceptance: none.
 - Next: `next.mjs`'s first feature that does not wait on the device (M1-15, or M2-01 the save-sync spec).
+
+## 2026-10-09 23:27 UTC session ac37955f (routine run)
+
+- Device results: none new. The bridge last checked in at 20:06 UTC (no nightly published yet).
+- Worked on: M1-15 part 1 of 2 (tracking issue #105): the bounding-box check. Flaky #103's fix, PR #104, merged at 7edf0ba before this run.
+- Result: PR (this one). M1-15 stays false until part 2 (the d-pad walk, line 2) lands.
+- Evidence:
+  - `test/app/layout.ts`: `MEASURE_LAYOUT` (renderer source) reads the box of every visible focusable (`data-focused`) on the screen, or in the topmost `.overlay` when one is open, with each ancestor whose overflow is not visible; `layoutOffenders` names, by `data-*` handle (state attributes such as `data-active` left out), each control outside the window, cut off by an ancestor that does not scroll, larger than its scroller, or overlapping another control it is not nested in. A control inside a scroller is judged where the focus engine's scroll would put it (`auto`/`scroll` and overflowing, as `scrollParentsOf`).
+  - `test/app/shots.ts`: `shoot` measures every screen after writing its PNG and fails it with the list of offenders, so `shots:nova` (and the PR subset in CI) exits non-zero on any.
+  - Line 1: `test/app/layout.test.ts`, 10 unit tests of `layoutOffenders` (window edges, scrollers, non-scrolling clips, one-axis overflow, overlap, nesting, on-screen parts only), and in the built app at 1280x960: "the home screen as it is has no offenders", and "planted controls past the edge, cut off and overlapping are named by handle" (`[data-action="planted-edge"]: outside the window (right 1330)`, `… cut off by [data-planted-shelf]`, `… overlaps button "nameless"`; a hidden one is not reported).
+  - `npm run shots:nova`: all 18 screens measured (6 to 35 controls each), no offenders. Looked at home, library, game-details, downloads, emulators, settings-general, setup and quit: nothing clipped or overlapping. At rest, the lowest rows of home, emulators and settings scroll under the hint bar (92% opaque); reached with the pad, the last Settings → General control (Quit Galleon) sits fully above it (checked with a scratch walk of 30 Down presses, not committed). Not a defect.
+  - `scripts/agent/check.sh` green: coverage 96.29 / 93.78 / 95.98. `npm run test:app` 213/213 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root).
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none (`agent-screenshot`).
+- Next: M1-15 part 2, a test:app walk of every screen with the d-pad visiting every `data-action` (line 2).
