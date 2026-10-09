@@ -14,3 +14,6 @@ package-lock.json
 docs/research
 reference
 artifacts/
+# Written by scripts/agent/acceptance.mjs, whose test holds it to the
+# generator's output byte for byte.
+docs/ACCEPTANCE.md

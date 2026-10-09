@@ -1,0 +1,111 @@
+{
+  "places": [
+    { "id": "mac", "title": "At the Mac, with the Nova on Wi-Fi" },
+    { "id": "nova", "title": "The Nova in Game Mode" },
+    { "id": "android", "title": "Android with Argosy, the Nova beside you" },
+    { "id": "browser", "title": "A browser" }
+  ],
+  "before": [
+    {
+      "title": "Back up the saves first",
+      "place": "mac",
+      "minutes": 10,
+      "text": "The local Claude session copies the server's saves for the games this session uses to the Mac, by reading only (GET). Nothing is written to the server. You do nothing but wait for it to say the copy is complete."
+    }
+  ],
+  "after": [
+    {
+      "title": "Record the results",
+      "place": "mac",
+      "minutes": 5,
+      "text": "The local Claude session reads the table below back to you, writes `acceptance/<date>/results.json` (schema in docs/TESTING.md, \"The acceptance session\") and pushes it to the `device-results` branch."
+    }
+  ],
+  "wholeSession": "M8-07",
+  "items": [
+    {
+      "feature": "M8-01",
+      "place": "nova",
+      "minutes": 10,
+      "passWhen": "Galleon is in the Steam library, starts from there, and is signed in without pairing."
+    },
+    {
+      "feature": "M4-33",
+      "place": "nova",
+      "minutes": 10,
+      "passWhen": "Every screen is readable at arm's length, scrolling feels at least as smooth as Steam's library, and you would rather use Galleon than Steam's library."
+    },
+    {
+      "feature": "M7-12",
+      "place": "nova",
+      "minutes": 12,
+      "passWhen": "In every emulator, confirm, cancel, the shoulders, the emulator's own menu and holding Start to leave do what Galleon's guide says, and they feel right in the hand."
+    },
+    {
+      "feature": "M3-08",
+      "place": "nova",
+      "minutes": 2,
+      "informational": true
+    },
+    {
+      "feature": "M7-13",
+      "place": "nova",
+      "minutes": 12,
+      "passWhen": "You picked one look for each system the script names."
+    },
+    {
+      "feature": "M7-17",
+      "place": "nova",
+      "minutes": 8,
+      "passWhen": "Each patched game fills the 4:3 screen with correct proportions in 3D, any 2D stretching is acceptable to you, and the DS and 3DS single-screen layout and its swap work and feel right."
+    },
+    {
+      "feature": "M7-23",
+      "place": "nova",
+      "minutes": 8,
+      "passWhen": "Each game with a pack shows HD textures without loading stutter, the switch turns them off, and your per-system defaults are recorded."
+    },
+    {
+      "feature": "M3-04",
+      "place": "nova",
+      "minutes": 3,
+      "informational": true
+    },
+    {
+      "feature": "M3-01",
+      "place": "nova",
+      "minutes": 6,
+      "passWhen": "Quick Access shows the game and its save status during play, and 'Quit game' returns to Galleon with the save intact."
+    },
+    {
+      "feature": "M3-07",
+      "place": "nova",
+      "minutes": 2,
+      "informational": true
+    },
+    {
+      "feature": "M5-04",
+      "place": "nova",
+      "minutes": 5,
+      "passWhen": "Steam starts installing the game, and Galleon shows it as installing, then installed."
+    },
+    {
+      "feature": "M6-09",
+      "place": "nova",
+      "minutes": 5,
+      "passWhen": "Something from your Jellyfin server plays with sound. Mark it skip if you do not use Jellyfin."
+    },
+    {
+      "feature": "M3-02",
+      "place": "nova",
+      "minutes": 8,
+      "passWhen": "With Start on boot on, Galleon opens by itself after Steam starts; with it off, Steam opens as before."
+    },
+    {
+      "feature": "M2-19",
+      "place": "android",
+      "minutes": 12,
+      "passWhen": "For every system listed, neither side asks you to choose between two saves, and RomM's web page shows one current save per game."
+    }
+  ]
+}
