@@ -23,4 +23,4 @@ Upstream changes are ported one at a time, never merged wholesale:
 4. **Cheap to port.** Internal names stay as upstream has them (`RomMixApp`, the `ROMMIX_*` variables apart from the home override, M0-04), so upstream patches still apply.
 5. **Nothing goes back without asking.** Sending patches to upstream is a `needs-human` decision (M6-14); the safe default is not to.
 
-The weekly upstream watch (M0-19) opens or updates one issue listing upstream commits since the base. Reading that list is how ports are found; the list itself changes nothing.
+The weekly upstream watch (M0-19, `.github/workflows/upstream.yml` running `scripts/agent/upstream.mjs`) opens or updates one issue, `upstream: N new commits` (label `upstream`), listing upstream commits since the base. Reading that list is how ports are found; the list itself changes nothing.

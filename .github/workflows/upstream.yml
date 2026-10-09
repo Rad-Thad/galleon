@@ -1,0 +1,35 @@
+# The upstream watch (M0-19): once a week, lists RomMix's commits since the
+# base in docs/UPSTREAM.md in one `upstream: N new commits` issue, updated in
+# place, so useful upstream fixes are found and ported deliberately.
+#
+# Reads upstream's public API and writes only this repository's issues, with
+# the workflow's own token; it checks out the repository to read the base and
+# never pushes. Not a required check.
+name: Upstream
+
+on:
+  schedule:
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  watch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: List upstream commits since the base
+        run: node scripts/agent/upstream.mjs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
