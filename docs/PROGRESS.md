@@ -429,3 +429,18 @@ Lines the tooling reads (exact forms):
 - Next: the wordmark fix above, then M0-11 (diagnostics bundle).
 - Notes:
   - On the VM, Electron refuses to run as root without `--no-sandbox`, and creating an unprivileged user was not allowed this session. Local runs used `ELECTRON_EXEC_PATH` pointing at a wrapper outside the repository that adds `--no-sandbox`. CI keeps the sandbox.
+
+## 2026-10-09 07:27 UTC session cloud (routine run)
+
+- Device results: none. `bridge/status.json` unchanged (bridge 1, last seen 2026-10-08T15:06:00Z, no `nightly` release yet); no `results/`.
+- Worked on: the top bar's wordmark, which still read "RomMix" after M0-04 (tracking issue #42, found by M0-09's screenshots). M0-09's PR #40 merged at 7b12bbb; both `build` legs green on it.
+- Result: PR (this one).
+- Evidence:
+  - New test:app check "the top bar names the product it is" (`test/app/interface.test.ts`, the home screen): the wordmark's text and the mark's `aria-label` are both `Galleon`. On the old code it failed with `actual: 'RomMix'`; with the fix it passes.
+  - `src/renderer/src/App.tsx`: the wordmark is `Gal<span>leon</span>`, keeping the two-tone design.
+  - `npm run test:app` 192/192 on the VM; `npm run shots:nova -- --subset pr` 6 screens. Looked at `home.png` and a crop of its top bar: "Galleon" beside the mark, the menu still centred, nothing clipped.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none.
+- Next: M0-11 (diagnostics bundle).
