@@ -249,6 +249,30 @@ describe('device-results: the rules', () => {
     ])
   })
 
+  test('a published result is the bridge being seen, since only a skip writes its status', () => {
+    // Results at 10:00 on the 1st to the 9th; the status is from a skip before them.
+    const runs: [number, Summary][] = [1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => [
+      n,
+      summary('complete', allPass)
+    ])
+    const stale = { bridgeVersion: 1, lastSeen: '2026-10-01T09:00:00Z', lastSkip: 'on battery' }
+    const a = analyse(input(runs, { status: stale }))
+    assert.equal(a.bridge?.lastSeen, '2026-10-09T10:00:00Z')
+    assert.equal(a.bridge?.hours, 2)
+    assert.equal(a.bridge?.lastSkip, 'on battery')
+    assert.equal(a.bridge?.version, 1)
+
+    // A skip after the newest result is the newer sighting.
+    const later = { ...stale, lastSeen: '2026-10-09T11:00:00Z' }
+    assert.equal(analyse(input(runs, { status: later })).bridge?.lastSeen, '2026-10-09T11:00:00Z')
+
+    // Results and no status at all: still seen.
+    const bare = analyse(input(runs))
+    assert.equal(bare.bridge?.lastSeen, '2026-10-09T10:00:00Z')
+    assert.equal(bare.bridge?.version, null)
+    assert.match(render(bare), /Bridge: last seen 2\.0 h ago \(2026-10-09T10:00:00Z\), version \?/)
+  })
+
   test('the summary reads in the order a session acts, ending on the bridge', () => {
     const a = analyse(
       input([[1, summary('complete', allPass)]], {
