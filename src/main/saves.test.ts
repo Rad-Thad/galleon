@@ -45,7 +45,7 @@ test('punctuation and case are ignored, as emulators vary on both', () => {
 })
 
 test('the slot number on a memory card still matches', () => {
-  // DuckStation writes `Suikoden II_1.mcd`; the ROM is `Suikoden II`. Mednafen
+  // A per-game card is written as `Suikoden II_1.mcd`; the ROM is `Suikoden II`. Mednafen
   // writes the same card as `Suikoden II.1.mcr`.
   assert.equal(stemMatches('Suikoden II_1', 'Suikoden II', '.mcd'), true)
   assert.equal(stemMatches('Suikoden II.1', 'Suikoden II', '.mcr'), true)
@@ -270,7 +270,7 @@ test('a clock file never holds the slot, alone or beside the save it dates', () 
 })
 
 test('a memory card never holds the slot, alone or beside anything', () => {
-  // The number is part of the name DuckStation opens and mednafen writes it
+  // The number is part of the name a per-game card is opened by, and mednafen writes it
   // differently, so it cannot be read off a copy another client uploaded — a
   // card pulled from a slot would land under a name nothing opens. Cards keep
   // being matched on their names.

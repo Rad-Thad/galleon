@@ -2109,8 +2109,8 @@ describe('what may take as long as it takes', () => {
     await client.downloadSave(1, join(dir, 'pulled.srm'))
     await client.downloadState(2, join(dir, 'pulled.state'))
     await client.downloadFirmware(firmware, join(dir, 'scph5501.bin'))
-    await client.uploadSave(5, upload, 'ffvii.srm', 'duckstation', null)
-    await client.uploadState(5, upload, 'ffvii.state', 'duckstation')
+    await client.uploadSave(5, upload, 'ffvii.srm', 'swanstation', null)
+    await client.uploadState(5, upload, 'ffvii.state', 'swanstation')
 
     // Named one by one rather than swept, because an upload registers this
     // device on its way past and that call carries an answer like any other:

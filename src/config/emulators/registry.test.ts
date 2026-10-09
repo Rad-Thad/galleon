@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { readdirSync, readFileSync } from 'node:fs'
+import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join, relative } from 'node:path'
+import { findMatchingFile } from '../../main/host.ts'
 import { isKnownSystem } from '../systems.ts'
 import {
   EMULATORS,
@@ -17,6 +19,7 @@ import {
   resolveEmulator,
   supportsSystem
 } from './index.ts'
+import { duckstation } from './duckstation/index.ts'
 import { eden } from './eden/index.ts'
 import { emudeck, ROM_PLACEHOLDER } from './emudeck/index.ts'
 import { retroarch } from './retroarch/index.ts'
@@ -714,4 +717,71 @@ test('nothing under src/config imports a node builtin', () => {
   }
   walk(root)
   assert.deepEqual(offenders, [])
+})
+
+test('DuckStation is found as the catalog AppImage first, then on Flathub', async () => {
+  assert.deepEqual(
+    duckstation.install.map((spec) => spec.kind),
+    ['appimage', 'flatpak', 'binary']
+  )
+  const flatpak = duckstation.install.find((spec) => spec.kind === 'flatpak')
+  assert.equal(flatpak?.kind === 'flatpak' && flatpak.appId, 'org.duckstation.DuckStation')
+
+  // The file armadaOS's catalog leaves in ~/Applications, found the way every
+  // AppImage is looked for.
+  const appimage = duckstation.install.find((spec) => spec.kind === 'appimage')
+  assert.ok(appimage?.kind === 'appimage')
+  const dir = mkdtempSync(join(tmpdir(), 'duckstation-'))
+  writeFileSync(join(dir, 'notes.txt'), '')
+  assert.equal(await findMatchingFile(dir, appimage.patterns), null)
+  writeFileSync(join(dir, 'DuckStation-arm64.AppImage'), '')
+  assert.equal(
+    await findMatchingFile(dir, appimage.patterns),
+    join(dir, 'DuckStation-arm64.AppImage')
+  )
+})
+
+test('DuckStation downloads only its Linux AppImages', () => {
+  const source = releaseSource(duckstation)
+  assert.ok(source)
+  assert.equal(isInstallableAsset('DuckStation-arm64.AppImage', source), true)
+  assert.equal(isInstallableAsset('DuckStation-x64.AppImage', source), true)
+  for (const name of ['duckstation-windows-x64-release.zip', 'duckstation-mac-release.zip']) {
+    assert.equal(isInstallableAsset(name, source), false, name)
+  }
+})
+
+test('DuckStation runs PlayStation games only', () => {
+  assert.equal(supportsSystem(duckstation, 'psx'), true)
+  assert.equal(supportsSystem(duckstation, 'ps2'), false)
+})
+
+test('DuckStation boots a .chd or an .m3u fullscreen, exits with the game, and ends options first', () => {
+  const exec = ['/home/u/Applications/DuckStation-arm64.AppImage']
+  for (const romPath of ['/roms/psx/Game (USA).chd', '/roms/psx/-Game (USA).m3u']) {
+    assert.deepEqual(duckstation.launch({ exec, installRef: exec[0], system: 'psx', romPath }), [
+      ...exec,
+      '-batch',
+      '-fullscreen',
+      '-nogui',
+      '--',
+      romPath
+    ])
+  }
+  const flatpak = ['flatpak', 'run', 'org.duckstation.DuckStation']
+  assert.deepEqual(
+    duckstation.launch({
+      exec: flatpak,
+      installRef: 'org.duckstation.DuckStation',
+      system: 'psx',
+      romPath: '/roms/psx/Game.chd'
+    }),
+    [...flatpak, '-batch', '-fullscreen', '-nogui', '--', '/roms/psx/Game.chd']
+  )
+})
+
+test("DuckStation's BIOS and memory cards are its own XDG folders", () => {
+  assert.deepEqual(duckstation.dirs.bios, { base: 'data', path: 'duckstation/bios' })
+  assert.deepEqual(duckstation.dirs.saves, { base: 'data', path: 'duckstation/memcards' })
+  assert.equal(duckstation.dirs.states, undefined)
 })

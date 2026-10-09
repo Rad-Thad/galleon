@@ -62,7 +62,8 @@ function normaliseStem(value: string): string {
  * The same, with the tags a ROM file name carries and a save file does not.
  *
  * A multi-disc game is exposed by RomM as `Final Fantasy VII (USA).m3u`, while
- * the memory card DuckStation writes for it is `Final Fantasy VII_1.mcd`. The
+ * the per-game memory card a PS1 emulator writes for it is
+ * `Final Fantasy VII_1.mcd`. The
  * region and dump markers are what stand between the two, so a second, looser
  * key is derived without them. Used only when the strict comparison has already
  * failed, so an exact match is never displaced by a fuzzy one.
