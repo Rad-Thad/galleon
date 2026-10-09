@@ -972,7 +972,7 @@ Lines the tooling reads (exact forms):
 - Device / acceptance: none (`ci`).
 - Next: `next.mjs`'s first feature (M1-12).
 
-## 2026-10-09 21:40 UTC session 4e493a14 (routine run)
+## 2026-10-09 21:33 UTC session 4e493a14 (routine run)
 
 - Device results: none new. The bridge last checked in at 20:06 UTC (no new nightly).
 - Worked on: M1-12 (tracking issue #99): emulators start with a clean environment, inside Steam's tree. M1-09's part 2, PR #98, merged at eaed1a5.
