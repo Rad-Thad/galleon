@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, relative } from 'node:path'
+import { findEmulator, loadFindRules } from '../../main/findrules.ts'
 import { findMatchingFile } from '../../main/host.ts'
 import { isKnownSystem } from '../systems.ts'
 import {
@@ -739,6 +740,28 @@ test('DuckStation is found as the catalog AppImage first, then on Flathub', asyn
     await findMatchingFile(dir, appimage.patterns),
     join(dir, 'DuckStation-arm64.AppImage')
   )
+})
+
+test("ES-DE's find rules resolve DuckStation from the catalog's AppImage in a fake home", async () => {
+  const { rules, unreadable } = await loadFindRules(
+    join(import.meta.dirname, '..', '..', '..', 'packaging', 'es-de', 'linuxarm'),
+    join(tmpdir(), 'galleon-no-custom-systems')
+  )
+  assert.deepEqual(unreadable, [])
+  const home = mkdtempSync(join(tmpdir(), 'duckstation-home-'))
+  // An empty PATH, so a duckstation the test machine happens to have is not what is found.
+  const ctx = { home, pathVariable: '' }
+  assert.equal(await findEmulator(rules, 'DUCKSTATION', ctx), null)
+
+  mkdirSync(join(home, 'Applications'))
+  writeFileSync(join(home, 'Applications', 'DuckStation-arm64.AppImage'), '')
+  assert.deepEqual(await findEmulator(rules, 'DUCKSTATION', ctx), {
+    emulator: 'DUCKSTATION',
+    source: 'bundled',
+    type: 'staticpath',
+    entry: '~/Applications/DuckStation*.AppImage',
+    path: join(home, 'Applications', 'DuckStation-arm64.AppImage')
+  })
 })
 
 test('DuckStation downloads only its Linux AppImages', () => {
