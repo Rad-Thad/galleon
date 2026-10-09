@@ -1621,15 +1621,6 @@ describe('the performance overlay', () => {
 })
 
 /**
- * The room left where the games go.
- *
- * The figure itself belongs to whatever drive the suite is running on, so what
- * is asserted is the seam: `statfs` in the main process, `DriveSpace` across
- * the bridge, one row per drive on the screen a download is watched from. The
- * rules behind it — which folders are one drive, and what a folder that is not
- * there yet answers — are `disk.test.ts`'s.
- */
-/**
  * Report a problem, pressed with the pad from both places it is offered. What
  * the zip holds is the scenario above's; this is the button reaching it.
  */
@@ -1723,6 +1714,15 @@ describe('reporting a problem with the controller', () => {
   })
 })
 
+/**
+ * The room left where the games go.
+ *
+ * The figure itself belongs to whatever drive the suite is running on, so what
+ * is asserted is the seam: `statfs` in the main process, `DriveSpace` across
+ * the bridge, one row per drive on the screen a download is watched from. The
+ * rules behind it — which folders are one drive, and what a folder that is not
+ * there yet answers — are `disk.test.ts`'s.
+ */
 describe('the room left where the games go', () => {
   test('the downloads screen draws a row per drive the machine reports', async () => {
     await app.goTo('downloads')
