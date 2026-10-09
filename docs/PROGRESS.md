@@ -650,3 +650,18 @@ Lines the tooling reads (exact forms):
 - Evaluator: see the PR.
 - Device / acceptance: none yet.
 - Next: M0-10 part 2, the power-state parser (line 4) with fixtures from DEVICE-FACTS.md; then part 3, the overlay, the log line and the test:app scenarios.
+
+## 2026-10-09 13:00 UTC session cse_013Evf4H1hJ63Gcq8q1118dc (routine run, third unit)
+
+- Device results: none new.
+- Worked on: M0-10 part 2 of 3 (tracking issue #66): the sysfs and power-profiles.conf half of acceptance line 4. Part 1, PR #67, merged at 59a09d4; its CI wall time was x64 3:49, arm64 1:00.
+- Result: PR (this one). M0-10 stays false.
+- Evidence:
+  - `src/main/powerstate.ts`: pure parsers (`parseWord`, `parseNumber`, `parseDefaultProfile`, `gpuDevice`, `powerState`) and `readPowerState(root)`, which reads only files anyone can read: policy7 `scaling_governor`, `scaling_cur_freq` and `scaling_max_freq`; the devfreq device named for the GPU (`governor`, `cur_freq`, `max_freq`); and `default_profile=` from `power-profiles.conf` (`/etc/armada/` over `/usr/share/armada/`). Anything unreadable is `unknown` or null.
+  - Not done: line 4's perf-state.json half. DEVICE-FACTS.md says that file is the perf contract (cores, nice, scheduler in `global`/`override` layers), not a profile store, and gives no field for a profile. A first draft looked for a `profile` key there; the evaluator rejected it as invented, and it was removed. What to show from it needs its real format, from the bridge's `doctor` output or a device result's evidence. `defaultProfile` is where Armada starts, not the profile in force; part 3 must not label it as current.
+  - `src/main/powerstate.test.ts` (9 tests): fixture trees for the Nova on Balanced and on Performance (values from DEVICE-FACTS.md); `/etc` wins over the factory conf; a desktop with no such files gives every value unknown; no prime cluster still reports the GPU; the parsers' edge cases (a commented line, quoting, the memory-bus devfreq device that is not the GPU). `powerstate.ts` coverage is 100/100/100.
+  - `scripts/agent/check.sh` green: 1497 tests, coverage 96.16 / 93.67 / 95.77.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none yet.
+- Next: M0-10 part 3: the overlay (Settings → System toggle and the L3+R3 chord) showing frame stats and this power state over IPC, the `perf summary` log line per screen, the test:app cost and 30 s scroll scenarios, and screenshots.
