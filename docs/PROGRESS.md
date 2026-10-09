@@ -950,7 +950,7 @@ Lines the tooling reads (exact forms):
   - Line 1: `findrules.test.ts` "the parser keeps every top-level element, not only the first", "a custom rule replaces the bundled one by name, whole, and keeps its place", "a custom system replaces the bundled one by name", "loading layers the custom folder on the bundled one and names a broken file", "the vendored linuxarm files parse whole" (195 systems).
   - Line 2: `registry.test.ts` "ES-DE's find rules resolve DuckStation from the catalog's AppImage in a fake home" (`DUCKSTATION`, staticpath `~/Applications/DuckStation*.AppImage`), and `findrules.test.ts` "a glob expands `*` in any component …" and "resolution takes the first rule and entry that find something, and names it".
   - `scripts/agent/check.sh` green: 1579 tests, coverage 96.27 / 93.67 / 95.93.
-- CI wall time: recorded in the next entry (this entry rides the PR).
+- CI wall time: recorded in the next entry (this entry rides the PR). The first x64 run failed only at the pull-request body check: the body opened without `Feature: M1-09`. The body was corrected and this line pushed, since a re-run reads the old body.
 - Evaluator: see the PR.
 - Device / acceptance: none (`ci`).
 - Next: M1-09 part 2: ship `packaging/es-de/` in the image (`extraResources`), load it with `~/ES-DE/custom_systems/` at start, and have the pre-flight check name the rule that found each emulator (line 3).
