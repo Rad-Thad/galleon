@@ -21,18 +21,24 @@ export const SERVER = '<server>'
 export const IP = '<ip>'
 export const REMOVED = '<removed>'
 
-/** Keys whose value is a secret, in `key=value`, `key: value` or JSON form. */
-const SECRET_KEYS =
-  'password|passwd|pass|token|access_token|refresh_token|client_token|secret|api[-_]?key|cookie|set-cookie|device_code|user_code|pairing_code'
+/**
+ * Words that make a key's value a secret, in `key=value`, `key: value` or JSON
+ * form. Matched anywhere in the key, so `ROMM_PASSWORD`, `csrf_token` and
+ * `deviceCode` are caught as well as the bare words.
+ */
+const SECRET_WORDS =
+  'password|passwd|token|secret|api[-_]?key|cookie|authorization|device_?code|user_?code|pairing_?code'
+const SECRET_KEY = `[A-Za-z0-9_.-]*(?:${SECRET_WORDS})[A-Za-z0-9_.-]*`
 
 const KEYED_JSON = new RegExp(
-  `("(?:${SECRET_KEYS})"\\s*:\\s*)("(?:[^"\\\\]|\\\\.)*"|[^,}\\s]+)`,
+  `("${SECRET_KEY}"\\s*:\\s*)("(?:[^"\\\\]|\\\\.)*"|\\[[^\\]]*\\]|[^,}\\s]+)`,
   'gi'
 )
-const KEYED_TEXT = new RegExp(
-  `\\b((?:${SECRET_KEYS})\\s*[=:]\\s*)("[^"]*"|'[^']*'|[^\\s&,;}]+)`,
-  'gi'
-)
+const KEYED_TEXT = new RegExp(`\\b(${SECRET_KEY}\\s*[=:]\\s*)("[^"]*"|'[^']*'|[^\\s&,;}]+)`, 'gi')
+/** A pairing code named in prose, as a person or a message would write it. */
+const PAIRING_PROSE = /\b((?:pairing|device|user) code\s*[=:]?\s*)[A-Za-z0-9-]+/gi
+/** The user and password a pasted `https://user:password@host` carries. */
+const USERINFO = /\b(https?:\/\/)[^/@\s]+@/gi
 
 /** A header line a request or response carried, value and all. */
 const HEADER = /\b((?:set-)?cookie|authorization)(\s*:\s*)[^\r\n]*/gi
@@ -73,11 +79,13 @@ export function redact(text: string, options: RedactOptions = {}): string {
   // than as an anonymous address.
   if (host) out = out.replace(new RegExp(escape(host), 'gi'), SERVER)
   out = out
+    .replace(USERINFO, `$1${REMOVED}@`)
     .replace(HEADER, `$1$2${REMOVED}`)
     .replace(BEARER, `$1 ${REMOVED}`)
     .replace(CLIENT_TOKEN, REMOVED)
     .replace(KEYED_JSON, `$1"${REMOVED}"`)
     .replace(KEYED_TEXT, `$1${REMOVED}`)
+    .replace(PAIRING_PROSE, `$1${REMOVED}`)
     .replace(IPV4, IP)
     .replace(IPV6, IP)
   return out

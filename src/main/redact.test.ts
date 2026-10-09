@@ -21,7 +21,14 @@ const SECRETS = [
   '10.0.0.7',
   'fe80::1c2d:3e4f:5a6b:7c8d',
   '2001:db8:85a3:0:0:8a2e:370:7334',
-  '::1'
+  '::1',
+  'bob:hunter3',
+  'envsecret',
+  'prefixed-json',
+  'csrfvalue',
+  'camelpair',
+  'PROSE-777',
+  'Token abc'
 ]
 
 const LOG = [
@@ -33,6 +40,12 @@ const LOG = [
   'Cookie: sessionid=abc123; csrftoken=zzz',
   '{"user_code":"WXYZ-1234","device_code":"dev-code-98765"}',
   'connecting to 192.168.1.40 and 10.0.0.7',
+  'GET https://bob:hunter3@elsewhere.example/api',
+  'ROMM_PASSWORD=envsecret',
+  '{"romm_password":"prefixed-json","Authorization":"Token abc"}',
+  'csrf_token=csrfvalue',
+  '{"deviceCode":"camelpair"}',
+  'enter the pairing code PROSE-777 on the server',
   'bound fe80::1c2d:3e4f:5a6b:7c8d and [2001:db8:85a3:0:0:8a2e:370:7334]:443 and ::1'
 ].join('\n')
 
@@ -57,6 +70,10 @@ test('the server host goes whatever its case, and an address-shaped host is name
   assert.equal(redact('at fd00::5 now', { serverUrl: 'http://[fd00::5]:80' }), `at ${SERVER} now`)
   assert.equal(serverHost('not a url'), null)
   assert.equal(serverHost(null), null)
+})
+
+test('a word that merely contains a secret word as a part is not a key', () => {
+  assert.equal(redact('passed: 3, bypass=on'), 'passed: 3, bypass=on')
 })
 
 test('times, versions of fewer parts and code that merely has colons are left as they are', () => {

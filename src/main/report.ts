@@ -157,6 +157,16 @@ async function readText(path: string): Promise<string | null> {
   }
 }
 
+/** The base URL a settings file names, or nothing when it names none or does not parse. */
+export function settingsServer(settings: string | null): string | null {
+  try {
+    const url = (JSON.parse(settings ?? '') as { server?: { baseUrl?: unknown } }).server?.baseUrl
+    return typeof url === 'string' ? url : null
+  } catch {
+    return null
+  }
+}
+
 /** `2026-10-09T16-27-01Z`: sortable, and a legal file name everywhere. */
 export function reportName(now: Date): string {
   return `${now
@@ -176,7 +186,12 @@ export async function writeReport(input: ReportInput): Promise<string> {
   const reports = join(input.root, 'reports')
   await mkdir(reports, { recursive: true })
   const staging = await mkdtemp(join(reports, '.staging-'))
-  const clean = (text: string): string => redact(text, { serverUrl: input.serverUrl })
+  const settings = await readText(join(input.root, 'config', 'settings.json'))
+  // The settings' own server as well as the caller's, so a report written
+  // while signed out still hides the address the settings file names.
+  const hosts = [input.serverUrl, settingsServer(settings)]
+  const clean = (text: string): string =>
+    hosts.reduce<string>((out, serverUrl) => redact(out, { serverUrl }), text)
   const put = async (name: string, text: string): Promise<void> => {
     await mkdir(join(staging, name, '..'), { recursive: true })
     await writeFile(join(staging, name), clean(text))
@@ -194,7 +209,6 @@ export async function writeReport(input: ReportInput): Promise<string> {
     await put('launches.log', launches(appLog).join('\n'))
     await put('perf.log', perfSummaries(appLog).join('\n'))
 
-    const settings = await readText(join(input.root, 'config', 'settings.json'))
     if (settings !== null) await put('settings.json', settings)
 
     await put('versions.json', json(input.versions))

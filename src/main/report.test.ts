@@ -20,6 +20,7 @@ import {
   perfSummaries,
   REPORT_LIMIT,
   reportName,
+  settingsServer,
   tail,
   writeReport
 } from './report.ts'
@@ -128,6 +129,19 @@ test('the report carries its parts, and nothing from config/ but redacted settin
   assert.equal(JSON.parse(files['system.json']).kernel, '6.6.0-armada')
   assert.equal(JSON.parse(files['versions.json']).channel, 'nightly')
   assert.match(files['perf.log'], /perf summary/)
+})
+
+test('signed out, the host the settings name is still hidden', async () => {
+  const root = tree({
+    'config/settings.json': JSON.stringify({ server: { baseUrl: SERVER } }),
+    'logs/app.log': line('romm', `GET ${SERVER}/api`)
+  })
+  const files = await unpack(
+    await writeReport({ root, serverUrl: null, versions: {}, env: {}, systemRoot: root })
+  )
+  assert.ok(!Object.values(files).join('\n').includes('romm.home.example'))
+  assert.equal(settingsServer('not json'), null)
+  assert.equal(settingsServer('{"server":{}}'), null)
 })
 
 test('a root with no logs and no settings still makes a report', async () => {
