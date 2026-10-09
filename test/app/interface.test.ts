@@ -400,6 +400,9 @@ describe('driving it with a mouse instead', () => {
   test('and a click opens what it is on', async () => {
     await app.click('[data-rom="2"]')
     await app.waitFor(`document.querySelector('[data-screen="game"]')`, 'the game screen')
+    // The screen is up as soon as the route changes, and the game it is about
+    // arrives over IPC after that; its title is the sign it has.
+    await app.waitFor(`document.querySelector('.game-hero__title')`, 'the game to load')
 
     // The same game the pointer was over, rather than whatever the highlight
     // happened to be on when the press arrived.
@@ -1757,6 +1760,8 @@ describe('the home screen', () => {
     const title = await app.read<string>(`document.querySelector('.hero__title')?.textContent`)
     await app.choose('.hero')
     await app.waitFor(`document.querySelector('[data-screen="game"]')`, 'the game screen')
+    // Not drawn until the game has arrived, which is after the screen is up.
+    await app.waitFor(`document.querySelector('.game-hero__title')`, 'the game to load')
     assert.equal(
       await app.read<string>(`document.querySelector('.game-hero__title')?.textContent`),
       title
