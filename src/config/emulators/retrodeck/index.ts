@@ -79,6 +79,8 @@ export const retrodeck: EmulatorDescriptor = {
   name: 'RetroDECK',
   dispatch: 'self',
   install: [{ kind: 'flatpak', appId: RETRODECK_APP_ID }],
+  // ES-DE has no find rule for it.
+  findRule: undefined,
   homepage: 'https://retrodeck.net',
   systems: [...new Set([...systemsWithCore(), ...RETRODECK_STANDALONE_SYSTEMS])],
   // RetroDECK resolves the emulator per system from its own ES-DE

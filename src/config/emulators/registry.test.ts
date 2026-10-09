@@ -39,6 +39,7 @@ const FIELD_ORDER = [
   'name',
   'dispatch',
   'install',
+  'findRule',
   'homepage',
   'systems',
   'variants',

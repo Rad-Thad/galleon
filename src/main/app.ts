@@ -1,4 +1,5 @@
 import { BrowserWindow, protocol, screen, shell } from 'electron'
+import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { resolveEmulator } from '@config/emulators'
@@ -7,6 +8,7 @@ import { ConnectionWatch, connectionStatus } from './connection.ts'
 import { DownloadManager } from './downloads.ts'
 import { Library } from './library.ts'
 import { detectEmulators } from './emulators.ts'
+import { FIND_RULES_FILE, loadFindRules, type FindRules } from './findrules.ts'
 import { setLanguage } from './i18n.ts'
 import { Launcher } from './launcher.ts'
 import { log } from './log.ts'
@@ -19,6 +21,7 @@ import { Store } from './store.ts'
 import { Updater } from './update.ts'
 import { isWebAddress } from './weblink.ts'
 import { saveContext } from './gamecontext.ts'
+import { realHome } from './xdg.ts'
 import type { EmulatorState, SavesWaiting } from '@shared/types'
 
 export const IMAGE_SCHEME = 'rommix-img'
@@ -441,9 +444,31 @@ export class RomMixApp {
    */
   async refreshEmulators(): Promise<EmulatorState[]> {
     const generation = (this.probeGeneration += 1)
-    const states = await detectEmulators(this.store.settings)
+    const states = await detectEmulators(this.store.settings, await this.findRules())
     if (generation === this.probeGeneration) this.emulatorCache = states
     return states
+  }
+
+  /**
+   * ES-DE's find rules with Armada's `custom_systems` on top, read afresh for
+   * every probe: installing from the Armada Store can rewrite the custom files
+   * while Galleon runs, and the probe is the moment that has to see it.
+   *
+   * The image carries the bundled copy as a resource; a checkout run in place
+   * reads it from `packaging/`, which is the same distance from the bundle.
+   */
+  private async findRules(): Promise<FindRules> {
+    const bundled = [
+      join(process.resourcesPath ?? '', 'es-de', 'linuxarm'),
+      join(__dirname, '..', '..', 'packaging', 'es-de', 'linuxarm')
+    ].find((dir) => existsSync(join(dir, FIND_RULES_FILE)))
+    if (!bundled) log.warn('probe', 'no bundled ES-DE find rules; using the descriptors alone')
+    const custom = join(realHome(), 'ES-DE', 'custom_systems')
+    const { rules, unreadable } = await loadFindRules(bundled ?? null, custom)
+    if (unreadable.length > 0) {
+      log.warn('probe', 'ES-DE files that did not parse were left out', { unreadable })
+    }
+    return rules
   }
 
   /** Counts probes, so an overtaken one does not write the cache. */

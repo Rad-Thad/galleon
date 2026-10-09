@@ -41,6 +41,7 @@ export const retroarch: EmulatorDescriptor = {
     { kind: 'flatpak', appId: RETROARCH_APP_ID },
     { kind: 'binary', names: ['retroarch'] }
   ],
+  findRule: 'RETROARCH',
   homepage: 'https://www.retroarch.com',
   systems: systemsWithCore(),
   // One core per system, named by `launch`, so there is nothing to choose.

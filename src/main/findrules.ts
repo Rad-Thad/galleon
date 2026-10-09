@@ -277,7 +277,7 @@ async function readText(path: string): Promise<string | null> {
  * emulator.
  */
 export async function loadFindRules(
-  bundledDir: string,
+  bundledDir: string | null,
   customDir: string
 ): Promise<LoadedFindRules> {
   const rules = emptyFindRules()
@@ -286,6 +286,7 @@ export async function loadFindRules(
     [bundledDir, 'bundled'],
     [customDir, 'custom']
   ] as const) {
+    if (dir === null) continue
     for (const [file, add] of [
       [FIND_RULES_FILE, addFindRules],
       [SYSTEMS_FILE, addSystems]

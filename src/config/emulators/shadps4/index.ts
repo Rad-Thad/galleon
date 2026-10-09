@@ -44,6 +44,8 @@ export const shadps4: EmulatorDescriptor = {
       }
     }
   ],
+  // ES-DE has no find rule for it.
+  findRule: undefined,
   homepage: 'https://shadps4.net',
   systems: ['ps4'],
   variants: undefined,

@@ -48,6 +48,7 @@ export const eden: EmulatorDescriptor = {
       }
     }
   ],
+  findRule: 'EDEN',
   homepage: 'https://eden-emu.dev',
   systems: ['switch'],
   // One Switch emulator, one way to run a game.

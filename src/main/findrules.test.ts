@@ -261,3 +261,14 @@ test('resolution takes the first rule and entry that find something, and names i
 
   assert.equal(await findEmulator(emptyFindRules(), 'EMU', ctx), null)
 })
+
+test('with no bundled folder, only the custom one is read', async () => {
+  const custom = scratch()
+  writeFileSync(
+    join(custom, 'es_find_rules.xml'),
+    '<ruleList><emulator name="E"><rule type="staticpath"><entry>/e</entry></rule></emulator></ruleList>'
+  )
+  const { rules, unreadable } = await loadFindRules(null, custom)
+  assert.deepEqual([...rules.emulators.keys()], ['E'])
+  assert.deepEqual(unreadable, [])
+})

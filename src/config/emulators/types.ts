@@ -108,6 +108,22 @@ export interface ResolvedInstall {
    * system and user installs, either architecture, and any branch.
    */
   location?: string
+  /**
+   * The ES-DE find rule that located it, when one did. The pre-flight check
+   * names it, so a wrong pick on armadaOS can be traced to the rule and the
+   * file that holds it rather than guessed at.
+   */
+  foundBy?: FoundBy
+}
+
+/** Which find rule located an install, as the rule's own file states it. */
+export interface FoundBy {
+  rule: string
+  type: string
+  /** The entry as written, `~` and `*` and all. */
+  entry: string
+  /** ES-DE's bundled file, or Armada's `custom_systems` override of it. */
+  source: 'bundled' | 'custom'
 }
 
 /**
@@ -386,6 +402,12 @@ interface EmulatorFields {
   // -- finding and installing it -------------------------------------------------
 
   readonly install: readonly InstallSpec[]
+  /**
+   * The name of ES-DE's `<emulator>` find rule for this program, when there is
+   * one. armadaOS's store installs where those rules look, so the rule is tried
+   * before `install` and finds the copy ES-DE itself would launch.
+   */
+  readonly findRule: string | undefined
   /**
    * The project's own page: where the program comes from, what it is, and how
    * to set it up by hand.
