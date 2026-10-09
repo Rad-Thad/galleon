@@ -16,6 +16,8 @@ import { fileURLToPath } from 'node:url'
 import {
   addedLines,
   catalogueIds,
+  caveatErrors,
+  caveatRows,
   compare,
   flipErrors,
   forbiddenNames,
@@ -95,6 +97,36 @@ describe('the guard’s readings', () => {
     assert.ok(!ids.includes('Check id'), 'not the header row')
   })
 
+  test("reads PLAN.md's Phase 0 caveat table, and every row names features that exist", () => {
+    const plan = readFileSync(join(root, 'docs', 'PLAN.md'), 'utf8')
+    const rows = caveatRows(plan)
+    assert.ok(rows !== null && rows.length >= 12, 'every caveat row, not the header')
+    assert.deepEqual(rows?.find((row) => row.caveat.startsWith('Credentials'))?.ids, ['M1-24'])
+    const features = JSON.parse(readFileSync(join(root, 'docs', 'features.json'), 'utf8'))
+    assert.deepEqual(caveatErrors(rows, features), [])
+  })
+
+  test('a caveat naming no feature or an unknown one, or no table at all, is an error', () => {
+    const table = [
+      '**Phase 0 caveats and the features that address them** (checked):',
+      '',
+      '| Caveat | Feature(s) |',
+      '| ------ | ---------- |',
+      '| Icons 404 | M1-26, M9-99 |',
+      '| Lag | none yet |',
+      '',
+      '---',
+      '| Not | M7-77 |'
+    ].join('\n')
+    assert.deepEqual(caveatErrors(caveatRows(table), [{ id: 'M1-26' }]), [
+      'docs/PLAN.md: the Phase 0 caveat "Icons 404" names unknown M9-99',
+      'docs/PLAN.md: the Phase 0 caveat "Lag" names no feature'
+    ])
+    assert.deepEqual(caveatErrors(caveatRows('# Plan'), []), [
+      'docs/PLAN.md has no Phase 0 caveat table'
+    ])
+  })
+
   test('takes what an append-only file gained, repeated lines included', () => {
     assert.equal(addedLines('a\n- none\nb', 'a\n- none\nb\n- none\nc'), '- none\nc')
   })
@@ -152,6 +184,10 @@ function repository(): { dir: string; git: (...args: string[]) => string } {
   writeFileSync(
     join(dir, 'docs', 'TESTING.md'),
     '## Check catalogue\n\n| Check id | Passes when |\n| --- | --- |\n| `launch.<emulator>` | x |\n| `safety.owner-state` | x |\n| `safety.server-readonly` | x |\n'
+  )
+  writeFileSync(
+    join(dir, 'docs', 'PLAN.md'),
+    '**Phase 0 caveats and the features that address them**\n\n| Caveat | Feature(s) |\n| --- | --- |\n| A caveat | M1-01 |\n'
   )
   return { dir, git }
 }

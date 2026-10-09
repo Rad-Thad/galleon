@@ -846,3 +846,17 @@ Lines the tooling reads (exact forms):
 - Evaluator: see the PR.
 - Device / acceptance: PASSES M0-15 (ci).
 - Next: `next.mjs`'s first feature (M0-19 or M1-01).
+
+## 2026-10-09 18:53 UTC session fe0b4bc0 (routine run, third unit)
+
+- Device results: none new.
+- Worked on: M1-01 (tracking issue #85): Gate 0 on the record. M0-15 part 2, PR #83, merged at 2cf29a1; its CI wall time was x64 4:48, arm64 0:56. M0-15 passes; #81 closed.
+- Result: PR (this one). PASSES M1-01 (ci).
+- Evidence:
+  - Line 1: `gate` issue #84, "Gate 0: PASS, proceed with the RomMix fork", quotes the PHASE 0 RESULTS table and the caveat table from docs/PLAN.md, states "Gate 0: PASS, proceed with the fork", and was closed (completed) on creation. docs/PLAN.md links it beside the Gate 0 decision.
+  - Line 2: `scripts/agent/features-check.mjs` `caveatRows` reads PLAN.md's Phase 0 caveat table and `caveatErrors` fails the guard when the table is missing or empty, a row names no feature, or an id is not in features.json. The command runs it on every check.sh and CI run. Tests: "reads PLAN.md's Phase 0 caveat table, and every row names features that exist" (12 rows, all ids known) and "a caveat naming no feature or an unknown one, or no table at all, is an error"; the scratch-repository command test now carries a PLAN.md. features-check.test.ts 39/39.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none (`ci`).
+- Next: `next.mjs`'s first feature (M0-19).

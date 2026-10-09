@@ -13,6 +13,11 @@ export interface Evidence {
 export const REQUIRED_SOURCES: string[]
 export function deviceChecks(feature: Feature): string[]
 export function catalogueIds(markdown: string): string[]
+export function caveatRows(markdown: string): { caveat: string; ids: string[] }[] | null
+export function caveatErrors(
+  rows: { caveat: string; ids: string[] }[] | null,
+  features: readonly Record<string, unknown>[]
+): string[]
 export function validate(
   features: unknown,
   options: { catalogue: readonly string[]; required?: readonly string[] }
