@@ -38,11 +38,19 @@ const document = JSON.parse(
 /**
  * The slice of `Store` the client reads, signed in with the provisioned token.
  *
- * `identifier` is the machine identifier RomMix registers itself under; a new
- * one is a machine the server has never seen.
+ * `identifier` is the machine identifier RomMix pairs and registers under.
+ * Signed out, it is an app that has not paired yet.
  */
-export function client(identifier = 'galleon-test-romm'): RommClient {
-  const credentials = { accessToken: null, refreshToken: null, clientToken: state.clientToken }
+export function client(
+  identifier = 'galleon-test-romm',
+  { signedIn = true }: { signedIn?: boolean } = {}
+): RommClient {
+  const credentials = {
+    accessToken: null,
+    refreshToken: null,
+    clientToken: signedIn ? state.clientToken : null,
+    deviceId: null
+  }
   const store = {
     server: { baseUrl: state.baseUrl },
     settings: { deviceId: identifier, deviceName: 'Galleon test:romm' },

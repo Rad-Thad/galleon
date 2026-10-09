@@ -28,15 +28,20 @@ import {
 } from './server.ts'
 
 test(`the heartbeat names RomM ${state.version}`, async () => {
+  const sent = watch()
   assert.deepEqual(await client().heartbeat(), { version: state.version })
+  assertFitsSchema(sent)
 })
 
 test('platforms come back under the library folder names', async () => {
+  const sent = watch()
   const slugs = (await client().platforms()).map((p) => p.fs_slug).sort()
   assert.deepEqual(slugs, [...new Set(ROMS.map((path) => path.split('/')[1]))].sort())
+  assertFitsSchema(sent)
 })
 
 test('the listing pages by limit and offset, and every page carries files', async () => {
+  const sent = watch()
   const all = await client().roms({ limit: 500 })
   assert.ok(all.items.length >= 4, `only ${all.items.length} ROMs`)
   assert.equal(all.total, all.items.length)
@@ -53,6 +58,7 @@ test('the listing pages by limit and offset, and every page carries files', asyn
     seen,
     all.items.map((rom) => rom.id)
   )
+  assertFitsSchema(sent)
 })
 
 test('the listing without files is the same ROMs with no file list', async () => {

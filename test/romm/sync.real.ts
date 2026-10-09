@@ -17,7 +17,11 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { assertFitsSchema, client, md5, romNamed, scratch, watch } from './server.ts'
 
-/** A machine identifier this server has not seen, so registering it is a creation. */
+/**
+ * A machine identifier no earlier run used. RomM may still answer with a
+ * device it already holds under the same name and hostname, since the
+ * client registers with `allow_existing`.
+ */
 const fresh = (): string => `galleon-test-romm-${randomBytes(6).toString('hex')}`
 
 test('firmware lists the stubs, and one downloads with its md5 checked', async (t) => {
@@ -50,7 +54,7 @@ test('a multi-file game downloads whole as one archive of its discs', async (t) 
   assertFitsSchema(sent)
 })
 
-test('a machine the server has not seen registers once, and is listed', async () => {
+test('a machine registers once however often it asks, and is listed', async () => {
   const identifier = fresh()
   const sent = watch()
   const rommix = client(identifier)
