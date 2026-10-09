@@ -2,6 +2,13 @@
 
 Every dependency added to the fork, pinned exactly, with its licence and the reason it is worth having (CLAUDE.md, rail 8). RomMix's own dependencies at the fork point are in `package-lock.json` and are not repeated here. The licence and dependency guard (M0-20) holds runtime additions to this file.
 
+## Runtime
+
+Shipped inside the AppImage. `node scripts/agent/licence-guard.mjs` (a step in CI's x64 leg) fails a pull request that adds a runtime dependency without a row here, pins it with a range, or gives a licence outside MIT, BSD, ISC, Apache-2.0 and MPL-2.0; it also refuses such a licence anywhere in the production tree. None has been added since the fork.
+
+| Name | Version | Licence | Why |
+| ---- | ------- | ------- | --- |
+
 ## CI only
 
 Third-party actions, pinned by commit; none of them ships inside the AppImage.

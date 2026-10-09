@@ -3,7 +3,8 @@
 # Everything a push has to pass, run on the VM before every push (CLAUDE.md,
 # "Definition of done"): the upstream checks in upstream's order, then the unit
 # tests under coverage, which runs them once and holds them to the floors in
-# package.json, then the feature list guard and the device bridge's own tests.
+# package.json, then the feature list guard, the device bridge's own tests and
+# the licence guard.
 #
 # Stops at the first failure, so the last thing printed is what to fix.
 set -euo pipefail
@@ -33,5 +34,7 @@ else
 fi
 step 'device bridge tests'
 python3 -m unittest discover -s tools/device-bridge
+step 'licence and dependency guard'
+node scripts/agent/licence-guard.mjs >/dev/null
 
 echo 'check.sh: all green'

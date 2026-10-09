@@ -476,3 +476,18 @@ Lines the tooling reads (exact forms):
 - Evaluator: see the PR.
 - Device / acceptance: none (`ci`).
 - Next: M0-05 part 2: `npm run smoke:app` on arm64 in place of `test:app`, RomM and MariaDB images pulled by digest, and the scratch-branch red check; then flip M0-05.
+
+## 2026-10-09 08:40 UTC session cloud (routine run, second unit)
+
+- Device results: none new (as above).
+- Worked on: M0-20, the licence and dependency guard (tracking issue #48). M0-05 needs its CI step. M0-05 part 1, PR #47, merged at 711cf1d; its CI wall time was x64 3:58, arm64 3:13.
+- Result: PR (this one). Flips M0-20 (`ci`).
+- Evidence:
+  - `node scripts/agent/licence-guard.mjs` is a new x64 step in `build` after the bridge tests, and a step in `scripts/agent/check.sh`. It lists the 7 production packages with their licences (all MIT or ISC) and fails on any of three problems. First, a runtime dependency beyond RomMix's fork-point three without a row under the new `## Runtime` table in `docs/DEPENDENCIES.md`, or a row with a range instead of an exact version, a licence outside MIT, BSD, ISC, Apache-2.0 and MPL-2.0, or no reason. Second, such a licence anywhere in `npm ls --omit=dev --all`. Third, Argosy's package id or a GNU GPL, LGPL or AGPL licence header in code outside `docs/` and licence files.
+  - Proved end to end on the VM. With `pend` added to `dependencies` as `^1.2.0`, the guard printed `pend: a runtime dependency with no row under "## Runtime" in docs/DEPENDENCIES.md` and exited 1. With a scratch `src/main/zz-scratch.ts` carrying a GPL header, it exited 1 and named the file. With both removed, it exits 0. Unit tests: `scripts/agent/licence-guard.test.ts`, 9 tests.
+  - `THIRD_PARTY.md` lists Grout, and now the two OFL fonts shipped in the AppImage. It also says no ES-DE data has been ported yet, and that the change porting the first ES-DE file adds it there.
+  - `scripts/agent/check.sh` green (1432 tests, lines 96.10%).
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none (`ci`).
+- Next: M0-18 (PR template, the `Feature:` body check in `build`, `ci-times.mjs <pr>`), then M0-05 part 2 (`smoke:app` on arm64, image digests, the red-check proof). M0-05 flips only after both.
