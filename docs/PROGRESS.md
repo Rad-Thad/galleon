@@ -727,7 +727,7 @@ Lines the tooling reads (exact forms):
 - Result: PR (this one).
 - Evidence:
   - Root cause, in `src/main/romm/transfer.ts`: `fetchToFile` piped the body into a write stream that had not opened its file yet. A write stream holds chunks until its file is open and discards them when destroyed first, so a connection lost before the open (under load, the test's 20 ms break) took bytes that had already arrived with it, and the last attempt left an empty `.part`. Resuming was never corrupted by it, since a retry re-reads the `.part` size from disk; the bytes were only fetched again.
-  - Fix: `await once(sink, 'open')` before the pipeline.
+  - Fix: `await once(sink, 'open')` before the body is wrapped with `Readable.fromWeb` and piped; a failed open cancels the body. The first draft wrapped the body before the wait, and the evaluator found that an abort during the wait then errored a Node stream nothing listened to (an uncaught exception). "a transfer cancelled while its part-file opens fails quietly" reproduces that (failed 2 in 2 on the first draft, passes now).
   - Test first: "bytes that arrive before the part-file is open still reach it" breaks the connection from `onProgress`, the moment the transfer has counted the bytes. Without the fix it failed 3 runs in 3 (`'' !== '01'`), with it it passed 3 in 3. A first draft broke on the very next read instead; that loses the chunk inside `Readable.fromWeb` before the transfer sees it, so it failed with the fix too and was replaced.
   - `src/main/romm.test.ts` 110/110, 3 runs. `fetchfile.ts` was left alone: it does not resume, and a failed fetch there is discarded whole.
   - `scripts/agent/check.sh` green.
