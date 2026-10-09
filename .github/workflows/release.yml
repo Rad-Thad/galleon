@@ -361,6 +361,13 @@ jobs:
           merge-multiple: true
           path: dist
 
+      # Over every file the release carries, in the format `sha256sum -c`
+      # reads, so a person can check a download by hand and the updater holds
+      # an image to what CI built — see `Updater.publishedDigest`.
+      - name: Write SHA256SUMS
+        working-directory: dist
+        run: sha256sum *.AppImage galleon-steam.sh > SHA256SUMS
+
       - name: Publish the canary build
         # Pinned for the same reason the release job pins it: the job holds
         # `contents: write`.
@@ -369,6 +376,7 @@ jobs:
           files: |
             dist/*.AppImage
             dist/galleon-steam.sh
+            dist/SHA256SUMS
           tag_name: canary
           name: Galleon canary
           # Shown and not read: the commit a copy on this channel compares
@@ -428,6 +436,13 @@ jobs:
           merge-multiple: true
           path: dist
 
+      # Over every file the release carries, in the format `sha256sum -c`
+      # reads, so a person can check a download by hand and the updater holds
+      # an image to what CI built — see `Updater.publishedDigest`.
+      - name: Write SHA256SUMS
+        working-directory: dist
+        run: sha256sum *.AppImage galleon-steam.sh > SHA256SUMS
+
       # The section for this version, plus how to run what is attached. The
       # build job has already refused the tag if that section is missing, so
       # this cannot publish a release with nothing to read.
@@ -445,6 +460,7 @@ jobs:
           files: |
             dist/*.AppImage
             dist/galleon-steam.sh
+            dist/SHA256SUMS
           name: Galleon ${{ github.ref_name }}
           body_path: release-notes.md
           prerelease: ${{ contains(github.ref_name, '-') }}

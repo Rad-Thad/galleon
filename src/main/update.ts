@@ -3,7 +3,7 @@ import { chmod, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import type { UpdatePolicy, UpdateStatus } from '@shared/types'
 import { fetchToFile } from './fetchfile.ts'
-import { parseDigest, verifyDownload, type Digest } from './integrity.ts'
+import { digestFromChecksums, parseDigest, verifyDownload, type Digest } from './integrity.ts'
 import { log } from './log.ts'
 // The architecture predicate, which is about this machine rather than about
 // emulators — RomMix publishes an x86_64 and an arm64 image per release, and
@@ -210,7 +210,15 @@ export interface UpdateAsset {
   sizeBytes: number
   /** What GitHub says it published, or null on a release predating the field. */
   digest: Digest | null
+  /**
+   * Where the release's `SHA256SUMS` is, when it publishes one. See
+   * `Updater.publishedDigest`, which prefers it to `digest`.
+   */
+  checksums?: string
 }
+
+/** The checksum file CI publishes beside the images; see release.yml. */
+const CHECKSUMS = 'SHA256SUMS'
 
 /**
  * Compare two versions, semver's way: negative when `a` is older.
@@ -654,7 +662,9 @@ export class Updater {
           digest: parseDigest(asset.digest)
         }))
 
-      this.pending = pickImage(assets)
+      const image = pickImage(assets)
+      const checksums = assets.find((asset) => asset.name === CHECKSUMS)?.url
+      this.pending = image && checksums ? { ...image, checksums } : image
       // Two separate reasons a release cannot be installed here — no build for
       // this architecture, and a copy of RomMix that cannot replace itself —
       // and the version is still reported either way, with the page to get it
@@ -732,6 +742,43 @@ export class Updater {
   }
 
   /**
+   * What the image has to hash to, from the release's `SHA256SUMS` where it
+   * publishes one and from GitHub's own record of the asset where it does not.
+   *
+   * The sums file is what CI wrote from the bytes it built, and the one thing a
+   * person can check by hand with `sha256sum -c`; GitHub's field is what GitHub
+   * computed when the asset arrived. Both are kept when both exist, and a
+   * disagreement refuses the update: one of them describes something other than
+   * what was built, and there is no way to tell from here which. Null when the
+   * sums file names no line for the image, which `verifyDownload` refuses as an
+   * update with no digest.
+   */
+  private async publishedDigest(asset: UpdateAsset): Promise<Digest | null> {
+    if (!asset.checksums) return asset.digest
+    const response = await this.ask(asset.checksums, 'application/octet-stream')
+    const stated = digestFromChecksums(await response.text(), asset.name)
+    if (!stated) {
+      log.error('update', 'the checksum file names no digest for this image', undefined, {
+        asset: asset.name,
+        checksums: asset.checksums
+      })
+      return null
+    }
+    if (
+      asset.digest?.algorithm === stated.algorithm &&
+      asset.digest.expected.toLowerCase() !== stated.expected
+    ) {
+      log.error('update', 'the checksum file and GitHub disagree about the image', undefined, {
+        asset: asset.name,
+        checksums: stated.expected,
+        github: `${asset.digest.algorithm}:${asset.digest.expected}`
+      })
+      throw new Error(t('error.downloadNotPublished', { name: asset.name }))
+    }
+    return stated
+  }
+
+  /**
    * Fetch the new image and put it where the running one is.
    *
    * It lands under a `.part` name and is renamed onto the running image once
@@ -779,6 +826,10 @@ export class Updater {
         destination: running
       })
 
+      // Before the image, so a release whose sums are wrong costs one small
+      // request rather than a whole AppImage.
+      const digest = await this.publishedDigest(asset)
+
       const { receivedBytes, totalBytes } = await fetchToFile(asset.url, partial, {
         sizeHint: asset.sizeBytes,
         refused: (status) => new Error(t('update.downloadFailed', { url: asset.url, status })),
@@ -789,7 +840,7 @@ export class Updater {
       // is the one download that becomes the program doing the downloading, so
       // it is the last thing that should be taken on trust. A mismatch deletes
       // the part-file and fails the update, leaving the running version alone.
-      await verifyDownload(partial, asset.digest, {
+      await verifyDownload(partial, digest, {
         kind: 'update',
         name: asset.name,
         required: true

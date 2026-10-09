@@ -346,6 +346,11 @@ ROMMIX_CANARY=1 %command%
 `galleon-steam.sh` takes `--canary` for the same thing — see
 [From Steam](#from-steam).
 
+These builds, like every release, carry a `SHA256SUMS` file covering both
+images and the Steam script. `sha256sum -c --ignore-missing SHA256SUMS` checks a
+download by hand, and the updater refuses an image that does not match it,
+keeping the version you are running.
+
 The commit in the footer is what identifies one of these builds. The version
 beside it names the release the build came after, and every build between two
 releases carries the same one.

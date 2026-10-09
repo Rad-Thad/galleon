@@ -518,6 +518,81 @@ describe('downloading it', () => {
   })
 })
 
+describe('checking it against SHA256SUMS', () => {
+  /** A sums file in `sha256sum`'s format, one line per name. */
+  function sums(lines: Record<string, string>): string {
+    return Object.entries(lines)
+      .map(([name, body]) => `${createHash('sha256').update(body).digest('hex')}  ${name}`)
+      .join('\n')
+  }
+
+  /** The release with the sums beside the image, and whatever each URL serves. */
+  function serveRelease(sumsText: string, githubDigest: string | null): string[] {
+    return serve((url) => {
+      if (url.includes('api')) return release('v1.2.0', [image, 'SHA256SUMS'], githubDigest)
+      if (url.endsWith('/SHA256SUMS')) return new Response(sumsText)
+      return new Response(BODY)
+    })
+  }
+
+  test('an image the sums file vouches for is installed', async () => {
+    const running = join(scratch(), image)
+    process.env.APPIMAGE = running
+    const { updater: subject } = updater()
+    serveRelease(sums({ [image]: BODY, 'galleon-steam.sh': 'launcher' }), null)
+
+    await subject.check()
+    const status = await subject.download()
+
+    assert.equal(status.state, 'ready')
+    assert.equal(readFileSync(running, 'utf8'), BODY)
+  })
+
+  test('an image that does not match the sums file is refused and the running one kept', async () => {
+    const running = join(scratch(), image)
+    writeFileSync(running, 'the running version')
+    process.env.APPIMAGE = running
+    const { updater: subject } = updater()
+    // No GitHub digest, so the sums file is the only thing the bytes are held to.
+    serveRelease(sums({ [image]: 'what CI built' }), null)
+
+    await subject.check()
+
+    await assert.rejects(() => subject.download())
+    assert.equal(readFileSync(running, 'utf8'), 'the running version')
+    assert.equal(existsSync(`${running}.part`), false)
+    assert.equal(subject.status.state, 'error')
+  })
+
+  test('a sums file with no line for this image is refused', async () => {
+    const running = join(scratch(), image)
+    process.env.APPIMAGE = running
+    const { updater: subject } = updater()
+    serveRelease(sums({ 'galleon-steam.sh': 'launcher' }), digestOf(BODY))
+
+    await subject.check()
+
+    await assert.rejects(() => subject.download())
+    assert.equal(existsSync(running), false)
+  })
+
+  test('a sums file GitHub disagrees with is refused before the image is fetched', async () => {
+    const running = join(scratch(), image)
+    process.env.APPIMAGE = running
+    const { updater: subject } = updater()
+    const asked = serveRelease(sums({ [image]: 'what CI built' }), digestOf(BODY))
+
+    await subject.check()
+
+    await assert.rejects(() => subject.download())
+    assert.equal(
+      asked.some((url) => url.endsWith(`/${image}`)),
+      false
+    )
+    assert.equal(existsSync(running), false)
+  })
+})
+
 describe('restarting into what was downloaded', () => {
   /**
    * `app.exit` skips `before-quit`, so the quit's own work has to be asked for
