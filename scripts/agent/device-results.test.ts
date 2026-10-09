@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
+  acceptanceTitle,
   analyse,
   ingestedShas,
   issuesToOpen,
@@ -55,8 +56,25 @@ const features = [
     verification: 'ci',
     acceptance: ['Device check `x.one` is mentioned, gating nothing.'],
     passes: false
+  },
+  {
+    id: 'M9-04',
+    verification: 'acceptance',
+    acceptance: ['Acceptance session: play it.'],
+    passes: false
+  },
+  {
+    id: 'M9-05',
+    verification: 'acceptance',
+    acceptance: ['Acceptance session: feel it.'],
+    passes: true
   }
 ]
+
+/** An acceptance session's results.json, in docs/TESTING.md's shape. */
+function session(items: { feature: string; result: string; system?: string; notes?: string }[]) {
+  return { schema: 1, date: '2026-12-01', build: { version: '1.0.0', sha: SHA(9) }, items }
+}
 
 function summary(
   status: string,
@@ -234,16 +252,16 @@ describe('device-results: the rules', () => {
     )
   })
 
-  test('problem reports and acceptance results newer than the last ingested result', () => {
+  test('problem reports newer than the last ingested result, sessions not yet ingested', () => {
     const a = analyse(
       input([[1, summary('complete', SAFE)]], {
-        progress: `DEVICE-RESULTS ${SHA(1)} complete`,
+        progress: `DEVICE-RESULTS ${SHA(1)} complete\n- ACCEPTANCE-RESULTS 2026-09-30`,
         reports: ['20261001T095959Z', '20261001T100001Z'],
-        acceptance: ['2026-09-30', '2026-10-01']
+        acceptance: ['2026-10-01', '2026-09-30', '2026-09-29']
       })
     )
     assert.deepEqual(a.reports, ['20261001T100001Z'])
-    assert.deepEqual(a.acceptance, ['2026-10-01'])
+    assert.deepEqual(a.acceptance, ['2026-09-29', '2026-10-01'])
     assert.deepEqual(analyse(input([], { reports: ['20200101T000000Z'] })).reports, [
       '20200101T000000Z'
     ])
@@ -297,6 +315,110 @@ describe('device-results: the rules', () => {
     assert.match(text, /M9-01 passes: PASSES M9-01 device:/)
     assert.match(text, /Bridge: last seen 2\.5 h ago .*version 1, last skip: on battery/)
     assert.match(render(analyse(input([]))), /Bridge: never seen/)
+  })
+
+  test('an acceptance item marked pass flips its feature and is recorded with its date', () => {
+    const a = analyse(
+      input([], {
+        acceptance: ['2026-12-01'],
+        acceptanceResults: new Map([
+          ['2026-12-01', session([{ feature: 'M9-04', system: 'psp', result: 'pass' }])]
+        ])
+      })
+    )
+    assert.deepEqual(a.acceptanceFlips, [{ id: 'M9-04', date: '2026-12-01' }])
+    assert.deepEqual(a.changes, [{ id: 'M9-04', passes: true }])
+    assert.deepEqual(a.acceptanceFails, [])
+    assert.deepEqual(progressLines(a), [
+      'ACCEPTANCE-RESULTS 2026-12-01',
+      'PASSES M9-04 acceptance:2026-12-01'
+    ])
+    assert.match(render(a), /M9-04 passes: PASSES M9-04 acceptance:2026-12-01/)
+  })
+
+  test('one failed item keeps the feature false, reverts a passed one, and each fail is a bug', () => {
+    const a = analyse(
+      input([], {
+        acceptance: ['2026-12-01'],
+        acceptanceResults: new Map([
+          [
+            '2026-12-01',
+            session([
+              { feature: 'M9-04', system: 'psp', result: 'pass' },
+              { feature: 'M9-04', system: 'ps1', result: 'fail', notes: 'asked to choose' },
+              { feature: 'M9-05', result: 'fail' },
+              { feature: 'M9-01', result: 'fail', notes: 'informational: it stopped' }
+            ])
+          ]
+        ])
+      })
+    )
+    assert.deepEqual(a.acceptanceFlips, [])
+    assert.deepEqual(
+      a.changes,
+      [{ id: 'M9-05', passes: false }],
+      'a device feature is not decided here'
+    )
+    const issues = issuesToOpen(a, [acceptanceTitle('M9-05')])
+    assert.deepEqual(
+      issues.map((i) => [i.title, i.labels]),
+      [
+        ['[acceptance] M9-04 ps1', ['bug', 'acceptance']],
+        ['[acceptance] M9-01', ['bug', 'acceptance']]
+      ],
+      'one bug per failed item, none twice'
+    )
+    assert.match(issues[0].body, new RegExp(`2026-12-01 \\(build ${SHA(9)}\\)`))
+    assert.match(issues[0].body, /> asked to choose/)
+    assert.deepEqual(progressLines(a), ['ACCEPTANCE-RESULTS 2026-12-01'])
+  })
+
+  test('skipped items decide nothing, and a later session decides over an earlier one', () => {
+    const a = analyse(
+      input([], {
+        acceptance: ['2026-12-08', '2026-12-01'],
+        acceptanceResults: new Map([
+          [
+            '2026-12-01',
+            session([
+              { feature: 'M9-04', result: 'fail' },
+              { feature: 'M9-05', result: 'skip' }
+            ])
+          ],
+          ['2026-12-08', session([{ feature: 'M9-04', result: 'pass' }])]
+        ])
+      })
+    )
+    assert.deepEqual(a.changes, [{ id: 'M9-04', passes: true }])
+    assert.deepEqual(progressLines(a), [
+      'ACCEPTANCE-RESULTS 2026-12-01',
+      'ACCEPTANCE-RESULTS 2026-12-08',
+      'PASSES M9-04 acceptance:2026-12-08'
+    ])
+  })
+
+  test('a session without a valid results.json decides nothing and stays new', () => {
+    for (const results of [
+      undefined,
+      null,
+      { schema: 2, items: [] },
+      { schema: 1 },
+      session([{ feature: 'M9-04', result: 'maybe' }])
+    ]) {
+      const a = analyse(
+        input([], {
+          acceptance: ['2026-12-01'],
+          acceptanceResults: new Map([['2026-12-01', results]])
+        })
+      )
+      assert.deepEqual(a.acceptanceInvalid, ['2026-12-01'])
+      assert.deepEqual(a.changes, [])
+      assert.deepEqual(progressLines(a), [])
+      assert.match(
+        render(a),
+        /acceptance\/2026-12-01\/ \(no valid results\.json; nothing decided\)/
+      )
+    }
   })
 
   test('setPasses changes that one flag and no other byte', () => {
@@ -369,7 +491,11 @@ function write(dir: string, path: string, text: string) {
  * (adds `READY-FOR-DEVICE M9-01`) and `later`, and a device-results branch
  * holding one result per name in `tested`, oldest first.
  */
-function repository(tested: ('before' | 'ready' | 'later')[], padding = 0) {
+function repository(
+  tested: ('before' | 'ready' | 'later')[],
+  padding = 0,
+  sessions: Record<string, unknown> = {}
+) {
   const dir = mkdtempSync(join(tmpdir(), 'device-results-'))
   scratch.push(dir)
   git(dir, 'init', '-q', '-b', 'main')
@@ -410,6 +536,8 @@ function repository(tested: ('before' | 'ready' | 'later')[], padding = 0) {
     JSON.stringify({ bridgeVersion: 1, lastSeen: '2026-10-09T09:00:00Z' })
   )
   write(dir, 'reports/20261009T080000Z/report.json', '{}')
+  for (const [date, results] of Object.entries(sessions))
+    write(dir, `acceptance/${date}/results.json`, JSON.stringify(results))
   git(dir, 'add', '.')
   git(dir, 'commit', '-q', '-m', 'results')
   git(dir, 'checkout', '-q', 'main')
@@ -453,6 +581,24 @@ describe('device-results: fixture branches', () => {
     run(dir, '--apply')
     const written = JSON.parse(readFileSync(join(dir, 'docs/features.json'), 'utf8'))
     assert.equal(written.find((f: { id: string }) => f.id === 'M9-01').passes, false)
+  })
+
+  test('an acceptance session on the branch flips its passes with --apply', () => {
+    const { dir } = repository([], 0, {
+      '2026-12-01': session([{ feature: 'M9-04', result: 'pass' }])
+    })
+    const applied = run(dir, '--apply')
+    assert.equal(applied.status, 0, applied.stderr)
+    const written = JSON.parse(readFileSync(join(dir, 'docs/features.json'), 'utf8'))
+    assert.equal(written.find((f: { id: string }) => f.id === 'M9-04').passes, true)
+    assert.match(
+      applied.stdout,
+      /- ACCEPTANCE-RESULTS 2026-12-01\n- PASSES M9-04 acceptance:2026-12-01/
+    )
+    assert.deepEqual(
+      readBranch(dir, 'device-results').acceptanceResults.get('2026-12-01'),
+      session([{ feature: 'M9-04', result: 'pass' }])
+    )
   })
 
   test('readBranch finds the index, every summary, the bridge and the reports', () => {

@@ -12,7 +12,13 @@
 // and per failed safety check, and the PROGRESS.md lines that record it all.
 //
 // "Since the last session" is every result whose commit no
-// `DEVICE-RESULTS <sha> <status>` line in docs/PROGRESS.md names yet.
+// `DEVICE-RESULTS <sha> <status>` line in docs/PROGRESS.md names yet, and
+// every acceptance session no `ACCEPTANCE-RESULTS <date>` line names.
+//
+// An acceptance session's `results.json` (docs/TESTING.md, "The acceptance
+// session") decides `acceptance` features: one with an item marked pass and
+// none marked fail passes, one with a failed item goes back to false, and
+// every failed item, informational ones included, becomes a bug.
 //
 // device-results is the bridge's branch: this reads it and never writes it.
 // The rules are pure functions over plain data, so the tests can feed them
@@ -29,6 +35,24 @@ import {
 } from './features-check.mjs'
 
 const FAILING = ['fail', 'error']
+
+/** The acceptance sessions PROGRESS.md records as ingested. */
+export function ingestedDates(progress) {
+  return new Set(
+    [...progress.matchAll(/\bACCEPTANCE-RESULTS (\d{4}-\d{2}-\d{2})\b/g)].map((m) => m[1])
+  )
+}
+
+/** Whether `results.json` has the shape docs/TESTING.md gives it. */
+function validResults(results) {
+  return (
+    results?.schema === 1 &&
+    Array.isArray(results.items) &&
+    results.items.every(
+      (item) => typeof item?.feature === 'string' && ['pass', 'fail', 'skip'].includes(item.result)
+    )
+  )
+}
 
 /** The commits PROGRESS.md records as ingested. */
 export function ingestedShas(progress) {
@@ -61,13 +85,18 @@ function compact(iso) {
  *   build;
  * - `changes`: the `passes` value each touched feature ends on, when it
  *   differs from where it started;
- * - `reports`, `acceptance`: folders newer than the last ingested result;
+ * - `reports`: folders newer than the last ingested result;
+ * - `acceptance`: session dates not yet ingested, oldest first, and of those
+ *   `acceptanceInvalid` (no results.json in the documented shape, so nothing
+ *   is decided and the date stays new), `acceptanceFlips` (features that
+ *   pass on a session's word) and `acceptanceFails` (every failed item);
  * - `bridge`: when it was last seen, by its status or its newest result, and
  *   why it last skipped.
  *
  * `index` is `results/index.json` (newest first), `summaries` maps a sha to
  * its summary (absent when pruned), `readyIsAncestor(id, sha)` answers the
  * ancestry rule, and is asked only when everything else already holds.
+ * `acceptanceResults` maps a session date to its parsed results.json.
  */
 export function analyse({
   features,
@@ -76,6 +105,7 @@ export function analyse({
   progress,
   reports = [],
   acceptance = [],
+  acceptanceResults = new Map(),
   status = null,
   now,
   readyIsAncestor: isAncestor
@@ -108,6 +138,9 @@ export function analyse({
     changes: [],
     reports: [],
     acceptance: [],
+    acceptanceInvalid: [],
+    acceptanceFlips: [],
+    acceptanceFails: [],
     bridge: null
   }
 
@@ -165,15 +198,42 @@ export function analyse({
     }
   }
 
-  for (const feature of device)
+  const sessions = ingestedDates(progress)
+  out.acceptance = [...acceptance].sort().filter((date) => !sessions.has(date))
+  const judged = features.filter((f) => f.verification === 'acceptance')
+  for (const f of judged) state.set(f.id, Boolean(f.passes))
+  for (const date of out.acceptance) {
+    const results = acceptanceResults.get(date)
+    if (!validResults(results)) {
+      out.acceptanceInvalid.push(date)
+      continue
+    }
+    const sha = typeof results.build?.sha === 'string' ? results.build.sha : null
+    for (const item of results.items)
+      if (item.result === 'fail')
+        out.acceptanceFails.push({
+          date,
+          sha,
+          feature: item.feature,
+          system: typeof item.system === 'string' ? item.system : null,
+          notes: typeof item.notes === 'string' ? item.notes : null
+        })
+    for (const feature of judged) {
+      const mine = results.items.filter((item) => item.feature === feature.id)
+      if (mine.some((item) => item.result === 'fail')) state.set(feature.id, false)
+      else if (mine.some((item) => item.result === 'pass')) {
+        state.set(feature.id, true)
+        out.acceptanceFlips.push({ id: feature.id, date })
+      }
+    }
+  }
+
+  for (const feature of [...device, ...judged])
     if (state.get(feature.id) !== Boolean(feature.passes))
       out.changes.push({ id: feature.id, passes: state.get(feature.id) })
 
   const since = lastIngested?.finishedAt ?? null
   out.reports = [...reports].sort().filter((name) => since === null || name > compact(since))
-  out.acceptance = [...acceptance]
-    .sort()
-    .filter((date) => since === null || date >= since.slice(0, 10))
 
   // The newest of the two sightings: the bridge writes its status only when
   // it skips (see `maybe_heartbeat` in tools/device-bridge), so one testing
@@ -239,7 +299,19 @@ export function render(analysis) {
   lines.push(...list(a.reports, (name) => `reports/${name}/`))
   if (a.acceptance.length > 0) {
     lines.push('Acceptance results:')
-    lines.push(...list(a.acceptance, (date) => `acceptance/${date}/`))
+    lines.push(
+      ...list(
+        a.acceptance,
+        (date) =>
+          `acceptance/${date}/${a.acceptanceInvalid.includes(date) ? ' (no valid results.json; nothing decided)' : ''}`
+      )
+    )
+    lines.push(
+      ...a.acceptanceFlips.map((f) => `  -> ${f.id} passes: PASSES ${f.id} acceptance:${f.date}`),
+      ...a.acceptanceFails.map(
+        (f) => `  -> ${f.feature}${f.system ? ` (${f.system})` : ''} failed on ${f.date}`
+      )
+    )
   }
   lines.push(
     a.bridge === null
@@ -252,9 +324,18 @@ export function render(analysis) {
 /** The lines `--apply` asks the session's PROGRESS.md entry to carry. */
 export function progressLines(analysis) {
   const passing = new Set(analysis.changes.filter((c) => c.passes).map((c) => c.id))
+  // A feature passed and failed again within this ingestion records only
+  // its last session's pass, if that is where it ends.
+  const lastFlip = new Map(analysis.acceptanceFlips.map((f) => [f.id, f.date]))
   return [
     ...analysis.fresh.map((r) => `DEVICE-RESULTS ${r.sha} ${r.status}`),
-    ...analysis.flips.filter((f) => passing.has(f.id)).map((f) => `PASSES ${f.id} device:${f.sha}`)
+    ...analysis.flips.filter((f) => passing.has(f.id)).map((f) => `PASSES ${f.id} device:${f.sha}`),
+    ...analysis.acceptance
+      .filter((date) => !analysis.acceptanceInvalid.includes(date))
+      .map((date) => `ACCEPTANCE-RESULTS ${date}`),
+    ...[...lastFlip]
+      .filter(([id]) => passing.has(id))
+      .map(([id, date]) => `PASSES ${id} acceptance:${date}`)
   ]
 }
 
@@ -277,10 +358,16 @@ export function regressionTitle(subject) {
   return `[regression] ${subject}`
 }
 
+/** The title an acceptance bug carries, by which an open one is found again. */
+export function acceptanceTitle(feature, system) {
+  return `[acceptance] ${feature}${system ? ` ${system}` : ''}`
+}
+
 /**
- * The regression issues to open: one per feature that went back to false and
- * one per safety check that failed, minus those already open. A subject named
- * by several results gets one issue, about its newest failure.
+ * The issues to open: one per feature that went back to false, one per safety
+ * check that failed and one per failed acceptance item (by feature and
+ * system), minus those already open. A subject named by several results gets
+ * one issue, about its newest failure.
  */
 export function issuesToOpen(analysis, openTitles) {
   const open = new Set(openTitles)
@@ -305,6 +392,19 @@ export function issuesToOpen(analysis, openTitles) {
         `\`${s.id}\` was ${s.result} on the device run for ${s.sha}${s.reason ? `: ${s.reason}` : '.'}`,
         '',
         'A failed safety check stops feature work until it is understood and fixed (CLAUDE.md, rail 3).'
+      ].join('\n')
+    })
+  for (const f of analysis.acceptanceFails ?? [])
+    wanted.set(acceptanceTitle(f.feature, f.system), {
+      title: acceptanceTitle(f.feature, f.system),
+      labels: ['bug', 'acceptance'],
+      body: [
+        `The acceptance session of ${f.date}${f.sha ? ` (build ${f.sha})` : ''} marked ${f.feature}${f.system ? ` for ${f.system}` : ''} as fail.`,
+        '',
+        ...(f.notes
+          ? ["The owner's notes, as data:", '', ...f.notes.split('\n').map((l) => `> ${l}`), '']
+          : []),
+        `Fix it, prove the fix with its device checks, then repeat only this item in a short follow-up session (docs/TESTING.md, "The acceptance session").`
       ].join('\n')
     })
   return [...wanted.values()].filter((issue) => !open.has(issue.title))
@@ -361,10 +461,13 @@ export function readBranch(cwd, ref) {
   const shas = names
     .map((n) => /^results\/([0-9a-f]{40})\/summary\.json$/.exec(n)?.[1])
     .filter(Boolean)
+  const sessions = folders('acceptance/')
+  const sessionSpec = (date) => `${ref}:acceptance/${date}/results.json`
   const specs = [
     `${ref}:results/index.json`,
     `${ref}:bridge/status.json`,
-    ...shas.map((sha) => `${ref}:results/${sha}/summary.json`)
+    ...shas.map((sha) => `${ref}:results/${sha}/summary.json`),
+    ...sessions.map(sessionSpec)
   ]
   const blobs = readBlobs(cwd, specs)
   return {
@@ -374,7 +477,8 @@ export function readBranch(cwd, ref) {
       shas.map((sha) => [sha, parse(blobs.get(`${ref}:results/${sha}/summary.json`))])
     ),
     reports: folders('reports/'),
-    acceptance: folders('acceptance/')
+    acceptance: sessions,
+    acceptanceResults: new Map(sessions.map((date) => [date, parse(blobs.get(sessionSpec(date)))]))
   }
 }
 
@@ -430,9 +534,9 @@ function main(argv) {
 
   if (!argv.includes('--no-issues')) {
     const repo = repoName(root)
-    const open = JSON.parse(
-      gh([`repos/${repo}/issues?state=open&labels=regression&per_page=100`])
-    ).map((issue) => issue.title)
+    const open = JSON.parse(gh([`repos/${repo}/issues?state=open&per_page=100`])).map(
+      (issue) => issue.title
+    )
     for (const issue of issuesToOpen(analysis, open)) {
       const number = JSON.parse(
         gh(['--method', 'POST', `repos/${repo}/issues`, '--input', '-'], JSON.stringify(issue))

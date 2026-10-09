@@ -271,6 +271,8 @@ Written only by the bridge (deploy key) and, during the acceptance session, by t
 
 Notes are in the owner's words, without addresses or account names. Each `fail` becomes a bug for the agent; when its fix passes its device checks, a short follow-up session repeats only that item.
 
+**Reading them back.** `node scripts/agent/device-results.mjs --apply` reads every `acceptance/<date>/results.json` that no `ACCEPTANCE-RESULTS <date>` line in PROGRESS.md names, oldest first. An `acceptance` feature with an item marked `pass` and none marked `fail` passes (`PASSES <id> acceptance:<date>`); one with a failed item goes back to false; a `skip` decides nothing. Every failed item, informational ones included, opens one `[acceptance] <id> [<system>]` issue (labels `bug`, `acceptance`) unless one is open, quoting the notes as data. A file not in the shape above decides nothing and stays new until it is fixed. A later session decides over an earlier one.
+
 ---
 
 ## Phase 0 record (stock RomMix v0.20.0, done 2026-10-08)
