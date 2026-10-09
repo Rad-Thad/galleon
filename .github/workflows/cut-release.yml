@@ -1,0 +1,158 @@
+# A stable release (or a release candidate), started by hand with the version
+# to publish — see docs/PLAN.md section 4. Nothing is tagged or published until
+# the owner approves the `release` environment, and the tag is created in this
+# same run because a tag made with the workflow token starts no other
+# workflow: a release that waited on a tag-push trigger would never be built.
+name: Cut a release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'The version to release, as in package.json and CHANGELOG.md (1.2.3 or 1.2.3-rc.1, no v)'
+        required: true
+        type: string
+
+# One release at a time, and never cancelled: a run waiting on approval stays
+# the one the owner is asked about.
+concurrency:
+  group: cut-release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  # Everything that can refuse the release without building it, so a wrong
+  # version is a red run in seconds that tagged nothing.
+  verify:
+    # Releases come from main, the branch every required check has passed on.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      # A job naming an environment that does not exist creates it, unprotected,
+      # and runs at once. Refused here instead, so the publish below can only
+      # ever wait for someone's approval.
+      - name: Check that the release environment needs an approval
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          reviewers=$(gh api "repos/$GITHUB_REPOSITORY/environments/release" \
+            --jq '[.protection_rules[]? | select(.type == "required_reviewers")] | length')
+          if [ "$reviewers" -lt 1 ]; then
+            echo "::error::the release environment has no required reviewers"
+            exit 1
+          fi
+
+      # Through the environment rather than spliced into the script, which
+      # GitHub does before the shell ever parses it.
+      - name: Check the version against package.json and the changelog
+        env:
+          VERSION: ${{ inputs.version }}
+        run: node scripts/release-check.mjs "$VERSION"
+
+      # A release is never published over another one's tag.
+      - name: Check that the tag is free
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v$VERSION" >/dev/null 2>&1; then
+            echo "::error::v$VERSION is already tagged"
+            exit 1
+          fi
+
+  # The same matrix every pull request and merge passes, run in full: a manual
+  # start is what release.yml's `changes` step reads as "everything".
+  build:
+    needs: verify
+    uses: ./.github/workflows/release.yml
+    with:
+      version: ${{ inputs.version }}
+    # The ceiling for the called workflow, whose canary job asks for write and
+    # is skipped for a release; its build job holds only `contents: read`.
+    permissions:
+      contents: write
+
+  release:
+    needs: [verify, build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    # The owner's approval, asked for once both images are built and tested,
+    # so what is approved is exactly what gets published.
+    environment: release
+    permissions:
+      contents: write
+
+    steps:
+      # For CHANGELOG.md, which is what the release page is written from.
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      # Both legs into one folder. `galleon-steam.sh` is identical in each, and
+      # `merge-multiple` overwrites rather than nesting, so it lands once.
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: appimage-*
+          merge-multiple: true
+          path: dist
+
+      # Over every file the release carries, in the format `sha256sum -c`
+      # reads, so a person can check a download by hand and the updater holds
+      # an image to what CI built — see `Updater.publishedDigest`.
+      - name: Write SHA256SUMS
+        working-directory: dist
+        run: sha256sum *.AppImage galleon-steam.sh > SHA256SUMS
+
+      - name: Write the release notes
+        env:
+          VERSION: ${{ inputs.version }}
+        run: node scripts/release-notes.mjs "$VERSION" > release-notes.md
+
+      # Creates the tag at the commit this run built, through the API: nothing
+      # here pushes a tag. A version with a suffix is a pre-release, which keeps
+      # it from the release GitHub calls latest — see
+      # `Settings.updatePrereleases`.
+      - name: Publish the release
+        id: publish
+        # Pinned to a commit rather than a tag: this job holds
+        # `contents: write`, and a moving tag is a third party able to use it.
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          files: |
+            dist/*.AppImage
+            dist/galleon-steam.sh
+            dist/SHA256SUMS
+          tag_name: v${{ inputs.version }}
+          target_commitish: ${{ github.sha }}
+          name: Galleon v${{ inputs.version }}
+          body_path: release-notes.md
+          prerelease: ${{ contains(inputs.version, '-') }}
+          fail_on_unmatched_files: true
+
+      # What the PROGRESS.md entry recording this release quotes.
+      - name: Record the release
+        env:
+          VERSION: ${{ inputs.version }}
+          URL: ${{ steps.publish.outputs.url }}
+        run: |
+          {
+            echo "### Galleon v$VERSION"
+            echo
+            echo "- Commit: $GITHUB_SHA"
+            echo "- Release: $URL"
+            echo "- Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          } >> "$GITHUB_STEP_SUMMARY"

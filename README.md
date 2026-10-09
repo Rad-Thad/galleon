@@ -518,7 +518,7 @@ npm run appimage       # build dist/Galleon-<arch>.AppImage
 ```
 
 Those four checks are what CI runs, in that order, and what `npm run release`
-refuses to cut a tag without. `npm install` installs a pre-commit hook that runs
+refuses to prepare a release without. `npm install` installs a pre-commit hook that runs
 them too, plus `npm run build`. [CONTRIBUTING.md](CONTRIBUTING.md) covers the
 layout, the house style and how to add an emulator — which, like adding a system
 or a BIOS requirement, is a change in `src/config/` and nowhere else.
@@ -545,11 +545,17 @@ npm run release -- --dry-run   # npm eats flags that come without the --
 ```
 
 [release-it](https://github.com/release-it/release-it) runs the checks, bumps the
-version, writes the [CHANGELOG.md](CHANGELOG.md) entry, commits, tags and pushes;
-a `v*` tag publishes a release with the AppImage attached. The entry falls back to
-commit subjects, each followed by its commit id, so write the `## <version>`
+version and writes the [CHANGELOG.md](CHANGELOG.md) entry in one commit on the
+current branch, which reaches `main` through a pull request. The entry falls back
+to commit subjects, each followed by its commit id, so write the `## <version>`
 section by hand first if you want prose — it is what the release page says under
 **What's new**.
+
+Then **Actions → Cut a release → Run workflow** on `main`, with that version.
+[cut-release.yml](.github/workflows/cut-release.yml) refuses a version that
+package.json or the changelog disagree with, builds and tests both images, and
+waits for an approval of the `release` environment; once approved, it creates the
+`v<version>` tag and publishes the release in the same run.
 
 A version with a suffix publishes as a pre-release, which is what keeps it out of
 the release GitHub calls latest: only installations that turned **Release

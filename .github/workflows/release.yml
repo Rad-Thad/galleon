@@ -1,5 +1,6 @@
-# Builds the AppImage on every push and pull request, and turns a `v*` tag into
-# a GitHub release with the image attached.
+# Builds the AppImage on every push and pull request, and publishes the tip of
+# main as the canary and the nightly. A release is cut-release.yml's, which
+# runs this build for the version it is about to publish.
 #
 # One stage now that RomMix is not packaged as a flatpak: electron-builder takes
 # the bundle electron-vite produced and writes a single self-contained file.
@@ -11,13 +12,19 @@ on:
   push:
     branches:
       - main
-    tags:
-      - 'v*'
   pull_request:
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      version:
+        description: 'The version cut-release.yml is releasing'
+        required: true
+        type: string
 
+# A release's build is grouped apart from main's pushes, which share its ref:
+# a push arriving while it waited would otherwise replace it.
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ github.ref }}-${{ inputs.version }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
@@ -56,35 +63,6 @@ jobs:
           # is what a contributor is told to install.
           node-version: 24
           cache: npm
-
-      - name: Read the version
-        id: meta
-        run: |
-          version=$(node -p "require('./package.json').version")
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-
-      # A tag names a version in three places, and only one of them is the tag.
-      # Catching a mismatch here costs seconds; catching it after publishing
-      # means deleting a release. The changelog entry matters as much as
-      # package.json: a release missing from it is a release nobody can read
-      # about.
-      - name: Check the tag against package.json and the changelog
-        if: startsWith(github.ref, 'refs/tags/v')
-        env:
-          # Through the environment rather than spliced into the script, which
-          # GitHub does before the shell ever parses it.
-          VERSION: ${{ steps.meta.outputs.version }}
-        run: |
-          tag="${GITHUB_REF_NAME#v}"
-          version="$VERSION"
-          if [ "$tag" != "$version" ]; then
-            echo "::error::tag $GITHUB_REF_NAME does not match package.json version $version"
-            exit 1
-          fi
-          if ! grep -qE "^## $version( |$)" CHANGELOG.md; then
-            echo "::error::no '## $version' section in CHANGELOG.md"
-            exit 1
-          fi
 
       # What packaging downloads, kept between runs: Electron's archive and the
       # AppImage toolset. Keyed on the lockfile, which is what names the
@@ -136,7 +114,7 @@ jobs:
           echo "package=$package" >>"$GITHUB_OUTPUT"
           echo "romm_profiles=$profiles" >>"$GITHUB_OUTPUT"
 
-      # The same gates `.release-it.js` runs before it will cut a tag, repeated
+      # The same gates `.release-it.js` runs before it prepares a release, repeated
       # here because a pull request never goes through release-it. Once, on x64:
       # the code they read is the same on either architecture, and the arm64
       # leg's job is to prove the package for the device (PLAN.md section 4).
@@ -358,8 +336,8 @@ jobs:
     # Main, however this run was started — a push or a hand-started one, both
     # of which publish the tip of the branch, which is what the channel is. Not
     # a pull request, which builds the same images from something nobody has
-    # merged, and not a tag, which the release job below answers for.
-    if: github.ref == 'refs/heads/main'
+    # merged, and not a release's build, which cut-release.yml publishes.
+    if: github.ref == 'refs/heads/main' && !inputs.version
     runs-on: ubuntu-24.04
     # The group nightly.yml runs in, because the `nightly` publish at the end of
     # this job writes the same release: two publishes interleaving their
@@ -376,7 +354,7 @@ jobs:
       # For the tags moved in this job.
       - uses: actions/checkout@v7
 
-      # Both legs, exactly as the release job takes them.
+      # Both legs, exactly as cut-release.yml takes them for a release.
       - uses: actions/download-artifact@v8
         with:
           pattern: appimage-*
@@ -391,7 +369,7 @@ jobs:
         run: sha256sum *.AppImage galleon-steam.sh > SHA256SUMS
 
       - name: Publish the canary build
-        # Pinned for the same reason the release job pins it: the job holds
+        # Pinned for the same reason cut-release.yml pins it: the job holds
         # `contents: write`.
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
@@ -443,59 +421,3 @@ jobs:
           path: device
 
       - uses: ./.github/actions/publish-nightly
-
-  release:
-    needs: build
-    if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-24.04
-
-    permissions:
-      contents: write
-
-    steps:
-      # For CHANGELOG.md, which is what the release page is written from.
-      - uses: actions/checkout@v7
-
-      # Named rather than left to whatever the runner image ships, for the same
-      # reason the build job names it.
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-
-      # Both legs into one folder. `galleon-steam.sh` is identical in each, and
-      # `merge-multiple` overwrites rather than nesting, so it lands once.
-      - uses: actions/download-artifact@v8
-        with:
-          pattern: appimage-*
-          merge-multiple: true
-          path: dist
-
-      # Over every file the release carries, in the format `sha256sum -c`
-      # reads, so a person can check a download by hand and the updater holds
-      # an image to what CI built — see `Updater.publishedDigest`.
-      - name: Write SHA256SUMS
-        working-directory: dist
-        run: sha256sum *.AppImage galleon-steam.sh > SHA256SUMS
-
-      # The section for this version, plus how to run what is attached. The
-      # build job has already refused the tag if that section is missing, so
-      # this cannot publish a release with nothing to read.
-      - name: Write the release notes
-        run: node scripts/release-notes.mjs "${GITHUB_REF_NAME#v}" > release-notes.md
-
-      # The notes are RomMix's own — see `scripts/release-notes.mjs` for why
-      # they are not GitHub's generated ones. A tag like v0.2.0-rc1 is a
-      # pre-release; v0.2.0 is not.
-      - name: Publish the release
-        # Pinned to a commit rather than a tag: this is the only job holding
-        # `contents: write`, and a moving tag is a third party able to use it.
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
-        with:
-          files: |
-            dist/*.AppImage
-            dist/galleon-steam.sh
-            dist/SHA256SUMS
-          name: Galleon ${{ github.ref_name }}
-          body_path: release-notes.md
-          prerelease: ${{ contains(github.ref_name, '-') }}
-          fail_on_unmatched_files: true

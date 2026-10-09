@@ -55,8 +55,8 @@ An Electron this machine can execute and a screen to draw on are what
 [scripts/headless.sh](scripts/headless.sh) supplies where they are missing,
 borrowed from nixpkgs for the length of the run; what it can neither find nor
 borrow it names, and stops. That is also why `npm run release` runs the suite
-before it tags anything — a tag is public the moment it is pushed. Not in the
-pre-commit hook, which is budgeted in seconds.
+before it prepares a release. Not in the pre-commit hook, which is budgeted in
+seconds.
 
 One file at a time, because a GUI under test is not a thing to parallelise: a
 second suite competing for the machine changes how long a list takes to draw.
