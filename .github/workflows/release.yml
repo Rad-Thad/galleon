@@ -174,6 +174,19 @@ jobs:
         if: matrix.arch == 'x64'
         run: python3 -m unittest discover -s tools/device-bridge
 
+      # Every pull request names the feature it serves, so the change can be
+      # held to its acceptance lines — see scripts/agent/pr-body.mjs. The body
+      # comes through the environment rather than spliced into the script,
+      # which GitHub does before the shell ever parses it. Editing a body does
+      # not start a run, and a re-run reads the body the run started with, so
+      # a body fixed after a red check is proved by the next push.
+      - name: Check the pull-request body
+        if: matrix.arch == 'x64' && github.event_name == 'pull_request'
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: node scripts/agent/pr-body.mjs
+
       # What ships inside the AppImage stays MIT-compatible: every runtime
       # dependency recorded in docs/DEPENDENCIES.md, no GPL-family licence in
       # the production tree, and no text copied from the GPL projects read as
