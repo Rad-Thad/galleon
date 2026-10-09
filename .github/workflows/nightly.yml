@@ -1,0 +1,173 @@
+# The heavy suites the pull-request legs leave out, on both architectures, and
+# then the rolling `nightly` pre-release the device bridge on the Nova tests —
+# see docs/PLAN.md sections 4 and 5. release.yml also publishes `nightly` after
+# every merge (ADR 0004); this run is what holds those builds to the full
+# suites, and a red one is treated like a red required check.
+name: Nightly
+
+on:
+  schedule:
+    # An off-hour in UTC, away from the top of the hour when scheduled runs
+    # queue longest.
+    - cron: '23 3 * * *'
+  workflow_dispatch:
+
+# The group release.yml's canary job publishes in. Never cancelled: a nightly
+# that has started finishes, and nightlies never stack.
+concurrency:
+  group: nightly
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  # A scheduled run on a `main` the last scheduled run already tested has
+  # nothing new to say. The `nightly` tag is no reference for that: the
+  # per-merge publish moves it in between. A hand-started run always runs.
+  moved:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      actions: read
+    outputs:
+      run: ${{ steps.moved.outputs.run }}
+    steps:
+      - id: moved
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          run=true
+          if [ "$GITHUB_EVENT_NAME" = schedule ]; then
+            last=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/nightly.yml/runs?event=schedule&status=completed&per_page=1" \
+              --jq '.workflow_runs[0].head_sha // ""')
+            if [ "$last" = "$GITHUB_SHA" ]; then
+              echo "main is still at $GITHUB_SHA, which the last scheduled nightly tested"
+              run=false
+            fi
+          fi
+          echo "run=$run" >>"$GITHUB_OUTPUT"
+
+  suites:
+    needs: moved
+    if: needs.moved.outputs.run == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: x64
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      # The same caches as release.yml's build job, under the same key, so a
+      # nightly reuses what the day's pull requests fetched.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cache/electron
+            ~/.cache/electron-builder
+          key: package-cache-${{ runner.os }}-${{ matrix.arch }}-${{ hashFiles('package-lock.json') }}
+
+      - run: npm ci
+
+      # Every unit test under the coverage floors, on this architecture too.
+      - run: npm run test:coverage
+
+      # Every RomM version the client is held to — see test/romm/README.md.
+      - name: Docker RomM
+        run: npm run test:romm -- --profile v520 --profile v531
+
+      - run: npm run build
+
+      - name: Warm the packaging cache
+        id: warm
+        run: node scripts/warm-package-cache.mjs ${{ matrix.arch }}
+
+      - run: npm run package -- --${{ matrix.arch }} -c.electronDist="$ELECTRON_ZIP"
+        env:
+          ELECTRON_ZIP: ${{ steps.warm.outputs.electron-zip }}
+
+      # As release.yml prepares it: Electron's binary, its sandbox helper made
+      # setuid root, and a screen.
+      - run: npx install-electron
+      - run: |
+          sudo chown root:root node_modules/electron/dist/chrome-sandbox
+          sudo chmod 4755 node_modules/electron/dist/chrome-sandbox
+      - run: sudo apt-get update && sudo apt-get install -y xvfb
+
+      - run: npm run test:app
+
+      # Every screen, where pull requests take a subset.
+      - run: npm run shots:nova
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: shots-${{ matrix.arch }}
+          path: artifacts/shots/
+          if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: app-test-failures-${{ matrix.arch }}
+          path: test/app/failures/
+          if-no-files-found: ignore
+
+      # The bundle holds no compiled code, so one architecture builds it.
+      - name: Build the device test bundle
+        if: matrix.arch == 'x64'
+        run: node scripts/device-bundle.mjs --sha "$GITHUB_SHA" --out device
+      - uses: actions/upload-artifact@v7
+        if: matrix.arch == 'x64'
+        with:
+          name: device-bundle
+          path: device/
+          if-no-files-found: error
+
+      - run: cp packaging/rommix-steam.sh dist/galleon-steam.sh
+      - uses: actions/upload-artifact@v7
+        with:
+          name: appimage-${{ matrix.arch }}
+          path: |
+            dist/*.AppImage
+            dist/galleon-steam.sh
+          if-no-files-found: error
+
+  # Only after every suite on both architectures passed: a red nightly
+  # publishes nothing. Only from main, which is what the bridge tests; a run
+  # started by hand on another branch proves its suites and stops there.
+  publish:
+    needs: suites
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      # For the tag the publish moves.
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: appimage-*
+          merge-multiple: true
+          path: dist
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: device-bundle
+          path: device
+
+      - uses: ./.github/actions/publish-nightly

@@ -442,39 +442,7 @@ jobs:
           name: device-bundle
           path: device
 
-      # SHA256SUMS over every asset, which is what the bridge verifies its
-      # downloads against before it runs anything.
-      - name: Gather the nightly's assets
-        run: |
-          mkdir nightly
-          cp dist/*.AppImage dist/galleon-steam.sh device/* nightly/
-          (cd nightly && sha256sum -- * > SHA256SUMS)
-          cat nightly/SHA256SUMS
-
-      - name: Publish the nightly build
-        # Pinned as the canary step above is.
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
-        with:
-          files: nightly/*
-          tag_name: nightly
-          name: Galleon nightly
-          body: |
-            Built from `main` at ${{ github.sha }}, for the Galleon device
-            bridge, which tests it on the test handheld and publishes what it
-            found on the `device-results` branch.
-
-            This is not a release and not an update channel: it has passed CI
-            and nothing else, and it is replaced by the next build.
-          prerelease: true
-          make_latest: false
-          fail_on_unmatched_files: true
-
-      # Last, as for the canary tag above: the tag never names a commit whose
-      # assets are still uploading.
-      - name: Move the nightly tag
-        run: |
-          git tag -f nightly "$GITHUB_SHA"
-          git push -f origin refs/tags/nightly
+      - uses: ./.github/actions/publish-nightly
 
   release:
     needs: build

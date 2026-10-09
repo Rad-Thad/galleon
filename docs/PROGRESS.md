@@ -587,3 +587,17 @@ Lines the tooling reads (exact forms):
 - Evaluator: see the PR.
 - Device / acceptance: the first merge after this publishes the first `nightly`; the bridge should then report `harness.run`.
 - Next: M0-24 part 2: `nightly.yml` (schedule plus dispatch, early exit when `main` has not moved since the last scheduled run, full suites on both architectures, the same publish), then flip M0-24.
+
+## 2026-10-09 11:38 UTC session cloud (routine run, second unit)
+
+- Device results: none new (as above).
+- Worked on: M0-24 part 2 of 2 (tracking issue #60). Part 1, PR #61, merged at 65777b9; its CI wall time was x64 3:15, arm64 1:10.
+- Result: PR (this one). Flips M0-24 (`ci`) once a dispatched nightly on `main` publishes.
+- Evidence:
+  - `.github/workflows/nightly.yml`: daily schedule (`23 3 * * *`) and `workflow_dispatch`; workflow-level `concurrency: {group: nightly, cancel-in-progress: false}`; every job `timeout-minutes: 30`. Job `moved` ends a scheduled run early when the last completed scheduled nightly tested the same `main` commit (the `nightly` tag is not the reference, since every merge moves it). Job `suites`, on x64 and arm64: `test:coverage`, Docker RomM 5.2.0 and 5.3.1, build, package, full `test:app`, every `shots:nova` screen, the device bundle (x64). Job `publish` needs `suites`, so a failing suite publishes nothing, and runs only from `main`.
+  - `.github/actions/publish-nightly`: the gather, `SHA256SUMS`, publish (`make_latest: false`, body for the device bridge) and tag-moved-last steps, shared by `nightly.yml` and release.yml's `canary` job, so both write the same assets.
+  - `actionlint` (1.7.7) reports nothing on `nightly.yml`; on release.yml only the four shellcheck notes already on `main`.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none (`ci`).
