@@ -186,6 +186,13 @@ export interface Settings {
    */
   dismissedNotices: string[]
   /**
+   * Whether the performance overlay is drawn. See `PerfOverlay`.
+   *
+   * Off: it is a measuring tool, and the frames it counts cost a little to
+   * count. Also toggled from anywhere by holding L3 and R3 together.
+   */
+  perfOverlay: boolean
+  /**
    * How much larger than its drawn size the interface is rendered, or 0 for
    * "match the screen".
    *

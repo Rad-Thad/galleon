@@ -1,8 +1,10 @@
-import { app, shell } from 'electron'
+import { app, screen, shell } from 'electron'
 import { EMULATORS } from '@config/emulators'
 import type {
   DiagnosticsReport,
   DriveSpace,
+  PerfState,
+  PerfSummary,
   PowerAction,
   RootLocation,
   Settings
@@ -10,6 +12,7 @@ import type {
 import type { RomMixApp } from '../app.ts'
 import { drivesOf } from '../disk.ts'
 import { power, powerActions } from '../power.ts'
+import { readPowerState } from '../powerstate.ts'
 import { flatpakAvailable, flathubConfigured, isWritable } from '../host.ts'
 import { setLanguage, t } from '../i18n.ts'
 import { log } from '../log.ts'
@@ -242,6 +245,34 @@ export function registerSystemIpc(rommix: RomMixApp, handle: Handle): void {
    * cannot be asked. The quit dialog offers exactly what comes back.
    */
   handle('system:powerActions', (): Promise<PowerAction[]> => powerActions())
+
+  /**
+   * What the performance overlay measures frame times against. The refresh
+   * rate is asked for each time rather than remembered, because Steam may move
+   * the panel between rates while Galleon runs; a display that reports none,
+   * as a virtual framebuffer does, is taken as 60 Hz.
+   */
+  handle('system:perfState', async (): Promise<PerfState> => ({
+    displayHz: screen.getPrimaryDisplay().displayFrequency || 60,
+    power: await readPowerState()
+  }))
+
+  /**
+   * One screen's frame statistics, into the log a problem report carries. The
+   * power state goes with it, read now, because the same numbers mean
+   * something else under another governor.
+   */
+  handle('system:perfSummary', async (summary: PerfSummary): Promise<void> => {
+    log.info('perf', 'summary', {
+      screen: String(summary.screen),
+      frames: Number(summary.frames),
+      p50: Number(summary.p50),
+      p90: Number(summary.p90),
+      p99: Number(summary.p99),
+      jankyPct: Number(summary.jankyPct),
+      power: await readPowerState()
+    })
+  })
 
   handle('system:power', async (action: PowerAction): Promise<void> => {
     // Checked against the table rather than trusted: this crosses the bridge,

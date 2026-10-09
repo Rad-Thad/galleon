@@ -1,6 +1,6 @@
 import { type JSX, useState } from 'react'
 import type { DiagnosticsReport, RootLocation } from '@shared/types'
-import { FocusButton, Spinner, TextField } from '../../../components'
+import { FocusButton, Spinner, TextField, Toggle } from '../../../components'
 import { useGamepadName } from '../../../input/focus'
 import { useApp, useI18n } from '../../../state'
 import { UpdatePanel } from '../UpdatePanel'
@@ -25,7 +25,7 @@ export function SystemTab({
   onRecheck: () => Promise<DiagnosticsReport | null>
 }): JSX.Element {
   const { t, formatBytes } = useI18n()
-  const { notify } = useApp()
+  const { notify, settings, saveSettings } = useApp()
   const [rootDraft, setRootDraft] = useState<string | null>(null)
   const [rechecking, setRechecking] = useState(false)
   const controller = useGamepadName()
@@ -80,6 +80,14 @@ export function SystemTab({
     <>
       <h2 className="section-title">{t('system.updates')}</h2>
       <UpdatePanel />
+
+      <Toggle
+        label={t('settings.perfOverlay')}
+        setting="perfOverlay"
+        hint={t('settings.perfOverlayHint')}
+        on={settings?.perfOverlay ?? false}
+        onToggle={() => void saveSettings({ perfOverlay: !settings?.perfOverlay })}
+      />
 
       <h2 className="section-title">{t('system.romMixFolder')}</h2>
       <p className="faint" style={{ fontSize: 14 }}>

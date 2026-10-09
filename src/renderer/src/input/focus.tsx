@@ -724,7 +724,10 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
   /** Run the most recently registered handler on the active layer. */
   const fireAction = useCallback((action: Action): void => {
     const list = actionHandlers.current.get(action) ?? []
-    const onLayer = list.filter((h) => h.layer === layerRef.current)
+    // The overlay toggle is answered wherever it was registered: a dialog on
+    // top is often exactly the screen whose frames are worth measuring.
+    const onLayer =
+      action === 'perfOverlay' ? list : list.filter((h) => h.layer === layerRef.current)
     const target = onLayer.length > 0 ? onLayer[onLayer.length - 1] : undefined
     if (!target) return
     // Leaving has its own cue; the rest — the menu, the search box, a tab — are

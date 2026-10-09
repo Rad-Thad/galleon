@@ -57,6 +57,8 @@ const BUTTON = {
   LB: 4,
   RB: 5,
   START: 9,
+  L3: 10,
+  R3: 11,
   DPAD_UP: 12,
   DPAD_DOWN: 13,
   DPAD_LEFT: 14,
@@ -97,6 +99,13 @@ const REPEAT_INTERVAL_MS = 90
  */
 const SUSPENDED_HOLD_MS = 1500
 
+/**
+ * How long L3 and R3 must be held together to show or hide the performance
+ * overlay. Long enough that no ordinary press makes it: both sticks clicked at
+ * once is rare, and held is rarer still.
+ */
+export const PERF_CHORD_MS = 2000
+
 export function useGamepad(
   move: (direction: Direction) => void,
   fireAction: (action: Action) => void,
@@ -124,6 +133,9 @@ export function useGamepad(
     /** When Start went down while suspended, and whether the hold has fired. */
     let holdSince: number | null = null
     let holdFired = false
+    /** The same for the performance chord, which is read only when the interface has the pad. */
+    let chordSince: number | null = null
+    let chordFired = false
 
     const edge = (key: string, pressed: boolean, rawFire: () => void, repeats: boolean): void => {
       // Reported here rather than at each call site: every path that reaches a
@@ -194,10 +206,28 @@ export function useGamepad(
               actionRef.current('menu')
             }
           }
+          chordSince = null
+          chordFired = false
           break
         }
         holdSince = null
         holdFired = false
+
+        // Read on a mapped pad only: where there is no mapping the stick
+        // buttons sit where Start is looked for, so the chord would open the
+        // menu on its way to the overlay.
+        if (mapped && button(BUTTON.L3) && button(BUTTON.R3)) {
+          const now = performance.now()
+          if (chordSince === null) chordSince = now
+          else if (!chordFired && now - chordSince >= PERF_CHORD_MS) {
+            chordFired = true
+            noteRef.current('gamepad')
+            actionRef.current('perfOverlay')
+          }
+        } else {
+          chordSince = null
+          chordFired = false
+        }
 
         edge(
           'up',

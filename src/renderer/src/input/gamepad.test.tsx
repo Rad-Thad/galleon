@@ -10,7 +10,7 @@ const window = installDom()
 
 const { act } = await import('react')
 const { createRoot } = await import('react-dom/client')
-const { gamepadPresent, useGamepad, useGamepadName } = await import('./gamepad.ts')
+const { PERF_CHORD_MS, gamepadPresent, useGamepad, useGamepadName } = await import('./gamepad.ts')
 
 /**
  * What a pad does to the interface, one polled frame at a time.
@@ -90,6 +90,8 @@ const RB = 5
 const RT = 7
 const START = 9
 const DOWN = 13
+const L3 = 10
+const R3 = 11
 
 /** Everything the hook reported, in order. */
 interface Heard {
@@ -252,6 +254,60 @@ describe('with more than one pad', () => {
     step()
 
     assert.equal(heard.activations, 1)
+  })
+})
+
+describe('L3 and R3 held together', () => {
+  test('toggle the performance overlay once per hold, and only after the hold', () => {
+    pads = [pad({ pressed: [L3, R3] })]
+
+    hold(PERF_CHORD_MS / 2)
+    assert.deepEqual(heard.actions, [], 'clicking both sticks is not yet asking')
+
+    hold(PERF_CHORD_MS * 2)
+    assert.deepEqual(heard.actions, ['perfOverlay'])
+    assert.deepEqual(heard.kinds, ['gamepad'])
+
+    pads = [pad()]
+    step()
+    pads = [pad({ pressed: [L3, R3] })]
+    hold(PERF_CHORD_MS * 2)
+    assert.deepEqual(heard.actions, ['perfOverlay', 'perfOverlay'], 'a second hold toggles back')
+  })
+
+  test('one stick alone, however long, is nothing', () => {
+    pads = [pad({ pressed: [L3] })]
+    hold(PERF_CHORD_MS * 2)
+    pads = [pad({ pressed: [R3] })]
+    hold(PERF_CHORD_MS * 2)
+
+    assert.deepEqual(heard.actions, [])
+  })
+
+  test('letting go of either starts the hold over', () => {
+    pads = [pad({ pressed: [L3, R3] })]
+    hold(PERF_CHORD_MS * 0.75)
+    pads = [pad({ pressed: [L3] })]
+    step()
+    pads = [pad({ pressed: [L3, R3] })]
+    hold(PERF_CHORD_MS * 0.75)
+
+    assert.deepEqual(heard.actions, [])
+  })
+
+  test("is the game's while a game has the screen", () => {
+    setSuspended(true)
+    pads = [pad({ pressed: [L3, R3] })]
+    hold(PERF_CHORD_MS * 2)
+
+    assert.deepEqual(heard.actions, [])
+  })
+
+  test('is not read on a pad without a mapping, where those buttons are not the sticks', () => {
+    pads = [pad({ pressed: [L3, R3], mapping: '' })]
+    hold(PERF_CHORD_MS * 2)
+
+    assert.ok(!heard.actions.includes('perfOverlay'))
   })
 })
 

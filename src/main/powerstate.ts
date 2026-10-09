@@ -1,5 +1,6 @@
 import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import type { PowerState } from '@shared/types'
 
 /**
  * What the machine's power management is doing right now, for the
@@ -17,6 +18,8 @@ import { join } from 'node:path'
  * fixtures; `readPowerState` only gathers that text.
  */
 
+export type { PowerState }
+
 export const UNKNOWN = 'unknown'
 
 /** The prime cluster, the one whose cap Armada's profiles move. */
@@ -24,22 +27,6 @@ const CPU_POLICY = 'sys/devices/system/cpu/cpufreq/policy7'
 const DEVFREQ = 'sys/class/devfreq'
 /** An edited copy in /etc wins over the factory file, as armada-powerd reads them. */
 const PROFILE_CONFS = ['etc/armada/power-profiles.conf', 'usr/share/armada/power-profiles.conf']
-
-export interface PowerState {
-  cpuGovernor: string
-  /** Prime-cluster frequencies, in kHz as cpufreq reports them. */
-  cpuCurKHz: number | null
-  cpuMaxKHz: number | null
-  gpuGovernor: string
-  /** GPU frequencies, in Hz as devfreq reports them. */
-  gpuCurHz: number | null
-  gpuMaxHz: number | null
-  /**
-   * The profile Armada starts in, from its profile definitions: not
-   * necessarily the one in force, which Steam may have switched.
-   */
-  defaultProfile: string
-}
 
 /** A sysfs word such as a governor name, or `unknown`. */
 export function parseWord(text: string | null): string {

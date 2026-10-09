@@ -665,3 +665,21 @@ Lines the tooling reads (exact forms):
 - Evaluator: see the PR.
 - Device / acceptance: none yet.
 - Next: M0-10 part 3: the overlay (Settings → System toggle and the L3+R3 chord) showing frame stats and this power state over IPC, the `perf summary` log line per screen, the test:app cost and 30 s scroll scenarios, and screenshots.
+
+## 2026-10-09 13:28 UTC session 01WT2MPH2EFfpihL1P1ftBtr (routine run)
+
+- Device results: none new (`device-results.mjs --summary`: 0 new results, bridge last seen 2026-10-08T15:06:00Z, last skip "no 'nightly' release published yet").
+- Worked on: M0-10 part 3a of 3 (tracking issue #66): the overlay, its two switches and the per-screen log line. Part 2, PR #68, merged at 4c5b675; its CI wall time was x64 3:45, arm64 0:53.
+- Result: PR (this one). M0-10 stays false.
+- Evidence:
+  - `src/renderer/src/perf/PerfOverlay.tsx`: a fixed, pointer-blind `aside` in the bottom-left corner (the toasts own the top right) with the screen, p50/p90/p99, the janky share at the display's rate, CPU and GPU governor and current/max MHz, and "Armada starts in" for `defaultProfile` (never called the current profile). Frames are counted only while it is mounted; numbers redraw on a timer, power state is re-read on another.
+  - Switches: Settings → System `Performance overlay` (`perfOverlay` setting, off by default, shape-checked in the store) and L3+R3 held for `PERF_CHORD_MS` (a new `perfOverlay` action, answered on any focus layer so it works over a dialog). The chord is ignored while a game has the pad and on unmapped pads.
+  - IPC: `system:perfState` (`displayHz` from Electron's display, 60 when none is reported, plus `readPowerState()`), `system:perfSummary` writing `perf summary {screen, frames, p50, p90, p99, jankyPct, power}` to app.log when a screen is left, the overlay is turned off, or the window is hidden. `PowerState` moved to `@shared/types`.
+  - i18n: 10 keys in all four catalogues, translated.
+  - Tests: `gamepad.test.tsx` "L3 and R3 held together" (5: once per hold and only after it, one stick is nothing, letting go restarts, ignored while a game runs, ignored unmapped). `test/app/interface.test.ts` "the performance overlay" (3: off until switched on in Settings → System, `position: fixed`; a `perf summary` line for `library` with numeric fields in app.log; switched off again).
+  - `npm run shots:nova`: 15 screens. Looked at `perf-overlay.png` (overlay bottom-left over the library, nothing moved, all power values "unknown" under Xvfb, p50 16.7 ms at 60 Hz), `settings-system.png` (toggle row with hint under Updates), `running.png` (overlay off again).
+- Not done (part 3b): line 1's cost scenario (overlay on vs off under 0.3 ms per frame) and line 3's 30 s scripted scroll of a 1,300-game platform; line 4's perf-state.json half (format still unknown).
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none yet.
+- Next: M0-10 part 3b, the two test:app measurement scenarios.

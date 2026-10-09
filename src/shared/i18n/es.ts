@@ -718,6 +718,17 @@ export const es: Catalog = {
   'settings.sounds': 'Sonidos de navegación',
   'settings.soundsHint':
     'Un clic discreto cuando se mueve la selección, al elegir y al volver atrás.',
+  'settings.perfOverlay': 'Indicador de rendimiento',
+  'settings.perfOverlayHint':
+    'Tiempos de fotograma y frecuencias en una esquina. Mantén L3 y R3 a la vez para mostrarlo u ocultarlo en cualquier lugar.',
+  'perf.screen': 'Pantalla: {screen}',
+  'perf.frameTimes': 'Tiempo de fotograma p50 {p50} · p90 {p90} · p99 {p99} ms',
+  'perf.janky': 'Fotogramas a tirones {pct} % a {hz} Hz',
+  'perf.measuring': 'Midiendo…',
+  'perf.cpu': 'CPU {governor} {cur}/{max} MHz',
+  'perf.gpu': 'GPU {governor} {cur}/{max} MHz',
+  'perf.defaultProfile': 'Armada arranca en: {profile}',
+  'perf.unknown': 'desconocido',
   'settings.scaleHint': 'Auto sigue a la pantalla: el doble de grande en un televisor 4K.',
   'settings.language': 'Idioma',
   'settings.languageHint': 'Auto sigue el idioma configurado en esta máquina.',
