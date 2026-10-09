@@ -1,7 +1,15 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
-import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync, mkdirSync } from 'node:fs'
+import {
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  opendirSync,
+  writeFileSync,
+  mkdirSync
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import {
@@ -99,6 +107,27 @@ test('the owner-shaped entries are all there', () => {
   assert.ok(ROMS.some((p) => p.startsWith('roms/psp/') && !p.split('/').at(-1)?.includes('.')))
   assert.ok(ROMS.some((p) => p.startsWith('roms/dc/') && p.endsWith('.chd')))
   assert.ok(ROMS.some((p) => p.startsWith('roms/dc/') && p.endsWith('.cdi')))
+})
+
+test('a rebuild keeps the folder itself, which a running server holds by bind mount', () => {
+  const root = mkdtempSync(join(tmpdir(), 'galleon-library-'))
+  try {
+    writeFileSync(join(root, 'stray'), 'x')
+    // An open handle stands in for the mount: it keeps pointing at the folder
+    // it was opened on, and sees nothing if that folder is removed.
+    const held = opendirSync(root)
+    makeLibrary(root)
+    const seen: string[] = []
+    for (let entry = held.readSync(); entry; entry = held.readSync()) seen.push(entry.name)
+    held.closeSync()
+    assert.deepEqual(seen.sort(), readdirSync(root).sort())
+    assert.ok(!seen.includes('stray'))
+    const absent = join(root, 'not-yet')
+    makeLibrary(absent)
+    assert.ok(readdirSync(absent).length > 0)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
 })
 
 test('arguments: none, or --out with a directory', () => {

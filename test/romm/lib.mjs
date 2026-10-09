@@ -115,6 +115,25 @@ export function parseArgs(argv) {
   return options
 }
 
+/**
+ * The profiles `npm run test:romm` runs, in order: every one by default,
+ * or each `--profile` named, in the order named.
+ */
+export function profilesFrom(argv) {
+  const named = []
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i]
+    if (arg === '--profile' && i + 1 < argv.length) named.push(argv[++i])
+    else throw new Error(`unknown argument: ${arg}`)
+  }
+  for (const profile of named) {
+    if (!Object.hasOwn(PROFILES, profile)) {
+      throw new Error(`unknown profile ${profile}; one of ${Object.keys(PROFILES).join(', ')}`)
+    }
+  }
+  return named.length > 0 ? [...new Set(named)] : Object.keys(PROFILES)
+}
+
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 /**

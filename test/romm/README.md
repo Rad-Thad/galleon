@@ -4,6 +4,13 @@ Disposable RomM servers for the real-server suites: 5.2.0 and 5.3.1, the
 versions the owner's server has run. Nothing persists between runs.
 
 ```sh
+npm run test:romm                       # all of the below, on 5.2.0 then 5.3.1
+npm run test:romm -- --profile v531     # one version
+```
+
+`run.mjs` is that command. By hand:
+
+```sh
 node test/romm/make-library.mjs
 docker compose -f test/romm/compose.yml --profile v520 up -d   # or v531, or both
 node test/romm/provision.mjs --profile v520
@@ -29,7 +36,9 @@ docker compose -f test/romm/compose.yml --profile v520 down
   `make-library.mjs`, which clears the tree. Optional: the suites here need
   only the synthetic files.
 - `*.real.ts` (`npm run test:romm-real`): need a server provisioned on a fresh
-  database. `pairing.real.ts` walks device pairing end to end;
+  database. `client.real.ts` drives RomMix's own client (heartbeat, platforms,
+  paged listing, downloads broken mid-body and resumed by range, the per-file
+  endpoint); `pairing.real.ts` walks device pairing end to end;
   `library.real.ts` checks the scanned platforms and the multi-file flags.
 - `lib.mjs` holds the provisioner's server-free half; `lib.test.ts` tests it
   and runs in `npm test`.

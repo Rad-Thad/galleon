@@ -14,7 +14,7 @@
  * shape removed here cannot linger in a scan.
  */
 import { createHash } from 'node:crypto'
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -99,7 +99,10 @@ export function libraryFiles() {
 }
 
 export function makeLibrary(out = DEFAULT_OUT) {
-  rmSync(out, { recursive: true, force: true })
+  // Emptied rather than removed: a running server holds the folder by bind
+  // mount, and a folder made anew under the same name is not the one it sees.
+  mkdirSync(out, { recursive: true })
+  for (const entry of readdirSync(out)) rmSync(join(out, entry), { recursive: true, force: true })
   const files = libraryFiles()
   for (const { path, bytes } of files) {
     const target = join(out, path)
