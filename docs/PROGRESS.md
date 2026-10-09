@@ -618,3 +618,21 @@ Lines the tooling reads (exact forms):
 - Evaluator: see the PR.
 - Device / acceptance: the bridge should now report `harness.run` on the next idle hour on the charger.
 - Next: M0-23 (device results ingestion), so the first results can be read through `device-results.mjs --summary`.
+
+## 2026-10-09 12:28 UTC session cse_013Evf4H1hJ63Gcq8q1118dc (routine run)
+
+- Device results: none. `bridge/status.json` unchanged (bridge 1, last seen 2026-10-08T15:06:00Z, last skip "no 'nightly' release published yet"); no `results/`. The first `nightly` went out at 11:40 UTC and has not been tested yet.
+- Worked on: M0-23 (tracking issue #64). The flip of M0-24, PR #63, merged at 6c4223c; its CI wall time was x64 2:46, arm64 0:27.
+- Result: PR (this one). Flips M0-23 (`ci`).
+- Evidence:
+  - `scripts/agent/device-results.mjs`: a pure `analyse` over `results/index.json`, every `summary.json`, `bridge/status.json`, `reports/` and `acceptance/`. A result is new when no `DEVICE-RESULTS <sha>` line in PROGRESS.md names it. New results are handled oldest first, each checked against the counting run before it. `--summary` prints safety failures, newly failing checks (with the features that name them, and features going back to false), newly passing checks (with features that now pass, as `PASSES <id> device:<sha>`), new problem reports and acceptance results, then the bridge's age. `--apply` also sets `passes` in features.json (one word changes per flip), opens one `[regression] <id>` issue per feature that went back to false and per failed `safety.*` check (labels `regression`, plus `save-sync` for safety) unless one is already open, and prints the PROGRESS lines to record. The flip rules (`SAFETY_CHECKS`, `COUNTING_STATUSES`, `deviceChecks`, the READY-FOR-DEVICE ancestry) are the ones features-check enforces, now exported from it so both use one definition.
+  - Line 1: `scripts/agent/device-results.test.ts` (17). Against data: flip on all checks plus both safety checks; no flip when READY-FOR-DEVICE is not an ancestor; a missing, skipped or failing check flips nothing; "a safety failure blocks every flip from that run and is reported first"; "a withheld, error, skipped or aborted summary flips nothing and reverts nothing"; "a later failure reverts the flip and opens exactly one regression issue" (two failing runs, one issue, none while one is open). Against fixture branches in a scratch repository through the CLI: a result for the commit before `READY-FOR-DEVICE` flips nothing, one after it flips; `--summary` writes nothing; `--apply` leaves `device-results` where it was.
+  - Line 2: "the script has no way to write the device-results branch" greps the source for `push`, `commit`, `update-ref`, `hash-object` and `write-tree` as git arguments. Git is only asked for `fetch`, `ls-tree`, `cat-file`, `log`, `merge-base`.
+  - Line 3: "a 60-result branch is read and summarised in under 10 seconds": 0.9 s on the VM (one `ls-tree` and one `cat-file --batch` for every file).
+  - Line 4: CLAUDE.md's ritual step 2 names `--summary` with no pre-M0-23 fallback, and `scripts/agent/init.sh`'s last step runs it (it fetches the branch itself).
+  - On the real branch: `node scripts/agent/device-results.mjs --summary` prints 0 new results and the bridge last seen 21.5 h ago, in 0.7 s.
+  - `scripts/agent/check.sh` green: 1477 tests, coverage 96.13 / 93.58 / 95.71.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none (`ci`).
+- Next: whatever `next.mjs` lists first (M0-10), unless device results arrive.

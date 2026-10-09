@@ -30,3 +30,6 @@ export function progressEntryErrors(
   added: string,
   context: { opened: string; now: string; author?: string }
 ): string[]
+export const SAFETY_CHECKS: string[]
+export const COUNTING_STATUSES: string[]
+export function readyIsAncestor(id: string, sha: string, cwd?: string): boolean
