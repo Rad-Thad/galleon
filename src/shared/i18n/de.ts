@@ -732,6 +732,7 @@ export const de: Catalog = {
   'settings.sounds': 'Navigationsklänge',
   'settings.soundsHint':
     'Ein leises Klicken, wenn die Auswahl wandert, bestätigt oder zurückgegangen wird.',
+  'system.performance': 'Leistung',
   'settings.perfOverlay': 'Leistungsanzeige',
   'settings.perfOverlayHint':
     'Bildzeiten und Taktraten in einer Ecke. L3 und R3 zusammen halten, um sie überall ein- oder auszublenden.',

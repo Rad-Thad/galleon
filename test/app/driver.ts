@@ -1082,7 +1082,14 @@ export async function startApp(options: StartOptions): Promise<App> {
            if (Math.abs(across) < 4 && Math.abs(down) < 4) return []
            const vertical = down > 0 ? 'Down' : 'Up'
            const sideways = across > 0 ? 'Right' : 'Left'
-           if (target.bottom <= 0 || target.top >= window.innerHeight) return [vertical]
+           // Except on the highlight's own row, where the target is one press
+           // across whether or not it is in view: the highlight reaches the
+           // last row of a long page before the page has scrolled to it, and
+           // only up or down from there walks away from the row and back.
+           const sameRow = target.top < here.bottom && here.top < target.bottom
+           const offScreen = target.bottom <= 0 || target.top >= window.innerHeight
+           if (offScreen && !sameRow) return [vertical]
+           if (offScreen) return [sideways, vertical]
            // Focusables nest — a section heading, and the buttons drawn inside
            // it — and the way into one is across. The engine measures these by
            // containment rather than by distance, so a press towards a target

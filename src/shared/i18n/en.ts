@@ -724,6 +724,7 @@ export const en = {
   'settings.interface': 'Interface',
   'settings.sounds': 'Navigation sounds',
   'settings.soundsHint': 'A quiet click as the highlight moves, and when you choose or go back.',
+  'system.performance': 'Performance',
   'settings.perfOverlay': 'Performance overlay',
   'settings.perfOverlayHint':
     'Frame times and clock speeds in a corner. Hold L3 and R3 together to show or hide it anywhere.',

@@ -81,14 +81,6 @@ export function SystemTab({
       <h2 className="section-title">{t('system.updates')}</h2>
       <UpdatePanel />
 
-      <Toggle
-        label={t('settings.perfOverlay')}
-        setting="perfOverlay"
-        hint={t('settings.perfOverlayHint')}
-        on={settings?.perfOverlay ?? false}
-        onToggle={() => void saveSettings({ perfOverlay: !settings?.perfOverlay })}
-      />
-
       <h2 className="section-title">{t('system.romMixFolder')}</h2>
       <p className="faint" style={{ fontSize: 14 }}>
         {t('system.folderExplainer')}
@@ -196,6 +188,17 @@ export function SystemTab({
           </div>
         </>
       )}
+
+      {/* Last, because it is a measuring tool rather than anything a player
+          needs to set up. */}
+      <h2 className="section-title">{t('system.performance')}</h2>
+      <Toggle
+        label={t('settings.perfOverlay')}
+        setting="perfOverlay"
+        hint={t('settings.perfOverlayHint')}
+        on={settings?.perfOverlay ?? false}
+        onToggle={() => void saveSettings({ perfOverlay: !settings?.perfOverlay })}
+      />
     </>
   )
 }

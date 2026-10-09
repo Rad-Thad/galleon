@@ -718,6 +718,7 @@ export const es: Catalog = {
   'settings.sounds': 'Sonidos de navegación',
   'settings.soundsHint':
     'Un clic discreto cuando se mueve la selección, al elegir y al volver atrás.',
+  'system.performance': 'Rendimiento',
   'settings.perfOverlay': 'Indicador de rendimiento',
   'settings.perfOverlayHint':
     'Tiempos de fotograma y frecuencias en una esquina. Mantén L3 y R3 a la vez para mostrarlo u ocultarlo en cualquier lugar.',
