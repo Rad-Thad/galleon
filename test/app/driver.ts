@@ -208,6 +208,8 @@ export interface App {
   press: (key: Key) => Promise<void>
   /** Move the highlight onto the element matching a selector, then select it. */
   choose: (selector: string) => Promise<void>
+  /** Move the highlight onto the element matching a selector, and stop there. */
+  reach: (selector: string) => Promise<void>
   /** Put the pointer on something, which is not the same as pressing it. */
   hover: (selector: string) => Promise<void>
   /** Leave the pointer at a place rather than on a thing. See `pointAt`. */
@@ -1033,7 +1035,7 @@ export async function startApp(options: StartOptions): Promise<App> {
   }
 
   /**
-   * Walk the highlight onto something and press it.
+   * Walk the highlight onto something (`choose` then presses it).
    *
    * Pressing keys rather than clicking, because the focus engine is one of the
    * things worth knowing still works — a click would go straight to the handler
@@ -1047,7 +1049,7 @@ export async function startApp(options: StartOptions): Promise<App> {
    * looked at a game. Spending each direction once per place turns a loop like
    * that into a dead end, which is a thing the walk can back out of.
    */
-  const choose = async (selector: string): Promise<void> => {
+  const reach = async (selector: string): Promise<void> => {
     // Drawn *and* registered with the focus engine, which is a later moment:
     // every focusable carries `data-focused`, so its absence means the element
     // is in the page and cannot yet be moved onto. Starting before that is how
@@ -1141,7 +1143,7 @@ export async function startApp(options: StartOptions): Promise<App> {
     const every: Key[] = ['Right', 'Down', 'Left', 'Up']
 
     for (let step = 0; step < 100; step += 1) {
-      if (await there()) return press('Enter')
+      if (await there()) return
       const here = await highlight()
       const keys = spent.get(here) ?? new Set<Key>()
       spent.set(here, keys)
@@ -1160,6 +1162,11 @@ export async function startApp(options: StartOptions): Promise<App> {
       `the highlight never reached ${selector}; it is on ${await highlight()} ("${await focused()}")` +
         (await capture(`reaching ${selector}`))
     )
+  }
+
+  const choose = async (selector: string): Promise<void> => {
+    await reach(selector)
+    await press('Enter')
   }
 
   /**
@@ -1237,6 +1244,7 @@ export async function startApp(options: StartOptions): Promise<App> {
     waitFor,
     press,
     choose,
+    reach,
     hover,
     pointAt,
     click,

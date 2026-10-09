@@ -124,6 +124,9 @@ function VersionRow({
       // Which game this row leads to, for `npm run test:app` — the same handle a
       // card in the library carries. See CONTRIBUTING.
       data-rom={romId}
+      // The version on screen cannot be opened again, which the pad knows
+      // from `enabled`; said the way `FocusButton` says it.
+      data-disabled={current}
       {...props}
     >
       <span className="asset__icon">

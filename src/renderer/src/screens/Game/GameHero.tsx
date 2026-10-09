@@ -173,6 +173,9 @@ function Summary({ text }: { text: string }): JSX.Element {
         ref={ref as Ref<HTMLButtonElement>}
         className="game-hero__summary"
         data-expanded={expanded}
+        // Unreachable by the pad while nothing is hidden, said the way
+        // `FocusButton` says it, so a walk over every control can tell.
+        data-disabled={!clipped}
         {...props}
       >
         {text}
