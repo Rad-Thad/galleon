@@ -636,3 +636,17 @@ Lines the tooling reads (exact forms):
 - Evaluator: see the PR.
 - Device / acceptance: none (`ci`).
 - Next: whatever `next.mjs` lists first (M0-10), unless device results arrive.
+
+## 2026-10-09 12:49 UTC session cse_013Evf4H1hJ63Gcq8q1118dc (routine run, second unit)
+
+- Device results: none new (`device-results.mjs --summary`: 0 new results, bridge last seen 2026-10-08T15:06:00Z).
+- Worked on: M0-10 part 1 of 3 (tracking issue #66): acceptance line 2. M0-23, PR #65, merged at 7f0c2ec; its CI wall time was x64 4:02, arm64 0:56.
+- Result: PR (this one). M0-10 stays false.
+- Evidence:
+  - `src/renderer/src/perf/frames.ts`: `jankyThresholdMs(hz)` (`JANK_FACTOR` display intervals), nearest-rank `percentile`, `frameStats(intervals, hz)` giving `{frames, p50, p90, p99, jankyPct}` or null, and `FrameWindow`, which turns rAF timestamps into the most recent intervals and can be reset on a screen change. No DOM, no React.
+  - `src/renderer/src/perf/frames.test.ts` (11 tests): the threshold is 25 ms at 60 Hz and 12.5 ms at 120 Hz; a frame exactly on it is not janky and one just over is; the same frames are smooth at 60 Hz and janky at 120 Hz; percentiles land on measured frames; one stall shows in p99 but not p50; empty or nonsense input gives null; the window's capacity, its non-advancing timestamps and its reset.
+  - `scripts/agent/check.sh` green: 1488 tests, coverage 96.14 / 93.60 / 95.72.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none yet.
+- Next: M0-10 part 2, the power-state parser (line 4) with fixtures from DEVICE-FACTS.md; then part 3, the overlay, the log line and the test:app scenarios.
