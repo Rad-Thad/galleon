@@ -539,3 +539,19 @@ Lines the tooling reads (exact forms):
 - Evaluator: see the PR.
 - Device / acceptance: none (`ci`).
 - Next: M0-23 (device results ingestion) or the next from `node scripts/agent/next.mjs`.
+
+## 2026-10-09 10:33 UTC session cloud (routine run)
+
+- Device results: none. `bridge/status.json` unchanged (bridge 1, last seen 2026-10-08T15:06:00Z, no `nightly` release yet); no `results/`.
+- Worked on: M0-13 part 1 of 2 (tracking issue #57), on the way to owner issue #5 through M0-24. M0-05 part 2, PR #56, merged at 4111f79, flipping M0-05; its CI wall time was x64 3:53, arm64 0:58 (arm64 no longer runs `test:app`). `main` is green, canary published.
+- Result: PR (this one). M0-13 stays false: it is a `device` feature.
+- Evidence:
+  - `release.yml`: the canary and release jobs write `SHA256SUMS` (`sha256sum *.AppImage galleon-steam.sh`) beside the images and publish it with them; the canary tag still moves last.
+  - `src/main/integrity.ts` `digestFromChecksums` reads `sha256sum`'s format (text or binary mode, whole-name match, two different digests for one name is no answer). `src/main/update.ts` `Updater.publishedDigest` fetches the release's `SHA256SUMS` before the image and holds the image to it; a release without one falls back to GitHub's asset digest. No line for the image refuses the update; a sums file that disagrees with GitHub's digest refuses it before the image is fetched; a mismatch deletes the part-file, logs expected and actual, and keeps the running image.
+  - Tests: `src/main/updater.test.ts` "checking it against SHA256SUMS" (4: vouched image installed; mismatch refused with the running image unchanged and state `error`; no line refused; disagreement refused with no image request), `src/main/integrity.test.ts` "reading a SHA256SUMS file" (4).
+  - README "Builds from the tip of `main`" says how to check a download by hand.
+  - `scripts/agent/check.sh` green (1450 tests, lines 96.08%).
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none yet.
+- Next: M0-13 part 2: version, short commit and channel in the footer and Settings -> About. Its device checks `build.identity` and `update.verify` are self-test scenarios and need M0-21's self-test mode, whose depends_on (M0-10, M0-11) do not pass. M0-24 depends on M0-13 passing, which needs a nightly to test it: a cycle through device results. Once M0-13's CI parts are in, M0-24 waits only on device results and, per CLAUDE.md ("a feature waiting only for device results blocks nothing"), is taken next for owner issue #5.

@@ -3,7 +3,7 @@ import { afterEach, describe, test } from 'node:test'
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { hashOf, parseDigest, verifyDownload } from './integrity.ts'
+import { digestFromChecksums, hashOf, parseDigest, verifyDownload } from './integrity.ts'
 
 /**
  * Checking that a download is the file that was published.
@@ -29,6 +29,41 @@ function fileHolding(contents: string): string {
 const PUBLISHED = 'the published bytes'
 /** Well-formed, and not the digest of anything here — which is the point. */
 const SOME_OTHER_DIGEST = 'a'.repeat(64)
+
+describe('reading a SHA256SUMS file', () => {
+  const A = 'a'.repeat(64)
+  const B = 'b'.repeat(64)
+
+  test('the line for the name is the digest, in text or binary mode', () => {
+    const text = `${A}  Galleon-x86_64.AppImage\n${B} *Galleon-arm64.AppImage\n`
+    assert.deepEqual(digestFromChecksums(text, 'Galleon-x86_64.AppImage'), {
+      algorithm: 'sha256',
+      expected: A
+    })
+    assert.deepEqual(digestFromChecksums(text, 'Galleon-arm64.AppImage'), {
+      algorithm: 'sha256',
+      expected: B
+    })
+  })
+
+  test('only the whole name matches', () => {
+    const text = `${A}  old-Galleon-x86_64.AppImage\n`
+    assert.equal(digestFromChecksums(text, 'Galleon-x86_64.AppImage'), null)
+  })
+
+  test('no line, a malformed line, or two different digests is no answer', () => {
+    assert.equal(digestFromChecksums('', 'x'), null)
+    assert.equal(digestFromChecksums(`${'a'.repeat(63)}  x\n`, 'x'), null)
+    assert.equal(digestFromChecksums(`${A}  x\n${B}  x\n`, 'x'), null)
+  })
+
+  test('Windows line endings and upper-case hex are read', () => {
+    assert.deepEqual(digestFromChecksums(`${A.toUpperCase()}  x\r\n`, 'x'), {
+      algorithm: 'sha256',
+      expected: A
+    })
+  })
+})
 
 describe('reading a digest a publisher stated', () => {
   test('GitHub states one as algorithm and hex', () => {

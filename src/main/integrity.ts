@@ -38,6 +38,25 @@ export function parseDigest(value: string | undefined | null): Digest | null {
   return { algorithm: match[1].toLowerCase() as Digest['algorithm'], expected: match[2] }
 }
 
+/**
+ * The digest a `SHA256SUMS` file states for one file, or null when it names none.
+ *
+ * The format `sha256sum` writes and `sha256sum -c` reads: a hex digest, a
+ * space, then a space or a `*` for binary mode, then the name. Matched on the
+ * whole name, so `Galleon-x86_64.AppImage` is never answered by a line for
+ * something that merely ends the same way. A line naming the file twice with
+ * different digests is no answer either, since it states two things at once.
+ */
+export function digestFromChecksums(text: string, name: string): Digest | null {
+  const stated = new Set<string>()
+  for (const line of text.split(/\r?\n/)) {
+    const match = /^([0-9a-f]{64}) [ *](.+)$/i.exec(line.trim())
+    if (match && match[2] === name) stated.add(match[1].toLowerCase())
+  }
+  if (stated.size !== 1) return null
+  return { algorithm: 'sha256', expected: [...stated][0] }
+}
+
 /** What a file on disk hashes to. */
 export async function hashOf(path: string, algorithm: string): Promise<string> {
   const digest = createHash(algorithm)
