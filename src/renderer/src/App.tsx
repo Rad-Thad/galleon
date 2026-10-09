@@ -244,7 +244,7 @@ export function App(): JSX.Element {
           <div className="topbar__brand">
             <Logo className="topbar__logo" />
             <div className="topbar__wordmark">
-              Rom<span>Mix</span>
+              Gal<span>leon</span>
             </div>
           </div>
 

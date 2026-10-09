@@ -1719,6 +1719,19 @@ describe('the home screen', () => {
     }
   })
 
+  test('the top bar names the product it is', async () => {
+    // Read by its text on purpose: the name is the one thing in the bar that
+    // is not a catalogue string, so no language check would ever see it.
+    assert.equal(
+      await app.read<string>(`document.querySelector('.topbar__wordmark')?.textContent`),
+      'Galleon'
+    )
+    assert.equal(
+      await app.read<string>(`document.querySelector('.topbar__logo')?.getAttribute('aria-label')`),
+      'Galleon'
+    )
+  })
+
   test('the hero is the head of the first shelf holding anything, and says which', async () => {
     // Not a game picked out on its own: the banner is the first tile of the
     // first shelf, and the line above it names that shelf. A hero labelled

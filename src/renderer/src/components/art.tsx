@@ -128,7 +128,7 @@ export function ArtBackdrop({
 }
 
 /**
- * The RomMix mark: a cartridge whose label is a cassette.
+ * The Galleon mark: a cartridge whose label is a cassette.
  *
  * The same drawing as the app icon (packaging/icon.svg) minus its dark
  * plate — the rail already supplies the ground, and a second rounded square
