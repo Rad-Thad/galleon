@@ -877,3 +877,17 @@ Lines the tooling reads (exact forms):
 - Evaluator: see the PR.
 - Device / acceptance: none (`ci`).
 - Next: start the Upstream workflow by hand on main, check the issue, then flip M0-19 with that run as evidence.
+
+## 2026-10-09 19:15 UTC session fe0b4bc0 (routine run, fourth unit, the flip)
+
+- Device results: none new.
+- Worked on: M0-19 (tracking issue #87). PR #88 merged at 9b26e3b; its CI wall time was x64 4:27, arm64 0:55.
+- Result: PR (this one). PASSES M0-19 (ci).
+- Evidence:
+  - Upstream workflow run 37978615588 (`workflow_dispatch` on main, success) opened #89 "upstream: 4 new commits" as github-actions[bot], label `upstream`. It lists 2b38d66, 68697e0, 990e55e and 355061f, each linked to its upstream commit with subject and date, and links the compare from the base `ea787b9` in docs/UPSTREAM.md (line 1).
+  - A second run, 37978756776 (success), opened nothing: issues labelled `upstream` (open or closed) still number one, so the issue is updated rather than duplicated (line 1).
+  - The runs used the workflow token with `contents: read`, `issues: write`; no push (line 2, and #88's evaluator PASS).
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none (`ci`).
+- Next: `next.mjs`'s first feature. #89 lists the controller commits M3-08 wants; port them when M3-08 is taken up (docs/UPSTREAM.md, rule 3).
