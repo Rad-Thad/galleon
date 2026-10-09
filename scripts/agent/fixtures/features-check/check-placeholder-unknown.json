@@ -1,0 +1,19 @@
+{
+  "rule": "A placeholder id the catalogue does not hold fails.",
+  "catalogue": ["launch.<emulator>", "safety.owner-state", "safety.server-readonly"],
+  "required": ["REQ-1"],
+  "head": [
+    {
+      "id": "M1-01",
+      "milestone": "M1",
+      "title": "Feature M1-01",
+      "description": "What M1-01 does.",
+      "source": ["REQ-1"],
+      "acceptance": ["Device check `aspect.<system>` for each system: it fills the screen."],
+      "verification": "device",
+      "depends_on": [],
+      "passes": false
+    }
+  ],
+  "expect": ["M1-01: Device check `aspect.<system>` is not in docs/TESTING.md's catalogue"]
+}

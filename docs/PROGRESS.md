@@ -390,3 +390,21 @@ Lines the tooling reads (exact forms):
 - Notes:
   - The inherited `uploadSave` sends `overwrite=true` on every upload. Only Docker RomM sees it here, and the save engine (M2, ADR 0002) replaces that path; nothing in this PR relies on it.
   - Electron's stub refuses `app.getVersion`, which device registration asks for; `server.ts` answers it, as `romm.test.ts` does. Without that, registration failed quietly and uploads named no device.
+
+## 2026-10-09 06:28 UTC session cloud (routine run)
+
+- Device results: none. `bridge/status.json` unchanged: bridge version 1, last seen 2026-10-08T15:06:00Z, skipping because no `nightly` release is published yet. No `results/` yet.
+- Worked on: owner issue #36 (4:3 and single-screen patches), tracking issue #37. #37 had been claimed at 02:27 UTC by a run that left no branch or PR; the claim was over three hours old, so this run took it over and said so on #37. M0-08's PR #35 merged at 1057988; both `build` legs green on it.
+- Result: PR (this one), docs and the feature guard only. No research or implementation, as #36 asks.
+- Evidence:
+  - `docs/features.json`: M7-14..M7-17 appended after M7-13, from #36's JSON, `ISSUE-36` in each `source`. One change to the owner's text: M7-16's second acceptance line was "A device check per system where a payload exists, ..."; the guard refuses a device feature that names no `Device check`, so the line now reads "Device check `aspect.<system>` for each system where a payload exists: ..." with the same meaning.
+  - `docs/TESTING.md`: catalogue row `aspect.<system>` (run.sh; M7-15, M7-16), and M7-17 beside the shader picks in the acceptance session's contents.
+  - `scripts/agent/features-check.mjs`: REQ-16 is owed a feature like REQ-1..15; a check named by the catalogue's own placeholder id (`aspect.<system>`) counts as in the catalogue, since its concrete ids come from M7-14's research. Fixtures `check-placeholder.json` (passes) and `check-placeholder-unknown.json` (an uncatalogued placeholder fails); the coverage fixture and the REQUIRED_SOURCES count now include REQ-16. 33/33.
+  - `docs/REQUIREMENTS-FROM-TESTER.md` item 16 (the owner's words, the hand-made PSP setup, where it is scheduled); `docs/PLAN.md` M7 lists M7-14..M7-17 and the exit gate names M7-17.
+  - `scripts/agent/check.sh` green (`features-check: 162 features, all rules hold`).
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none (`ci`).
+- Next: owner issue #5 still waits on M0-05 and M0-13 through M0-24's depends_on; M0-09 (screenshot harness) is next by `next.mjs`.
+- Notes:
+  - M8-07's acceptance line "ACCEPTANCE.md covers every acceptance feature (...)" does not name M7-17, and its acceptance is frozen. When M0-15's generator is built it should take every `acceptance` feature from features.json rather than that list.
