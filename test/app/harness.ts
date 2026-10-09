@@ -1,5 +1,5 @@
 import { atHome, standInEmulator, startApp, type App, type StartOptions } from './driver.ts'
-import { startFakeRomm, type FakeRomm } from './server.ts'
+import { startFakeRomm, type FakeRomm, type FakeRommOptions } from './server.ts'
 
 /**
  * One RomMix, one fake RomM, and one emulator that is a shell script.
@@ -19,12 +19,13 @@ export interface Scenario {
 }
 
 export async function startScenario(
-  options: Pick<StartOptions, 'viewport' | 'home'> = {}
+  options: Pick<StartOptions, 'viewport' | 'home'> & { server?: FakeRommOptions } = {}
 ): Promise<Scenario> {
-  const server = await startFakeRomm()
+  const { server: serverOptions, ...appOptions } = options
+  const server = await startFakeRomm(serverOptions)
   const emulator = standInEmulator()
   const app = await startApp({
-    ...options,
+    ...appOptions,
     baseUrl: server.baseUrl,
     token: server.token,
     settings: {

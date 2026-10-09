@@ -226,6 +226,12 @@ export interface App {
   focused: () => Promise<string>
   /** What the window shows now, as a PNG. */
   screenshot: () => Promise<Buffer>
+  /**
+   * The renderer's running totals, as Chromium's `Performance.getMetrics`
+   * names them: `TaskDuration` is the main thread's busy time, in seconds.
+   * Measured outside the page, so asking costs the page nothing.
+   */
+  metrics: () => Promise<Record<string, number>>
   home: string
   /**
    * Quit the way a player does, through the application's own quit, and wait
@@ -686,6 +692,9 @@ export async function startApp(options: StartOptions): Promise<App> {
       deviceScaleFactor: 1,
       mobile: false
     })
+
+  /** Whether Chromium has been asked to keep `metrics`' totals yet. */
+  let measuring = false
 
   const read = async <T>(expression: string): Promise<T> => {
     const result = (await session.send('Runtime.evaluate', {
@@ -1242,6 +1251,14 @@ export async function startApp(options: StartOptions): Promise<App> {
       }
       if (!shot.data) throw new Error('the window gave no picture')
       return Buffer.from(shot.data, 'base64')
+    },
+    metrics: async () => {
+      if (!measuring) await session.send('Performance.enable', { timeDomain: 'timeTicks' })
+      measuring = true
+      const { metrics } = (await session.send('Performance.getMetrics')) as {
+        metrics: { name: string; value: number }[]
+      }
+      return Object.fromEntries(metrics.map((one) => [one.name, one.value]))
     },
     home,
     quit: async (timeoutMs) => {
