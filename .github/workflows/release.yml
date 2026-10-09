@@ -153,16 +153,20 @@ jobs:
 
       # The guard on the feature list the project is accepted against — see
       # scripts/agent/features-check.mjs. On a pull request it also compares the
-      # list with the base branch's, which a shallow checkout has not fetched.
+      # list with the base branch's, which a shallow checkout has not fetched,
+      # and holds the pull request to a PROGRESS.md entry of its own, written in
+      # the session that opened it or since (M0-18).
       # Once is enough: the list is the same on either architecture.
       - name: Check the feature list
         if: matrix.arch == 'x64'
         env:
           BASE_REF: ${{ github.base_ref }}
+          OPENED: ${{ github.event.pull_request.created_at }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
         run: |
           if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
             git fetch --no-tags --depth=1 origin "+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF"
-            node scripts/agent/features-check.mjs --base "origin/$BASE_REF"
+            node scripts/agent/features-check.mjs --base "origin/$BASE_REF" --opened "$OPENED" --author "$AUTHOR"
           else
             node scripts/agent/features-check.mjs
           fi
