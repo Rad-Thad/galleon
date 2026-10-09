@@ -34,7 +34,8 @@
     "appimage": "npm run build && npm run package",
     "release": "release-it",
     "release:rc": "release-it --preRelease=rc",
-    "prepare": "husky"
+    "prepare": "husky",
+    "smoke:app": "./scripts/smoke-app.sh"
   },
   "dependencies": {
     "lucide-react": "^1.52.0",

@@ -522,3 +522,20 @@ Lines the tooling reads (exact forms):
 - Evaluator: see the PR.
 - Device / acceptance: none (`ci`).
 - Next: M0-05 part 2 (`smoke:app` on arm64, image digests, the red-check proof), then flip M0-05.
+
+## 2026-10-09 09:46 UTC session cloud (routine run)
+
+- Device results: none. `bridge/status.json` unchanged (bridge 1, last seen 2026-10-08T15:06:00Z, no `nightly` release yet); no `results/`.
+- Worked on: M0-05 part 2 of 2 (tracking issue #54). M0-18 part 2, PR #53, merged at 670d4a4, flipping M0-18; its CI wall time was x64 3:50, arm64 2:58.
+- Result: PR (this one). Flips M0-05 (`ci`).
+- Evidence:
+  - `npm run smoke:app` (new, `scripts/smoke-app.sh` and `test/app/smoke.ts`): the AppImage for this machine's architecture, or `GALLEON_APPIMAGE`, starts under Xvfb against the fake RomM, reaches Home, quits through `window.rommix.system.quit()` and must be gone within the quit allowance, the whole round trip within 60 s. The driver's `startApp` takes `executable` (run extracted, as `galleon-steam.sh` does on the device, in a process group of its own so a stop ends Electron and not only the AppImage runtime) and `App.quit`.
+  - On the VM, as an unprivileged user, against `dist/Galleon-x86_64.AppImage` from `npm run appimage`: pass in 1.3 s; and against its extracted `AppRun` with `chrome-sandbox` made setuid root, the way the workflow runs it: pass in 1.1 s. No `rommix.bin` left running after either. The first try called a quit that does not exist; it failed after the quit allowance, and the stop then left Electron orphaned with the pipes open, which is why the stop now signals the group.
+  - `release.yml`: `test:app` runs on x64 only; arm64 runs the new step "Smoke-test the package" when `package` is true (every push to `main`, every pull request but a docs-only one). It extracts the AppImage and makes its `chrome-sandbox` setuid root, the same fix the job already applies to the development Electron for `test:app`.
+  - RomM and MariaDB images: `test/romm/compose.yml` already pins all three by digest, and the Docker step pulls them once per job.
+  - Red-check proof: scratch PR #55 (`claude/M0-05-red-proof`) added one failing unit test; `build (ubuntu-24.04, x64)` failed at `npm run test:coverage` naming `a deliberately failing test` (actions run 37913343676). #55 was closed unmerged.
+  - `scripts/agent/check.sh` green; `npm run test:app` 192/192 on the VM.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none (`ci`).
+- Next: M0-23 (device results ingestion) or the next from `node scripts/agent/next.mjs`.
