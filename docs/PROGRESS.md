@@ -408,3 +408,24 @@ Lines the tooling reads (exact forms):
 - Next: owner issue #5 still waits on M0-05 and M0-13 through M0-24's depends_on; M0-09 (screenshot harness) is next by `next.mjs`.
 - Notes:
   - M8-07's acceptance line "ACCEPTANCE.md covers every acceptance feature (...)" does not name M7-17, and its acceptance is frozen. When M0-15's generator is built it should take every `acceptance` feature from features.json rather than that list.
+
+## 2026-10-09 06:55 UTC session cloud (routine run, second unit)
+
+- Device results: none new (as above).
+- Worked on: M0-09, the 1280x960 screenshot harness (tracking issue #39). The #36 plan PR, #38, merged at e81587a; its CI wall time was x64 3:07, arm64 3:29.
+- Result: PR (this one). Flips M0-09 (`agent-screenshot`).
+- Evidence:
+  - `npm run shots:nova` (`scripts/shots-nova.sh`, `test/app/shots.ts`) builds, starts the app under Xvfb against `test/app/server.ts`, walks with the driver's presses and writes `artifacts/shots/<screen>.png` at 1280x960. Full set, 14 files: `home`, `library`, `game-details`, `game-saves`, `game-files`, `game-screenshots`, `downloads`, `bios`, `emulators`, `settings-general`, `settings-games`, `settings-system`, `running` (the stand-in emulator holding the screen) and `setup` (the wizard's first page). `identify` gives 1280x960 for each. Full run on the VM: 14 s.
+  - `artifacts/shots/index.html` shows every picture with its name, and gives a failed screen's name and reason in their place. With the game's selector broken on purpose, the run printed `game: gave up waiting for [data-rom="99"] to be reachable` and `1 failed: game`, and exited 1.
+  - Size: Xvfb has no window manager to make the window full screen, which left it at 1288x804. The driver's new `viewport` option lays the page out at 1280x960 through `Emulation.setDeviceMetricsOverride`, and `headless.sh` takes the screen size from `ROMMIX_SCREEN`.
+  - Repeatability: two runs on one commit differ by at most 0.07% of pixels (`compare -metric AE`; `settings-general` 0.07%, the rest 0.03-0.05%, the port number printed in the top bar). Before the fixes, `home` was 1.57% (the hero's focus ring mid-transition) and `settings-games` 0.72% (the tab underline sliding, and the random temporary folder it prints). Shots now wait for every animation that ends, and the harness gives each app a fixed folder (`StartOptions.home`).
+  - `-- --subset pr`: `home`, `library`, `game-details`, `downloads`, `settings-general`, `setup`, in 11 s on the VM. CI runs it on x64 after `test:app` and uploads `shots-x64` even when a screen fails. The full set's nightly run belongs to M0-24 (`nightly.yml` does not exist yet).
+  - Looked at all 14 PNGs. Every screen fills 4:3 with nothing clipped at the edges. Lists continue below the fold where they are longer than the screen (home's second shelf, emulators' platforms, settings). The running overlay is centred over the dimmed game page. The top bar's wordmark still reads "RomMix". It is text in `App.tsx` (`topbar__wordmark`), outside the i18n catalogues that M0-04's acceptance covers, so M0-04 missed it. It is a separate small fix (see Next).
+  - `npm run test:app` with the driver changes: 191/191 on the VM. `scripts/agent/check.sh` green.
+  - Flaky issue #41: PR #40's first arm64 leg failed in `npm test` on `test/romm/lib.test.ts` "the heartbeat wait names the last failure when it gives up" (`(no answer)` where `(down)` was expected). Cause: `waitForHeartbeat` checked its deadline before the first attempt, so with a 1 ms timeout it could give up without asking. It now asks first. The new test "the heartbeat wait asks at least once, however little time it is given" fails on the old code and passes on the new one; the old test passed 40/40 after the fix.
+- CI wall time: first run on 23cc9c2: x64 4:04 (the shots step 9 s); arm64 failed at 0:40 (the flake above). Final run: recorded in the next entry.
+- Evaluator: PASS (all five acceptance lines met; it opened 8 PNGs; two full runs differed by at most 0.09%; flipping now is justified because M0-24's description owns the nightly full set).
+- Device / acceptance: none (`agent-screenshot`).
+- Next: the wordmark fix above, then M0-11 (diagnostics bundle).
+- Notes:
+  - On the VM, Electron refuses to run as root without `--no-sandbox`, and creating an unprivileged user was not allowed this session. Local runs used `ELECTRON_EXEC_PATH` pointing at a wrapper outside the repository that adds `--no-sandbox`. CI keeps the sandbox.

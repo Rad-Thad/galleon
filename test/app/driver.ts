@@ -224,6 +224,8 @@ export interface App {
   goTo: (route: string) => Promise<void>
   /** The label of whatever is highlighted, for a failure worth reading. */
   focused: () => Promise<string>
+  /** What the window shows now, as a PNG. */
+  screenshot: () => Promise<Buffer>
   home: string
   stop: () => Promise<void>
 }
@@ -319,6 +321,21 @@ export interface StartOptions {
    * pinning it is what makes those paths knowable from outside.
    */
   env?: Record<string, string>
+  /**
+   * The size to lay the page out at, whatever the window is.
+   *
+   * The window asks to be full screen, and on the Nova gamescope makes it so.
+   * Xvfb has no window manager to do that, so the window keeps the size it
+   * was created with; the page is told the screen's size instead.
+   */
+  viewport?: { width: number; height: number }
+  /**
+   * The folder to run in, emptied first, in place of a fresh temporary one.
+   *
+   * The settings screens print it, so pictures compared across runs need the
+   * same one each time.
+   */
+  home?: string
 }
 
 /** How long the stand-in emulator stays up. See `standInEmulator`. */
@@ -547,7 +564,11 @@ export async function downloadAnyway(app: App): Promise<void> {
 
 /** Start the built application against a fake server, and wait for its window. */
 export async function startApp(options: StartOptions): Promise<App> {
-  const home = mkdtempSync(join(tmpdir(), 'rommix-app-test-'))
+  const home = options.home ?? mkdtempSync(join(tmpdir(), 'rommix-app-test-'))
+  if (options.home) {
+    rmSync(home, { recursive: true, force: true })
+    mkdirSync(home, { recursive: true })
+  }
   seed(home, options)
 
   // Once for the run rather than once per application: several scenarios start
@@ -636,6 +657,12 @@ export async function startApp(options: StartOptions): Promise<App> {
   })
 
   const session = await connect(await pageSocket(port))
+  if (options.viewport)
+    await session.send('Emulation.setDeviceMetricsOverride', {
+      ...options.viewport,
+      deviceScaleFactor: 1,
+      mobile: false
+    })
 
   const read = async <T>(expression: string): Promise<T> => {
     const result = (await session.send('Runtime.evaluate', {
@@ -1166,6 +1193,13 @@ export async function startApp(options: StartOptions): Promise<App> {
     type,
     goTo,
     focused,
+    screenshot: async () => {
+      const shot = (await session.send('Page.captureScreenshot', { format: 'png' })) as {
+        data?: string
+      }
+      if (!shot.data) throw new Error('the window gave no picture')
+      return Buffer.from(shot.data, 'base64')
+    },
     home,
     stop: async () => {
       session.close()

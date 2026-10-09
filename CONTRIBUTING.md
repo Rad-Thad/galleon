@@ -64,6 +64,12 @@ Where a scenario gives up it leaves a screenshot behind, named after what it was
 waiting for and pointed at from the failure message, which on a runner nobody
 watched is the difference between a diagnosis and another run.
 
+`npm run shots:nova` uses the same driver to photograph every screen at the
+Nova's 1280x960, reached with the pad, into `artifacts/shots/`, with a contact
+sheet at `artifacts/shots/index.html`. `-- --subset pr` takes the screens a
+pull request needs. It exits non-zero when a screen cannot be reached, and two
+runs of one commit give the same pictures, so they can be compared.
+
 Keys, the pointer and a controller, because the interface takes all three:
 `useFocusable` binds `onMouseMove` and `onClick` beside the focus engine, and a
 change that breaks one and not the other would otherwise go out. The pad is what

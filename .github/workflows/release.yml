@@ -210,6 +210,22 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y xvfb
       - run: npm run test:app
 
+      # Every screen a pull request touches, at the Nova's 1280x960, for the
+      # agent and the evaluator to look at — see test/app/shots.ts. Once, on
+      # x64: the pictures are the same on both legs, and the full set is the
+      # nightly's (PLAN.md section 4).
+      - if: matrix.arch == 'x64'
+        run: npm run shots:nova -- --subset pr
+
+      # Kept whether or not the step passed: the sheet says which screen
+      # failed, and the pictures of the rest are the evidence a PR quotes.
+      - uses: actions/upload-artifact@v7
+        if: always() && matrix.arch == 'x64'
+        with:
+          name: shots-x64
+          path: artifacts/shots/
+          if-no-files-found: ignore
+
       # The one suite whose failures cannot be read from a log: it drives a
       # window, and the message says what was waited for rather than what was
       # drawn. The driver leaves a screenshot behind wherever it gives up — see
