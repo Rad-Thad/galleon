@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { after, before, describe, test } from 'node:test'
@@ -1603,6 +1603,10 @@ describe('the performance overlay', () => {
         !everything.includes(new URL(server.baseUrl).host),
         'the server address is redacted'
       )
+      // By name rather than by address: the fake listens on 127.0.0.1, which
+      // the address rule hides on its own, so the host rule is shown working
+      // by the marker it leaves where the settings name the server.
+      assert.match(text('settings.json'), /<server>/)
     } finally {
       rmSync(out, { recursive: true, force: true })
     }
@@ -1613,6 +1617,100 @@ describe('the performance overlay', () => {
     await app.choose('[data-tab="system"]')
     await app.choose('[data-setting="perfOverlay"] [data-option="off"]')
     await app.waitFor(`!document.querySelector('.perf-overlay')`, 'the overlay to go')
+  })
+})
+
+/**
+ * Report a problem, pressed with the pad from both places it is offered. What
+ * the zip holds is the scenario above's; this is the button reaching it.
+ */
+describe('reporting a problem with the controller', () => {
+  /** Standard mapping. */
+  const A = 0
+  const B = 1
+
+  const reports = async (): Promise<string[]> => {
+    const root = await app.read<string>(`(await window.rommix.system.root()).current`)
+    try {
+      return readdirSync(join(root, 'reports'))
+        .filter((name) => name.endsWith('.zip'))
+        .map((name) => join(root, 'reports', name))
+    } catch {
+      return []
+    }
+  }
+
+  /** A zip that was not there before, once it has been written. */
+  const newReport = async (earlier: string[]): Promise<string> => {
+    for (let tries = 0; tries < SETTLE_TIMEOUT_MS / POLL_MS; tries += 1) {
+      const added = (await reports()).find((path) => !earlier.includes(path))
+      if (added) return added
+      await new Promise((done) => setTimeout(done, POLL_MS))
+    }
+    throw new Error('no new report was written')
+  }
+
+  test('A on Settings -> System -> Report a problem writes the zip and names it', async () => {
+    await app.goTo('settings')
+    await app.waitFor(`document.querySelector('[data-tab="system"]')`, 'the settings tabs')
+    await app.choose('[data-tab="system"]')
+    await app.waitFor(`document.querySelector('[data-action="report-problem"]')`, 'the button')
+
+    const earlier = await reports()
+    const pad = await app.plugInPad()
+    // Below the fold on a 960-line screen, and the pointer only reaches what is drawn.
+    await app.read(
+      `(document.querySelector('[data-action="report-problem"]').scrollIntoView({ block: 'center' }), true)`
+    )
+    await app.hover('[data-action="report-problem"]')
+    await app.waitFor(
+      `document.querySelector('[data-action="report-problem"]')?.dataset.focused === 'true'`,
+      'the highlight on the button'
+    )
+    await pad.tap(A)
+
+    const zip = await newReport(earlier)
+    // Said on screen too, since the player has no other way to learn where it went.
+    await app.waitFor(
+      `[...document.querySelectorAll('.toast')].some((toast) => toast.textContent.includes(${JSON.stringify(zip)}))`,
+      'the toast naming the report'
+    )
+    await pad.unplug()
+  })
+
+  test('and from the quit dialog, which then stays open', async () => {
+    const pad = await app.plugInPad()
+    // B climbs out of the page, into the menu, then asks to quit.
+    for (let presses = 0; presses < 4; presses += 1) {
+      if (
+        await app.read<boolean>(
+          `!!document.querySelector('.overlay [data-action="report-problem"]')`
+        )
+      )
+        break
+      await pad.tap(B)
+    }
+    await app.waitFor(
+      `document.querySelector('.overlay [data-action="report-problem"]')`,
+      'the quit dialog'
+    )
+
+    const earlier = await reports()
+    await app.hover('.overlay [data-action="report-problem"]')
+    await app.waitFor(
+      `document.querySelector('.overlay [data-action="report-problem"]')?.dataset.focused === 'true'`,
+      'the highlight on the button'
+    )
+    await pad.tap(A)
+    await newReport(earlier)
+
+    assert.ok(
+      await app.read<boolean>(`!!document.querySelector('.overlay')`),
+      'writing a report should not quit or close the dialog'
+    )
+    await pad.tap(B)
+    await app.waitFor(`!document.querySelector('.overlay')`, 'the dialog to close on B')
+    await pad.unplug()
   })
 })
 

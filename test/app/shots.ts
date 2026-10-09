@@ -112,8 +112,8 @@ async function eachTab(app: App, screen: string): Promise<void> {
   }
 }
 
-/** Switch the performance overlay from Settings -> System. */
-async function perfOverlay(app: App, option: 'on' | 'off'): Promise<void> {
+/** Settings -> System, reached with the shoulder buttons. */
+async function systemTab(app: App): Promise<void> {
   await app.goTo('settings')
   await app.waitFor(`document.querySelector('[data-tab="system"]')`, 'the system tab')
   while (
@@ -122,6 +122,11 @@ async function perfOverlay(app: App, option: 'on' | 'off'): Promise<void> {
     ))
   )
     await app.press('TabNext')
+}
+
+/** Switch the performance overlay from Settings -> System. */
+async function perfOverlay(app: App, option: 'on' | 'off'): Promise<void> {
+  await systemTab(app)
   await app.choose(`[data-setting="perfOverlay"] [data-option="${option}"]`)
 }
 
@@ -174,6 +179,33 @@ async function signedIn(): Promise<void> {
         )
         await shoot(app, 'perf-overlay')
         await perfOverlay(app, 'off')
+      })
+
+    // Report a problem, pressed: the section, and the toast naming the zip.
+    if (wanted('report'))
+      await attempt('report', async () => {
+        await systemTab(app)
+        await app.choose('[data-action="report-problem"]')
+        await app.waitFor(`document.querySelector('.toast')`, 'the report to be named')
+        await shoot(app, 'report')
+      })
+
+    // The quit dialog, reached with B from the library as a player reaches it,
+    // and put away again with B.
+    if (wanted('quit'))
+      await attempt('quit', async () => {
+        await app.goTo('library')
+        for (let presses = 0; presses < 4; presses += 1) {
+          if (await app.read<boolean>(`!!document.querySelector('.overlay')`)) break
+          await app.press('Escape')
+        }
+        await app.waitFor(
+          `document.querySelector('.overlay [data-action="report-problem"]')`,
+          'the quit dialog'
+        )
+        await shoot(app, 'quit')
+        await app.press('Escape')
+        await app.waitFor(`!document.querySelector('.overlay')`, 'the dialog to close')
       })
 
     if (wanted('running'))

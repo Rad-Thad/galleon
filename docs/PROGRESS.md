@@ -788,3 +788,26 @@ Lines the tooling reads (exact forms):
 - Notes:
   - #78's hand install is owner state on the device: `Textures/` on the SD card, its links in eight emulator folders, and the texture settings it lists (each backed up to `<file>.bak-texpacks`). Device tests must leave them as they are; M7-21's device check snapshots them.
   - RetroArch's dolphin core shipped without `system/dolphin-emu/Sys` until the owner's side installed it on 2026-10-09. M1-23's emulator check should notice missing core system files (#78).
+
+## 2026-10-09 17:53 UTC session a85849a6 (routine run, second unit)
+
+- Device results: none new.
+- Worked on: M0-11 part 2b (tracking issue #75): Report a problem in Settings → System and in the quit dialog, and acceptance line 4. Owner issue #78's plan, PR #79, merged at 25ca68c; its CI wall time was x64 4:34, arm64 0:53.
+- Result: PR (this one). PASSES M0-11 (ci): all four acceptance lines are met (lines 1 to 3 by #76, line 4 here).
+- Evidence:
+  - `ReportProblemButton` (`src/renderer/src/components/overlay.tsx`): calls `system.report()` and names the zip in a toast; it is disabled while the report is written. It sits in its own "Report a problem" section on the System tab, with a line saying what goes in and what is removed, and at the end of the quit dialog's second row. Strings `system.reportTitle`, `reportExplainer`, `reportProblem`, `reportWriting` and `reportWritten` are in all four catalogues, translated.
+  - Bug, test first: a report named by the second it was written replaced an earlier report from the same second. The first pad scenario found it: the zip the previous scenario had just written was overwritten, so no new file appeared. `report.test.ts` "a second report in the same second is kept beside the first, not over it" failed before the fix and passes after (10/10). `writeReport` now claims the first free name with an exclusive create (`-2`, `-3` and so on) and removes the claim if zipping fails.
+  - `test/app/interface.test.ts` "reporting a problem with the controller":
+    - "A on Settings -> System -> Report a problem writes the zip and names it" scrolls to the button, puts the highlight on it, presses the test pad's A, and finds a new zip in `reports/` and a toast naming it.
+    - "and from the quit dialog, which then stays open" reaches the dialog with B, presses A on the entry, finds a new zip, and closes the dialog with B.
+    - The existing report scenario now also asserts `<server>` in the report's `settings.json`. That proves the host rule ran, whatever the address rule hides of 127.0.0.1.
+    - The file passed 101/101 under Xvfb (Electron through a `--no-sandbox` wrapper in the scratchpad, as root).
+  - `npm run shots:nova`: new nightly-only shots `report` and `quit`, 17 screens. I looked at:
+    - `report.png`: the section under Re-run check, and the toast with the zip path, both readable at 1280x960.
+    - `quit.png`: Stay and Quit Galleon alone on the first row; Sleep, Restart, Turn off and Report a problem after the rule.
+    - `settings-system.png`: the top of the tab, unchanged.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none (`ci`).
+- Next: `next.mjs`'s first feature. M0-12 must ignore a stray `reports/.staging-*` (see #75).

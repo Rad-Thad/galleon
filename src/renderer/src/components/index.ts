@@ -42,7 +42,7 @@ export {
   tileInstalled,
   type GameTile
 } from './games'
-export { Hints, Overlay, PageTitle, QuitOverlay, Spinner } from './overlay'
+export { Hints, Overlay, PageTitle, QuitOverlay, ReportProblemButton, Spinner } from './overlay'
 export { QrCode, ScanToOpen } from './qr'
 export { ThemeChoice } from './theme'
 export { StatusBadge, StatusPill, type Tone } from './status'

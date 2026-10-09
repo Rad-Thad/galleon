@@ -142,6 +142,44 @@ export function QuitOverlay({ onCancel }: { onCancel: () => void }): JSX.Element
   )
 }
 
+/**
+ * Report a problem: everything a fault needs looked at, zipped into the root's
+ * `reports/` folder, and the path said aloud.
+ *
+ * One button for both places it is offered, Settings -> System and the quit
+ * dialog: the quit dialog is where somebody arrives when something has just
+ * gone wrong and they are about to close the evidence, so it has to write the
+ * same report the settings page does.
+ */
+export function ReportProblemButton(): JSX.Element {
+  const { t } = useI18n()
+  const { notify } = useApp()
+  const [writing, setWriting] = useState(false)
+
+  const write = async (): Promise<void> => {
+    setWriting(true)
+    try {
+      const path = await window.rommix.system.report()
+      notify(t('system.reportWritten', { path }), 'ok')
+    } catch {
+      // Reported centrally on `app:error`.
+    } finally {
+      setWriting(false)
+    }
+  }
+
+  return (
+    <FocusButton
+      icon="note"
+      action="report-problem"
+      disabled={writing}
+      onSelect={() => void write()}
+    >
+      {writing ? t('system.reportWriting') : t('system.reportProblem')}
+    </FocusButton>
+  )
+}
+
 /** What each machine action is called and drawn as, in the order offered. */
 const POWER: { action: PowerAction; label: MessageKey; icon: IconName }[] = [
   { action: 'suspend', label: 'app.sleep', icon: 'sleep' },
@@ -162,7 +200,9 @@ const POWER: { action: PowerAction; label: MessageKey; icon: IconName }[] = [
  * behind it to arrive at instead: gamescope on a television has no desktop, and
  * quitting leaves a black screen whose only remaining control is the button on
  * the case. They are a second row rather than four buttons in one, so that the
- * question the dialog asks still reads as a question with two answers.
+ * question the dialog asks still reads as a question with two answers. Report a
+ * problem ends that row, for the same reason it is offered here at all: see
+ * `ReportProblemButton`.
  */
 function QuitActions({ onCancel }: { onCancel: () => void }): JSX.Element {
   const { t } = useI18n()
@@ -191,28 +231,25 @@ function QuitActions({ onCancel }: { onCancel: () => void }): JSX.Element {
         </FocusButton>
       </div>
 
-      {actions.length > 0 ? (
-        <>
-          {/* A rule rather than a heading over the row: what these three do is
-              already on them, and the one thing missing was that they are not
-              more answers to the question in the title. A line says that
-              without a label, and without a phrase to translate that reads as
-              a settings section in every language. */}
-          <hr className="overlay__split" />
-          <div className="btn-row">
-            {POWER.filter((entry) => actions.includes(entry.action)).map((entry) => (
-              <FocusButton
-                key={entry.action}
-                icon={entry.icon}
-                action={`power-${entry.action}`}
-                onSelect={() => void window.rommix.system.power(entry.action)}
-              >
-                {t(entry.label)}
-              </FocusButton>
-            ))}
-          </div>
-        </>
-      ) : null}
+      {/* A rule rather than a heading over the row: what these do is already
+          on them, and the one thing missing was that they are not more answers
+          to the question in the title. A line says that without a label, and
+          without a phrase to translate that reads as a settings section in
+          every language. Never empty, since a report can always be written. */}
+      <hr className="overlay__split" />
+      <div className="btn-row">
+        {POWER.filter((entry) => actions.includes(entry.action)).map((entry) => (
+          <FocusButton
+            key={entry.action}
+            icon={entry.icon}
+            action={`power-${entry.action}`}
+            onSelect={() => void window.rommix.system.power(entry.action)}
+          >
+            {t(entry.label)}
+          </FocusButton>
+        ))}
+        <ReportProblemButton />
+      </div>
     </>
   )
 }
