@@ -815,7 +815,7 @@ Lines the tooling reads (exact forms):
 ## 2026-10-09 18:27 UTC session fe0b4bc0 (routine run)
 
 - Device results: DEVICE-RESULTS 32e6fd3c2490e5637a7a6961f1e506eb3c73d8ca complete; DEVICE-RESULTS 25ca68c80a0813c31cd24e345c86f86f4c12dbf1 complete. Minimal harness: no `safety.*` check, `--apply` flipped nothing. (The previous entry recorded 32e6fd3 by its short sha, which `device-results.mjs` does not recognise, so it is recorded here in full.) Bridge last seen 0.3 h before the run.
-- Worked on: M0-15 part 1 (tracking issue #81): the acceptance-session generator, acceptance lines 1, 2 and 4. M0-11 part 2b, PR #80, merged at 1d71b66 before this run.
+- Worked on: M0-15 part 1 (tracking issue #81): the acceptance-session generator, acceptance lines 1, 2 and 4. M0-11 part 2b, PR #80, merged at 1d71b66 before this run; its CI wall time was x64 4:45, arm64 0:57.
 - Result: PR (this one). M0-15 stays false: line 3 (`acceptance/<date>/results.json` read back by `device-results.mjs`, passes flipped, a bug per fail) is part 2.
 - Evidence:
   - `scripts/agent/acceptance.mjs` writes `docs/ACCEPTANCE.md` from features.json, PROGRESS.md and the new `docs/acceptance-plan.json`. An `acceptance` feature joins on `READY-FOR-ACCEPTANCE <id>`; an `Acceptance session (informational):` line joins once its feature passes or is READY for the device or the session. M8-07 is the session itself, not an item. Items are grouped by place (the Mac, the Nova in Game Mode, Android with Argosy, a browser) with minutes per group; the save backup comes first and recording the results last; the results table has a row per item.

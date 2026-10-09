@@ -4,7 +4,7 @@
 
 Build: **Galleon 0.20.0**. Settings → About shows this version; if it shows another, stop and tell the local Claude session.
 
-About 15 minutes in all, never more than two hours. The local Claude session on the Mac reads each step to you, does every terminal and GitHub step, and fills in the results table at the end. You hold the Nova (and your phone where a step says so) and say what you see.
+About 15 minutes in all, never more than 120 minutes. The local Claude session on the Mac reads each step to you, does every terminal and GitHub step, and fills in the results table at the end. You hold the Nova (and your phone where a step says so) and say what you see.
 
 ### Back up the saves first (about 10 min)
 

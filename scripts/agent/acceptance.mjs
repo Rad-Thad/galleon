@@ -125,7 +125,7 @@ export function render(plan, items, build) {
     '',
     `Build: **Galleon ${build}**. Settings → About shows this version; if it shows another, stop and tell the local Claude session.`,
     '',
-    `About ${minutes} minutes in all, never more than two hours. The local Claude session on the Mac reads each step to you, does every terminal and GitHub step, and fills in the results table at the end. You hold the Nova (and your phone where a step says so) and say what you see.`,
+    `About ${minutes} minutes in all, never more than ${SESSION_LIMIT_MINUTES} minutes. The local Claude session on the Mac reads each step to you, does every terminal and GitHub step, and fills in the results table at the end. You hold the Nova (and your phone where a step says so) and say what you see.`,
     ''
   ]
   for (const s of plan.before) section(lines, s.title, s.minutes, [s.text])

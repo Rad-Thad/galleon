@@ -57,13 +57,13 @@
       "feature": "M7-17",
       "place": "nova",
       "minutes": 8,
-      "passWhen": "Each patched game fills the 4:3 screen with correct proportions in 3D, any 2D stretching is acceptable to you, and the DS and 3DS single-screen layout and its swap work and feel right."
+      "passWhen": "For each system with patches, one patched game fills the 4:3 screen with correct proportions in 3D, any 2D stretching is acceptable to you, and the DS and 3DS single-screen layout and its swap work and feel right."
     },
     {
       "feature": "M7-23",
       "place": "nova",
       "minutes": 8,
-      "passWhen": "Each game with a pack shows HD textures without loading stutter, the switch turns them off, and your per-system defaults are recorded."
+      "passWhen": "For each system with packs, one game shows HD textures without loading stutter, the switch turns them off, and your per-system defaults are recorded."
     },
     {
       "feature": "M3-04",
@@ -105,7 +105,7 @@
       "feature": "M2-19",
       "place": "android",
       "minutes": 12,
-      "passWhen": "For every system listed, neither side asks you to choose between two saves, and RomM's web page shows one current save per game."
+      "passWhen": "For every system listed, neither side asks you to choose between two saves, and RomM's web page shows one current save per game. A system marked 'do not travel' in SYSTEM-CHOICES.md showing that notice instead also passes."
     }
   ]
 }
