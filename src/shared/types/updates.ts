@@ -20,6 +20,20 @@ export const UPDATE_POLICIES = [
 ] as const
 export type UpdatePolicy = (typeof UPDATE_POLICIES)[number]
 
+/**
+ * Which builds count as new versions for this copy. See `Updater.channel`.
+ *
+ * Shown beside the version because the same version number means different
+ * things on each: a release, a release candidate, or any commit since.
+ */
+export type UpdateChannel =
+  /** Releases only. */
+  | 'releases'
+  /** Releases and their candidates: `Settings.updatePrereleases`. */
+  | 'candidates'
+  /** The tip of `main`: `ROMMIX_CANARY`. */
+  | 'canary'
+
 /** Where RomMix's update of *itself* has got to. See `Updater`. */
 export type UpdateState =
   /** Nothing to do: never checked, or checked and already current. */
@@ -55,6 +69,8 @@ export interface UpdateStatus {
    * television carries into a bug report, so it carries this too.
    */
   buildCommit: string | null
+  /** Where this copy takes its updates from. */
+  channel: UpdateChannel
   /** The release notes, as GitHub holds them. Null when the release has none. */
   notes: string | null
   /** The release page, which is the way out when RomMix cannot update itself. */

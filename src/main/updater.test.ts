@@ -752,3 +752,25 @@ describe('the timer', () => {
     subject.stop()
   })
 })
+
+describe('the channel it reports', () => {
+  test('releases by default, candidates with the setting, canary with the flag', () => {
+    assert.equal(updater().updater.status.channel, 'releases')
+    assert.equal(updater('notify', true).updater.status.channel, 'candidates')
+    process.env.ROMMIX_CANARY = '1'
+    assert.equal(updater('notify', true).updater.status.channel, 'canary')
+  })
+
+  test('a change of the setting is reported when the checks are rescheduled', () => {
+    const store = new Store(join(scratch(), 'config'))
+    store.updateSettings({ updates: 'off', updatePrereleases: false })
+    const seen: UpdateStatus[] = []
+    const subject = new Updater(store, (status) => seen.push(status))
+
+    store.updateSettings({ updatePrereleases: true })
+    subject.schedule()
+
+    assert.equal(subject.status.channel, 'candidates')
+    assert.equal(seen.at(-1)?.channel, 'candidates')
+  })
+})

@@ -260,9 +260,13 @@ export function Hints({ items }: { items: { key: string; label: string }[] }): J
             {update.buildCommit
               ? t('app.buildVersion', {
                   version: update.current,
-                  commit: update.buildCommit
+                  commit: update.buildCommit,
+                  channel: t(`update.channel.${update.channel}`)
                 })
-              : t('app.version', { version: update.current })}
+              : t('app.version', {
+                  version: update.current,
+                  channel: t(`update.channel.${update.channel}`)
+                })}
           </span>
         )}
       </span>

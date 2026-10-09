@@ -2035,6 +2035,20 @@ describe('what RomMix says about its own version', () => {
       )
     }
 
+    // The channel says what the version means: the same number is a release,
+    // a candidate or any commit since. The harness sets no canary flag.
+    assert.ok(
+      shown.includes(en['update.channel.releases']),
+      `the channel was not among ${JSON.stringify(shown)}`
+    )
+    const footer = await app.read<string>(
+      `document.querySelector('.hints__version')?.textContent ?? ''`
+    )
+    assert.ok(
+      footer.includes(status.current) && footer.includes(en['update.channel.releases']),
+      `the footer should name the version and channel, and said ${JSON.stringify(footer)}`
+    )
+
     // Never checked and checked-and-current are different answers, and the
     // harness turns automatic checks off — so this is the honest one.
     assert.equal(status.checkedAt, null, 'the harness should have left the checks off')
@@ -2053,6 +2067,12 @@ describe('what RomMix says about its own version', () => {
     await app.waitFor(
       `(await window.rommix.system.settings()).updatePrereleases === true`,
       'the choice to be kept'
+    )
+    await app.waitFor(
+      `[...document.querySelectorAll('.kv dd')].some((one) => one.textContent === ${JSON.stringify(
+        en['update.channel.candidates']
+      )})`,
+      'the channel to follow the choice'
     )
     await app.choose('[data-setting="updatePrereleases"] [data-option="off"]')
     await app.waitFor(

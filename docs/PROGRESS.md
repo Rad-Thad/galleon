@@ -555,3 +555,19 @@ Lines the tooling reads (exact forms):
 - Evaluator: see the PR.
 - Device / acceptance: none yet.
 - Next: M0-13 part 2: version, short commit and channel in the footer and Settings -> About. Its device checks `build.identity` and `update.verify` are self-test scenarios and need M0-21's self-test mode, whose depends_on (M0-10, M0-11) do not pass. M0-24 depends on M0-13 passing, which needs a nightly to test it: a cycle through device results. Once M0-13's CI parts are in, M0-24 waits only on device results and, per CLAUDE.md ("a feature waiting only for device results blocks nothing"), is taken next for owner issue #5.
+
+## 2026-10-09 10:47 UTC session cloud (routine run, second unit)
+
+- Device results: none new (as above).
+- Worked on: M0-13 part 2 of 3 (tracking issue #57): acceptance line 3. Part 1, PR #58, merged at 4127ee6; its CI wall time was x64 3:02, arm64 1:00.
+- Result: PR (this one). M0-13 stays false.
+- Evidence:
+  - `UpdateStatus.channel` (`releases`, `candidates`, `canary`), from `Updater.channel`: `ROMMIX_CANARY` first, then `Settings.updatePrereleases`. Set in the constructor and re-reported from `schedule`, which a change of the setting reaches.
+  - The footer reads `v{version} · {commit} · {channel}` and Settings → System → Updates has a `Channel` row under `Installed` (Settings has no About tab; this block is where version and commit already live). New keys in all four catalogues.
+  - Tests: `src/main/updater.test.ts` "the channel it reports" (2); `test/app/interface.test.ts` checks the row and the footer name version and channel, and that the row follows the release-candidates toggle. `npm run test:app` 192/192 on the VM (Electron through a `--no-sandbox` wrapper in the scratchpad, as root).
+  - Shots: `npm run shots:nova` full set; looked at `home.png` (footer "v0.20.0 · 4127ee6-dirty · releases", one line, no overlap with the hints) and `settings-system.png` (Installed, Channel "releases", Newest published, Last checked aligned).
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none yet. Part 3 is the `build.identity` and `update.verify` self-test scenarios, which need M0-21's self-test mode.
+- Next: with M0-13's CI-testable lines in, M0-24 waits only on M0-13's device checks; owner issue #5 makes it next.

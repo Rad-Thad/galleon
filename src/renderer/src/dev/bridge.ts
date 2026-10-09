@@ -638,6 +638,7 @@ function previewUpdate(): UpdateStatus {
     // vite.web.config.ts — and a commit here would name a build of RomMix
     // nobody watching it is running.
     buildCommit: null,
+    channel: 'releases',
     notes: null,
     url: 'https://github.com/Rad-Thad/galleon/releases',
     receivedBytes: 0,
