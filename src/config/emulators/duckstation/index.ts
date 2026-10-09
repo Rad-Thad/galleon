@@ -58,8 +58,9 @@ export const duckstation: EmulatorDescriptor = {
   },
   // Fixed by the XDG layout; nothing here reads DuckStation's settings file.
   layout: undefined,
-  // One file per game, or an `.m3u` beside its discs: nothing needs a folder.
-  flatLibrary: true,
+  // Games are booted by path, so a multi-file game keeps the folder of its
+  // own that holds a disc set together.
+  flatLibrary: false,
   // Games launch by path; DuckStation's own list is not what RomMix uses.
   needsRomFolders: false,
   saves: (ctx) => ({
