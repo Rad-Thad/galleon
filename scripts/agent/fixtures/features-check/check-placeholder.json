@@ -1,0 +1,19 @@
+{
+  "rule": "A Device check named by the catalogue's placeholder id is in the catalogue.",
+  "catalogue": ["launch.<emulator>", "safety.owner-state", "safety.server-readonly"],
+  "required": ["REQ-1"],
+  "head": [
+    {
+      "id": "M1-01",
+      "milestone": "M1",
+      "title": "Feature M1-01",
+      "description": "What M1-01 does.",
+      "source": ["REQ-1"],
+      "acceptance": ["Device check `launch.<emulator>` for each emulator: it starts."],
+      "verification": "device",
+      "depends_on": [],
+      "passes": false
+    }
+  ],
+  "expect": []
+}

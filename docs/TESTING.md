@@ -116,6 +116,7 @@ Ids are lowercase, dot-separated; `@<profile>` marks a measurement repeated per 
 | `saves.<system>`           | self-test | Sandbox save archived in Argosy's shape, round-tripped through the fake RomM byte-identical. Ids: `saves.snes-gba`, `saves.ps1`, `saves.psp`, `saves.ps2`, `saves.gc-wii`, `saves.dc`                                                    | M2-09..M2-14       |
 | `saves.journal`            | self-test | Upload journal survives a kill; 'All saves uploaded' follows the fake server going down and up                                                                                                                                           | M2-17              |
 | `tune.<system>`            | self-test | Overlay loaded, shader compiled without errors, full speed, layout right. Ids: `tune.snes`, `tune.gba`, `tune.ps1`, `tune.ps2`, `tune.gc`, `tune.psp`, `tune.dc`, `tune.nds`                                                             | M7-03..M7-09       |
+| `aspect.<system>`          | run.sh    | Headless gamescope: a savestate diff (patch on, off) or the screenshot shows the patch or layout applied; `aspect.psp` also keeps both memory sticks' patched-game counts. Ids: `aspect.psp`, others from ASPECT.md                      | M7-15, M7-16       |
 | `pacing.60hz`              | self-test | 60 fps payload presents steadily at 16.7 ms for a minute                                                                                                                                                                                 | M7-10              |
 | `gate1.summary`            | agent     | `gate1.mjs` finds data for every Gate 1 criterion in the newest result                                                                                                                                                                   | M1-20              |
 
@@ -237,7 +238,7 @@ Written only by the bridge (deploy key) and, during the acceptance session, by t
 2. **Install v1.0.0 for real** (M8-01): `install.sh`, the Steam shortcut, the sign-in imported from RomMix. Galleon becomes the owner's launcher; stock RomMix stays installed and untouched.
 3. **Look and feel** (M4-33): ten minutes through every screen.
 4. **Buttons in the hand** (M7-12): each emulator's controls and holding Start to leave.
-5. **Shader picks** (M7-13): two or three looks per system, pick one.
+5. **Shader picks** (M7-13): two or three looks per system, pick one. Beside them, **4:3 and single-screen** (M7-17): one patched game per system fills the screen, and the DS and 3DS single-screen layout and its swap button.
 6. **Gate 2** (M2-19): per system, Argosy on Android to Galleon on Linux and back.
 7. **Decky panel** (M3-01), **start on boot** (M3-02, attended reboot), **installing a Steam game** (M5-04), **Jellyfin** (M6-09, skippable).
 8. The informational items (for example sleeping mid-download), and re-confirming the per-system save choices (M2-08).

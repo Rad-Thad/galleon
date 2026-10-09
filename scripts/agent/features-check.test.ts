@@ -82,7 +82,7 @@ describe('the feature list guard, rule by rule', () => {
 
 describe('the guard’s readings', () => {
   test('owes a feature to every REQ, PARITY and BEYOND item the research names', () => {
-    assert.equal(REQUIRED_SOURCES.length, 15 + 48 + 18)
+    assert.equal(REQUIRED_SOURCES.length, 16 + 48 + 18)
     assert.ok(REQUIRED_SOURCES.includes('PARITY-48') && REQUIRED_SOURCES.includes('BEYOND-18'))
   })
 

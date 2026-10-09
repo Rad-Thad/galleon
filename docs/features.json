@@ -2306,6 +2306,65 @@
     "passes": false
   },
   {
+    "id": "M7-14",
+    "milestone": "M7",
+    "title": "Research: filling the 4:3 screen on every system that isn't 4:3, including single-screen DS and 3DS",
+    "description": "Produce `docs/emulator-tuning/ASPECT.md`, the companion to SHADERS.md. It covers every system Galleon can launch whose picture isn't 4:3 or that has 16:9 modes. Handhelds: PSP 16:9, GBA 3:2, GB/GBC 10:9, DS (two 4:3 screens), 3DS (5:3 top, 4:3 bottom) and Vita. Home consoles with 16:9 output: Wii, Wii U and Switch. Also PS2, GameCube and Wii games with a 16:9 option, SNES 8:7 versus 4:3, and any other system in systems.ts. Find per-game patches and per-emulator settings that make each fill the Nova's 4:3 1280x960 panel correctly. Candidate sources: CWCheat aspect codes (PSP; see the issue for the 9-digit address bug), PCSX2/ARMSX2 pnach files, and Dolphin Gecko/AR codes plus the Wii system aspect setting (4:3 is native; make sure widescreen hacks stay off). Also Cemu graphic packs with 4:3 options, Switch exefs/romfs 4:3 mods (start from aspect_ratio_mod's secret_mod), and Vita and PS3 options if those systems are supported. For DS and 3DS, single screen: emulator layouts (melonDS, an aarch64 Linux 3DS emulator such as an Azahar/Citra fork, RetroArch cores) with a swap hotkey, per-game defaults for games that mostly use one screen, and single-screen ROM hacks, patches or plugins where they exist. For handhelds without patches (GBA, GB/GBC), the best presentation at 1280x960: integer versus fit, bezels or overlays, and how this interacts with SHADERS.md. For each patch source give: repo or thread at a commit, licence, format, the emulator versions it targets, region and serial coverage, known bugs, and how Galleon identifies the game (serial or hash). DS and 3DS aren't in the owner's library yet; cover them anyway, because the owner asked for them by name.",
+    "source": ["REQ-16", "REQ-11", "ISSUE-36", "RESEARCH"],
+    "acceptance": [
+      "Every system in systems.ts plus the owner's library systems has an entry: native aspect, the recommended presentation on 1280x960, the patch sources with game counts, and confidence H/M/L.",
+      "Every claim cites a source (repo at a commit, emulator source or docs, forum thread); known source bugs are listed with a reproducible check.",
+      "A coverage table for the fixture library in the owner's shapes: how many games per system each source would patch.",
+      "Licences are listed; patches and cheats are fetched at runtime from upstream at a pinned commit and never bundled in the MIT AppImage unless their licence allows it.",
+      "An independent evaluator challenge pass is attached."
+    ],
+    "verification": "ci",
+    "depends_on": ["M1-23"],
+    "passes": false
+  },
+  {
+    "id": "M7-15",
+    "milestone": "M7",
+    "title": "PSP 4:3 patches installed and kept up to date by Galleon",
+    "description": "Port the hand-made PSP setup (see the issue) into Galleon. For each PSP game in the library: read its disc ID (UMD_DATA.BIN, then PARAM.SFO DISC_ID, then the Redump DAT), install its 4:3 cheat with the 9-digit address fix, and enable exactly that cheat. Then set stretch for standalone PPSSPP and 4:3 aspect for RetroArch's ppsspp core, through M7-02's overlays or per-game files. Respect the PPSSPP per-game ini caveats: controls and post-shaders must be carried into any per-game file. Adopt the 90 files already on the device without changing their effect. The player can turn the patch off per game.",
+    "source": ["REQ-16", "REQ-11", "ISSUE-36"],
+    "acceptance": [
+      "Unit tests: the address normaliser (fixtures from both sources, including 9-digit addresses), the disc-ID reader (fixture ISO with UMD_DATA.BIN and PARAM.SFO), and cheat-file generation (exactly one enabled 4:3 cheat; NPJH50332 picks '4:3 (1.333)').",
+      "Snapshot tests of the generated cheat file, PPSSPP per-game config and RetroArch override.",
+      "Device check `aspect.psp`: the patched-game counts in both memory sticks are unchanged or higher, and a savestate diff (headless gamescope, as in the issue) shows the 4:3 value written for one patched game. The game is read via GET from the owner's server into a scratch folder that is removed afterwards."
+    ],
+    "verification": "device",
+    "depends_on": ["M7-02", "M7-14", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M7-16",
+    "milestone": "M7",
+    "title": "Aspect, single-screen and presentation patches applied per system",
+    "description": "Apply ASPECT.md's recommendations per system through M7-02's overlays: patches installed per game, per-system and per-game defaults, and DS/3DS single-screen layouts with a screen-swap hotkey that doesn't collide with the exit combo or M7-12's bindings. The player can switch any of it per game.",
+    "source": ["REQ-16", "REQ-11", "ISSUE-36"],
+    "acceptance": [
+      "Config snapshots per system in CI.",
+      "Device check `aspect.<system>` for each system where a payload exists: a screenshot or savestate diff shows the patch or layout applied."
+    ],
+    "verification": "device",
+    "depends_on": ["M7-14", "M7-02", "M7-12", "M0-22"],
+    "passes": false
+  },
+  {
+    "id": "M7-17",
+    "milestone": "M7",
+    "title": "4:3 and single-screen look-over in the acceptance session",
+    "description": "In the final acceptance session, beside the shader A/B rounds (M7-13), play one patched game per system and confirm it fills the screen correctly, and try the DS/3DS single-screen layout and its swap button.",
+    "source": ["REQ-16"],
+    "acceptance": [
+      "Acceptance session: for each system with patches, one patched game fills the 4:3 screen with correct proportions in 3D, and any 2D stretching is acceptable to the owner; DS/3DS single-screen layout and swap work and feel right."
+    ],
+    "verification": "acceptance",
+    "depends_on": ["M7-15", "M7-16"],
+    "passes": false
+  },
+  {
     "id": "M8-01",
     "milestone": "M8",
     "title": "Version 1.0 criteria and the first stable release",

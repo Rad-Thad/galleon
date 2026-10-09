@@ -23,6 +23,10 @@ These were collected verbatim or near-verbatim during the 2026-10-08 setup sessi
 11. **Every emulator customized for the best experience on the Nova**: its 4:3 1280×960 120 Hz OLED and its controls.
 12. **High-quality CRT shaders for each system, including more modern ones** such as PS2, GameCube, Wii and PSP, set up out of the box. The tester's words: "I love shaders even for more modern systems." Research the best CRT shader per system and per emulator, for example RetroArch slang shaders like crt-royale, crt-guest-advanced and CRT-Geom, Dolphin's post-processing shaders, PPSSPP's post-shaders and DuckStation's post-processing chains. Take into account how each looks on a 4:3 1280×960 OLED and what it costs on an Adreno 740. The tester said this "is likely a task for another time," so schedule it as a later milestone rather than for v1. Check the Argosy fork's `device-shaders/` folder for prior work.
 
+Added 2026-10-08, in [#36](https://github.com/Rad-Thad/galleon/issues/36):
+
+16. **4:3 and single-screen patches for every system that isn't 4:3**, in the owner's words: "doing extensive research for all non 4:3 systems and finding patches, even single screen patches for 3ds and ds titles. Add it to the todo list next to the shader task". The owner did this by hand for PSP on 2026-10-08: 4:3 cheats for 90 of their 1,291 PSP games, in both standalone PPSSPP and RetroArch's ppsspp core (the files and how they were made are in #36). Those files are the owner's settings and must keep their effect. Scheduled in M7 next to the shader work: M7-14 (research), M7-15 (PSP), M7-16 (every other system), M7-17 (the acceptance look-over).
+
 ## Process constraints
 
 13. **The tester only tests.** Development runs autonomously in a Claude Code cloud session from a **public GitHub repo**, set-and-forget style.

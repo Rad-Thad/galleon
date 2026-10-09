@@ -47,7 +47,7 @@ function range(prefix, last) {
 
 /** Every requirement the research names, each owed at least one feature. */
 export const REQUIRED_SOURCES = [
-  ...range('REQ', 15),
+  ...range('REQ', 16),
   ...range('PARITY', 48),
   ...range('BEYOND', 18)
 ]
@@ -74,6 +74,9 @@ export function catalogueIds(markdown) {
 }
 
 function inCatalogue(id, catalogue) {
+  // A feature applied per system names the catalogue's own placeholder id,
+  // since its concrete ids come from research done later.
+  if (catalogue.includes(id)) return true
   return catalogue.some((entry) => {
     const pattern = entry
       .split(/<[^>]+>/)
