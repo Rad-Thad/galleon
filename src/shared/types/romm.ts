@@ -460,6 +460,23 @@ export interface RommSave {
   origin_device_id?: string | null
   created_at: string
   updated_at: string
+  /** Filled only when the listing named a device; see `RommClient.savesForDevice`. */
+  device_syncs?: RommDeviceSync[]
+}
+
+/**
+ * One device's record of a save (`DeviceSyncSchema`).
+ *
+ * When the device asked has no record, RomM still lists one for it, stamped
+ * with the save's own `updated_at` and not current; `savedecide.ts` tells the
+ * two apart.
+ */
+export interface RommDeviceSync {
+  device_id: string
+  device_name: string | null
+  last_synced_at: string
+  is_untracked: boolean
+  is_current: boolean
 }
 
 /** One local save in the POST /api/sync/negotiate body (`ClientSaveState`). */

@@ -53,3 +53,21 @@ record by chance, and one that only starts like a zip. `src/main/savehash.test.t
 holds the app's `localContentHash` to what each means; `hash.real.ts` uploads
 each, and every fixture, to Docker RomM 5.2.0 and requires the hash the server
 stores to be the app's.
+
+## Negotiate
+
+`negotiate.real.ts` holds the pre-launch engine (`src/main/savenegotiate.ts`)
+to what a real negotiate answers: another game's operations are dropped, and a
+session a later negotiate cancelled is finished, not an error.
+
+`decide.real.ts` is the equivalence test for the read-only decision
+(`src/main/savedecide.ts`), which takes negotiate's decision for one game from
+`GET /api/saves?rom_id&device_id` without opening a session. One game gets a
+slot per rule of `compare_save_state` and of negotiate's pairing (no server
+save, no slot, equal hashes, either side newer, a tie with and without a
+hash, a record the client or the server or both moved past, untracked saves,
+a save the device deleted, a superseded row), and the local decision must
+answer every slot with the server's action, save and reason. CI runs it on
+5.2.0 with the rest of the suite; on 5.3.1, run the file alone with
+`ROMM_PROFILE=v531` once that profile is provisioned, since `hash.real.ts`
+does not pass there yet (one raw save holding a zip end record).
