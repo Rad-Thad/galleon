@@ -1968,3 +1968,87 @@ describe('states only where they can load', () => {
     )
   })
 })
+
+describe('settling a conflict the way the player said to', () => {
+  /** A local save played after RomM's copy, which another device uploaded. */
+  function conflicted(): ReturnType<typeof setUp> & { path: string } {
+    const set = setUp({
+      saves: [save({ id: 4, origin_device_id: 'the-other-console', slot: 'autosave' })]
+    })
+    set.store.updateSettings({ deviceId: 'this-device' })
+    const path = join(set.saveDir, 'Sonic the Hedgehog (USA).srm')
+    writeFileSync(path, 'played here')
+    const later = new Date('2026-09-01T00:00:00.000Z')
+    utimesSync(path, later, later)
+    return { ...set, path }
+  }
+
+  test("keeping this device's save is the one upload that overwrites", async () => {
+    const { sync, target, path, saveDir, uploaded } = conflicted()
+    writeFileSync(join(saveDir, 'Sonic the Hedgehog (USA).state1'), 'a state')
+
+    const result = await sync.resolve(target, { keep: 'device', path })
+
+    assert.equal(result.saves, 1)
+    // Only the file in question: the answer is about one pair, not the game.
+    assert.deepEqual(uploaded, [
+      {
+        fileName: 'Sonic the Hedgehog (USA).srm',
+        from: path,
+        slot: 'autosave',
+        keepThisDevice: true
+      }
+    ])
+  })
+
+  test("keeping this device's save uploads nothing for a path the scan does not find", async () => {
+    const { sync, target, uploaded } = conflicted()
+
+    await sync.resolve(target, { keep: 'device', path: '/etc/passwd' })
+
+    assert.deepEqual(uploaded, [])
+  })
+
+  test("keeping RomM's save brings it down over a newer local one, kept aside first", async () => {
+    const { sync, target, path, backups, confirmed } = conflicted()
+    // Without the choice, newer-wins leaves the local save where it is.
+    await sync.pullNow(target)
+    assert.equal(readFileSync(path, 'utf8'), 'played here')
+
+    const result = await sync.resolve(target, { keep: 'romm', kind: 'save', id: 4 })
+
+    assert.deepEqual(result, { saves: 1, states: 0, failed: 0, skippedReason: null })
+    assert.equal(readFileSync(path, 'utf8'), REMOTE_BYTES)
+    assert.equal(
+      readFileSync(join(backups, '7', 'Sonic the Hedgehog (USA).srm.1'), 'utf8'),
+      'played here'
+    )
+    assert.deepEqual(confirmed, [4])
+  })
+
+  test("keeping RomM's save moves no other copy and uploads nothing", async () => {
+    const { sync, target, saveDir, uploaded, confirmed } = setUp({
+      saves: [
+        save({ id: 4, slot: 'autosave' }),
+        save({ id: 5, file_name: 'Sonic the Hedgehog (USA) - Another.srm' })
+      ]
+    })
+
+    await sync.resolve(target, { keep: 'romm', kind: 'save', id: 4 })
+
+    assert.deepEqual(confirmed, [4])
+    assert.equal(existsSync(join(saveDir, 'Sonic the Hedgehog (USA) - Another.srm')), false)
+    assert.deepEqual(uploaded, [])
+  })
+
+  test('a chosen copy RomM no longer holds is reported, and the local save is untouched', async () => {
+    const { sync, target, path, confirmed } = conflicted()
+
+    const result = await sync.resolve(target, { keep: 'romm', kind: 'save', id: 99 })
+
+    assert.equal(result.failed, 1)
+    assert.equal(result.saves, 0)
+    assert.equal(readFileSync(path, 'utf8'), 'played here')
+    assert.deepEqual(confirmed, [])
+  })
+})

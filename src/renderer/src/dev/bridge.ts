@@ -881,6 +881,7 @@ const bridge: RomMixBridge = {
     list: (romId: number) => later(romId === CAVE_STORY ? SAVES : []),
     pull: () => refuse(),
     push: () => refuse(),
+    resolve: () => refuse(),
     pushPreview: () =>
       later({
         files: [
