@@ -1271,3 +1271,20 @@ Lines the tooling reads (exact forms):
 - Device / acceptance: none.
 - Found on the way: the PR body was opened without its `Feature:` line, which `scripts/agent/pr-body.mjs` fails on; a re-run reads the body from the original event, so a corrected body needs the next push to be checked.
 - Next: the launch flow still decides with RomMix's own comparison and reports play through `POST /api/play-sessions`; wiring negotiate and its completion around a launch is M2-17 (with M2-18 for play time). A 409 shown to the player as a conflict is M2-16.
+
+## 2026-10-10 08:55 UTC session 01CsS75gbjkD2bHYi3wXLkK1 (routine run, second unit)
+
+- Device results: none new.
+- Worked on: M2-18 (tracking issue #129). M2-06 part 3b, PR #128, merged at b62355e; its CI wall time was x64 6:45, arm64 2:14. M2-06 passes; issue #124 closed.
+- Result: PR (this one). PASSES M2-18 (verification `ci`).
+- Evidence:
+  - New `PlayReporter` (`src/main/playtime.ts`): every session the launcher ends is written to `unsent_play.json` (Store `notePlay`/`unsentPlay`/`forgetPlay`) before it is sent, and forgotten only after RomM answers 2xx. Sent through `POST /api/play-sessions` in batches of `PLAY_BATCH` (RomM's own `MAX_BATCH_SIZE` in `endpoints/play_sessions.py`), oldest first; the first batch that fails keeps itself and everything after it. The catch-up (`App.catchUp`, at start-up and whenever RomM comes back) sends what is left. Resending is safe: RomM keeps one span per device, game and start. The completion route for play is `finishSession` (M2-06), used once negotiate wraps a launch (M2-17).
+  - `RommClient.reportPlaySession` (best effort, a refusal swallowed and the session lost) is replaced by `sendPlaySessions`, which throws so the caller keeps the spans. `MIN_PLAY_SECONDS` is the one threshold for both routes.
+  - Line 1: `playtime.test.ts` (9): short, zero and backwards spans dropped and never kept; an offline session kept and sent when the server is back; kept across a restart; a refusal keeps it; a 201-span backlog goes up as 100, 100, 1, oldest first; a failing second batch keeps itself and the rest; a span kept twice is one; two sends at once are one pass.
+  - Line 2: `test/romm/sync.real.ts` "play sessions are accepted, listed and counted in the play time": a session recorded while unreachable (and a 3 s one, dropped) is sent by the next `send()`, appears once in `GET /api/play-sessions?rom_id=` with its start and duration, and `playTime` grows by it. `npm run test:romm` 21/21 on Docker 5.2.0.
+  - `scripts/agent/check.sh` green; `npm run test:app` 224/224 (games.test.ts "the session is accounted for" still sees the POST).
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none.
+- Next: Steam games (M1-14, M5) are not launched by the app yet; their launch calls `launcher.play.record` the same way when they are. Then `next.mjs`: M2-15 (states only where they can load).
+- Notes: `unsent_play.json` is new state under the config folder; nothing in the self-test guard (M0-21, not built yet) stops play being sent, which that feature's acceptance already requires.

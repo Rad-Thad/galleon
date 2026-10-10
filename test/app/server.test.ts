@@ -155,7 +155,14 @@ describe('fetching a game from it', () => {
 
 describe('what a session tells it', () => {
   test('play time is reported in a shape the server takes', async () => {
-    await client().reportPlaySession(1, new Date('2026-01-01T10:00:00Z'), 600)
+    await client().sendPlaySessions([
+      {
+        rom_id: 1,
+        start_time: '2026-01-01T10:00:00.000Z',
+        end_time: '2026-01-01T10:10:00.000Z',
+        duration_ms: 600_000
+      }
+    ])
     const sent = server.asked.find((one) => one.path === '/api/play-sessions')
     assert.notEqual(sent, undefined)
     const body = JSON.parse(sent?.body ?? '{}') as { sessions: { duration_ms: number }[] }

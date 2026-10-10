@@ -181,6 +181,7 @@ export class RomMixApp {
       )
       await this.rememberServer()
       await this.sendUnsentSaves()
+      await this.launcher.play.send()
       // Last, and after the saves: a queue of games is minutes of bandwidth,
       // and the saves are the part that cannot be fetched again.
       await this.downloads

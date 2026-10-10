@@ -14,6 +14,7 @@ import type {
   RommFirmware,
   RommHeartbeat,
   RommPlaySession,
+  RommPlaySessionEntry,
   RommPlaySessionPayload,
   RommRomUserPayload,
   RommSaveDeletePayload,
@@ -120,7 +121,7 @@ const PLAY_SESSION_PAGE = 50
 const PLAY_SESSION_PAGES = 20
 
 /**
- * The shortest span reported as play, by either route (`reportPlaySession`,
+ * The shortest span reported as play, by either route (`PlayReporter`,
  * `finishSession`): a launch that fell over at once is not a session, and a
  * span RomM rounds to nothing is one it refuses outright.
  */
@@ -1421,50 +1422,25 @@ export class RommClient {
   }
 
   /**
-   * POST /api/play-sessions — report time played so RomM's stats stay honest.
+   * POST /api/play-sessions — hand RomM spans somebody played, under this device.
    *
    * The window and the time played are both sent because RomM requires both and
    * derives neither from the other: the span is what the history is ordered by,
    * the duration is what the totals are added up from. An entry missing either
-   * is refused whole.
+   * is refused whole. Thrown on any failure, so the caller keeps the spans for
+   * the next attempt (see `PlayReporter`).
    */
-  async reportPlaySession(romId: number, startedAt: Date, seconds: number): Promise<void> {
-    if (seconds < MIN_PLAY_SECONDS) {
-      log.debug('romm', 'play session too short to report', { romId, seconds })
-      return
-    }
+  async sendPlaySessions(sessions: readonly RommPlaySessionEntry[]): Promise<void> {
     const deviceId = await this.deviceId()
-    log.info('romm', 'reporting a play session', {
-      romId,
-      deviceId,
-      startedAt: startedAt.toISOString(),
-      seconds
+    log.info('romm', 'reporting play sessions', { deviceId, sessions: sessions.length })
+    const res = await this.request('/api/play-sessions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        device_id: deviceId,
+        sessions: [...sessions]
+      } satisfies RommPlaySessionPayload)
     })
-    try {
-      const res = await this.request('/api/play-sessions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          device_id: deviceId,
-          sessions: [
-            {
-              rom_id: romId,
-              start_time: startedAt.toISOString(),
-              end_time: new Date(startedAt.getTime() + seconds * 1000).toISOString(),
-              duration_ms: seconds * 1000
-            }
-          ]
-        } satisfies RommPlaySessionPayload)
-      })
-      // Checked, unlike the reply to a fire-and-forget: a refused report is the
-      // one thing that can go wrong here, and unread it goes wrong in silence.
-      if (!res.ok) throw await this.toError(res)
-    } catch (cause) {
-      // Play-time reporting is best-effort; never fail a launch over it.
-      log.warn('romm', 'could not report the play session', {
-        romId,
-        reason: (cause as Error).message
-      })
-    }
+    if (!res.ok) throw await this.toError(res)
   }
 }

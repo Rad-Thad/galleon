@@ -1247,44 +1247,34 @@ describe('what is being played', () => {
 })
 
 describe('reporting play time', () => {
-  test('a session too short to mean anything is not reported', async () => {
-    const { store } = fakeStore()
-    const sent = serve(() => json({}))
+  const entry = {
+    rom_id: 5,
+    start_time: '2026-08-01T20:00:00.000Z',
+    end_time: '2026-08-01T20:10:00.000Z',
+    duration_ms: 600000
+  }
 
-    await new RommClient(store).reportPlaySession(5, new Date(), 2)
-
-    assert.equal(sent.length, 0)
-  })
-
-  test('a session that counts is sent with the device that played it', async () => {
+  test('sessions are sent with the device that played them', async () => {
     const { store } = fakeStore({ deviceId: 'romm-device-9' })
     const sent = serve(() => json({}))
-    const startedAt = new Date('2026-08-01T20:00:00.000Z')
 
-    await new RommClient(store).reportPlaySession(5, startedAt, 600)
+    await new RommClient(store).sendPlaySessions([entry])
 
-    const body = JSON.parse(sent[0].body ?? '{}') as {
-      device_id: string
-      sessions: { rom_id: number; start_time: string; end_time: string; duration_ms: number }[]
-    }
-    assert.equal(body.device_id, 'romm-device-9')
+    assert.equal(new URL(sent[0].url).pathname, '/api/play-sessions')
+    assert.equal(sent[0].method, 'POST')
     // The duration as well as the window: RomM refuses an entry without it, and
     // refuses it with a 422 nobody sees.
-    assert.deepEqual(body.sessions, [
-      {
-        rom_id: 5,
-        start_time: '2026-08-01T20:00:00.000Z',
-        end_time: '2026-08-01T20:10:00.000Z',
-        duration_ms: 600000
-      }
-    ])
+    assert.deepEqual(JSON.parse(sent[0].body ?? '{}'), {
+      device_id: 'romm-device-9',
+      sessions: [entry]
+    })
   })
 
-  test('a server that will not take it never fails the launch it belongs to', async () => {
+  test('a server that will not take them says so, for the caller to keep them', async () => {
     const { store } = fakeStore()
     serve(() => json({ detail: 'no' }, 500))
 
-    await new RommClient(store).reportPlaySession(5, new Date(), 600)
+    await assert.rejects(new RommClient(store).sendPlaySessions([entry]), { status: 500 })
   })
 })
 
