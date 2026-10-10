@@ -1154,3 +1154,18 @@ Lines the tooling reads (exact forms):
 - Evaluator: see the PR.
 - Device / acceptance: none.
 - Next: M2-05 (decision engine; RomM keeps times to the second). Still open from M2-04: `restoreFile` checks a pulled zip save's plain md5 against `content_hash`; M2-06 should check with `localContentHash`.
+
+## 2026-10-10 03:50 UTC session 65247cc3 (routine run, second unit)
+
+- Device results: none new.
+- Worked on: M2-05 part 1 (tracking issue #120): capability gating, acceptance line 1. M2-07's PR #119 merged at fb5b858; its CI wall time was x64 7:02, arm64 2:27. PASSES M2-07 (ci); #118 closed. (The evaluator's first verdict was FAIL because features.json had not been flipped; it PASSED once the flip was committed.)
+- Result: PR (this one). M2-05 stays false until lines 2 to 4 (the engine, its equivalence test on Docker 5.2.0 and 5.3.1, per-game safety, session completion).
+- Evidence:
+  - `src/main/romm/version.ts` `negotiatesByGame(version)`: `atLeast(version, SCOPED_NEGOTIATE_SINCE)` with `SCOPED_NEGOTIATE_SINCE = '5.3.0'`, false for a version that cannot be compared (`development`, none), since the unscoped path is correct on every server.
+  - `romm.test.ts` "a pre-launch negotiate names its game only on a RomM that reads the name": 5.0, 5.0.0, 5.2.0 false; 5.3.0, 5.3.1, 5.4.0 true; `development`, null and undefined false. "the first version that scopes is the first schema/ document with rom_ids": every committed RomM document (5.0.0, 5.1.0, 5.2.0, 5.3.1) has `rom_ids` in `SyncNegotiatePayload` exactly when the gate says so.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none.
+- Next: M2-05 part 2, the engine: negotiate with the full local inventory on 5.2.0 (or `rom_ids` on 5.3+), drop other games' operations, complete sessions with counts, and the equivalence test on Docker 5.2.0 and 5.3.1.
+- Notes: under `git commit -a` the pre-commit hook's tests write into the caller's temporary index (`error: invalid object ... for 'docs/PROGRESS.md'`), as `agent.test.ts` warns; commit with `git add` and no `-a` until the test that leaks is found.

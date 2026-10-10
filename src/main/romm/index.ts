@@ -23,6 +23,12 @@ export {
   refusedUs
 } from './errors.ts'
 export { checkDeferredToUnpacking, checksumOf, digestOf } from './checksums.ts'
-export { atLeast, isComparable, MINIMUM_SERVER_VERSION } from './version.ts'
+export {
+  atLeast,
+  isComparable,
+  MINIMUM_SERVER_VERSION,
+  negotiatesByGame,
+  SCOPED_NEGOTIATE_SINCE
+} from './version.ts'
 export { partialPathOf, verify } from './transfer.ts'
 export type { DownloadProgress, TransferOptions } from './transfer.ts'
