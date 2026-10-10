@@ -71,3 +71,14 @@ answer every slot with the server's action, save and reason. CI runs it on
 5.2.0 with the rest of the suite; on 5.3.1, run the file alone with
 `ROMM_PROFILE=v531` once that profile is provisioned, since `hash.real.ts`
 does not pass there yet (one raw save holding a zip end record).
+
+## Transfers
+
+`transfer.real.ts` holds a retried upload to what it leaves in the slot (M2-06):
+the same bytes sent again by the same device, in a later second, must come
+back as the copy the server already holds, with no new row. RomM recognises
+identical bytes itself only for an upload with `overwrite=false`; the player's
+"keep this device's save" (`overwrite=true`) is filed as a new copy however
+alike it is, so `RommClient.uploadSave` checks the slot's newest copy first
+and the test covers both. A changed save after a retry is the slot's second
+row. It passes on 5.2.0 and 5.3.1 (run it alone there, as above).

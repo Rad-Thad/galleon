@@ -34,6 +34,8 @@ import type {
   RomQuery
 } from '@shared/types'
 import { log } from '../log.ts'
+import { instant } from '../savedecide.ts'
+import { localContentHash } from '../savehash.ts'
 import { t } from '../i18n.ts'
 import type { Store } from '../store.ts'
 import { checksumOf, digestOf, unpackedChecksumOf } from './checksums.ts'
@@ -1234,6 +1236,9 @@ export class RommClient {
    * question rather than a loss. That is the upload docs/save-sync/SPEC.md
    * (sections 3 and 7) asks for, and what `npm run test:saves` holds the
    * server to.
+   *
+   * RomM only recognises identical bytes when `overwrite` is false, so the
+   * player's choice is held to the same rule here: see `keptAlready`.
    */
   async uploadSave(
     romId: number,
@@ -1243,6 +1248,10 @@ export class RommClient {
     slot: string | null,
     { keepThisDevice = false }: UploadSaveOptions = {}
   ): Promise<RommSave> {
+    if (keepThisDevice && slot) {
+      const kept = await this.keptAlready(romId, slot, filePath)
+      if (kept) return kept
+    }
     const params = new URLSearchParams({
       rom_id: String(romId),
       overwrite: String(keepThisDevice)
@@ -1276,6 +1285,43 @@ export class RommClient {
     const saved = (await res.json()) as RommSave
     log.info('romm', 'save uploaded', { romId, saveId: saved.id, fileName })
     return saved
+  }
+
+  /**
+   * The slot's newest save when it already holds `filePath`'s bytes, after
+   * telling RomM this device has it; null when the upload has to be made.
+   *
+   * An overwriting upload is filed as a new copy however alike it is, so the
+   * player's choice retried after a lost reply would grow the slot by a
+   * duplicate each time, and become the copy every device pairs against. The
+   * newest copy is the one that matters: identical bytes further back in the
+   * slot's history are not what the slot holds now, and keeping this device's
+   * save means making it that. The confirmation records this device as
+   * holding the copy, which is true, so its next ordinary upload into the slot
+   * is not refused for a save it already has.
+   */
+  private async keptAlready(
+    romId: number,
+    slot: string,
+    filePath: string
+  ): Promise<RommSave | null> {
+    const hash = await localContentHash(filePath)
+    if (!hash) return null
+    const newest = (await this.saves(romId))
+      .filter((save) => save.slot === slot)
+      .reduce<RommSave | null>(
+        (best, save) =>
+          !best || instant(save.updated_at) > instant(best.updated_at) ? save : best,
+        null
+      )
+    if (newest?.content_hash !== hash) return null
+    await this.confirmSaveDownloaded(newest.id)
+    log.info('romm', 'the slot already holds this save, so nothing was uploaded', {
+      romId,
+      slot,
+      saveId: newest.id
+    })
+    return newest
   }
 
   /** POST /api/states — multipart upload of a save state. */
