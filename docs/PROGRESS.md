@@ -1084,3 +1084,19 @@ Lines the tooling reads (exact forms):
 - Evaluator: see the PR.
 - Device / acceptance: none.
 - Next: M2-03 (golden fixtures from SPEC.md, Docker 5.2.0). On or after 2026-10-13 01:00 UTC: M2-08 part 2 (adopt the answer or the default, ADR, settings defaults, the per-system Settings choice).
+
+## 2026-10-10 01:26 UTC session ace44daf (routine run)
+
+- Device results: none new. The bridge last checked in at 20:06 UTC.
+- Worked on: M2-03 part 1 of 2 (tracking issue #113): the golden fixtures. M2-08's part 1, PR #112, merged at 186ac06; M2-08 waits for decision #110 (its default applies on 2026-10-13 01:00 UTC).
+- Result: PR (this one). M2-03 stays false until part 2 (the round trips on Docker 5.2.0, lines 1, 2 and 4).
+- Evidence:
+  - `test/saves/fixtures.mjs` builds 11 fixtures for the eight systems in SPEC.md section 10, committed under `test/fixtures/saves/<system>/`: raw `.srm` (SNES `snes9x`, GBA `mgba`, PS1 `pcsx_rearmed`), DuckStation's `.mcd`, a single GameCube `.gci`, a Dreamcast VMU `.bin`, and zips of PSP save folders (with PARAM.SFO `CATEGORY=MS`), PS2 folder-card game folders (game-rooted and card-rooted, SPEC.md section 12 question 3), two GCIs, and a Wii title folder. Synthetic bytes only: format headers the spec names, and filler from a hash of the fixture's path. Stored zips with a fixed date, so the bytes never drift with zlib.
+  - `test/fixtures/saves/manifest.json`: per fixture, the SPEC.md sections it follows (line 5), its Docker library ROM, Argosy's `emulator` tag, slot `autosave`, upload name and the expected `content_hash` (section 4).
+  - `test/saves/fixtures.test.ts`, 12 tests in `npm test`: "the committed fixtures are what fixtures.mjs builds, byte for byte"; "every fixture names SPEC.md sections that exist, its system among them" (line 5); "every fixture is a save Argosy would upload, named and tagged as the spec says"; "a zip fixture unpacks with the app's own reader to the entries the manifest lists" (and its hash recomputed from the unpacked files); "no fixture carries personal data" with "the personal-data scan finds each kind it looks for" (line 3: IPv4, IPv6, e-mail, URL, `rmm_` tokens, bearer, JWT, secret keys, LAN hosts, home folders, and the sanitiser's `<server>`/`<host>` placeholders).
+  - The Wii fixture's ROM joins the Docker library in part 2, which needs it; the test lists it as pending by name.
+  - `scripts/agent/check.sh` green: 1612 tests, coverage 96.31 / 93.85 / 96.04.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none.
+- Next: M2-03 part 2, `npm run test:saves`: seed Docker 5.2.0 as an Argosy device with these fixtures, negotiate to `no_op` twice, the fork's upload after Argosy's, in the CI build job on both architectures.

@@ -17,3 +17,6 @@ artifacts/
 # Written by scripts/agent/acceptance.mjs, whose test holds it to the
 # generator's output byte for byte.
 docs/ACCEPTANCE.md
+# Written by test/saves/fixtures.mjs, whose test holds it to the builder's
+# output byte for byte.
+test/fixtures/saves/manifest.json
