@@ -510,6 +510,26 @@ describe('driving it with a controller', () => {
   const A = 0
   const DPAD_RIGHT = 15
 
+  test('going home waits for it to settle, so the next walk is not taken from under it', async () => {
+    // Home's shelves answering late is what leaves a window in which the hero
+    // takes the highlight from a walk along the menu: the press meant for the
+    // next menu item opens the hero's game instead. See `atHome`.
+    await app.goTo('library')
+    server.slowRomListings(1500)
+    try {
+      await app.goTo('home')
+      assert.equal(
+        await app.read<boolean>(`document.querySelector('.hero')?.dataset.focused === 'true'`),
+        true,
+        'home should have settled, the hero holding the highlight, by the time goTo returns'
+      )
+    } finally {
+      server.slowRomListings(0)
+    }
+    await app.goTo('library')
+    await app.waitFor(`document.querySelector('[data-screen="library"]')`, 'the library')
+  })
+
   test('the d-pad moves the highlight and A opens what it is on', async () => {
     await app.goTo('library')
     await app.waitFor(`document.querySelector('[data-rom="1"]')`, 'the library grid')

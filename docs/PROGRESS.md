@@ -1408,3 +1408,19 @@ Lines the tooling reads (exact forms):
 ## 2026-10-10 14:47 UTC session 01D4wbSbJU6yiTdNuXuVCU33 (routine run, stop)
 
 - Stopped: nothing eligible. M8-06 part 1 merged in #145 at bbc4182 (CI x64 5:35, arm64 0:53); its line 2 waits for a stable RomM 5.4.0 (#144 stays open). M0-10 and M0-13 wait on the device (bridge last seen 18.7 h ago), M2-08 on #110's safe default (2026-10-13 01:00 UTC), M4 on Gate 1, Dependabot #1 on a device baseline.
+
+## 2026-10-10 15:27 UTC session 01128vAgxbdPsR2MHe8eY3Gw (routine run)
+
+- Device results: none new. The bridge last checked in at 20:06 UTC (19.4 h ago); its last skip was still "no 'nightly' release published yet".
+- Worked on: red required check on `main` (flaky #147). `build (ubuntu-24.04, x64)` failed at 34ba1b9, a docs-only commit, in `test/app/perf.test.ts` "a 30 s scroll down the grid logs its summary": "gave up waiting for the chips", with the screenshot showing the Cave Story MD game page.
+- Result: PR (this one). Feature: none (CI flake, #147).
+- Evidence:
+  - Root cause: `goTo('home')` returned as soon as it pressed Enter, while home still showed its spinner. The next `goTo('library')` walked the bar, and the hero's `autoFocus` took the highlight between the "arrived" check and the Enter, which then opened the hero's game. This is the race `atHome` describes at startup, but on a later visit to home. `interface.test.ts` (search "and leaving the screen forgets it") and the emulators scenario have the same `goTo('home')`/`goTo(...)` pair.
+  - Fix: `goTo('home')` waits until home has settled: its shelves have answered, and the hero holds the highlight if there is one. It skips the wait when home was already settled before the press (choosing home from home redraws nothing; `reach.test.ts` found that case in the first version of the fix).
+  - New `FakeRomm.slowRomListings`. `interface.test.ts` "going home waits for it to settle, so the next walk is not taken from under it" fails on 34ba1b9 (the hero does not hold the highlight when `goTo` returns) and passes with the fix.
+  - `scripts/agent/check.sh` green; `npm run test:app` 230/230 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root).
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none.
+- Next: the bridge's "no 'nightly' release published yet" while a `nightly` prerelease exists (published 2026-10-09 11:40 UTC); otherwise nothing eligible (see the 14:47 stop entry).
+- Notes: a stale `/var/run/docker.pid` stopped `dockerd` from starting on this VM; remove it if the pid it names is not running.
