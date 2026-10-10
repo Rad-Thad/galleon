@@ -1,4 +1,4 @@
-import { copyFile, mkdir, open, readdir, rename, rm, stat } from 'node:fs/promises'
+import { copyFile, mkdir, open, readFile, readdir, rename, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { partialPathOf } from './romm/index.ts'
@@ -27,6 +27,18 @@ import { log } from './log.ts'
  *   handheld that loses power right after a pull is an ordinary event;
  * - two writes to one save never interleave, see `exclusive`.
  */
+
+/**
+ * Thrown when the save a write would replace or remove could not be copied
+ * aside first. Nothing is written then: a save that exists on this device alone
+ * is worth more than the pull that would displace it (ADR 0002).
+ */
+export class SaveNotBackedUp extends Error {
+  constructor(readonly path: string) {
+    super(t('error.saveNotBackedUp', { name: basename(path) }))
+    this.name = 'SaveNotBackedUp'
+  }
+}
 
 /** Thrown when a write would put a file where a save folder is. */
 export class SaveFolderInTheWay extends Error {
@@ -224,11 +236,11 @@ export function backupPath(into: string, path: string, slot: number): string {
  * it in a file manager is the session it belongs to rather than the pull that
  * displaced it. The slot number is then only recency.
  *
- * Nothing ever reads these back — restoring one is the person's own job, with a
- * file manager — so a failure anywhere is swallowed. A save that could not be
- * copied aside is a worse pull, not a failed one. Swallowed, but said: whether
- * a copy was kept is the first thing somebody looking for a save that is not
- * there needs to know, and the log is the only place they can be told.
+ * Each step is best effort and says what went wrong, since a rotation that
+ * half happened still leaves the copies it could move. What is not best effort
+ * is the copy itself: unless the save now sitting in the first slot is the one
+ * about to be displaced, this throws `SaveNotBackedUp` and the caller writes
+ * nothing. A save that is not there has nothing to keep and is not a failure.
  */
 export async function keepBackup(path: string, into: string, isDirectory = false): Promise<void> {
   await step('create the folder displaced saves are kept in', { into }, () =>
@@ -239,16 +251,40 @@ export async function keepBackup(path: string, into: string, isDirectory = false
 
   const copy = backupPath(into, path, 1)
   await copyAside(path, copy, isDirectory)
-  // Asked rather than assumed. Every step above swallows its own failure, so
-  // the only honest thing to report is whether the copy is actually there.
-  if (await stat(copy).catch(() => null)) {
-    log.info('saves', 'kept a copy of the save about to be overwritten', {
+  if (!(await stat(path).catch(() => null))) return
+  // Asked rather than assumed, and of the contents: every step above swallows
+  // its own failure, and a rotation that failed leaves the previous copy in
+  // the first slot, where its mere presence would read as success.
+  if (!(await sameCopy(path, copy, isDirectory))) {
+    log.error('saves', 'the save about to be overwritten could not be copied aside', undefined, {
       path,
-      copy,
-      keeping: BACKUP_COPIES
+      copy
     })
-  } else {
-    log.warn('saves', 'the save about to be overwritten could not be copied aside', { path, copy })
+    throw new SaveNotBackedUp(path)
+  }
+  log.info('saves', 'kept a copy of the save about to be overwritten', {
+    path,
+    copy,
+    keeping: BACKUP_COPIES
+  })
+}
+
+/** Is `copy` what `source` holds: the same bytes, or the same files in a folder? */
+async function sameCopy(source: string, copy: string, isDirectory: boolean): Promise<boolean> {
+  try {
+    if (!isDirectory) return (await readFile(source)).equals(await readFile(copy))
+    const names = async (root: string): Promise<string[]> =>
+      (await walk(root)).map((file) => relative(root, file)).sort()
+    const [inSource, inCopy] = await Promise.all([names(source), names(copy)])
+    if (inSource.join('\n') !== inCopy.join('\n')) return false
+    for (const name of inSource) {
+      if (!(await readFile(join(source, name))).equals(await readFile(join(copy, name)))) {
+        return false
+      }
+    }
+    return true
+  } catch {
+    return false
   }
 }
 

@@ -1077,6 +1077,8 @@ export const fr: Catalog = {
     "Seule une partie de {name} est arrivée depuis RomM ; le fichier n'a pas été touché.",
   'error.saveBadTime':
     'L’heure d’une sauvegarde est illisible ({value}) : elle n’a pas été comparée.',
+  'error.saveNotBackedUp':
+    "{name} n'a pas pu être copié de côté au préalable, il a donc été laissé tel quel.",
   'error.saveIsFolder':
     "{name} est un dossier sur cet appareil ; aucun fichier n'a été écrit par-dessus.",
   'error.saveTreeTooLarge':
