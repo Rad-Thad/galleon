@@ -1,4 +1,4 @@
-import { mkdir, rename, rm, stat } from 'node:fs/promises'
+import { stat } from 'node:fs/promises'
 import { basename, extname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import type { SaveProgress } from '@shared/api'
@@ -19,7 +19,7 @@ import type {
   SaveSyncResult,
   SaveSyncState
 } from '@shared/types'
-import { partialPathOf, refusedUs, verify } from './romm/index.ts'
+import { refusedUs, verify } from './romm/index.ts'
 import { safeJoin } from './safepath.ts'
 import type { RommClient } from './romm/index.ts'
 import type { Store } from './store.ts'
@@ -29,7 +29,6 @@ import { log } from './log.ts'
 import { fileSystemEnvironment } from './saveenv.ts'
 import {
   acceptsTag,
-  keepBackup,
   localTag,
   primarySave,
   romStemOf,
@@ -53,7 +52,8 @@ import {
   slotToSend
 } from './savepairing.ts'
 import { progressRun, type SaveRun } from './saveprogress.ts'
-import { extractZip, zipDirectory } from './zip.ts'
+import { zipDirectory } from './zip.ts'
+import { discardStaged, removeSave, replaceSave, stageBeside, unpackSave } from './savewriter.ts'
 
 /**
  * Two-way save and save-state sync between RomM and the local emulator tree.
@@ -1095,7 +1095,7 @@ export class SaveSync {
 
     if (scope === 'local') {
       if (!asset.localPath) throw new Error(t('error.assetNotLocal', { file: fileName }))
-      await rm(asset.localPath, { force: true, recursive: true })
+      await removeSave(asset.localPath, this.backupDir(romId))
       return
     }
 
@@ -1450,8 +1450,6 @@ export class SaveSync {
     contentHash: string | null,
     expectedBytes: number
   ): Promise<void> {
-    await mkdir(join(destination, '..'), { recursive: true })
-
     /**
      * Beside the save rather than onto it, and only renamed once it is whole.
      *
@@ -1466,7 +1464,7 @@ export class SaveSync {
      * md5 on the asset; where it states none the length is all there is, which
      * is what `verify` was already doing for firmware.
      */
-    const partial = partialPathOf(destination)
+    const partial = await stageBeside(destination)
     try {
       await download(partial)
       if (contentHash) {
@@ -1498,11 +1496,9 @@ export class SaveSync {
       // that matched on a prefix, or by a client that names its ROMs otherwise
       // — and the download lands on that file whether or not anything matched
       // it.
-      if (await stat(destination).catch(() => null)) await keepBackup(destination, backups)
-      await rename(partial, destination)
-      await stampMtime(destination, remoteTime)
+      await replaceSave(destination, partial, backups, remoteTime)
     } finally {
-      await rm(partial, { force: true }).catch(() => undefined)
+      await discardStaged(partial)
     }
   }
 
@@ -1523,9 +1519,7 @@ export class SaveSync {
     const staging = join(tmpdir(), `rommix-save-${Date.now()}.zip`)
     try {
       await download(staging)
-      await mkdir(dir, { recursive: true })
-      await keepBackup(dir, backups, true)
-      const extracted = await extractZip(staging, dir)
+      const extracted = await unpackSave(dir, staging, backups)
       /**
        * Only what came out of the archive.
        *
@@ -1539,7 +1533,7 @@ export class SaveSync {
        */
       for (const file of extracted) await stampMtime(file, remoteTime)
     } finally {
-      await rm(staging, { force: true })
+      await discardStaged(staging)
     }
   }
 
@@ -1700,7 +1694,7 @@ export class SaveSync {
         })
         failed += 1
       } finally {
-        if (staged) await rm(staged, { force: true }).catch(() => undefined)
+        if (staged) await discardStaged(staged)
         run?.moved()
       }
     }

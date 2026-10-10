@@ -1137,3 +1137,20 @@ Lines the tooling reads (exact forms):
 - Device / acceptance: none.
 - Next: M2-07 (one safe writer), then M2-05 (decision engine), which must allow for RomM keeping times to the second.
 - Notes: `restoreFile` in `src/main/saves.ts` still checks a pulled save's plain md5 against `content_hash`, which fails for any zip save; the safe writer (M2-07) or transfers (M2-06) should check with `localContentHash` instead. (The evaluator's note; outside this diff.)
+
+## 2026-10-10 03:26 UTC session 65247cc3 (routine run)
+
+- Device results: none new. The bridge last checked in at 20:06 UTC (no nightly published yet).
+- Worked on: M2-07 (tracking issue #118). M2-04's PR #117 merged at 3e4ae04.
+- Result: PR (this one). PASSES M2-07 (ci).
+- Evidence:
+  - `src/main/savewriter.ts` is the one module that changes anything in an emulator's save tree: `replaceSave` (staged beside the save by `stageBeside`, refused when a folder is at the destination, copy kept with `keepBackup`, fsync, rename, fsync of the folder), `unpackSave` (a folder save's archive is unpacked into a staging folder beside it; every entry is checked before anything moves, so an entry that would land on a folder refuses the whole archive), `removeSave` (the Saves tab's delete-here now keeps a copy first), `discardStaged` (only `.part` names or the temp folder). Every write is serialised per resolved path by `exclusive`. The backup chain moved from `savefiles.ts` unchanged except `BACKUP_COPIES`, now 5. `saves.ts` imports no writing call from `node:fs` and no `extractZip`.
+  - Line 1: `savewriter.allowlist.test.ts` (in `npm test`, so in CI's build job): every module importing a writing call from `node:fs` must be on an allow-list naming where it writes; no save module but the writer is on it; no save module unpacks an archive itself; the list has no stale entries; the scan sees named, renamed and whole-module imports.
+  - Line 2: `savewriter.test.ts` "a folder at the destination is refused, logged, and left as it was" (a Dolphin GCI card folder), "a normal overwrite still works, and keeps a copy of what it replaced", "a create still works, into a folder that did not exist yet", "two writers to one save are serialised, each backing up the one before", "work on one path waits for the work before it, even work that failed", "an entry that would land on a folder refuses the whole archive first".
+  - Line 3: backups go to `<root>/saves/<romId>/` (`SaveSync.backupDir`, root `~/galleon`), "per game, under the saves folder of the app root, the last five by default"; the existing rotation tests now run against five.
+  - New string `error.saveIsFolder` in all four catalogues (translated).
+  - `scripts/agent/check.sh` green; `npm run test:saves` 35/35 on Docker 5.2.0.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none.
+- Next: M2-05 (decision engine; RomM keeps times to the second). Still open from M2-04: `restoreFile` checks a pulled zip save's plain md5 against `content_hash`; M2-06 should check with `localContentHash`.

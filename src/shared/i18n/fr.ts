@@ -1075,6 +1075,8 @@ export const fr: Catalog = {
     "Le téléchargement s'est interrompu avant la fin du fichier. Il reprendra où il s'est arrêté.",
   'error.saveEndedEarly':
     "Seule une partie de {name} est arrivée depuis RomM ; le fichier n'a pas été touché.",
+  'error.saveIsFolder':
+    "{name} est un dossier sur cet appareil ; aucun fichier n'a été écrit par-dessus.",
   'error.saveTreeTooLarge':
     'Ce dossier de sauvegarde est trop volumineux pour être envoyé en une archive.',
   'error.emptyAssetBody': 'Corps de fichier vide',
