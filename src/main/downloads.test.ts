@@ -1982,7 +1982,10 @@ describe('a game of several discs', () => {
       readFileSync(join(dir, `${cube}.m3u`), 'utf8'),
       `${cube} (Disc 1).iso\n${cube} (Disc 2).iso\n`
     )
-    assert.equal(store.getInstalled(7)?.launchPath, join(dir, `${cube}.m3u`))
+    const installed = store.getInstalled(7)
+    assert.equal(installed?.launchPath, join(dir, `${cube}.m3u`))
+    // Only the discs' bytes arrived: the server's playlist was never asked for.
+    assert.equal(installed?.sizeBytes, 30)
   })
 
   test('generic track names in a folder per disc keep to their own disc', async () => {
