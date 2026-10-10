@@ -1105,6 +1105,14 @@ export async function startFakeRomm(options: FakeRommOptions = {}): Promise<Fake
         if (!found) return json({ detail: 'No such save' }, 404)
         return serveBytes(req, res, Buffer.from(found.content))
       }
+      // RomM's record that a device holds a save; this server keeps none, so
+      // the request itself is what a test reads.
+      const saveDownloaded = /^\/api\/saves\/(\d+)\/downloaded$/.exec(url.pathname)
+      if (saveDownloaded && req.method === 'POST') {
+        const found = held.find((one) => one.save.id === Number(saveDownloaded[1]))
+        if (!found) return json({ detail: 'No such save' }, 404)
+        return json(found.save)
+      }
 
       // The same for a state, on its own path: RomM keeps the two kinds apart
       // all the way down, and a pull that asked for a state where saves live

@@ -1062,9 +1062,16 @@ describe('saves either side of a session', () => {
       "the server's own name was written into the save folder beside the real save"
     )
 
+    const fetched = server.asked.find((one) => /^\/api\/saves\/\d+\/content(\?|$)/.test(one.path))
+    assert.ok(fetched, 'it should have fetched the save itself, not only listed it')
+    // Nothing recorded by the fetch; the record follows the save into place.
+    assert.equal(new URL(fetched.path, 'http://fake').searchParams.get('optimistic'), 'false')
+    const id = /\/api\/saves\/(\d+)\//.exec(fetched.path)![1]
     assert.ok(
-      server.asked.some((one) => /^\/api\/saves\/\d+\/content$/.test(one.path)),
-      'it should have fetched the save itself, not only listed it'
+      server.asked.some(
+        (one) => one.method === 'POST' && one.path === `/api/saves/${id}/downloaded`
+      ),
+      'the save was written, and RomM was never told this device holds it'
     )
   })
 
