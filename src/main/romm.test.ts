@@ -1962,7 +1962,9 @@ const CALLED: readonly { method: string; path: RegExp }[] = [
   { method: 'get', path: /^\/api\/play-sessions$/ },
   { method: 'post', path: /^\/api\/play-sessions$/ },
   { method: 'get', path: /^\/api\/devices$/ },
-  { method: 'post', path: /^\/api\/devices$/ }
+  { method: 'post', path: /^\/api\/devices$/ },
+  { method: 'post', path: /^\/api\/sync\/negotiate$/ },
+  { method: 'post', path: /^\/api\/sync\/sessions\/\{[^}]+\}\/complete$/ }
 ]
 
 /**
@@ -2250,5 +2252,43 @@ describe('platform icons', () => {
       sent.map((request) => request.url),
       [`https://romm.example${ICON}`, `https://other.example${ICON}`]
     )
+  })
+})
+
+describe('save-sync negotiation', () => {
+  test('a negotiate posts the payload as JSON and returns the answer', async () => {
+    const { store } = fakeStore({ deviceId: 'romm-device-9' })
+    const answer = {
+      session_id: 3,
+      operations: [],
+      total_upload: 0,
+      total_download: 0,
+      total_conflict: 0,
+      total_no_op: 0
+    }
+    const sent = serve(() => json(answer))
+    const payload = { device_id: 'romm-device-9', saves: [], rom_ids: [5] }
+
+    assert.deepEqual(await new RommClient(store).negotiate(payload), answer)
+    assert.equal(new URL(sent[0].url).pathname, '/api/sync/negotiate')
+    assert.equal(sent[0].method, 'POST')
+    assert.equal(sent[0].headers.get('content-type'), 'application/json')
+    assert.deepEqual(JSON.parse(sent[0].body ?? ''), payload)
+  })
+
+  test('a session is completed with its counts, and a refusal keeps its status', async () => {
+    const { store } = fakeStore({ deviceId: 'romm-device-9' })
+    const sent = serve((_, index) =>
+      index === 0 ? json({ session: {} }) : json({ detail: 'Session is already cancelled' }, 400)
+    )
+    const client = new RommClient(store)
+    const counts = { operations_completed: 1, operations_failed: 0 }
+
+    await client.completeSyncSession(3, counts)
+    assert.equal(new URL(sent[0].url).pathname, '/api/sync/sessions/3/complete')
+    assert.equal(sent[0].method, 'POST')
+    assert.deepEqual(JSON.parse(sent[0].body ?? ''), counts)
+
+    await assert.rejects(client.completeSyncSession(3, counts), { status: 400 })
   })
 })
