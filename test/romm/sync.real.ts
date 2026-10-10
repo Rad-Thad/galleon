@@ -15,7 +15,11 @@ import assert from 'node:assert/strict'
 import { createHash, randomBytes } from 'node:crypto'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { assertFitsSchema, client, md5, romNamed, scratch, watch } from './server.ts'
+import { PlayReporter } from '../../src/main/playtime.ts'
+import { UnreachableError } from '../../src/main/romm/index.ts'
+import { instant } from '../../src/main/savedecide.ts'
+import { Store } from '../../src/main/store.ts'
+import { assertFitsSchema, client, md5, romNamed, scratch, state, watch } from './server.ts'
 
 /**
  * A machine identifier no earlier run used. RomM may still answer with a
@@ -111,16 +115,38 @@ test('a state goes up and comes back byte for byte', async (t) => {
   assertFitsSchema(sent)
 })
 
-test('a play session is accepted and counted in the play time', async () => {
+test('play sessions are accepted, listed and counted in the play time', async (t) => {
   const rom = await romNamed('Galleon Test Cartridge (USA).sfc')
   const rommix = client(fresh())
   const before = await rommix.playTime(rom.id)
+  const kept = new Store(scratch(t))
+
+  // Played away from the server: kept, not lost.
+  const offline = new PlayReporter(kept, {
+    sendPlaySessions: () => Promise.reject(new UnreachableError('no network'))
+  })
+  const endedAt = new Date(Math.floor(Date.now() / 1000) * 1000 - 60_000)
+  const startedAt = new Date(endedAt.getTime() - 90_000)
+  await offline.record(rom.id, startedAt, endedAt)
+  await offline.record(rom.id, new Date(endedAt.getTime() - 3000), endedAt)
+  assert.equal(kept.unsentPlay.length, 1)
 
   const sent = watch()
-  await rommix.reportPlaySession(rom.id, new Date(Date.now() - 120_000), 90)
-  const report = sent.find((s) => s.method === 'POST' && s.url.endsWith('/api/play-sessions'))
-  assert.ok(report, 'no play session was sent')
-  // `reportPlaySession` keeps a refusal to itself, so the count is the proof.
-  assert.equal(await rommix.playTime(rom.id), before + 90)
+  await new PlayReporter(kept, rommix).send()
+  assert.deepEqual(kept.unsentPlay, [])
   assertFitsSchema(sent)
+
+  const params = new URLSearchParams({
+    rom_id: String(rom.id),
+    start_after: startedAt.toISOString()
+  })
+  const res = await fetch(`${state.baseUrl}/api/play-sessions?${params.toString()}`, {
+    headers: { Authorization: `Bearer ${state.clientToken}` }
+  })
+  assert.ok(res.ok, `play sessions: ${res.status}`)
+  const listed = (await res.json()) as { rom_id: number; start_time: string; duration_ms: number }[]
+  const ours = listed.filter((row) => instant(row.start_time) === startedAt.getTime() * 1000)
+  assert.equal(ours.length, 1, JSON.stringify(listed))
+  assert.equal(ours[0].duration_ms, 90_000)
+  assert.equal(await rommix.playTime(rom.id), before + 90)
 })
