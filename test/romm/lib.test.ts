@@ -22,7 +22,7 @@ test('the provisioned token can do everything the app asks a pairing for', () =>
 })
 
 test('each profile is the RomM version it names, on loopback', () => {
-  assert.deepEqual(Object.keys(PROFILES).sort(), ['v520', 'v531'])
+  assert.deepEqual(Object.keys(PROFILES).sort(), ['v520', 'v531', 'v540'])
   for (const [name, { baseUrl, version }] of Object.entries(PROFILES)) {
     assert.equal(name, `v${version.replaceAll('.', '')}`)
     assert.match(baseUrl, /^http:\/\/127\.0\.0\.1:\d+$/)
@@ -147,7 +147,7 @@ test('the heartbeat wait asks at least once, however little time it is given', a
 })
 
 test('test:romm runs every profile by default, or the ones named, once each', () => {
-  assert.deepEqual(profilesFrom([]), ['v520', 'v531'])
+  assert.deepEqual(profilesFrom([]), ['v520', 'v531', 'v540'])
   assert.deepEqual(profilesFrom(['--profile', 'v531']), ['v531'])
   assert.deepEqual(profilesFrom(['--profile', 'v531', '--profile', 'v520', '--profile', 'v531']), [
     'v531',

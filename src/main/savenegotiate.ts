@@ -94,10 +94,11 @@ export interface PlayedSpan {
  * out rather than sent: RomM refuses the whole completion over one span it
  * rounds to nothing, and the session would then never close.
  *
- * `superseded` when the server no longer holds the session open: every
- * negotiate cancels the device's open sessions, so a later one (another game's
- * launch, or the device's own reconcile) has already ended it, and RomM
- * refuses to complete it (a 400, or a 404 once it is gone). That session's
+ * `superseded` when the server no longer holds the session open: before RomM
+ * 5.4 every negotiate cancels the device's open sessions, so a later one
+ * (another game's launch, or the device's own reconcile) has already ended it,
+ * and RomM refuses to complete it (a 400, or a 404 once it is gone). From 5.4
+ * an earlier session stays open and completes like any other. That session's
  * work is done either way, so it is not an error; but none of its play was
  * taken, and the caller sends that through `POST /api/play-sessions` instead.
  * Sending a span twice is harmless: RomM keeps one per device, game and start.

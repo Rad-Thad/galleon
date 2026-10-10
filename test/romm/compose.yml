@@ -1,5 +1,6 @@
 # Disposable RomM servers for the real-server suites, one profile per RomM
-# version the owner's server has run (docs/DEVICE-FACTS.md).
+# version in the matrix: each the owner's server has run (docs/DEVICE-FACTS.md),
+# and the newest stable release (docs/MAINTENANCE.md, "RomM versions").
 #
 #   docker compose -f test/romm/compose.yml --profile v520 up -d
 #   node test/romm/provision.mjs --profile v520
@@ -107,3 +108,20 @@ services:
       DB_HOST: db-v531
     ports:
       - 127.0.0.1:18531:8080
+
+  db-v540:
+    <<: *db
+    profiles: [v540]
+
+  romm-v540:
+    <<: *romm
+    profiles: [v540]
+    image: rommapp/romm:5.4.0@sha256:03295f95a6290e752641f9553ac4198b0e5b71b879d57f7b2371b98f608feb54
+    depends_on:
+      db-v540:
+        condition: service_healthy
+    environment:
+      <<: *romm-env
+      DB_HOST: db-v540
+    ports:
+      - 127.0.0.1:18540:8080

@@ -4,15 +4,15 @@ import { t } from './i18n.ts'
 /**
  * RomM's negotiate decision for one game, reached from a read.
  *
- * `POST /api/sync/negotiate` is a write: it opens a session and cancels the
- * device's others. `GET /api/saves?rom_id&device_id` is not, and it returns
- * every fact negotiate decides on, so the same decision can be taken here
- * with nothing recorded on the server. That is allowed only while a test
- * shows this file and the real endpoint agree (`test/saves/decide.real.ts`),
- * which is why the code follows RomM's `endpoints/sync.py` and
- * `handler/sync/comparison.py` step for step rather than restating them. The
- * two are the same on 5.2.0 and 5.3.1; docs/save-sync/SPEC.md section 5 has
- * the rules in words.
+ * `POST /api/sync/negotiate` is a write: it opens a session, and before RomM
+ * 5.4 cancels the device's others. `GET /api/saves?rom_id&device_id` is not,
+ * and it returns every fact negotiate decides on, so the same decision can be
+ * taken here with nothing recorded on the server. That is allowed only while
+ * a test shows this file and the real endpoint agree
+ * (`test/saves/decide.real.ts`), which is why the code follows RomM's
+ * `endpoints/sync.py` and `handler/sync/comparison.py` step for step rather
+ * than restating them. The two are the same on 5.2.0, 5.3.1 and 5.4.0;
+ * docs/save-sync/SPEC.md section 5 has the rules in words.
  */
 
 export type Decision = Pick<RommSyncOperation, 'action' | 'save_id' | 'slot' | 'reason'>
