@@ -126,6 +126,16 @@ describe('decideForGame', () => {
     assert.deepEqual(actions(decisions), ['no_op:2'])
   })
 
+  test('two rows of a slot at the same instant pair with the first listed, as negotiate keeps it', () => {
+    const decisions = decideForGame(
+      7,
+      [local('autosave', 'first', T0)],
+      [remote(1, 'autosave', 'first', T1), remote(2, 'autosave', 'second', T1)],
+      DEVICE
+    )
+    assert.deepEqual(actions(decisions), ['no_op:1'])
+  })
+
   test("RomM's stand-in for a device that never synced is no record", () => {
     const decisions = decideForGame(
       7,
