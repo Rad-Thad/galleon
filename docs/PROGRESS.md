@@ -1037,3 +1037,19 @@ Lines the tooling reads (exact forms):
 - Evaluator: see the PR.
 - Device / acceptance: none (`agent-screenshot`).
 - Next: M1-15 part 2, a test:app walk of every screen with the d-pad visiting every `data-action` (line 2).
+
+## 2026-10-09 23:50 UTC session ac37955f (routine run, second unit)
+
+- Device results: none new.
+- Worked on: M1-15 part 2 of 2 (tracking issue #105): every control reachable with the d-pad. Part 1, PR #106, merged at a1607d4; its CI wall time was x64 5:14, arm64 0:55.
+- Result: PR (this one). PASSES M1-15 (agent-screenshot).
+- Evidence:
+  - `test/app/driver.ts`: `reach(selector)` is `choose`'s homing walk without the select press; `choose` is now `reach` then Enter.
+  - Line 2: `test/app/reach.test.ts`, at 1280x960. On home, library, collections, downloads, bios, emulators, every tab of the game page and of Settings, the quit dialog and setup's first page, it tags every enabled focusable (every `data-action` among them) on the screen, or in the topmost overlay, and walks onto each with direction presses alone. Each must then settle fully inside the window and above the hint bar. The navigation bar is left out: it is entered with Back, and `goTo` walks it. Every screen must have at least one control (the evaluator's note on part 1). "a control the pad cannot reach fails the walk, naming it" plants an unregistered button and expects "the highlight never reached". The running overlay is not walked: the pad belongs to the game while one runs, and `running.test.ts` reaches force-close.
+  - Found by the walk: the game summary's read-more button and the current row of the Versions tab are focusables the engine disables (`enabled: false`), but they did not say so in the DOM. Both now carry `data-disabled` the way `FocusButton` does; neither has a `.btn` style, so nothing looks different (`game-details.png` unchanged).
+  - Line 1: part 1 (#106). Collections, missed by part 1, is now photographed and measured as well (the evaluator's first verdict on this PR was FAIL for that gap). Line 3: `npm run shots:nova` 19/19 with no offenders; looked at `collections.png` (one card, two section headers, nothing clipped) and `game-details.png` (unchanged).
+  - `scripts/agent/check.sh` green: coverage 96.29 / 93.79 / 95.98. `npm run test:app` 224/224 (`reach.test.ts` 11/11).
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none (`agent-screenshot`).
+- Next: `next.mjs`'s first feature that does not wait on the device (M2-01 the save-sync spec, M6-04, M6-05).
