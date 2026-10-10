@@ -1428,3 +1428,7 @@ Lines the tooling reads (exact forms):
 ## 2026-10-10 15:53 UTC session 01128vAgxbdPsR2MHe8eY3Gw (routine run, stop)
 
 - Stopped: nothing eligible. Flaky #147 (`main` red at 34ba1b9) fixed in #148, merged at 0f6807c (CI x64 5:43, arm64 0:48; evaluator PASS). Everything else is as in the 14:47 stop entry: M8-06 line 2 waits for a stable RomM 5.4.0, M0-10 and M0-13 wait on the device (the bridge was last seen 19.8 h ago), M2-08 waits for #110's safe default (2026-10-13 01:00 UTC), M4 waits for Gate 1, and Dependabot #1 waits for a device baseline.
+
+## 2026-10-10 16:26 UTC session 01TYyFtCNVzURkA21XSQxo3a (routine run, stop)
+
+- Stopped: nothing eligible, as in the 15:53 stop entry. The bridge's "no 'nightly' release published yet" is not a bridge bug: it comes from `bridge/status.json`, which the bridge writes only when it skips (see the DEVICE-RESULTS note after 9390ac8), and that file is still the one from 2026-10-08. The bridge tested a nightly every hour on 2026-10-09 up to d4c2d35 (20:06 UTC) and has been silent since, while `nightly` is current (assets from 8a5c0f9, 16:05 UTC). That silence is on the device side; the 7-day `needs-human` note is not due before 2026-10-16.
