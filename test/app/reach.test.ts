@@ -13,9 +13,12 @@ import { startFakeRomm } from './server.ts'
  * with direction presses alone (`reach`, the same homing walk `choose` uses,
  * which never presses select). The navigation bar is left out: it is a zone
  * entered with Back rather than by direction, and `goTo` walks it on every
- * screen here. In view
- * means inside the window and clear of the hint bar, which is drawn over the
- * bottom of the page: a control the engine leaves under it cannot be read.
+ * screen here. In view means inside the window and clear of the hint bar,
+ * which is drawn over the bottom of the page: a control the engine leaves
+ * under it cannot be read.
+ *
+ * The running overlay is not walked: the pad is handed to the game while one
+ * runs (see `useSuspendGamepad`), and `running.test.ts` reaches its way out.
  */
 
 const NOVA = { width: 1280, height: 960 }
@@ -32,8 +35,8 @@ after(async () => {
 
 /**
  * Tag every enabled control on the screen, or in the topmost overlay when one
- * is open, so the walk can tell each one
- * apart even where several share an action, and return each with its handle.
+ * is open, so the walk can tell each one apart even where several share an
+ * action, and return each with its handle.
  *
  * A tag rather than an index into a query, because a list that re-renders
  * while the walk is under way would shift every index after the change.
@@ -103,7 +106,7 @@ test('home: every control is reachable with the d-pad', async () => {
   await walkEvery(app, 'home')
 })
 
-for (const screen of ['library', 'downloads', 'bios', 'emulators'])
+for (const screen of ['library', 'collections', 'downloads', 'bios', 'emulators'])
   test(`${screen}: every control is reachable with the d-pad`, async () => {
     const { app } = scenario
     await app.goTo(screen)

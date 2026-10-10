@@ -160,7 +160,7 @@ async function signedIn(): Promise<void> {
       await eachTab(app, 'game')
     })
 
-    for (const screen of ['downloads', 'bios', 'emulators'])
+    for (const screen of ['collections', 'downloads', 'bios', 'emulators'])
       if (wanted(screen))
         await attempt(screen, async () => {
           await app.goTo(screen)
