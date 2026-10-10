@@ -1238,3 +1238,19 @@ Lines the tooling reads (exact forms):
 - Next: M2-06 part 3: line 3 (an identical retry adds no slot row, test:saves on 5.2.0 and 5.3.1), line 4 (`play_sessions` with the session's completion), and a 409 shown to the player as a conflict.
 - Found on the way: the first CI run failed x64 `test:app`, whose check matched the content path exactly and so missed the new query; it was not run before the push because only main-process code changed. A change to what goes over the wire to RomM needs `test:app` too.
 - Notes: a confirmation that fails is not retried yet (Argosy retries before the next sync); a save whose bytes already match is stamped without a download and so never confirmed. Both leave RomM offering the same download again, which costs a transfer, not a save.
+
+## 2026-10-10 07:26 UTC session 01VHu3ou65VGVzAjuWse2yrQ (routine run)
+
+- Device results: none new. The bridge last checked in at 20:06 UTC (11.4 h ago); its last skip was "no 'nightly' release published yet". The scheduled nightly (`23 3 * * *`) has not run once yet; only the hand-started run of 2026-10-09 exists, and release.yml publishes `nightly` after every merge anyway.
+- Worked on: M2-06 part 3a (tracking issue #124): acceptance line 3. Part 2's PR #126 merged at 94ce36e; its CI wall time was x64 5:46, arm64 2:16.
+- Result: PR (this one). M2-06 stays false until line 4.
+- Evidence:
+  - Found first, by the new real test: RomM recognises identical bytes in a slot only when `overwrite=false` (`endpoints/saves.py` `add_save`, `get_save_by_content_hash` under `not overwrite`, same in 5.2.0 and 5.3.1). The player's "keep this device's save" (`overwrite=true`) retried after a lost reply was filed as a new row each time (the test failed on 5.2.0: `4 !== 3`).
+  - `RommClient.uploadSave` with `keepThisDevice` and a slot now asks `keptAlready` first: when the slot's newest copy (by `updated_at`, to the microsecond via `savedecide.instant`) has this file's `localContentHash`, that copy is returned and this device confirmed as holding it (`POST /api/saves/{id}/downloaded`); nothing is uploaded. Identical bytes further back in the slot's history do not count. An ordinary upload is unchanged (RomM dedupes it).
+  - Line 3: `test/saves/transfer.real.ts` "an upload retried with identical bytes adds no row to the slot", "the player's 'keep this device's save' retried with identical bytes adds no row to the slot", "a changed save after a retried one is the slot's second row, not a third": 3/3 on Docker 5.2.0 and 3/3 on 5.3.1 (`ROMM_PROFILE=v531`, provisioned).
+  - `romm.test.ts` "keeping this device's save when the slot already holds it": the newest identical copy is returned and confirmed, an older identical copy still uploads, an ordinary upload and an unslotted one never list the slot; a copy with no stored hash and a file the client cannot hash both upload. 130/130.
+  - `scripts/agent/check.sh` green; `npm run test:saves` 41/41 and `npm run test:romm` 21/21 on Docker 5.2.0. `test:app` not run: no production caller sets `keepThisDevice`, so nothing the app sends changes.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none.
+- Next: M2-06 part 3b: line 4 (`play_sessions` with the session's completion), and a 409 shown to the player as a conflict.

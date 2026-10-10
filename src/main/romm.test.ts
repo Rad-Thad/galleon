@@ -8,6 +8,7 @@ import fs, {
   rmSync,
   writeFileSync
 } from 'node:fs'
+import { createHash } from 'node:crypto'
 import { hostname, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { app } from 'electron'
@@ -1655,15 +1656,144 @@ describe('firmware, saves and states', () => {
     const { store } = fakeStore({ deviceId: 'romm-device-9' })
     const file = join(scratch(), 'sonic.srm')
     writeFileSync(file, 'save bytes')
-    const sent = serve(() => json({ id: 21 }))
+    const sent = serve((request) => json(request.method === 'GET' ? [] : { id: 21 }))
 
     await new RommClient(store).uploadSave(5, file, 'sonic.srm', 'snes9x', 'autosave', {
       keepThisDevice: true
     })
 
-    const url = new URL(sent[0].url)
+    const upload = sent.find((request) => request.method === 'POST')!
+    const url = new URL(upload.url)
     assert.equal(url.searchParams.get('overwrite'), 'true')
     assert.equal(url.searchParams.get('autocleanup'), null)
+  })
+
+  /**
+   * RomM files every overwriting upload as a new copy, identical or not, so
+   * a retry of the player's choice after a lost reply is the client's to
+   * recognise (`test/saves/transfer.real.ts` holds the server to that).
+   */
+  describe("keeping this device's save when the slot already holds it", () => {
+    // md5 of 'save bytes', which is RomM's content_hash for a file that is not a zip.
+    const hash = createHash('md5').update('save bytes').digest('hex')
+    const row = (
+      id: number,
+      slot: string | null,
+      contentHash: string | null,
+      updatedAt: string
+    ) => ({
+      id,
+      rom_id: 5,
+      slot,
+      content_hash: contentHash,
+      updated_at: updatedAt
+    })
+
+    function setUp(rows: unknown[]): { client: RommClient; file: string; sent: Sent[] } {
+      const { store } = fakeStore({ deviceId: 'romm-device-9' })
+      const file = join(scratch(), 'sonic.srm')
+      writeFileSync(file, 'save bytes')
+      const sent = serve((request) =>
+        json(
+          request.method === 'GET' ? rows : request.url.includes('/downloaded') ? {} : { id: 99 }
+        )
+      )
+      return { client: new RommClient(store), file, sent }
+    }
+
+    test('the newest copy with these bytes is returned, and this device recorded as holding it', async () => {
+      const { client, file, sent } = setUp([
+        row(30, 'autosave', 'other', '2026-10-01T10:00:00+00:00'),
+        row(31, 'autosave', hash, '2026-10-01T10:00:05.000001+00:00'),
+        row(32, 'other-slot', 'other', '2026-10-02T10:00:00+00:00')
+      ])
+
+      const kept = await client.uploadSave(5, file, 'sonic.srm', 'snes9x', 'autosave', {
+        keepThisDevice: true
+      })
+
+      assert.equal(kept.id, 31)
+      assert.deepEqual(
+        sent.map((request) => `${request.method} ${new URL(request.url).pathname}`),
+        ['GET /api/saves', 'POST /api/saves/31/downloaded']
+      )
+      assert.deepEqual(JSON.parse(sent[1].body!), { device_id: 'romm-device-9' })
+    })
+
+    test('the same bytes further back in the slot are not what it holds, so the upload is made', async () => {
+      const { client, file, sent } = setUp([
+        row(30, 'autosave', hash, '2026-10-01T10:00:00+00:00'),
+        row(31, 'autosave', 'newer', '2026-10-01T10:00:00.000001+00:00')
+      ])
+
+      const kept = await client.uploadSave(5, file, 'sonic.srm', 'snes9x', 'autosave', {
+        keepThisDevice: true
+      })
+
+      assert.equal(kept.id, 99)
+      const upload = sent.filter((request) => request.method === 'POST')
+      assert.equal(upload.length, 1)
+      assert.equal(new URL(upload[0].url).searchParams.get('overwrite'), 'true')
+    })
+
+    test('an ordinary upload leaves recognising identical bytes to RomM', async () => {
+      const { client, file, sent } = setUp([row(31, 'autosave', hash, '2026-10-01T10:00:05+00:00')])
+
+      await client.uploadSave(5, file, 'sonic.srm', 'snes9x', 'autosave')
+
+      assert.deepEqual(
+        sent.map((request) => request.method),
+        ['POST']
+      )
+    })
+
+    test('a copy RomM stored no hash for is not taken for this save', async () => {
+      const { client, file, sent } = setUp([row(31, 'autosave', null, '2026-10-01T10:00:05+00:00')])
+
+      const kept = await client.uploadSave(5, file, 'sonic.srm', 'snes9x', 'autosave', {
+        keepThisDevice: true
+      })
+
+      assert.equal(kept.id, 99)
+      assert.deepEqual(
+        sent.map((request) => request.method),
+        ['GET', 'POST']
+      )
+    })
+
+    test('a save the client cannot hash is uploaded rather than guessed at', async () => {
+      const { client, file, sent } = setUp([row(31, 'autosave', hash, '2026-10-01T10:00:05+00:00')])
+      // Ends in a zip's end record whose central directory is not there, which
+      // RomM would store no hash for either.
+      const end = Buffer.alloc(22)
+      end.writeUInt32LE(0x06054b50, 0)
+      end.writeUInt16LE(1, 8)
+      end.writeUInt16LE(1, 10)
+      end.writeUInt32LE(46, 12)
+      end.writeUInt32LE(9999, 16)
+      writeFileSync(file, Buffer.concat([Buffer.from('PK\x03\x04'), Buffer.alloc(60), end]))
+
+      const kept = await client.uploadSave(5, file, 'sonic.srm', 'snes9x', 'autosave', {
+        keepThisDevice: true
+      })
+
+      assert.equal(kept.id, 99)
+      assert.deepEqual(
+        sent.map((request) => request.method),
+        ['POST']
+      )
+    })
+
+    test('a save outside any slot is replaced by name, so it is uploaded as it is', async () => {
+      const { client, file, sent } = setUp([row(31, null, hash, '2026-10-01T10:00:05+00:00')])
+
+      await client.uploadSave(5, file, 'sonic.srm', 'snes9x', null, { keepThisDevice: true })
+
+      assert.deepEqual(
+        sent.map((request) => request.method),
+        ['POST']
+      )
+    })
   })
 
   test('a save from no particular emulator says so by leaving it out', async () => {
