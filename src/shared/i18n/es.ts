@@ -1062,6 +1062,8 @@ export const es: Catalog = {
   'error.transferEndedEarly':
     'La descarga terminó antes de que llegara el archivo completo. Se reanudará donde se quedó.',
   'error.saveEndedEarly': 'Solo llegó parte de {name} desde RomM, así que no se tocó el archivo.',
+  'error.saveIsFolder':
+    '{name} es una carpeta en este dispositivo, así que no se escribió ningún archivo encima.',
   'error.saveTreeTooLarge':
     'Esta carpeta de partidas es demasiado grande para enviarse como un solo archivo.',
   'error.emptyAssetBody': 'Cuerpo de archivo vacío',

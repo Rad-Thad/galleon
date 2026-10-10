@@ -1085,6 +1085,8 @@ export const de: Catalog = {
     'Der Download endete, bevor die ganze Datei angekommen war. Er wird fortgesetzt.',
   'error.saveEndedEarly':
     'Von {name} kam nur ein Teil von RomM an, daher blieb die Datei unberührt.',
+  'error.saveIsFolder':
+    '{name} ist auf diesem Gerät ein Ordner, daher wurde keine Datei darüber geschrieben.',
   'error.saveTreeTooLarge':
     'Dieser Spielstand-Ordner ist zu groß, um als ein Archiv gesendet zu werden.',
   'error.emptyAssetBody': 'Leerer Dateiinhalt',
