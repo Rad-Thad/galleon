@@ -1071,3 +1071,16 @@ Lines the tooling reads (exact forms):
 - Evaluator: see the PR.
 - Device / acceptance: none.
 - Next: M2-08 (per-system decision, needs-human) and M2-02 (shape report), per PLAN.md's M2 order; or `next.mjs`'s first feature.
+
+## 2026-10-10 00:55 UTC session fa6308b1 (routine run, second unit)
+
+- Device results: none new.
+- Worked on: M2-08 part 1 (tracking issue #111). M2-01, PR #109, merged at 4b30182; its CI wall time was x64 4:35, arm64 0:25 (docs only). PASSES M2-01 (ci); #108 closed.
+- Result: PR (this one). M2-08 stays false.
+- Evidence:
+  - Decision issue #110 (`needs-human`): one question, which emulator per system. A plain-language table cites SPEC.md section 10's verdicts. Safe default: (A) RetroArch with Argosy's core for SNES, GBA and PS1; (B) PPSSPP, ARMSX2 with a folder card, Dolphin in GCI folder mode, Dolphin, and Flycast with a per-game VMU for PSP, PS2, GameCube, Wii and Dreamcast. It applies on 2026-10-13 01:00 UTC.
+  - `docs/save-sync/SYSTEM-CHOICES.md` records the decision as pending, with the recommended default per system.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none.
+- Next: M2-03 (golden fixtures from SPEC.md, Docker 5.2.0). On or after 2026-10-13 01:00 UTC: M2-08 part 2 (adopt the answer or the default, ADR, settings defaults, the per-system Settings choice).
