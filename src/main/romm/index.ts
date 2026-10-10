@@ -13,7 +13,7 @@
  * refusal, a screen that has to tell a refusal from a bad hash.
  */
 
-export { RommClient, REQUIRED_SCOPES, normaliseBaseUrl } from './client.ts'
+export { MIN_PLAY_SECONDS, RommClient, REQUIRED_SCOPES, normaliseBaseUrl } from './client.ts'
 export type { UploadSaveOptions } from './client.ts'
 export {
   CorruptDownloadError,

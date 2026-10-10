@@ -1254,3 +1254,20 @@ Lines the tooling reads (exact forms):
 - Evaluator: see the PR.
 - Device / acceptance: none.
 - Next: M2-06 part 3b: line 4 (`play_sessions` with the session's completion), and a 409 shown to the player as a conflict.
+
+## 2026-10-10 08:27 UTC session 01CsS75gbjkD2bHYi3wXLkK1 (routine run)
+
+- Device results: none new. The bridge last checked in at 20:06 UTC (12.4 h ago); its last skip was still "no 'nightly' release published yet".
+- Worked on: M2-06 part 3b (tracking issue #124): acceptance line 4. Part 3a's PR #127 merged at d9c9ab7; its CI wall time was x64 6:54, arm64 2:16.
+- Result: PR (this one). PASSES M2-06 (all four lines; verification `ci`).
+- Evidence:
+  - `finishSession(client, id, counts, played)` sends the play recorded while the session was open as the completion's `play_sessions` (RomM's `SyncPlaySessionEntry`, read out of the 5.2.0 image: `endpoints/sync.py` `complete_sync_session` ingests them under the session's device and stamps `sync_session_id`). Spans shorter than the new `MIN_PLAY_SECONDS` (shared with `reportPlaySession`) are left out: RomM refuses the whole completion (422) over an entry whose end is not after its start once the fraction is dropped, and the session would never close. A span RomM answers `error` for is logged, not thrown; a superseded session took none of its play, which the doc comment hands to `POST /api/play-sessions`.
+  - `completeSyncSession` now returns the reply; new types `RommSyncPlaySessionEntry`, `RommSyncCompleteResponse`, `RommPlaySessionIngest`, `RommPlaySessionIngestResult`, held to schema/ 5.0.0 to 5.3.1 by `romm.test.ts` in shared/types.
+  - Line 4: `test/saves/negotiate.real.ts` "play recorded during a session is sent with the session's completion": the span appears in `GET /api/play-sessions?rom_id&device_id` once, with this session's `sync_session_id`, start and duration; sent again with the next session it is still one row. `npm run test:saves` 42/42 on Docker 5.2.0. 5.3.1 not run (image not on this VM); its `SyncCompletePayload` and `SyncPlaySessionEntry` are identical in schema/romm-5.3.1.json.
+  - `savenegotiate.test.ts`: the payload as sent, short and backwards spans dropped (no list at all when none is left), an `error` result does not fail the completion, a superseded session.
+  - `scripts/agent/check.sh` green. `test:app` not run: nothing in the app calls `finishSession` yet.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none.
+- Found on the way: the PR body was opened without its `Feature:` line, which `scripts/agent/pr-body.mjs` fails on; a re-run reads the body from the original event, so a corrected body needs the next push to be checked.
+- Next: the launch flow still decides with RomMix's own comparison and reports play through `POST /api/play-sessions`; wiring negotiate and its completion around a launch is M2-17 (with M2-18 for play time). A 409 shown to the player as a conflict is M2-16.

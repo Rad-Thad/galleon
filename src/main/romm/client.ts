@@ -26,6 +26,7 @@ import type {
   RomUserStatus,
   RommState,
   RommSyncCompletePayload,
+  RommSyncCompleteResponse,
   RommSyncNegotiatePayload,
   RommSyncNegotiateResponse,
   RommSyncScopedNegotiatePayload,
@@ -117,6 +118,13 @@ const COUNTS_AT_ONCE = 6
  */
 const PLAY_SESSION_PAGE = 50
 const PLAY_SESSION_PAGES = 20
+
+/**
+ * The shortest span reported as play, by either route (`reportPlaySession`,
+ * `finishSession`): a launch that fell over at once is not a session, and a
+ * span RomM rounds to nothing is one it refuses outright.
+ */
+export const MIN_PLAY_SECONDS = 5
 
 /**
  * How long any one request that carries an *answer* may take.
@@ -1158,13 +1166,17 @@ export class RommClient {
   }
 
   /** POST /api/sync/sessions/{id}/complete — close a negotiate's session. */
-  async completeSyncSession(sessionId: number, payload: RommSyncCompletePayload): Promise<void> {
+  async completeSyncSession(
+    sessionId: number,
+    payload: RommSyncCompletePayload
+  ): Promise<RommSyncCompleteResponse> {
     const res = await this.request(`/api/sync/sessions/${sessionId}/complete`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     })
     if (!res.ok) throw await this.toError(res)
+    return (await res.json()) as RommSyncCompleteResponse
   }
 
   /**
@@ -1417,7 +1429,7 @@ export class RommClient {
    * is refused whole.
    */
   async reportPlaySession(romId: number, startedAt: Date, seconds: number): Promise<void> {
-    if (seconds < 5) {
+    if (seconds < MIN_PLAY_SECONDS) {
       log.debug('romm', 'play session too short to report', { romId, seconds })
       return
     }

@@ -536,6 +536,42 @@ export interface RommSyncNegotiateResponse {
 export interface RommSyncCompletePayload {
   operations_completed: number
   operations_failed: number
+  /** Ingested under the session's device; see `finishSession`. */
+  play_sessions?: RommSyncPlaySessionEntry[]
+}
+
+/** One session inside that body (`SyncPlaySessionEntry`). */
+export interface RommSyncPlaySessionEntry {
+  rom_id: number
+  start_time: string
+  end_time: string
+  duration_ms: number
+}
+
+/**
+ * The answer to POST /api/sync/sessions/{id}/complete (`SyncCompleteResponse`).
+ *
+ * Only what became of the play sessions is read: the session itself is
+ * finished either way, and nothing here acts on its stored counts.
+ */
+export interface RommSyncCompleteResponse {
+  /** Null when the completion carried no play sessions. */
+  play_session_ingest?: RommPlaySessionIngest | null
+}
+
+/** What RomM made of the play sessions it was sent (`PlaySessionIngestResponse`). */
+export interface RommPlaySessionIngest {
+  results: RommPlaySessionIngestResult[]
+  created_count: number
+  skipped_count: number
+}
+
+/** One entry's fate, by its place in the list sent (`PlaySessionIngestResult`). */
+export interface RommPlaySessionIngestResult {
+  index: number
+  /** `duplicate` for a span RomM already holds for this device and game. */
+  status: 'created' | 'duplicate' | 'error'
+  detail?: string | null
 }
 
 /** GET /api/states (`StateSchema`). */
