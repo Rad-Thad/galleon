@@ -9,8 +9,10 @@
  * the answer never came back, so the same save goes up again. If the server
  * filed each attempt as another copy, every dropped reply would grow the
  * slot's history with duplicates (SPEC.md section 8), and the next negotiate
- * would pair against whichever copy it chose. The client relies on RomM
- * returning the copy it already holds; this holds the server to that.
+ * would pair against whichever copy it chose. RomM returns the copy it
+ * already holds only for an upload that does not overwrite, so the player's
+ * "keep this device's save" is recognised by the client instead (see
+ * `RommClient.uploadSave`); this holds both to one row.
  *
  * Only ever against the disposable servers in test/romm/compose.yml.
  */
