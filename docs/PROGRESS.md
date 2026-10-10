@@ -1356,3 +1356,20 @@ Lines the tooling reads (exact forms):
 - Device / acceptance: none.
 - Next: `next.mjs`: M6-05 (resumable per-file downloads).
 - Notes: a game already installed under a folder named with `.m3u` is no longer adopted at that path (none are installed yet). A multi-disc game on a flat-library emulator (only Eden, Switch) could leave empty subfolders on cancel; not a shape that exists today.
+
+## 2026-10-10 13:26 UTC session 01S7cup9hCmp6nFZBBCJKAWa (routine run)
+
+- Device results: none new. The bridge last checked in at 20:06 UTC (17.3 h ago); its last skip was still "no 'nightly' release published yet".
+- Worked on: M6-05 (tracking issue #140). M6-04's PR #138 merged at 5a54955 (CI x64 6:28, arm64 2:12).
+- Result: PR (this one). PASSES M6-05 (verification `ci`; both lines).
+- Evidence:
+  - Per-file fetching, each file held to its own `md5_hash`/`sha1_hash` and resumed on its own, was already in place (`fetchFileByFile`, `downloadRomFile`, `fileAlreadyHere`); the archive is only for a game of one file or a server that cannot serve files singly. Two gaps closed:
+  - A bug found by the new suite: after a file's hash check the row stayed `checking` for the rest of the game, so the screen read "Checking" over every later file and Pause (which only stops a row that is downloading) did nothing. The row is `downloading` again as each file starts. `downloads.test.ts` "the row is downloading again once the file before was checked" fails without the fix.
+  - Line 2: a file refused for its hash is fetched once more, alone and from its first byte, with one warning naming it; a second refusal pauses the game with the reason on the row, once. `downloads.test.ts` "a file refused for its hash is fetched again on its own" and "a file refused twice pauses the game, and the row says so once" (both fail on 5a54955); the old "refused … pauses" test became the second.
+  - Line 1: new `test/romm/downloads.real.ts`, the app's own queue, library and store over a scratch `GALLEON_HOME` against Docker RomM: "a multi-file game paused mid-file resumes that file by range and refetches none it finished" (half of disc 2 on disk, Pause, resume: disc 1 fetched once, disc 2 `[null, bytes=<half>-]`, every file matches its md5, playlist written) and "a file whose bytes do not match its hash is fetched again alone, and said once" (disc 2's first copy has a flipped byte: fetched `[null, null]`, disc 1 once, one warning, md5s match).
+  - `scripts/agent/check.sh` green; `npm run test:romm` 24/24 on 5.2.0 and 5.3.1.
+  - Flaky (#141): 5.3.1's provisioning was refused once on a cold start ("Invalid session", socket.io polling across four RomM workers) and passed when run again. Not a test assertion; root cause to fix within two units.
+- CI wall time: recorded in the next entry (this entry rides the PR). The first x64 run failed only `pr-body.mjs`: the PR was opened without the template's `Feature:` line; the body was fixed and this note is the push that re-runs it.
+- Evaluator: PASS (quoted in the PR).
+- Device / acceptance: none.
+- Next: #141 (test:romm provisioning on 5.3.1), then `next.mjs`: M8-06.

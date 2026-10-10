@@ -8,7 +8,7 @@
  */
 
 import assert from 'node:assert/strict'
-import { afterEach, describe, test } from 'node:test'
+import { afterEach, describe, mock, test } from 'node:test'
 import {
   existsSync,
   mkdirSync,
@@ -79,6 +79,7 @@ const wires: (() => void)[] = []
  */
 afterEach(async () => {
   for (const release of wires.splice(0)) release()
+  mock.restoreAll()
   for (const downloads of queues.splice(0)) await downloads.whenIdle()
   log.close()
   if (realHome === undefined) delete process.env.GALLEON_HOME
@@ -113,6 +114,17 @@ function heldWire(): { held: Promise<void>; release: () => void } {
   })
   wires.push(release)
   return { held, release }
+}
+
+/** The data of every warning logged with this message from now on. */
+function watchLog(message: string): () => Record<string, unknown>[] {
+  const seen: Record<string, unknown>[] = []
+  const warn = log.warn.bind(log)
+  mock.method(log, 'warn', (area: string, said: string, data?: Record<string, unknown>) => {
+    if (said === message) seen.push(data ?? {})
+    warn(area, said, data)
+  })
+  return () => seen
 }
 
 /**
@@ -195,12 +207,14 @@ function fakeClient(
     /** Whether the server can serve the game's files one at a time. */
     perFile?: boolean
     /**
-     * The file, counted from one, that fails its hash check.
+     * The per-file fetches, counted from one, that fail their hash check.
      *
      * What `RommClient.verify` does: the part-file is deleted and the transfer
      * throws, leaving whatever landed before it in place.
      */
-    corruptFile?: number
+    corruptFile?: number | number[]
+    /** Each per-file fetch says it is checking its hash, as one with a digest does. */
+    checks?: boolean
     /**
      * Answer with a real archive holding these files, rather than loose bytes.
      *
@@ -228,10 +242,11 @@ function fakeClient(
       destination: string,
       onProgress: (progress: { received: number; total: number }) => void,
       _signal: AbortSignal,
-      opts: { resume?: boolean } = {}
+      opts: { resume?: boolean; onChecking?: () => void } = {}
     ) {
       resumed.push(opts.resume === true)
-      if (options.corruptFile === resumed.length) {
+      if (options.checks) opts.onChecking?.()
+      if ([options.corruptFile].flat().includes(resumed.length)) {
         await rm(`${destination}.part`, { force: true })
         throw new CorruptDownloadError('what arrived is not what RomM holds')
       }
@@ -329,7 +344,8 @@ function manager(
     breakAfter?: number
     ranges?: boolean
     perFile?: boolean
-    corruptFile?: number
+    corruptFile?: number | number[]
+    checks?: boolean
     zip?: Record<string, string>
     roms?: Record<number, RommRom>
     breakReason?: typeof RommError
@@ -1512,20 +1528,51 @@ describe('a game fetched one file at a time', () => {
     )
   })
 
-  test('a file refused for its hash pauses the game, and the row says so', async () => {
+  test('a file refused for its hash is fetched again on its own', async () => {
     /**
-     * The rest of the game is real and worth keeping, so this pauses rather
-     * than failing — and pausing silently would be the one way for bytes to be
-     * thrown away without the screen ever mentioning it. Resuming re-fetches
-     * the refused file, whose part-file `verify` took with it.
+     * The files either side of it are whole, so only the refused one crosses
+     * the network a second time, and from its first byte: `verify` took its
+     * part-file, and there is nothing to resume onto.
      */
-    const { downloads, store, root } = manager({ perFile: true, corruptFile: 2 })
+    const { downloads, root, resumed } = manager({ perFile: true, corruptFile: 2 })
+    const warned = watchLog('a file was refused for its hash, fetching it again')
+
+    await downloads.enqueue(multi())
+    const item = await settled(downloads, 2)
+
+    assert.equal(item.state, 'done')
+    assert.equal(item.error, null)
+    // Track 1, track 2 refused, track 2 again from nothing, then the cue.
+    assert.deepEqual(resumed, [false, false, false, false])
+    const dir = join(root, 'roms', 'psx', 'Castlevania - Symphony of the Night (Europe)')
+    assert.deepEqual((await readdir(dir)).sort(), [
+      'disc (Track 1).bin',
+      'disc (Track 2).bin',
+      'disc.cue'
+    ])
+    assert.equal(readFileSync(join(dir, 'disc (Track 2).bin'), 'utf8'), '0'.repeat(32))
+    assert.deepEqual(warned(), [{ romId: 2, fileName: 'disc (Track 2).bin' }])
+  })
+
+  test('a file refused twice pauses the game, and the row says so once', async () => {
+    /**
+     * A second refusal is the server's copy disagreeing with its own record,
+     * which a third fetch would only repeat. The rest of the game is real and
+     * worth keeping, so this pauses rather than failing — and pausing silently
+     * would be the one way for bytes to be thrown away without the screen ever
+     * mentioning it.
+     */
+    const { downloads, store, root, resumed } = manager({ perFile: true, corruptFile: [2, 3] })
+    const warned = watchLog('a file was refused for its hash, fetching it again')
 
     await downloads.enqueue(multi())
     const item = await settled(downloads, 2)
 
     assert.equal(item.state, 'paused')
     assert.ok(item.error, 'the row has to carry the reason, not just say "paused"')
+    // Fetched twice and no more; the cue behind it was never asked for.
+    assert.equal(resumed.length, 3)
+    assert.equal(warned().length, 1)
     // The first file arrived and is kept; the refused one is gone.
     const dir = join(root, 'roms', 'psx', 'Castlevania - Symphony of the Night (Europe)')
     assert.deepEqual(await readdir(dir), ['disc (Track 1).bin'])
@@ -1565,6 +1612,32 @@ describe('a game fetched one file at a time', () => {
       seen
     )
     assert.equal(seen.at(-1), 104)
+  })
+
+  test('the row is downloading again once the file before was checked', async () => {
+    /**
+     * Each file is hashed as it lands, and the row says so. Left saying it for
+     * the next file, the row reads "Checking" over a transfer, and Pause, which
+     * only stops a row that is downloading, does nothing for the rest of the
+     * game.
+     */
+    const { downloads } = manager({ perFile: true, checks: true })
+    const states = new Map<string, string>()
+    downloads.on('update', (items: DownloadItem[]) => {
+      const row = items.find((item) => item.romId === 2)
+      if (row?.currentFile && !states.has(row.currentFile)) {
+        states.set(row.currentFile, row.state)
+      }
+    })
+
+    await downloads.enqueue(multi())
+    await settled(downloads, 2)
+
+    assert.deepEqual(Object.fromEntries(states), {
+      'disc (Track 1).bin': 'downloading',
+      'disc (Track 2).bin': 'downloading',
+      'disc.cue': 'downloading'
+    })
   })
 
   test('the row names the file that is arriving, and stops when none is', async () => {

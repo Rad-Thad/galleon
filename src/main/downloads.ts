@@ -997,6 +997,7 @@ export class DownloadManager extends EventEmitter {
       }
       await mkdir(dirname(destination), { recursive: true })
       item.currentFile = file.file_name
+      item.state = 'downloading'
       this.emitUpdate()
 
       const already = (await stat(destination).catch(() => null))?.size ?? 0
@@ -1014,22 +1015,53 @@ export class DownloadManager extends EventEmitter {
           fileName: file.file_name
         })
       } else {
-        await this.client.downloadRomFile(
-          file,
-          destination,
-          (progress) => {
-            item.receivedBytes = done + progress.received
-            this.throttledUpdate()
-          },
-          transfer.controller.signal,
-          {
-            resume: transfer.resume,
-            resumable: transfer.resumable,
-            // Hashing a track of a large game is minutes of work; without this
-            // the row goes on saying "Downloading" throughout it.
-            onChecking: () => this.sayChecking(item)
-          }
-        )
+        const fetchOne = (resume: boolean): Promise<void> => {
+          // Back from whichever hash check came before: the last file's, the
+          // one that found this file on disk and wrong, or this file's own
+          // refused copy. A row left saying "Checking" over a transfer is also
+          // one `pause` will not stop.
+          item.state = 'downloading'
+          this.emitUpdate()
+          return this.client.downloadRomFile(
+            file,
+            destination,
+            (progress) => {
+              item.receivedBytes = done + progress.received
+              this.throttledUpdate()
+            },
+            transfer.controller.signal,
+            {
+              resume,
+              resumable: transfer.resumable,
+              // Hashing a track of a large game is minutes of work; without
+              // this the row goes on saying "Downloading" throughout it.
+              onChecking: () => this.sayChecking(item)
+            }
+          )
+        }
+        try {
+          await fetchOne(transfer.resume)
+        } catch (cause) {
+          /**
+           * A file refused for its hash is fetched once more, from nothing.
+           *
+           * `verify` has already thrown its bytes away, so there is nothing to
+           * resume onto, and the files on either side of it are whole and stay
+           * as they are. What arrived wrong is most often a resumed part-file
+           * whose first half came from a copy the server has since replaced,
+           * which a clean fetch settles. A second refusal is not the wire: it
+           * is the server holding a file that disagrees with its own record,
+           * and asking a third time would only refuse it again, so that one
+           * stops the game with its reason.
+           */
+          if (!(cause instanceof CorruptDownloadError)) throw cause
+          log.warn('download', 'a file was refused for its hash, fetching it again', {
+            romId: rom.id,
+            fileName: file.file_name
+          })
+          item.receivedBytes = done
+          await fetchOne(false)
+        }
       }
 
       const size = (await stat(destination).catch(() => null))?.size ?? file.file_size_bytes
