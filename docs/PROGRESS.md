@@ -1338,7 +1338,7 @@ Lines the tooling reads (exact forms):
 - Device / acceptance: none. How the dialog reads from the sofa belongs in the acceptance session's look-and-feel pass.
 - Next: `next.mjs`: M6-04, M6-05 (M0-10, M0-13 and M2-08 wait on the device, M0-21 or #110's date).
 
-## 2026-10-10 12:50 UTC session 012udxzCZk5g1tJicTEicpMr (routine run)
+## 2026-10-10 12:38 UTC session 012udxzCZk5g1tJicTEicpMr (routine run)
 
 - Device results: none new. The bridge last checked in at 20:06 UTC (16.3 h ago); its last skip was still "no 'nightly' release published yet".
 - Worked on: M6-04 (tracking issue #137). M2-16 part 2, PR #136, merged at 73c7193.
