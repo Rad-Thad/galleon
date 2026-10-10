@@ -37,8 +37,7 @@ test('RomM stores the hash the app computes, for every edge case', async (t) => 
       file,
       `galleon-hash-${name}-${randomBytes(4).toString('hex')}.sav`,
       null,
-      null,
-      { overwrite: false }
+      null
     )
     assert.equal(saved.content_hash, await localContentHash(file), name)
   }
@@ -55,8 +54,7 @@ test("RomM's stored hash of every golden fixture is the app's", async () => {
       path,
       `galleon-hash-${randomBytes(4).toString('hex')}-${entry.uploadName}`,
       entry.emulator,
-      null,
-      { overwrite: false }
+      null
     )
     assert.equal(saved.content_hash, await localContentHash(path), entry.path)
   }

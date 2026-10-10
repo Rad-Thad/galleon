@@ -21,7 +21,7 @@ import type {
 } from '@shared/types'
 import { refusedUs, verify } from './romm/index.ts'
 import { safeJoin } from './safepath.ts'
-import type { RommClient } from './romm/index.ts'
+import type { RommClient, UploadSaveOptions } from './romm/index.ts'
 import type { Store } from './store.ts'
 import { i18n, t } from './i18n.ts'
 import { realHome } from './xdg.ts'
@@ -944,7 +944,8 @@ export class SaveSync {
 
       const result = await this.sendChosen(
         target,
-        unasked.map((file) => file.path)
+        unasked.map((file) => file.path),
+        { keepThisDevice: false }
       )
       const sent = result.saves + result.states
       /**
@@ -986,7 +987,11 @@ export class SaveSync {
     chosen: readonly string[],
     onProgress?: (progress: SaveProgress) => void
   ): Promise<SaveSyncResult> {
-    return this.oneAtATime(target.rom.id, () => this.sendChosen(target, chosen, onProgress))
+    // The dialog named whose copy each file replaces, so approving it is the
+    // player keeping this device's save; nowhere else may say so.
+    return this.oneAtATime(target.rom.id, () =>
+      this.sendChosen(target, chosen, { keepThisDevice: true }, onProgress)
+    )
   }
 
   /**
@@ -998,6 +1003,7 @@ export class SaveSync {
   private async sendChosen(
     target: SaveTarget,
     chosen: readonly string[],
+    options: UploadSaveOptions,
     onProgress?: (progress: SaveProgress) => void
   ): Promise<SaveSyncResult> {
     const paths = this.locate(target)
@@ -1019,7 +1025,7 @@ export class SaveSync {
       batches.push({ kind, assets: selected, tag, primary: this.primaryOf(kind, local, target) })
     }
 
-    const moved = await this.sendBatches(target, batches, onProgress)
+    const moved = await this.sendBatches(target, batches, options, onProgress)
 
     // A file the dialog offered that the scan no longer finds is how an
     // approved save silently fails to arrive, and nothing else would say so.
@@ -1571,7 +1577,7 @@ export class SaveSync {
       await this.pendingUploads(target, paths, 'save', since),
       await this.pendingUploads(target, paths, 'state', since)
     ]
-    return this.sendBatches(target, batches, onProgress)
+    return this.sendBatches(target, batches, { keepThisDevice: false }, onProgress)
   }
 
   /**
@@ -1604,6 +1610,7 @@ export class SaveSync {
   private async sendBatches(
     target: SaveTarget,
     batches: readonly UploadBatch[],
+    options: UploadSaveOptions,
     onProgress?: (progress: SaveProgress) => void
   ): Promise<{ saves: number; states: number; failed: number }> {
     const total = batches.reduce((count, batch) => count + batch.assets.length, 0)
@@ -1618,6 +1625,7 @@ export class SaveSync {
         batch.assets,
         batch.tag,
         batch.primary,
+        options,
         run
       )
       if (batch.kind === 'save') moved.saves += count.sent
@@ -1640,6 +1648,7 @@ export class SaveSync {
     assets: readonly LocalAsset[],
     tag: string,
     primary: string | null,
+    options: UploadSaveOptions,
     run?: SaveRun
   ): Promise<{ sent: number; failed: number }> {
     let uploaded = 0
@@ -1675,7 +1684,14 @@ export class SaveSync {
         const slot = slotToSend(asset.fileName, primary)
         const sent =
           kind === 'save'
-            ? await this.client.uploadSave(target.rom.id, payload, asset.fileName, tag, slot)
+            ? await this.client.uploadSave(
+                target.rom.id,
+                payload,
+                asset.fileName,
+                tag,
+                slot,
+                options
+              )
             : await this.client.uploadState(target.rom.id, payload, asset.fileName, tag)
         uploaded += 1
         await this.stampUploaded(asset, Date.parse(sent.updated_at))

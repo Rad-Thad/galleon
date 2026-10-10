@@ -1206,3 +1206,18 @@ Lines the tooling reads (exact forms):
 - Next: M2-06 (transfers). Wiring `negotiateForGame` / `decideForGame` into the pre-launch flow in `saves.ts` goes with it.
 - Found on the way: RomM tags an uploaded name with the second it arrived, and an upload whose tagged name matches an existing row takes over that row, slot and all; and an upload's reply carries microseconds RomM 5.2.0 does not store, so a time taken from it is later than the stored one. The test gives each upload its own name and makes ties against the listed time.
 - Notes: CI's `test:saves` runs 5.2.0 only; `hash.real.ts` still fails one case on 5.3.1 (`endInRawSave`), which keeps 5.3.1 out of CI's saves suite.
+
+## 2026-10-10 06:27 UTC session 01RtDaof2sqMLZnGpXpjGrUh (routine run)
+
+- Device results: none new. The bridge last checked in at 20:06 UTC (10.4 h ago); its last skip was "no 'nightly' release published yet".
+- Worked on: M2-06 part 1 (tracking issue #124): acceptance line 1. M2-05's PR #123 merged at ce8f116.
+- Result: PR (this one). M2-06 stays false until lines 2 to 4.
+- Evidence:
+  - `RommClient.uploadSave` sends `overwrite=false` unless `UploadSaveOptions.keepThisDevice`, and never sends `autocleanup` (SPEC.md section 8: it has RomM delete a slot's older saves because of an upload nobody chose, a rail 2 breach the inherited client made on every slotted upload). The old `overwrite` and `autocleanup` options are gone.
+  - `SaveSync.pushSelected` (the push dialog, which names whose copy each file replaces) is the only caller that keeps this device's save; `push`, `pushNow` and `drain` send false.
+  - Line 1: `savesync.test.ts` "only the files a player approved keep this device's save over the server's" (push, pushNow, drain false; pushSelected true). `overwrite.allowlist.test.ts` reads every source file: only `main/saves.ts` asks for an overwrite, once, and the client's only `overwrite` is `String(keepThisDevice)`. `romm.test.ts`: the default is `overwrite=false` with or without a slot and no `autocleanup`; keepThisDevice sends `true`.
+  - `scripts/agent/check.sh` green; `npm run test:saves` 38/38 and `npm run test:romm` 21/21 on Docker 5.2.0.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none.
+- Next: M2-06 part 2 (line 2): downloads with `device_id` and `optimistic=false` through the safe writer, then `POST /api/saves/{id}/downloaded`, with fault injection. Part 3: lines 3 and 4, and a 409 shown to the player as a conflict (today a refused upload is counted as failed and logged).

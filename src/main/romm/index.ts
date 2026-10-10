@@ -14,6 +14,7 @@
  */
 
 export { RommClient, REQUIRED_SCOPES, normaliseBaseUrl } from './client.ts'
+export type { UploadSaveOptions } from './client.ts'
 export {
   CorruptDownloadError,
   RommError,

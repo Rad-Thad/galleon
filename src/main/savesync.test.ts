@@ -18,7 +18,7 @@ import { join } from 'node:path'
 import type { SaveProgress } from '@shared/api'
 import type { EmulatorState } from '@config/emulators'
 import type { RommDevice, RommRom, RommSave, RommState } from '@shared/types'
-import { RommError, type RommClient } from './romm/index.ts'
+import { RommError, type RommClient, type UploadSaveOptions } from './romm/index.ts'
 import { SaveSync, type SaveTarget } from './saves.ts'
 import { zipDirectory } from './zip.ts'
 import { Store } from './store.ts'
@@ -81,6 +81,14 @@ function save(fields: Partial<RommSave> = {}): RommSave {
 /** What the client tells a caller about the bytes of one download. */
 type Progress = (progress: { received: number; total: number }) => void
 
+/** One upload the fake server took, and whether it was told to overwrite. */
+interface Uploaded {
+  fileName: string
+  from: string
+  slot: string | null
+  keepThisDevice: boolean
+}
+
 /** The md5 RomM would hold for these bytes. See `sameContent`. */
 function md5(content: string): string {
   return createHash('md5').update(content).digest('hex')
@@ -118,7 +126,7 @@ function setUp(
   stateDir: string
   /** Where the copies a pull displaces are kept, one folder per game. */
   backups: string
-  uploaded: { fileName: string; from: string; slot: string | null }[]
+  uploaded: Uploaded[]
   deleted: number[]
   store: Store
 } {
@@ -128,7 +136,7 @@ function setUp(
   const romDir = join(home, 'roms')
   for (const dir of [saveDir, stateDir, romDir]) mkdirSync(dir, { recursive: true })
 
-  const uploaded: { fileName: string; from: string; slot: string | null }[] = []
+  const uploaded: Uploaded[] = []
   const deleted: number[] = []
 
   /** What the server hands over: a file's contents, or a zip of a folder. */
@@ -177,15 +185,16 @@ function setUp(
       filePath: string,
       fileName: string,
       _emulator: string | null,
-      slot: string | null
+      slot: string | null,
+      { keepThisDevice = false }: UploadSaveOptions = {}
     ) => {
       if (options.uploadFails) throw new Error('fetch failed')
-      uploaded.push({ fileName, from: filePath, slot })
+      uploaded.push({ fileName, from: filePath, slot, keepThisDevice })
       return save({ file_name: fileName })
     },
     uploadState: async (_romId: number, filePath: string, fileName: string) => {
       if (options.uploadFails) throw new Error('fetch failed')
-      uploaded.push({ fileName, from: filePath, slot: null })
+      uploaded.push({ fileName, from: filePath, slot: null, keepThisDevice: false })
       return save({ file_name: fileName })
     },
     deleteSaves: async (ids: number[]) => void deleted.push(...ids),
@@ -839,6 +848,22 @@ describe('pushing', () => {
     await sync.push(target, Date.parse('2026-08-01T00:00:00.000Z'))
 
     assert.deepEqual(uploaded, [])
+  })
+
+  test("only the files a player approved keep this device's save over the server's", async () => {
+    const { sync, target, saveDir, uploaded } = setUp()
+    const path = join(saveDir, 'Sonic the Hedgehog (USA).srm')
+    writeFileSync(path, 'local')
+
+    await sync.push(target, 0)
+    await sync.pushNow(target)
+    await sync.drain(target, 0, { sendUnasked: true })
+    await sync.pushSelected(target, [path])
+
+    assert.deepEqual(
+      uploaded.map((item) => item.keepThisDevice),
+      [false, false, false, true]
+    )
   })
 
   test('the automatic push respects the setting', async () => {

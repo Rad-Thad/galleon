@@ -220,8 +220,6 @@ async function nextSecond(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 1000 - (Date.now() % 1000) + 50))
 }
 
-const UPLOAD_ONLY = { overwrite: false, autocleanup: false }
-
 for (const entry of fixtures) {
   const bytes = readFileSync(join(FIXTURES, entry.path))
 
@@ -288,7 +286,7 @@ for (const entry of fixtures) {
     const fork = client(fresh('fork'))
 
     const refused = await rejection(
-      fork.uploadSave(rom.id, file, entry.uploadName, entry.emulator, entry.slot, UPLOAD_ONLY)
+      fork.uploadSave(rom.id, file, entry.uploadName, entry.emulator, entry.slot)
     )
     assert.equal(refused.status, 409, `${entry.path}: ${refused.message}`)
     const after = await client().saves(rom.id)
@@ -301,8 +299,7 @@ for (const entry of fixtures) {
     // "Keep this device's save": the one place the fork overwrites.
     await nextSecond()
     const kept = await fork.uploadSave(rom.id, file, entry.uploadName, entry.emulator, entry.slot, {
-      overwrite: true,
-      autocleanup: false
+      keepThisDevice: true
     })
     assert.equal(kept.content_hash, ours.hash, `${entry.path}: RomM's hash of the kept save`)
     assert.ok(
@@ -329,14 +326,7 @@ for (const entry of fixtures) {
     const file = join(dir, entry.uploadName)
     writeFileSync(file, bytes)
     const fork = client(fresh('fork'))
-    const ours = await fork.uploadSave(
-      rom.id,
-      file,
-      entry.uploadName,
-      entry.emulator,
-      entry.slot,
-      UPLOAD_ONLY
-    )
+    const ours = await fork.uploadSave(rom.id, file, entry.uploadName, entry.emulator, entry.slot)
     assert.equal(ours.content_hash, entry.contentHash, `${entry.path}: RomM's hash`)
     assertStampedName(ours, entry)
 
