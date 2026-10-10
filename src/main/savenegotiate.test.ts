@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import type {
   RommSyncCompletePayload,
+  RommSyncCompleteResponse,
   RommSyncNegotiatePayload,
   RommSyncScopedNegotiatePayload,
   RommSyncNegotiateResponse,
@@ -54,7 +55,7 @@ interface Fake extends NegotiateClient {
 
 function fake(
   operations: RommSyncOperation[],
-  opts: { deviceId?: string | null; complete?: () => Promise<void> } = {}
+  opts: { deviceId?: string | null; complete?: () => Promise<RommSyncCompleteResponse> } = {}
 ): Fake {
   const negotiated: (RommSyncNegotiatePayload | RommSyncScopedNegotiatePayload)[] = []
   const completed: { id: number; payload: RommSyncCompletePayload }[] = []
@@ -75,7 +76,7 @@ function fake(
     },
     completeSyncSession: async (id, payload) => {
       completed.push({ id, payload })
-      await opts.complete?.()
+      return (await opts.complete?.()) ?? { play_session_ingest: null }
     }
   }
 }
@@ -155,6 +156,72 @@ describe('finishSession', () => {
   test('so is one the server no longer has', async () => {
     const client = fake([], { complete: () => Promise.reject(new RommError('not found', 404)) })
     assert.equal(await finishSession(client, 7, { completed: 0, failed: 0 }), 'superseded')
+  })
+
+  const at = (seconds: number): Date => new Date(Date.UTC(2026, 9, 10, 6, 0, seconds))
+
+  test('play recorded during the session rides its completion', async () => {
+    const client = fake([])
+    const played = [
+      { romId: 2, startedAt: at(0), endedAt: at(600) },
+      { romId: 3, startedAt: at(700), endedAt: at(705) }
+    ]
+    assert.equal(await finishSession(client, 7, { completed: 1, failed: 0 }, played), 'completed')
+    assert.deepEqual(client.completed[0].payload, {
+      operations_completed: 1,
+      operations_failed: 0,
+      play_sessions: [
+        {
+          rom_id: 2,
+          start_time: '2026-10-10T06:00:00.000Z',
+          end_time: '2026-10-10T06:10:00.000Z',
+          duration_ms: 600_000
+        },
+        {
+          rom_id: 3,
+          start_time: '2026-10-10T06:11:40.000Z',
+          end_time: '2026-10-10T06:11:45.000Z',
+          duration_ms: 5000
+        }
+      ]
+    })
+  })
+
+  test('a span too short to be play is left out, and none at all sends no list', async () => {
+    const client = fake([])
+    const played = [
+      { romId: 2, startedAt: at(0), endedAt: at(4) },
+      { romId: 2, startedAt: at(10), endedAt: at(10) },
+      { romId: 2, startedAt: at(20), endedAt: at(19) }
+    ]
+    await finishSession(client, 7, { completed: 0, failed: 0 }, played)
+    assert.deepEqual(client.completed[0].payload, {
+      operations_completed: 0,
+      operations_failed: 0
+    })
+  })
+
+  test('a span RomM would not take does not fail the completion', async () => {
+    const client = fake([], {
+      complete: async () => ({
+        play_session_ingest: {
+          results: [{ index: 0, status: 'error', detail: 'end_time is too far in the future' }],
+          created_count: 0,
+          skipped_count: 1
+        }
+      })
+    })
+    const played = [{ romId: 2, startedAt: at(0), endedAt: at(600) }]
+    assert.equal(await finishSession(client, 7, { completed: 1, failed: 0 }, played), 'completed')
+  })
+
+  test('a superseded session took none of its play', async () => {
+    // The caller's cue to send it through POST /api/play-sessions instead.
+    const client = fake([], {
+      complete: () => Promise.reject(new RommError('Session is already completed', 400))
+    })
+    const played = [{ romId: 2, startedAt: at(0), endedAt: at(600) }]
+    assert.equal(await finishSession(client, 7, { completed: 1, failed: 0 }, played), 'superseded')
   })
 
   test('an outage or a refusal is still an error, for the caller to retry', async () => {

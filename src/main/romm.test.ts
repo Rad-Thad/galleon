@@ -2443,7 +2443,7 @@ describe('save-sync negotiation', () => {
     const client = new RommClient(store)
     const counts = { operations_completed: 1, operations_failed: 0 }
 
-    await client.completeSyncSession(3, counts)
+    assert.deepEqual(await client.completeSyncSession(3, counts), { session: {} })
     assert.equal(new URL(sent[0].url).pathname, '/api/sync/sessions/3/complete')
     assert.equal(sent[0].method, 'POST')
     assert.deepEqual(JSON.parse(sent[0].body ?? ''), counts)

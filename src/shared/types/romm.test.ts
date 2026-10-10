@@ -275,6 +275,7 @@ describe('the transcription', () => {
         'RommSyncSave',
         'RommSyncNegotiatePayload',
         'RommSyncCompletePayload',
+        'RommSyncPlaySessionEntry',
         'RommDeviceAuthInitPayload',
         'RommDeviceAuthTokenPayload',
         'RommDeviceCreatePayload',
