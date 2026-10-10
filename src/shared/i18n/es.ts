@@ -575,6 +575,9 @@ export const es: Catalog = {
   'saves.remoteOnlyHint': 'Solo en RomM. Traer las partidas la bajará.',
   'saves.otherEmulator': 'Incompatible',
   'saves.otherEmulatorHint': 'Escrita por otro emulador. Traer las partidas no la bajará.',
+  'saves.stateNotSynced': 'Sin sincronizar',
+  'saves.stateNotSyncedHint':
+    'Los estados de este emulador solo cargan en el mismo núcleo, así que se quedan en el dispositivo que los creó.',
   'saves.fromDevice': 'desde {device}',
   'saves.scopeLocal': 'de este dispositivo',
   'saves.scopeRemote': 'de RomM',

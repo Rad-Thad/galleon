@@ -1288,3 +1288,19 @@ Lines the tooling reads (exact forms):
 - Device / acceptance: none.
 - Next: Steam games (M1-14, M5) are not launched by the app yet; their launch calls `launcher.play.record` the same way when they are. Then `next.mjs`: M2-15 (states only where they can load).
 - Notes: `unsent_play.json` is new state under the config folder; nothing in the self-test guard (M0-21, not built yet) stops play being sent, which that feature's acceptance already requires.
+
+## 2026-10-10 09:49 UTC session 01WdAZSXo1in3HtxtSzd186z (routine run)
+
+- Device results: none new. The bridge last checked in at 20:06 UTC (13.4 h ago); its last skip was still "no 'nightly' release published yet".
+- Worked on: M2-15 (tracking issue #131). M2-18's PR #130 merged at 714b4a0; its CI wall time was x64 6:13, arm64 2:07.
+- Result: PR (this one). PASSES M2-15 (both lines; verification `ci`).
+- Evidence:
+  - Line 1: new `src/config/emulators/states.ts`, `STATE_SYNC` (system, tag) rows and `statesSync`: states travel only where this device runs the libretro core SPEC.md section 10 found Argosy running for that system (SNES family `snes9x`, GBA `mgba`, PS1 `pcsx_rearmed`/`swanstation`/`mednafen_psx`); every standalone and every other system keeps its states. `states.test.ts` (3): rules name known systems once; RetroArch's own core for each listed system syncs; standalones, Genesis, a cross-system core and the bare `retroarch` tag do not.
+  - `SaveSync.syncLocationFor` is the one gate: `pullKind`, `previewPush`, `sendChosen` and `pendingUploads` ask it, so no pull, push, drain or chosen push moves a state that stays. `STATE_PULL_LIMIT` is untouched and its test ("only the newest few states are pulled") now runs on a syncing system. `savesync.test.ts` "states only where they can load" (5): never pulled; not in the preview, not sent by `pushNow` or `pushSelected` while the save still goes; the same state goes up on PS1; the Saves tab marks local and remote states and no save; nothing marked where states sync or the game is not on this device. Each fails with `statesSync` forced true. Seven older state tests take `system: 'psx'` (their assertions unchanged).
+  - Line 2: `SaveAsset.staysOnDevice`; the Saves tab draws a grey "Not synced" badge with a hint (`saves.stateNotSynced`, `saves.stateNotSyncedHint`, translated in all four catalogues). New shot `game-saves-states` in `shots:nova` (Cave Story under RetroArch, a local and a RomM state beside a save): both states read "Not synced", the save "Not on this device"; checked the PNG at 1280x960, no overlap, toasts gone.
+  - `test:app`: three Cave Story steps in `games.test.ts` moved state transfers on Genesis, whose states now stay. Their save half is unchanged; their state half now asserts the rule end to end: no `/api/states/` download, no file in the states folder, the row `staysOnDevice` with the badge; the push dialog lists only the save; neither the dialog nor a push of everything sends the state. 224/224. State transfer itself is covered by the unit tests on PS1.
+  - `scripts/agent/check.sh` green; `npm run shots:nova` 20/20.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none. Which systems sync states is worth a look in the acceptance session once #110's choices land (M2-08): a system moved to a standalone keeps its states local by this table.
+- Next: `next.mjs`: M2-16 (conflicts decided by the player), M6-04, M6-05.

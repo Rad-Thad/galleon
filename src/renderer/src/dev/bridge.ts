@@ -390,7 +390,8 @@ const SAVES: SaveAsset[] = [
     originName: 'RomMix @ steamdeck',
     updatedAt: '2026-08-19T21:59:00Z',
     sync: 'synced',
-    forAnotherEmulator: false
+    forAnotherEmulator: false,
+    staysOnDevice: false
   },
   {
     id: null,
@@ -405,7 +406,10 @@ const SAVES: SaveAsset[] = [
     originName: null,
     updatedAt: null,
     sync: 'local-only',
-    forAnotherEmulator: false
+    forAnotherEmulator: false,
+    // Genesis states do not travel (see `statesSync`), so this is the row that
+    // draws the "stays on this device" badge.
+    staysOnDevice: true
   },
   {
     id: 13,
@@ -420,7 +424,8 @@ const SAVES: SaveAsset[] = [
     originName: 'RomMix @ rg35xx',
     updatedAt: '2026-08-21T08:30:00Z',
     sync: 'remote-only',
-    forAnotherEmulator: false
+    forAnotherEmulator: false,
+    staysOnDevice: false
   },
   {
     /**
@@ -442,7 +447,8 @@ const SAVES: SaveAsset[] = [
     originName: 'RomMix @ rg35xx',
     updatedAt: '2026-08-21T09:15:00Z',
     sync: 'remote-only',
-    forAnotherEmulator: true
+    forAnotherEmulator: true,
+    staysOnDevice: true
   }
 ]
 

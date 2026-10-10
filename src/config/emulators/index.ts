@@ -189,6 +189,7 @@ export { switchTitleId, switchProfileDir } from './switch-saves.ts'
 export { coreLibraryName, readLibretroConfig } from './libretro.ts'
 export { baseName, dirName, joinPath } from './savepaths.ts'
 export { SAVE_CONVENTIONS } from './saves.ts'
+export { STATE_SYNC, statesSync } from './states.ts'
 
 export type {
   CoreContext,

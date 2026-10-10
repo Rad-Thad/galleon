@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import type { SaveProgress } from '@shared/api'
 import { localize } from '@shared/i18n'
 import { changedAt, mayBeSentUnasked, AUTOSAVE_SLOT } from '@shared/saveassets'
-import { SAVE_CONVENTIONS, emulatorById } from '@config/emulators'
+import { SAVE_CONVENTIONS, emulatorById, statesSync } from '@config/emulators'
 import type { SaveContext, SaveLocation, SavePaths } from '@config/emulators'
 import type {
   EmulatorState,
@@ -289,6 +289,28 @@ export class SaveSync {
   }
 
   /**
+   * Where this kind goes to and comes from RomM, or null where it stays here.
+   *
+   * `locationFor` with the one rule a sync adds: a state travels only for the
+   * (system, tag) pairs `statesSync` lists. Every pull and push asks this; the
+   * Saves tab asks `locationFor`, because a state that stays on this device is
+   * still a file on it, and the row is how anybody learns it is not synced.
+   */
+  private syncLocationFor(
+    paths: SavePaths,
+    target: SaveTarget,
+    kind: 'save' | 'state'
+  ): SaveLocation | null {
+    if (kind === 'state' && !this.statesTravel(paths, target)) return null
+    return this.locationFor(paths, kind)
+  }
+
+  /** Do this game's states sync under the emulator it runs in? See `statesSync`. */
+  private statesTravel(paths: SavePaths, target: SaveTarget): boolean {
+    return statesSync(target.system, this.tagFor(paths, target))
+  }
+
+  /**
    * Does the emulator tag decide whether this location's assets may be pulled?
    *
    * The only place that answers it, because two answers is exactly how a screen
@@ -549,9 +571,17 @@ export class SaveSync {
      * `unsyncableReason` is already giving.
      */
     const byTag = { save: false, state: false }
+    /**
+     * Whether this game's states stay on this device — see `syncLocationFor`.
+     *
+     * False where the game is not downloaded: with no emulator to ask about,
+     * nothing here is going anywhere either way.
+     */
+    let statesStay = false
     if (local) {
       const paths = this.locate(local)
       tag = this.tagFor(paths, local)
+      statesStay = !this.statesTravel(paths, local)
       alsoAccepts = paths.alsoAccepts ?? []
       for (const kind of ['save', 'state'] as const) {
         const location = this.locationFor(paths, kind)
@@ -636,6 +666,7 @@ export class SaveSync {
         emulator: item.emulator,
         forAnotherEmulator:
           byTag[kind] && tag !== null && !acceptsTag(tag, item.emulator, alsoAccepts),
+        staysOnDevice: kind === 'state' && statesStay,
         localPath: localFile?.path ?? null,
         localModifiedAt: localFile ? new Date(localFile.mtimeMs).toISOString() : null,
         fromThisDevice,
@@ -665,6 +696,7 @@ export class SaveSync {
         emulator: tag,
         // This device's own file, so there is no other emulator's claim on it.
         forAnotherEmulator: false,
+        staysOnDevice: key.startsWith('state:') && statesStay,
         localPath: file.path,
         localModifiedAt: new Date(file.mtimeMs).toISOString(),
         fromThisDevice: null,
@@ -818,7 +850,7 @@ export class SaveSync {
     let inSync = 0
 
     for (const kind of ['save', 'state'] as const) {
-      const location = this.locationFor(paths, kind)
+      const location = this.syncLocationFor(paths, target, kind)
       if (!location) continue
 
       // Unfiltered, then narrowed — see `uploadKind`, which the list here has
@@ -1014,7 +1046,7 @@ export class SaveSync {
     const batches: UploadBatch[] = []
 
     for (const kind of ['save', 'state'] as const) {
-      const location = this.locationFor(paths, kind)
+      const location = this.syncLocationFor(paths, target, kind)
       if (!location) continue
 
       const local = await this.findLocal(location, target.rom, target.romPath, kind, 0)
@@ -1170,7 +1202,7 @@ export class SaveSync {
     kind: 'save' | 'state',
     run?: SaveRun
   ): Promise<PullCount> {
-    const location = this.locationFor(paths, kind)
+    const location = this.syncLocationFor(paths, target, kind)
     if (!location) return { written: 0, offered: 0, failed: 0 }
 
     const remote =
@@ -1618,7 +1650,7 @@ export class SaveSync {
     kind: 'save' | 'state',
     since: number
   ): Promise<UploadBatch> {
-    const location = this.locationFor(paths, kind)
+    const location = this.syncLocationFor(paths, target, kind)
     if (!location) return { kind, assets: [], tag: '', primary: null }
 
     const all = await this.findLocal(location, target.rom, target.romPath, kind)

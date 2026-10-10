@@ -104,6 +104,13 @@ function device(fields: Partial<RommDevice> = {}): RommDevice {
   }
 }
 
+/**
+ * A system whose states sync under this fixture's RetroArch, for the tests
+ * about how a state travels. The default, Genesis, keeps its states local —
+ * see `statesSync`.
+ */
+const STATES_TRAVEL = 'psx'
+
 /** A device with a save folder, a state folder, and a game installed. */
 function setUp(
   options: {
@@ -120,6 +127,8 @@ function setUp(
     breakAfter?: number
     /** Whether RomM refuses to record that this device holds a save. */
     confirmFails?: boolean
+    /** The game's system, which with the emulator decides whether states sync. */
+    system?: string
   } = {}
 ): {
   sync: SaveSync
@@ -229,7 +238,7 @@ function setUp(
     target: {
       rom,
       emulator,
-      system: 'genesis',
+      system: options.system ?? 'genesis',
       romPath: join(romDir, 'Sonic the Hedgehog (USA).md')
     },
     saveDir,
@@ -793,6 +802,7 @@ describe('pulling', () => {
     // a count on its own tells them apart for none of them. This is the number
     // that does.
     const { sync, target } = setUp({
+      system: STATES_TRAVEL,
       states: [
         save({
           file_name: 'Sonic the Hedgehog (USA).state1',
@@ -991,7 +1001,7 @@ describe('saying what a transfer is doing while it runs', () => {
   })
 
   test('a push counts saves and states as one run before the first file goes', async () => {
-    const { sync, target, saveDir, stateDir } = setUp()
+    const { sync, target, saveDir, stateDir } = setUp({ system: STATES_TRAVEL })
     writeFileSync(join(saveDir, 'Sonic the Hedgehog (USA).srm'), 'local')
     writeFileSync(join(stateDir, 'Sonic the Hedgehog (USA).state1'), 'local')
     const seen: SaveProgress[] = []
@@ -1006,7 +1016,7 @@ describe('saying what a transfer is doing while it runs', () => {
   })
 
   test('a game whose name holds a dot keeps both its save and its states', async () => {
-    const made = setUp()
+    const made = setUp({ system: STATES_TRAVEL })
     const name = 'Super Mario Bros. 3 (USA)'
     made.target = {
       ...made.target,
@@ -1091,7 +1101,7 @@ describe('the ways a pull can go wrong without losing the launch', () => {
         updated_at: `2026-08-0${index + 1}T12:00:00.000Z`
       })
     ) as unknown as RommState[]
-    const { sync, target, stateDir } = setUp({ states })
+    const { sync, target, stateDir } = setUp({ states, system: STATES_TRAVEL })
 
     const result = await sync.pullNow(target)
 
@@ -1413,7 +1423,7 @@ describe('pairing on the slot rather than the name', () => {
   })
 
   test('a state goes up under none, RomM keeping no slot for them', async () => {
-    const { sync, target, stateDir, uploaded } = setUp()
+    const { sync, target, stateDir, uploaded } = setUp({ system: STATES_TRAVEL })
     writeFileSync(join(stateDir, 'Sonic the Hedgehog (USA).state1'), 'a snapshot')
 
     await sync.pushSelected(target, [join(stateDir, 'Sonic the Hedgehog (USA).state1')])
@@ -1696,7 +1706,7 @@ describe('pairing on the slot rather than the name', () => {
     // this is a copy the rest of the ecosystem reads back or one filed where
     // only RomMix will look at it again. Asked of the same rule the upload
     // uses, so the two cannot name different slots for one file.
-    const { sync, target, saveDir, stateDir } = setUp()
+    const { sync, target, saveDir, stateDir } = setUp({ system: STATES_TRAVEL })
     writeFileSync(join(saveDir, 'Sonic the Hedgehog (USA).srm'), 'played')
     writeFileSync(join(saveDir, 'Sonic the Hedgehog (USA).rtc'), 'the clock file')
     writeFileSync(join(stateDir, 'Sonic the Hedgehog (USA).state1'), 'a snapshot')
@@ -1840,6 +1850,7 @@ describe('telling RomM a save arrived', () => {
 
   test('a state is never confirmed, RomM keeping no records for states', async () => {
     const { sync, target, confirmed } = setUp({
+      system: STATES_TRAVEL,
       states: [
         save({ id: 32, file_name: 'Sonic the Hedgehog (USA).state1' }) as unknown as RommState
       ]
@@ -1863,5 +1874,97 @@ describe('telling RomM a save arrived', () => {
     assert.equal(result.failed, 0)
     assert.equal(readFileSync(local(saveDir), 'utf8'), REMOTE_BYTES)
     assert.deepEqual(confirmed, [])
+  })
+})
+
+describe('states only where they can load', () => {
+  const STATE = 'Sonic the Hedgehog (USA).state1'
+  const SAVE = 'Sonic the Hedgehog (USA).srm'
+
+  /** A state RomM holds under the tag this fixture's RetroArch accepts. */
+  const remoteState = (): RommState =>
+    save({
+      id: 41,
+      file_name: STATE,
+      updated_at: '2026-09-01T12:00:00.000Z'
+    }) as unknown as RommState
+
+  test('a state of a system whose states stay local is never pulled', async () => {
+    const { sync, target, stateDir } = setUp({ states: [remoteState()] })
+
+    const result = await sync.pullNow(target)
+
+    assert.equal(result.states, 0)
+    assert.equal(existsSync(join(stateDir, STATE)), false)
+  })
+
+  test('nor pushed, by any of the three pushes, while its save still goes', async () => {
+    const { sync, target, saveDir, stateDir, uploaded } = setUp()
+    writeFileSync(join(saveDir, SAVE), 'a save')
+    writeFileSync(join(stateDir, STATE), 'a snapshot')
+
+    const preview = await sync.previewPush(target)
+    assert.deepEqual(
+      preview.files.map((file) => file.fileName),
+      [SAVE]
+    )
+
+    const pushed = await sync.pushNow(target)
+    assert.equal(pushed.states, 0)
+    assert.deepEqual(
+      uploaded.map((item) => item.fileName),
+      [SAVE]
+    )
+
+    uploaded.length = 0
+    const chosen = await sync.pushSelected(target, [join(stateDir, STATE)])
+    assert.equal(chosen.states, 0)
+    assert.deepEqual(uploaded, [])
+  })
+
+  test('the same state syncs where the system runs the core Argosy runs', async () => {
+    const { sync, target, stateDir, uploaded } = setUp({ system: STATES_TRAVEL })
+    writeFileSync(join(stateDir, STATE), 'a snapshot')
+
+    const pushed = await sync.pushNow(target)
+
+    assert.equal(pushed.states, 1)
+    assert.deepEqual(
+      uploaded.map((item) => item.fileName),
+      [STATE]
+    )
+  })
+
+  test('the Saves tab marks every state that stays, at both ends, and no save', async () => {
+    const { sync, target, saveDir, stateDir } = setUp({
+      saves: [save()],
+      states: [remoteState()]
+    })
+    writeFileSync(join(saveDir, SAVE), 'a save')
+    writeFileSync(join(stateDir, 'Sonic the Hedgehog (USA).state2'), 'a snapshot')
+
+    const assets = await sync.listAssets(target.rom.id, target)
+    const stays = (kind: 'save' | 'state'): boolean[] =>
+      assets.filter((asset) => asset.kind === kind).map((asset) => asset.staysOnDevice)
+
+    assert.deepEqual(stays('state'), [true, true])
+    assert.deepEqual(stays('save'), [false])
+  })
+
+  test('and none where states sync, or where the game is not on this device', async () => {
+    const synced = setUp({ states: [remoteState()], system: STATES_TRAVEL })
+    writeFileSync(join(synced.stateDir, 'Sonic the Hedgehog (USA).state2'), 'a snapshot')
+    const here = await synced.sync.listAssets(synced.target.rom.id, synced.target)
+    assert.deepEqual(
+      here.map((asset) => asset.staysOnDevice),
+      [false, false]
+    )
+
+    const elsewhere = setUp({ states: [remoteState()] })
+    const remote = await elsewhere.sync.listAssets(elsewhere.target.rom.id)
+    assert.deepEqual(
+      remote.map((asset) => asset.staysOnDevice),
+      [false]
+    )
   })
 })
