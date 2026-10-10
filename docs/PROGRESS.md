@@ -1373,3 +1373,17 @@ Lines the tooling reads (exact forms):
 - Evaluator: PASS (quoted in the PR).
 - Device / acceptance: none.
 - Next: #141 (test:romm provisioning on 5.3.1), then `next.mjs`: M8-06.
+
+## 2026-10-10 13:55 UTC session 01S7cup9hCmp6nFZBBCJKAWa (routine run, unit 2)
+
+- Worked on: flaky #141 (test:romm provisioning on RomM 5.3.1 refused with "Invalid session"). M6-05's PR #142 merged at eb58893 (CI x64 7:06, arm64 2:08; the first x64 run failed only the PR-body check, see the entry above).
+- Result: PR (this one). Feature: none (CI flake, #141).
+- Evidence:
+  - Root cause: RomM 5.3.1's image starts four web workers (`--workers "${WEB_SERVER_CONCURRENCY:-4}"` in its `/init`; 5.2.0's defaults to 1). A socket.io polling session lives in the process that opened it, and `provision.mjs` starts the scan over that transport, so a request on a new connection that lands on another worker is refused. Node's fetch usually reuses one keep-alive connection, which is why it failed only now and then on a cold start.
+  - Reproduced with a scratch script opening a polling session and sending the connect packet on fresh connections: 3 of 30 refused on 5.3.1, 0 of 30 on 5.2.0. With `WEB_SERVER_CONCURRENCY: '1'` in `compose.yml`'s shared RomM environment: 0 of 100 on 5.3.1.
+  - `test/romm/lib.test.ts` "every Docker RomM runs one web worker, which the scan handshake needs" fails without the setting.
+  - `npm run test:romm -- --profile v531` from a removed volume: 24/24, 69 s.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none.
+- Next: `next.mjs`: M8-06.

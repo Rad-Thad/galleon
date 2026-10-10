@@ -38,6 +38,11 @@ x-romm: &romm
     # provision.mjs asks for the one scan the suites need. A rescan landing in
     # the middle of a run would change the library under it.
     ENABLE_RESCAN_ON_FILESYSTEM_CHANGE: 'false'
+    # One web worker, whatever the image's default. A socket.io polling session
+    # lives in the process that opened it, so with several workers a request
+    # that lands on another one is refused with "Invalid session", and
+    # provision.mjs starts the scan over exactly that transport.
+    WEB_SERVER_CONCURRENCY: '1'
     ENABLE_SCHEDULED_RESCAN: 'false'
     ENABLE_SCHEDULED_UPDATE_SWITCH_TITLEDB: 'false'
     ENABLE_SCHEDULED_UPDATE_LAUNCHBOX_METADATA: 'false'
