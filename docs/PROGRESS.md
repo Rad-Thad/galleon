@@ -1119,3 +1119,21 @@ Lines the tooling reads (exact forms):
 - Evaluator: see the PR.
 - Device / acceptance: none.
 - Next: M2-04 (`content_hash` exactly as RomM computes it), then M2-07.
+
+## 2026-10-10 02:52 UTC session 2ca8171f (routine run, second unit)
+
+- Device results: none new.
+- Worked on: M2-04 (tracking issue #116). M2-03's part 2, PR #115, merged at 5f37d5b; its CI wall time was x64 6:14, arm64 2:10 (both legs ran `Save round trips`, 33/33). PASSES M2-03 (ci); #113 closed.
+- Result: PR (this one). PASSES M2-04 (ci).
+- Evidence:
+  - `src/main/savehash.ts` `localContentHash`, written from RomM 5.2.0's `compute_content_hash` and Python 3.13's `zipfile` as the Docker image runs them: a zip is what `is_zipfile` finds an end record for (not a leading `PK`), hashed as the sorted `name:md5` lines with directories left out, names decoded as Python does (UTF-8 flag or code page 437, then an Info-ZIP Unicode Path field whose checksum matches, cut at NUL) and sorted by code point; a repeated name hashes its last entry; bytes before the zip, after it, or a comment change nothing; a damaged, encrypted or unreadable zip gives null, as RomM stores none. Entries are read with yauzl (already a dependency) through a reader that shifts past any prefix the way Python does.
+  - Line 1: `savehash.test.ts` "whose entries come in another order hashes the same", "ignores directory entries", and 20 more; `test/saves/hashcases.mjs` builds the 17 edge cases. Before writing the tests, each case was hashed by the RomM container's own Python: all 17 agreed with the app. The evaluator's first verdict was FAIL: names carried in a Unicode Path field (0x7075, as WinRAR writes them) were not read. Fixed, with three cases for it.
+  - Line 2: `test/saves/hash.real.ts` uploads every edge case and every golden fixture to Docker 5.2.0 and requires the stored `content_hash` to equal `localContentHash`'s: `npm run test:saves` 35/35 (with the round trips).
+  - Line 3: files are streamed in `READ_CHUNK_BYTES` reads; the end-record search reads at most 64 KiB and 22 bytes. "a large plain save is read in chunks, never more than 8 MB at once" (24 MB) and "so is a zip holding a large entry" (20 MB) record every read.
+  - `sameContent` (the app's local-against-server comparison) now uses `localContentHash`, so a zip save compares by what is inside it; `savefiles.test.ts` "a zip save is the same as RomM's when what is inside it is, in any order".
+  - `scripts/agent/check.sh` green: coverage 96.36 / 93.91 / 96.14.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none.
+- Next: M2-07 (one safe writer), then M2-05 (decision engine), which must allow for RomM keeping times to the second.
+- Notes: `restoreFile` in `src/main/saves.ts` still checks a pulled save's plain md5 against `content_hash`, which fails for any zip save; the safe writer (M2-07) or transfers (M2-06) should check with `localContentHash` instead. (The evaluator's note; outside this diff.)
