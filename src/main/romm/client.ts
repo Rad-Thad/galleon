@@ -1091,6 +1091,17 @@ export class RommClient {
     return this.json<RommSave[]>(`/api/saves?rom_id=${romId}`)
   }
 
+  /**
+   * One game's saves with each one's sync records, the caller's first.
+   *
+   * A read: naming the device only fills in `device_syncs`, so this is the
+   * pre-launch question that writes nothing (see `savedecide.ts`).
+   */
+  savesForDevice(romId: number, deviceId: string): Promise<RommSave[]> {
+    const params = new URLSearchParams({ rom_id: String(romId), device_id: deviceId })
+    return this.json<RommSave[]>(`/api/saves?${params.toString()}`)
+  }
+
   states(romId: number): Promise<RommState[]> {
     return this.json<RommState[]>(`/api/states?rom_id=${romId}`)
   }

@@ -1188,3 +1188,21 @@ Lines the tooling reads (exact forms):
 - Next: M2-05 line 2: a local decider written from `compare_save_state` and the endpoint's pairing rules, and an equivalence test feeding the same scenarios to it and to the real negotiate on Docker 5.2.0 and 5.3.1 (CI's `test:saves` runs only v520 today).
 - Found on the way: the first CI run failed both legs in `Save round trips`: node runs the real test files side by side against one server, and the new test's slotted save on the SNES game showed up in the round trips' negotiates (and every `client()` there is one RomM device, so the "other device" was not other). The test now uploads with no device, for a game no golden fixture uses (`Galleon Test Plain`), and deletes it afterwards. The evaluator's first verdict was FAIL on the same two points, and on a race: every `client()` is one RomM device, so a round trip's negotiate could cancel the line-4 test's session before it completed. Both tests now negotiate as a device registered for them alone. `npm run test:saves` 37/37 three times in a row, the first on a fresh server; both tests pass on 5.3.1.
 - Notes: on 5.3.1, `hash.real.ts` fails one edge case: `endInRawSave` (a raw save holding a zip end record) gets a content hash where 5.2.0 stores none. CI runs 5.2.0 only, so it is not red; the owner's server is 5.2.0 (DEVICE-FACTS), but M2-04's hash must follow 5.3.1 too before line 2 runs there.
+
+## 2026-10-10 05:26 UTC session 014QRqgn (routine run)
+
+- Device results: none new. The bridge last checked in at 20:06 UTC (9.4 h ago); its last skip was "no 'nightly' release published yet".
+- Worked on: M2-05 part 3 (tracking issue #120): acceptance line 2. Part 2's PR #122 merged at 8cf5b8d.
+- Result: PR (this one). PASSES M2-05 (ci).
+- Evidence:
+  - `src/main/savedecide.ts` `decideForGame`: negotiate's decision for one game taken from `GET /api/saves?rom_id&device_id` (a read; new `RommClient.savesForDevice`), so a pre-launch check can decide without opening a session. Written step for step from `endpoints/sync.py` and `handler/sync/comparison.py`, read out of the pinned 5.2.0 and 5.3.1 images, which decide identically (only 5.3.1's `rom_ids` scope differs). `recordOf` tells RomM's stand-in entry (not current, stamped with the save's own time) from a real record; `instant` compares to the microsecond and reads an unzoned time as UTC, as `to_utc` does.
+  - `savedecide.test.ts`: every branch of `compare_save_state`, newest-row pairing, null slots, untracked saves both ways, a save the device deleted, the stand-in, another device's record, another game.
+  - Line 2: `test/saves/decide.real.ts` "the local decision answers every rule of negotiate the way the server does": 17 slots on one game (no server save, no slot, equal hashes, either side newer, a tie with and without a hash, records the client, the server or both moved past, untracked, deleted, superseded row), the same local saves to `negotiateForGame` and to `decideForGame`; identical action, save id and reason for every slot, and each slot's action as written out. `npm run test:saves` 38/38 on Docker 5.2.0; on 5.3.1 (`ROMM_PROFILE=v531`, provisioned) `decide.real.ts` and `negotiate.real.ts` 3/3, twice.
+  - New string `error.saveBadTime` in all four catalogues (translated).
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none.
+- Next: M2-06 (transfers). Wiring `negotiateForGame` / `decideForGame` into the pre-launch flow in `saves.ts` goes with it.
+- Found on the way: RomM tags an uploaded name with the second it arrived, and an upload whose tagged name matches an existing row takes over that row, slot and all; and an upload's reply carries microseconds RomM 5.2.0 does not store, so a time taken from it is later than the stored one. The test gives each upload its own name and makes ties against the listed time.
+- Notes: CI's `test:saves` runs 5.2.0 only; `hash.real.ts` still fails one case on 5.3.1 (`endInRawSave`), which keeps 5.3.1 out of CI's saves suite.

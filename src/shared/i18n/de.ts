@@ -1085,6 +1085,8 @@ export const de: Catalog = {
     'Der Download endete, bevor die ganze Datei angekommen war. Er wird fortgesetzt.',
   'error.saveEndedEarly':
     'Von {name} kam nur ein Teil von RomM an, daher blieb die Datei unberührt.',
+  'error.saveBadTime':
+    'Die Zeitangabe eines Spielstands ist unlesbar ({value}), daher wurde er nicht verglichen.',
   'error.saveIsFolder':
     '{name} ist auf diesem Gerät ein Ordner, daher wurde keine Datei darüber geschrieben.',
   'error.saveTreeTooLarge':

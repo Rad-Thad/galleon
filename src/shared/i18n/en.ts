@@ -1056,6 +1056,7 @@ export const en = {
   'error.transferEndedEarly':
     'The download ended before the whole file arrived. It will pick up where it left off.',
   'error.saveEndedEarly': 'Only part of {name} arrived from RomM, so it was left alone.',
+  'error.saveBadTime': "A save's time could not be read ({value}), so it was not compared.",
   'error.saveIsFolder': '{name} is a folder on this device, so no file was written over it.',
   'error.saveTreeTooLarge': 'This save folder is too large to send as one archive.',
   'error.emptyAssetBody': 'Empty asset body',
