@@ -1676,7 +1676,12 @@ describe('firmware, saves and states', () => {
   describe("keeping this device's save when the slot already holds it", () => {
     // md5 of 'save bytes', which is RomM's content_hash for a file that is not a zip.
     const hash = createHash('md5').update('save bytes').digest('hex')
-    const row = (id: number, slot: string | null, contentHash: string, updatedAt: string) => ({
+    const row = (
+      id: number,
+      slot: string | null,
+      contentHash: string | null,
+      updatedAt: string
+    ) => ({
       id,
       rom_id: 5,
       slot,
@@ -1736,6 +1741,43 @@ describe('firmware, saves and states', () => {
 
       await client.uploadSave(5, file, 'sonic.srm', 'snes9x', 'autosave')
 
+      assert.deepEqual(
+        sent.map((request) => request.method),
+        ['POST']
+      )
+    })
+
+    test('a copy RomM stored no hash for is not taken for this save', async () => {
+      const { client, file, sent } = setUp([row(31, 'autosave', null, '2026-10-01T10:00:05+00:00')])
+
+      const kept = await client.uploadSave(5, file, 'sonic.srm', 'snes9x', 'autosave', {
+        keepThisDevice: true
+      })
+
+      assert.equal(kept.id, 99)
+      assert.deepEqual(
+        sent.map((request) => request.method),
+        ['GET', 'POST']
+      )
+    })
+
+    test('a save the client cannot hash is uploaded rather than guessed at', async () => {
+      const { client, file, sent } = setUp([row(31, 'autosave', hash, '2026-10-01T10:00:05+00:00')])
+      // Ends in a zip's end record whose central directory is not there, which
+      // RomM would store no hash for either.
+      const end = Buffer.alloc(22)
+      end.writeUInt32LE(0x06054b50, 0)
+      end.writeUInt16LE(1, 8)
+      end.writeUInt16LE(1, 10)
+      end.writeUInt32LE(46, 12)
+      end.writeUInt32LE(9999, 16)
+      writeFileSync(file, Buffer.concat([Buffer.from('PK\x03\x04'), Buffer.alloc(60), end]))
+
+      const kept = await client.uploadSave(5, file, 'sonic.srm', 'snes9x', 'autosave', {
+        keepThisDevice: true
+      })
+
+      assert.equal(kept.id, 99)
       assert.deepEqual(
         sent.map((request) => request.method),
         ['POST']
