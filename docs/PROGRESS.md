@@ -1432,3 +1432,21 @@ Lines the tooling reads (exact forms):
 ## 2026-10-10 16:26 UTC session 01TYyFtCNVzURkA21XSQxo3a (routine run, stop)
 
 - Stopped: nothing eligible, as in the 15:53 stop entry. The bridge's "no 'nightly' release published yet" is not a bridge bug: it comes from `bridge/status.json`, which the bridge writes only when it skips (see the DEVICE-RESULTS note after 9390ac8), and that file is still the one from 2026-10-08. The bridge tested a nightly every hour on 2026-10-09 up to d4c2d35 (20:06 UTC) and has been silent since, while `nightly` is current (assets from 8a5c0f9, 16:05 UTC). That silence is on the device side; the 7-day `needs-human` note is not due before 2026-10-16.
+
+## 2026-10-10 17:58 UTC session 011jEpBMC6dNybVMQkJqnRiR (routine run)
+
+- Device results: none new. The bridge last checked in at 20:06 UTC (21.4 h ago), as in the 16:26 stop entry.
+- Worked on: M8-06 line 2 (tracking issue #144). RomM 5.4.0 went stable on Docker Hub at 15:19 UTC today.
+- Result: PR (this one). PASSES M8-06 (verification `ci`; line 1 met in #145).
+- Evidence (followed `docs/MAINTENANCE.md` "RomM versions", steps 1 to 9):
+  - Pinned `rommapp/romm:5.4.0@sha256:03295f95a6290e752641f9553ac4198b0e5b71b879d57f7b2371b98f608feb54` (index lists `linux/amd64` and `linux/arm64`); profile `v540` on `127.0.0.1:18540` in `compose.yml`, `lib.mjs` and `lib.test.ts`.
+  - Provisioning: 8 platforms, 43 s. `schema:fetch` wrote `schema/romm-5.4.0.json` (329 schemas). Against 5.3.1 no path is removed; `PlaySessionSchema.sync_session_id` and `PermissionGroupSchema.is_system` are removed (the client reads neither); the newly required fields are ones the client does not send. The heartbeat reports no `SAVE_SYNC`, so ADR 0002's snapshot warning does not apply to 5.4.0.
+  - `romm.test.ts` 251/251; `test:romm-real` 24/24 on v540 and on v531.
+  - Saves on v540 first: 39/42. `hash.real.ts` fails on v531 too (the known raw save holding a zip end record). The other two are 5.4's: negotiate no longer cancels a device's open sessions (the endpoint no longer calls `cancel_active_sessions`), so an earlier session completes instead of being refused; and a play row no longer carries `sync_session_id`. `finishSession` handles both answers unchanged (it returns `completed` and the play is taken; a span sent twice is still one row). `negotiate.real.ts` now holds each version to its own answer (`negotiateEndsOpenSessions`): 5.2.0 and 5.3.1 keep every assertion they had, 5.4.0 must answer `completed`, must not report the field, and the row must be this device's. No client change; `savenegotiate.ts`'s comment now says which versions supersede.
+  - After the change: saves v540 41/42, v531 41/42 (both only `hash.real.ts`), v520 42/42.
+  - Step 8: `nightly.yml` and `release.yml`'s `workflow_dispatch` profiles, `test/romm/README.md`, `run.mjs`, `test/saves/README.md`, PLAN.md's matrix lines. Pull requests still test only 5.2.0.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none. The owner's server stays on 5.2.0 (step 10).
+- Next: nothing eligible unless the device reports; see the 15:53 stop entry.

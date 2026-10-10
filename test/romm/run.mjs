@@ -1,8 +1,8 @@
 // `npm run test:romm`: every `*.real.ts` against each Docker RomM in turn,
 // brought up and provisioned here, so one command covers every server
-// version the owner's has run. See README.md.
+// version in the matrix. See README.md.
 //
-//   npm run test:romm                       # 5.2.0, then 5.3.1
+//   npm run test:romm                       # 5.2.0, 5.3.1, then 5.4.0
 //   npm run test:romm -- --profile v531     # one version
 //   npm run test:saves                      # test/saves/*.real.ts on 5.2.0
 //

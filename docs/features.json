@@ -2537,7 +2537,7 @@
     ],
     "verification": "ci",
     "depends_on": ["M0-19"],
-    "passes": false
+    "passes": true
   },
   {
     "id": "M8-07",

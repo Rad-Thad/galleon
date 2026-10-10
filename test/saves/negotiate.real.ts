@@ -6,17 +6,17 @@
  *
  * Three facts the unit tests can only take on trust: that the server under
  * test answers a pre-launch negotiate with another game's save, which the
- * engine must drop; that every negotiate ends the device's open session, which
- * the engine must then count as finished; and that play sent with a session's
- * completion lands in the history under this device, once however often it is
- * sent (M2-06).
+ * engine must drop; that a session a later negotiate ended (every negotiate
+ * did, before RomM 5.4) is one the engine counts as finished; and that play
+ * sent with a session's completion lands in the history under this device,
+ * once however often it is sent (M2-06).
  *
  * Only ever against the disposable servers in test/romm/compose.yml.
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomBytes } from 'node:crypto'
-import { negotiatesByGame } from '../../src/main/romm/version.ts'
+import { atLeast, negotiatesByGame } from '../../src/main/romm/version.ts'
 import { instant } from '../../src/main/savedecide.ts'
 import {
   finishSession,
@@ -25,6 +25,13 @@ import {
 } from '../../src/main/savenegotiate.ts'
 import type { RommSyncSave } from '../../src/shared/types/romm.ts'
 import { assertFitsSchema, client, romNamed, state, watch } from '../romm/server.ts'
+
+/**
+ * Before RomM 5.4 every negotiate cancelled the device's open sessions, and
+ * each play row named the sync session that carried it. 5.4 leaves earlier
+ * sessions open, so each can still be completed, and drops that field.
+ */
+const negotiateEndsOpenSessions = (version: string): boolean => !atLeast(version, '5.4.0')
 
 const fresh = (who: string): string =>
   `galleon-test-negotiate-${who}-${randomBytes(6).toString('hex')}`
@@ -113,7 +120,7 @@ test('a session a newer negotiate superseded is finished, not an error', async (
 
   assert.equal(
     await finishSession(fork, first.sessionId, { completed: 0, failed: 0 }),
-    'superseded'
+    negotiateEndsOpenSessions(state.version) ? 'superseded' : 'completed'
   )
   assert.equal(
     await finishSession(fork, second.sessionId, { completed: 1, failed: 0 }),
@@ -130,7 +137,8 @@ interface PlayRow {
   id: number
   device_id: string | null
   rom_id: number | null
-  sync_session_id: number | null
+  /** Absent from RomM 5.4 on (`negotiateEndsOpenSessions`). */
+  sync_session_id?: number | null
   start_time: string
   duration_ms: number
 }
@@ -172,7 +180,12 @@ test("play recorded during a session is sent with the session's completion", asy
 
   const rows = await playOf(inHand.id, fork.id)
   assert.equal(rows.length, 1, JSON.stringify(rows))
-  assert.equal(rows[0].sync_session_id, plan.sessionId)
+  assert.equal(rows[0].device_id, fork.id)
+  if (negotiateEndsOpenSessions(state.version)) {
+    assert.equal(rows[0].sync_session_id, plan.sessionId)
+  } else {
+    assert.equal(rows[0].sync_session_id, undefined)
+  }
   assert.equal(rows[0].duration_ms, 754_000)
   // `instant` counts microseconds, as RomM compares times.
   assert.equal(instant(rows[0].start_time), startedAt.getTime() * 1000)
