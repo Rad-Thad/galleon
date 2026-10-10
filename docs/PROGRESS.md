@@ -1169,3 +1169,22 @@ Lines the tooling reads (exact forms):
 - Device / acceptance: none.
 - Next: M2-05 part 2, the engine: negotiate with the full local inventory on 5.2.0 (or `rom_ids` on 5.3+), drop other games' operations, complete sessions with counts, and the equivalence test on Docker 5.2.0 and 5.3.1.
 - Notes: under `git commit -a` the pre-commit hook's tests write into the caller's temporary index (`error: invalid object ... for 'docs/PROGRESS.md'`), as `agent.test.ts` warns; commit with `git add` and no `-a` until the test that leaks is found.
+
+## 2026-10-10 04:37 UTC session b6e76d7a (routine run)
+
+- Device results: none new. The bridge last checked in at 20:06 UTC; the first nightly was published at 03:59 UTC, after its last visit.
+- Worked on: M2-05 part 2 (tracking issue #120): acceptance lines 3 and 4. Part 1's PR #121 merged at 1009026; its CI wall time was x64 6:50, arm64 2:10.
+- Result: PR (this one). M2-05 stays false until line 2 (the equivalence test).
+- Evidence:
+  - Written from RomM's own `endpoints/sync.py` and `handler/sync/comparison.py`, read out of the pinned 5.2.0 and 5.3.1 images. 5.3.1 widens a `rom_ids` scope with the games of the saves sent and still answers per save; 5.2.0 answers for the whole library. A second negotiate cancels the device's open sessions, and completing a cancelled or completed session is a 400 ("Session is already ...").
+  - `RommClient.negotiate` and `completeSyncSession`; types `RommSyncSave`, `RommSyncNegotiatePayload`, `RommSyncOperation`, `RommSyncNegotiateResponse`, `RommSyncCompletePayload` checked against every committed schema document. `rom_ids` lives on the alias `RommSyncScopedNegotiatePayload`, held to `schema/` by the existing `negotiatesByGame` test.
+  - `src/main/savenegotiate.ts` `negotiateForGame`: on 5.2.0 the whole inventory and no `rom_ids`; on 5.3+ this game's saves and `rom_ids: [romId]`; every operation for another game dropped and counted; null without a device id. `finishSession`: completes with `operations_completed`/`operations_failed`; a 400 or 404 is `superseded`; an outage, a 5xx or a refusal is thrown.
+  - Line 3: `savenegotiate.test.ts` "a pre-launch check never acts on another game's save, though 5.2.0 answers for the library"; `test/saves/negotiate.real.ts` "a pre-launch negotiate never acts on another game's save" (another device's save for a second game is in 5.2.0's answer and is dropped).
+  - Line 4: "a session a newer negotiate cancelled is finished, not an error" (unit) and "a session a newer negotiate superseded is finished, not an error" (real: two negotiates, the first completes as `superseded`, the second as `completed`, then `superseded`).
+  - `npm run test:saves` 37/37 on Docker 5.2.0. Both new real tests also pass on 5.3.1 (`node test/romm/run.mjs --suite saves --profile v531`); `romm.test.ts` 121/121; `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none.
+- Next: M2-05 line 2: a local decider written from `compare_save_state` and the endpoint's pairing rules, and an equivalence test feeding the same scenarios to it and to the real negotiate on Docker 5.2.0 and 5.3.1 (CI's `test:saves` runs only v520 today).
+- Found on the way: the first CI run failed both legs in `Save round trips`: node runs the real test files side by side against one server, and the new test's slotted save on the SNES game showed up in the round trips' negotiates (and every `client()` there is one RomM device, so the "other device" was not other). The test now uploads with no device, for a game no golden fixture uses (`Galleon Test Plain`), and deletes it afterwards. The evaluator's first verdict was FAIL on the same two points, and on a race: every `client()` is one RomM device, so a round trip's negotiate could cancel the line-4 test's session before it completed. Both tests now negotiate as a device registered for them alone. `npm run test:saves` 37/37 three times in a row, the first on a fresh server; both tests pass on 5.3.1.
+- Notes: on 5.3.1, `hash.real.ts` fails one edge case: `endInRawSave` (a raw save holding a zip end record) gets a content hash where 5.2.0 stores none. CI runs 5.2.0 only, so it is not red; the owner's server is 5.2.0 (DEVICE-FACTS), but M2-04's hash must follow 5.3.1 too before line 2 runs there.

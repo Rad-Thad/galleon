@@ -462,6 +462,65 @@ export interface RommSave {
   updated_at: string
 }
 
+/** One local save in the POST /api/sync/negotiate body (`ClientSaveState`). */
+export interface RommSyncSave {
+  rom_id: number
+  file_name: string
+  /** What RomM pairs on, beside `rom_id`. A null slot never pairs: always `upload`. */
+  slot: string | null
+  emulator: string | null
+  content_hash: string | null
+  updated_at: string
+  file_size_bytes: number
+}
+
+/** POST /api/sync/negotiate body (`SyncNegotiatePayload`). */
+export interface RommSyncNegotiatePayload {
+  device_id: string
+  saves: RommSyncSave[]
+}
+
+/**
+ * The same, scoped to some games, which only a server `negotiatesByGame` reads.
+ *
+ * A type alias rather than an interface so the per-version body check leaves
+ * it alone: older RomMs have no `rom_ids`, and which ones do is held to
+ * `schema/` by the test of `negotiatesByGame` instead.
+ */
+export type RommSyncScopedNegotiatePayload = RommSyncNegotiatePayload & { rom_ids: number[] }
+
+export type RommSyncAction = 'upload' | 'download' | 'conflict' | 'no_op'
+
+/** One decision in a negotiate's answer (`SyncOperationSchema`). */
+export interface RommSyncOperation {
+  action: RommSyncAction
+  rom_id: number
+  /** Null for an upload, which has no server save yet. */
+  save_id: number | null
+  file_name: string
+  slot: string | null
+  emulator: string | null
+  reason: string
+  server_updated_at?: string | null
+  server_content_hash?: string | null
+}
+
+/** The answer to POST /api/sync/negotiate (`SyncNegotiateResponse`). */
+export interface RommSyncNegotiateResponse {
+  session_id: number
+  operations: RommSyncOperation[]
+  total_upload: number
+  total_download: number
+  total_conflict: number
+  total_no_op: number
+}
+
+/** POST /api/sync/sessions/{id}/complete body (`SyncCompletePayload`). */
+export interface RommSyncCompletePayload {
+  operations_completed: number
+  operations_failed: number
+}
+
 /** GET /api/states (`StateSchema`). */
 export interface RommState {
   id: number

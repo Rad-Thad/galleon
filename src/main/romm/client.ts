@@ -25,6 +25,10 @@ import type {
   RommSave,
   RomUserStatus,
   RommState,
+  RommSyncCompletePayload,
+  RommSyncNegotiatePayload,
+  RommSyncNegotiateResponse,
+  RommSyncScopedNegotiatePayload,
   RommTokenResponse,
   RommUser,
   RomQuery
@@ -1118,6 +1122,33 @@ export class RommClient {
     })
     if (!res.ok) throw await this.toError(res)
     log.info('romm', 'states deleted on the server', { ids })
+  }
+
+  /**
+   * POST /api/sync/negotiate — RomM's own decision for each save it is told of.
+   *
+   * Not a read: the server cancels this device's open sync sessions and opens
+   * a new one, which is why the answer carries a session to complete. What to
+   * send and which operations to act on is `negotiateForGame`'s business.
+   */
+  negotiate(
+    payload: RommSyncNegotiatePayload | RommSyncScopedNegotiatePayload
+  ): Promise<RommSyncNegotiateResponse> {
+    return this.json<RommSyncNegotiateResponse>('/api/sync/negotiate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+  }
+
+  /** POST /api/sync/sessions/{id}/complete — close a negotiate's session. */
+  async completeSyncSession(sessionId: number, payload: RommSyncCompletePayload): Promise<void> {
+    const res = await this.request(`/api/sync/sessions/${sessionId}/complete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    if (!res.ok) throw await this.toError(res)
   }
 
   async downloadSave(
