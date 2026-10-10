@@ -14,28 +14,37 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomBytes } from 'node:crypto'
-import { writeFileSync } from 'node:fs'
-import { join } from 'node:path'
 import { negotiatesByGame } from '../../src/main/romm/version.ts'
 import { finishSession, negotiateForGame } from '../../src/main/savenegotiate.ts'
 import type { RommSyncSave } from '../../src/shared/types/romm.ts'
-import { assertFitsSchema, client, romNamed, scratch, state, watch } from '../romm/server.ts'
+import { assertFitsSchema, client, romNamed, state, watch } from '../romm/server.ts'
 
 const fresh = (who: string): string =>
   `galleon-test-negotiate-${who}-${randomBytes(6).toString('hex')}`
 
 test("a pre-launch negotiate never acts on another game's save", async (t) => {
   const inHand = await romNamed('Galleon Test Handheld (Europe).gba')
-  const other = await romNamed('Galleon Test Cartridge (USA).sfc')
+  const other = await romNamed('Galleon Test Plain (USA).iso')
 
-  // Another device's save for the other game, which this device has never
-  // seen: the whole-library answer offers it as a download.
-  const file = join(scratch(t), 'other.srm')
-  writeFileSync(file, randomBytes(2048))
-  await client(fresh('elsewhere')).uploadSave(other.id, file, 'other.srm', null, 'autosave', {
-    overwrite: false,
-    autocleanup: false
+  // A save for the other game that this device has never synced, so the
+  // whole-library answer offers it as a download. Uploaded with no device, as
+  // every client() here is one RomM device; and for a game no golden fixture
+  // uses, since the round trips run beside this file against the same server.
+  const form = new FormData()
+  form.append('saveFile', new Blob([randomBytes(2048)]), 'other.srm')
+  const params = new URLSearchParams({
+    rom_id: String(other.id),
+    slot: `galleon-negotiate-${randomBytes(4).toString('hex')}`,
+    overwrite: 'false'
   })
+  const res = await fetch(`${state.baseUrl}/api/saves?${params.toString()}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${state.clientToken}` },
+    body: form
+  })
+  assert.ok(res.ok, `upload: ${res.status} ${await res.clone().text()}`)
+  const uploaded = (await res.json()) as { id: number }
+  t.after(() => client().deleteSaves([uploaded.id]))
 
   const sent = watch()
   const fork = client(fresh('fork'))

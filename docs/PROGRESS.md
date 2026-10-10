@@ -1186,4 +1186,5 @@ Lines the tooling reads (exact forms):
 - Evaluator: see the PR.
 - Device / acceptance: none.
 - Next: M2-05 line 2: a local decider written from `compare_save_state` and the endpoint's pairing rules, and an equivalence test feeding the same scenarios to it and to the real negotiate on Docker 5.2.0 and 5.3.1 (CI's `test:saves` runs only v520 today).
+- Found on the way: the first CI run failed both legs in `Save round trips`: node runs the real test files side by side against one server, and the new test's slotted save on the SNES game showed up in the round trips' negotiates (and every `client()` there is one RomM device, so the "other device" was not other). The test now uploads with no device, for a game no golden fixture uses (`Galleon Test Plain`), and deletes it afterwards; `npm run test:saves` 37/37 again.
 - Notes: on 5.3.1, `hash.real.ts` fails one edge case: `endInRawSave` (a raw save holding a zip end record) gets a content hash where 5.2.0 stores none. CI runs 5.2.0 only, so it is not red; the owner's server is 5.2.0 (DEVICE-FACTS), but M2-04's hash must follow 5.3.1 too before line 2 runs there.
