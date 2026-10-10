@@ -4,6 +4,7 @@
 //
 //   npm run test:romm                       # 5.2.0, then 5.3.1
 //   npm run test:romm -- --profile v531     # one version
+//   npm run test:saves                      # test/saves/*.real.ts on 5.2.0
 //
 // A failing version does not stop the next: the exit code says whether any
 // failed, and the log says which.
@@ -20,7 +21,14 @@ function run(command, args, env = {}) {
   return status === 0
 }
 
-const profiles = profilesFrom(process.argv.slice(2))
+const argv = process.argv.slice(2)
+const at = argv.indexOf('--suite')
+const suite = at === -1 ? 'romm' : argv.splice(at, 2)[1]
+if (suite !== 'romm' && suite !== 'saves') {
+  console.error(`unknown suite ${suite}; one of romm, saves`)
+  process.exit(1)
+}
+const profiles = profilesFrom(argv)
 if (!run('node', ['test/romm/make-library.mjs'])) process.exit(1)
 
 const failed = []
@@ -32,7 +40,7 @@ for (const profile of profiles) {
     run('docker', [...COMPOSE, '--profile', profile, 'up', '-d']) &&
     (run('node', ['test/romm/provision.mjs', '--profile', profile]) ||
       (run('docker', [...COMPOSE, '--profile', profile, 'logs', '--tail', '200']), false)) &&
-    run('npm', ['run', 'test:romm-real'], { ROMM_PROFILE: profile })
+    run('npm', ['run', `test:${suite}-real`], { ROMM_PROFILE: profile })
   console.log(
     `RomM ${profile} ${ok ? 'passed' : 'failed'} in ${Math.round((Date.now() - started) / 1000)}s`
   )
@@ -41,7 +49,7 @@ for (const profile of profiles) {
 }
 
 if (failed.length > 0) {
-  console.error(`test:romm failed on ${failed.join(', ')}`)
+  console.error(`test:${suite} failed on ${failed.join(', ')}`)
   process.exit(1)
 }
-console.log(`test:romm passed on ${profiles.join(', ')}`)
+console.log(`test:${suite} passed on ${profiles.join(', ')}`)

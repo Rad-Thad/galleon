@@ -1100,3 +1100,22 @@ Lines the tooling reads (exact forms):
 - Evaluator: see the PR.
 - Device / acceptance: none.
 - Next: M2-03 part 2, `npm run test:saves`: seed Docker 5.2.0 as an Argosy device with these fixtures, negotiate to `no_op` twice, the fork's upload after Argosy's, in the CI build job on both architectures.
+
+## 2026-10-10 02:26 UTC session 2ca8171f (routine run)
+
+- Device results: none new. The bridge last checked in at 20:06 UTC.
+- Worked on: M2-03 part 2 of 2 (tracking issue #113): `npm run test:saves`. Part 1, PR #114, merged at e68a653; its CI wall time was x64 6:21, arm64 0:50.
+- Result: PR (this one). PASSES M2-03 (ci).
+- Evidence:
+  - `test/saves/roundtrip.real.ts`, 33 tests on Docker RomM 5.2.0, three per fixture. An Argosy stand-in written from SPEC.md (device `client: argosy-launcher`; upload to `autosave` with its tag, `overwrite=false`; negotiate; download with `optimistic=false` then `/downloaded`) and the fork's `RommClient` as the second device.
+  - Line 1: "Argosy's save is stored as sent, and identical bytes on both devices negotiate to no_op twice", for all 11 fixtures (eight systems): RomM's stored tag, size, stamped name and `content_hash` equal the manifest's; Argosy and the fork each get `no_op` twice in a row; the fork downloads the bytes back unchanged.
+  - Line 2: "the fork's upload over Argosy's is refused until the player keeps it, and Argosy then downloads it": `overwrite=false` gets a 409 and leaves the slot as it was; the explicit keep (`overwrite=true`) stores it beside Argosy's (nothing deleted); Argosy's next negotiate answers `download` with the kept save's id. The reverse: "the fork's save reaches a new Argosy device, which then negotiates to no_op twice".
+  - `RommClient.uploadSave` takes `{ overwrite, autocleanup }`; its defaults are unchanged, so the app sends what it did (M2-06 changes them). `romm.test.ts`: "a save sent without overwrite or cleanup says both, slot and all".
+  - Line 4: `release.yml`'s `changes` step sets `saves` for save, client, fixture or Docker RomM changes (and every manual dispatch); the new `Save round trips` step runs `npm run test:saves` on both legs. Lines 3 and 5: part 1.
+  - The Wii ROM joined the Docker library (`make-library.mjs`), so every fixture's game is scanned (8 platforms).
+  - Found on the way: RomM 5.2.0 keeps times to the second and compares them strictly, so a save made within the same second as a device's sync record is not "newer"; the harness waits for the next second before the keep, and M2-05 must expect it.
+  - `npm run test:saves` 33/33 (39 s, run twice against the same server); `ROMM_PROFILE=v520 npm run test:romm-real` 21/21; `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none.
+- Next: M2-04 (`content_hash` exactly as RomM computes it), then M2-07.

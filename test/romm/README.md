@@ -6,6 +6,7 @@ versions the owner's server has run. Nothing persists between runs.
 ```sh
 npm run test:romm                       # all of the below, on 5.2.0 then 5.3.1
 npm run test:romm -- --profile v531     # one version
+npm run test:saves                      # test/saves/*.real.ts, on 5.2.0
 ```
 
 `run.mjs` is that command. By hand:
@@ -28,7 +29,7 @@ docker compose -f test/romm/compose.yml --profile v520 down
 - `make-library.mjs`: writes `library/` (git-ignored) from scratch, the same
   bytes every run: the owner's library shapes (multi-disc folders, a cue/bin
   pair, a PSP folder with extras, an entry with no extension, Dreamcast `.chd`
-  and `.cdi`) as files of a few hundred bytes, and zero-filled firmware stubs.
+  and `.cdi`, a Wii image for the save fixtures) as files of a few hundred bytes, and zero-filled firmware stubs.
   No real game or BIOS bytes. `make-library.test.ts` holds it to that.
 - `scripts/agent/fetch-fixtures.mjs`: adds the homebrew ROMs pinned in
   `test/fixtures/roms/manifest.json` (URL, SHA-256, size, licence, author) to

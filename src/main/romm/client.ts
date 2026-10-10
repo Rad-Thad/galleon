@@ -153,6 +153,14 @@ export function normaliseBaseUrl(input: string): string {
   return parsed.toString().replace(/\/+$/, '')
 }
 
+/** How `RommClient.uploadSave` asks RomM to treat the slot it uploads into. */
+export interface UploadSaveOptions {
+  /** Replace whatever the slot holds, even if another device moved it on. */
+  overwrite?: boolean
+  /** Let RomM delete the slot's oldest copies beyond its own limit. */
+  autocleanup?: boolean
+}
+
 export class RommClient {
   /** Guards against several 401s triggering parallel refreshes. */
   private refreshInFlight: Promise<void> | null = null
@@ -1145,19 +1153,26 @@ export class RommClient {
    * server's own default, deliberately not named here: retention belongs to the
    * machine holding the files, and either way it is more than the single
    * overwritten copy a slotless upload leaves.
+   *
+   * `options` sets both flags apart from that: `overwrite: false` lets RomM
+   * refuse an upload into a slot another device moved on (a 409, see
+   * `RommError.status`), and `autocleanup: false` keeps every copy in the slot.
+   * That is the upload docs/save-sync/SPEC.md (sections 7 and 8) asks for, and
+   * what `npm run test:saves` holds the server to.
    */
   async uploadSave(
     romId: number,
     filePath: string,
     fileName: string,
     emulator: string | null,
-    slot: string | null
+    slot: string | null,
+    { overwrite = true, autocleanup = slot !== null }: UploadSaveOptions = {}
   ): Promise<RommSave> {
-    const params = new URLSearchParams({ rom_id: String(romId), overwrite: 'true' })
+    const params = new URLSearchParams({ rom_id: String(romId), overwrite: String(overwrite) })
     if (emulator) params.set('emulator', emulator)
     if (slot) {
       params.set('slot', slot)
-      params.set('autocleanup', 'true')
+      if (autocleanup) params.set('autocleanup', 'true')
     }
     const deviceId = await this.deviceId()
     if (deviceId) params.set('device_id', deviceId)

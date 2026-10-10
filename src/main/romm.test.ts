@@ -1617,6 +1617,25 @@ describe('firmware, saves and states', () => {
     assert.equal(url.searchParams.get('autocleanup_limit'), null)
   })
 
+  test('a save sent without overwrite or cleanup says both, slot and all', async () => {
+    const { store } = fakeStore({ deviceId: 'romm-device-9' })
+    const file = join(scratch(), 'sonic.srm')
+    writeFileSync(file, 'save bytes')
+    const sent = serve(() => json({ id: 21 }))
+
+    await new RommClient(store).uploadSave(5, file, 'sonic.srm', 'snes9x', 'autosave', {
+      overwrite: false,
+      autocleanup: false
+    })
+
+    const url = new URL(sent[0].url)
+    assert.equal(url.searchParams.get('slot'), 'autosave')
+    // Spelled out rather than left off: RomM's own default could change, and
+    // a refusal is what lets another device's newer save become a question.
+    assert.equal(url.searchParams.get('overwrite'), 'false')
+    assert.equal(url.searchParams.get('autocleanup'), null)
+  })
+
   test('a save from no particular emulator says so by leaving it out', async () => {
     const { store } = fakeStore({ deviceId: 'romm-device-9' })
     const file = join(scratch(), 'sonic.srm')

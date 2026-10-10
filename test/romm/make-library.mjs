@@ -35,6 +35,7 @@ export const ROMS = [
   'roms/ngc/Galleon Test Two Discs (USA)/Galleon Test Two Discs (USA) (Disc 1).iso',
   'roms/ngc/Galleon Test Two Discs (USA)/Galleon Test Two Discs (USA) (Disc 2).iso',
   'roms/ngc/Galleon Test Cube (USA).iso',
+  'roms/wii/Galleon Test Remote (USA).iso',
   // A cue/bin pair at the top level, which RomM lists as two separate ROMs.
   'roms/ps2/Galleon Test Track (USA).cue',
   'roms/ps2/Galleon Test Track (USA).bin',
