@@ -2051,4 +2051,18 @@ describe('settling a conflict the way the player said to', () => {
     assert.equal(readFileSync(path, 'utf8'), 'played here')
     assert.deepEqual(confirmed, [])
   })
+
+  test("a chosen copy in another client's slot is reported, not counted as kept", async () => {
+    const { sync, target, saveDir, confirmed } = setUp({
+      saves: [save({ id: 4, slot: 'autosave' }), save({ id: 8, slot: 'channel-b' })]
+    })
+    const path = join(saveDir, 'Sonic the Hedgehog (USA).srm')
+    writeFileSync(path, 'played here')
+
+    const result = await sync.resolve(target, { keep: 'romm', kind: 'save', id: 8 })
+
+    assert.deepEqual(result, { saves: 0, states: 0, failed: 1, skippedReason: null })
+    assert.equal(readFileSync(path, 'utf8'), 'played here')
+    assert.deepEqual(confirmed, [])
+  })
 })

@@ -1315,18 +1315,18 @@ export class SaveSync {
     }
 
     const picked = chosen === undefined ? usable : usable.filter((item) => item.id === chosen)
+    const wanted = this.toPull(kind, picked)
     // A copy the player chose and this pass will not bring down — gone from
-    // the server, or a state another core wrote — is a choice that did not
+    // the server, a state another core wrote, or a save in another client's
+    // slot, which `toPull` pairs with no file here — is a choice that did not
     // happen, and counted as one so the screen does not report it as done.
-    if (chosen !== undefined && picked.length === 0) {
+    if (chosen !== undefined && wanted.length === 0) {
       log.warn('saves', `the chosen ${kind} is not one this game can take`, {
         romId: target.rom.id,
         id: chosen
       })
       return { written: 0, offered: remote.length, failed: 1 }
     }
-
-    const wanted = this.toPull(kind, picked)
     if (wanted.length === 0) return { written: 0, offered: remote.length, failed: 0 }
 
     /**
