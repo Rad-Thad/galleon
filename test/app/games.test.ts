@@ -1210,10 +1210,10 @@ describe('saves either side of a session', () => {
       emulator: 'retroarch',
       content: 'brought down by hand'
     })
-    // And a state with it, which RomM keeps at its own endpoint and RomMix
-    // writes into a different folder. Nothing had ever pulled one: a state that
-    // landed where saves live would be invisible to the emulator and look
-    // exactly like a sync that worked.
+    // And a state with it, under the tag this RetroArch accepts. Genesis states
+    // stay on the device that made them (`statesSync`): a snapshot loads only in
+    // the core that wrote it, so the pull must leave this one on RomM, and the
+    // row must say why rather than look like a fetch that has not happened yet.
     server.holdState({
       romId: 1,
       fileName: 'cavestory.state1',
@@ -1232,23 +1232,28 @@ describe('saves either side of a session', () => {
        )`,
       'the save to land on this disk'
     )
-    // A wait for each kind, the two being fetched one after the other: the
-    // save is on the disk while the state is still on its way, so a run that
-    // reads the state folder on the first wait alone finds it empty.
-    await saved.waitFor(
-      `(await window.rommix.saves.list(1)).some(
-         (one) => one.fileName === 'cavestory.state1' && one.localPath
-       )`,
-      'the state to land on this disk'
-    )
+    // A second pull queues behind the button's (one sync per game at a time), so
+    // once it answers the first has finished its states pass too.
+    const again = await saved.read<{ states: number }>(`await window.rommix.saves.pull(1)`)
+    assert.equal(again.states, 0)
     assert.equal(readFileSync(join(saveDir, 'cavestory.srm'), 'utf8'), 'brought down by hand')
 
-    // Each kind in the folder its own emulator reads it from — the save beside
-    // the ROM, the state under `states` — which is the whole reason the two are
-    // pulled separately rather than as one list of files.
+    assert.equal(existsSync(join(configHome, 'retroarch', 'states', 'cavestory.state1')), false)
     assert.equal(
-      readFileSync(join(configHome, 'retroarch', 'states', 'cavestory.state1'), 'utf8'),
-      'stopped somewhere else'
+      server.asked.some((one) => one.path.startsWith('/api/states/')),
+      false,
+      'no state should have been downloaded'
+    )
+    const state = await saved.read<{ localPath: string | null; staysOnDevice: boolean }>(
+      `(await window.rommix.saves.list(1)).find((one) => one.kind === 'state')`
+    )
+    assert.deepEqual(state, { ...state, localPath: null, staysOnDevice: true })
+    await saved.choose('[data-tab="saves"]')
+    await saved.waitFor(
+      `[...document.querySelectorAll('.asset-list .status--badge')].some(
+         (one) => one.textContent.includes('Not synced')
+       )`,
+      'the state marked as not synced'
     )
   })
 
@@ -1293,11 +1298,14 @@ describe('saves either side of a session', () => {
     // The list is the point of the question: a push that overwrites the
     // server's copy is worth reading first, and each row says which end is
     // ahead of which.
+    // The state is not on it: Genesis states stay on this device (`statesSync`),
+    // and a dialog that offered one would be promising an upload that the push
+    // will not make.
     await saved.waitFor(`document.querySelector('.overlay .asset__kind')`, 'the preview')
     const listed = await saved.read<string[]>(
       `[...document.querySelectorAll('.overlay .asset__kind')].map((one) => one.dataset.kind)`
     )
-    assert.deepEqual(listed.sort(), ['save', 'state'], `the dialog listed ${listed}`)
+    assert.deepEqual(listed, ['save'], `the dialog listed ${listed}`)
 
     // By name as well as by count: two saves in the folder and one row is the
     // right answer only if the row is the right file.
@@ -1305,7 +1313,7 @@ describe('saves either side of a session', () => {
       await saved.read<string[]>(
         `[...document.querySelectorAll('.overlay .asset__name')].map((one) => one.textContent).sort()`
       ),
-      ['cavestory.srm', 'cavestory.state1']
+      ['cavestory.srm']
     )
   })
 
@@ -1317,22 +1325,29 @@ describe('saves either side of a session', () => {
     // Waited for in Node, because what is being watched is what the server was
     // sent rather than anything the page shows.
     const until = Date.now() + 10_000
-    while (server.uploaded.length - sentSoFar < 2 && Date.now() < until) {
+    while (server.uploaded.length - sentSoFar < 1 && Date.now() < until) {
       await new Promise((done) => setTimeout(done, 100))
     }
+    // The dialog sends only what it listed. A push of everything, which waits
+    // behind it (one sync per game at a time), is what would carry a state
+    // that slipped past the rule.
+    await saved.read(`await window.rommix.saves.push(1)`)
 
-    // A save goes to /api/saves and a state to /api/states, which is RomM's
-    // own split and the one place RomMix could send a state where no state
-    // would ever be found again.
+    // The save to /api/saves, under the game and the emulator that wrote it,
+    // and the state nowhere: it stays on this device.
     const sent = server.uploaded.slice(sentSoFar)
     assert.deepEqual(
-      sent.map((one) => one.kind).sort(),
-      ['save', 'state'],
+      [...new Set(sent.map((one) => one.kind))],
+      ['save'],
       `it sent ${JSON.stringify(sent.map((one) => one.kind))}`
     )
     assert.ok(
       sent.every((one) => one.romId === 1 && one.emulator === core),
-      'both should have been filed under the game and the emulator that wrote them'
+      'the save should have been filed under the game and the emulator that wrote it'
+    )
+    assert.equal(
+      readFileSync(join(configHome, 'retroarch', 'states', 'cavestory.state1'), 'utf8'),
+      'stopped mid-boss'
     )
 
     // And the neighbour stayed where it was. Left on the disk rather than

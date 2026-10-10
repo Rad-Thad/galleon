@@ -19,8 +19,9 @@ import { useI18n } from '../../state'
  * direction across a room and the label supplies the degree; one amber for
  * both directions can be read only by reading it.
  *
- * Nothing is grey. `off` said "there is nothing here" about a file the server is
- * holding, which is the one thing it is not.
+ * None of these is grey. `off` said "there is nothing here" about a file the
+ * server is holding, which is the one thing it is not; the grey left is
+ * `NOT_SYNCED`'s.
  */
 const SYNC_BADGES: Record<
   SaveSyncState,
@@ -87,6 +88,22 @@ const OTHER_EMULATOR: (typeof SYNC_BADGES)[SaveSyncState] = {
 }
 
 /**
+ * The seventh, for a state that is going nowhere by design.
+ *
+ * States travel only where every device runs the same core (`statesSync`), so
+ * elsewhere a state stays on the device that made it, and a row RomM holds is
+ * one this device will not fetch. Grey, the one grey on the tab, because this
+ * is the one row with nothing unfinished about it: no button moves it, and
+ * nothing went wrong.
+ */
+const NOT_SYNCED: (typeof SYNC_BADGES)[SaveSyncState] = {
+  label: 'saves.stateNotSynced',
+  tone: 'off',
+  icon: 'saves',
+  hint: 'saves.stateNotSyncedHint'
+}
+
+/**
  * Which side is ahead, as one chip.
  *
  * A component rather than the table alone, because two lists draw it — the
@@ -95,10 +112,12 @@ const OTHER_EMULATOR: (typeof SYNC_BADGES)[SaveSyncState] = {
  */
 export function SyncBadge({
   sync,
-  forAnotherEmulator = false
+  forAnotherEmulator = false,
+  staysOnDevice = false
 }: {
   sync: SaveSyncState
   forAnotherEmulator?: boolean
+  staysOnDevice?: boolean
 }): JSX.Element {
   const { t } = useI18n()
   /**
@@ -111,7 +130,10 @@ export function SyncBadge({
    * something on the tag's behalf that the tag is the reason against. The
    * emulator chip beside it names the one that wrote it.
    */
-  const badge = forAnotherEmulator ? OTHER_EMULATOR : SYNC_BADGES[sync]
+  //
+  // Another emulator's state outranks one that stays here: both go nowhere, and
+  // the tag is the more specific of the two reasons.
+  const badge = forAnotherEmulator ? OTHER_EMULATOR : staysOnDevice ? NOT_SYNCED : SYNC_BADGES[sync]
   return (
     <StatusBadge tone={badge.tone} icon={badge.icon} label={t(badge.label)} title={t(badge.hint)} />
   )

@@ -587,6 +587,9 @@ export const de: Catalog = {
   'saves.otherEmulator': 'Inkompatibel',
   'saves.otherEmulatorHint':
     'Von einem anderen Emulator geschrieben. Spielstände holen lädt ihn nicht herunter.',
+  'saves.stateNotSynced': 'Nicht abgeglichen',
+  'saves.stateNotSyncedHint':
+    'Savestates dieses Emulators laden nur im selben Core und bleiben daher auf dem Gerät, das sie erstellt hat.',
   'saves.fromDevice': 'von {device}',
   'saves.scopeLocal': 'von diesem Gerät',
   'saves.scopeRemote': 'von RomM',

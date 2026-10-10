@@ -577,6 +577,9 @@ export const en = {
   'saves.remoteOnlyHint': 'Only on RomM. Pull saves fetches it.',
   'saves.otherEmulator': 'Incompatible',
   'saves.otherEmulatorHint': 'Written by another emulator. Pull saves will leave it.',
+  'saves.stateNotSynced': 'Not synced',
+  'saves.stateNotSyncedHint':
+    'States for this emulator only load in the same core, so they stay on the device that made them.',
   'saves.fromDevice': 'from {device}',
   'saves.scopeLocal': 'from this device',
   'saves.scopeRemote': 'from RomM',

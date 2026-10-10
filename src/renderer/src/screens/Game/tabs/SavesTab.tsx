@@ -88,7 +88,11 @@ export function SavesTab({
             </span>
             {/* Which side has it and whether they agree — and so which button,
                 if any, would do something about this row. */}
-            <SyncBadge sync={asset.sync} forAnotherEmulator={asset.forAnotherEmulator} />
+            <SyncBadge
+              sync={asset.sync}
+              forAnotherEmulator={asset.forAnotherEmulator}
+              staysOnDevice={asset.staysOnDevice}
+            />
             {/* What the file is, as the chips the game's own header uses for
                 the same shape of fact: the emulator that wrote it, the slot it
                 is filed under, how much room it takes. Marked ones, because a

@@ -582,6 +582,9 @@ export const fr: Catalog = {
   'saves.otherEmulator': 'Incompatible',
   'saves.otherEmulatorHint':
     'Écrite par un autre émulateur. Récupérer les sauvegardes ne la rapatriera pas.',
+  'saves.stateNotSynced': 'Non synchronisé',
+  'saves.stateNotSyncedHint':
+    'Les états de cet émulateur ne se chargent que dans le même cœur : ils restent sur l’appareil qui les a créés.',
   'saves.fromDevice': 'depuis {device}',
   'saves.scopeLocal': 'de cet appareil',
   'saves.scopeRemote': 'de RomM',

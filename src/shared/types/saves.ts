@@ -92,6 +92,17 @@ export interface SaveAsset {
    * the row says "another emulator" rather than anything about being unusable.
    */
   forAnotherEmulator: boolean
+  /**
+   * A state of a game whose states do not sync under the emulator it runs in,
+   * so no pull or push will move this row in either direction.
+   *
+   * Only ever true of a state: a snapshot loads only in the core that wrote
+   * it, and the main process keeps states local wherever the other devices
+   * may not run that core (`statesSync` in `src/config/`). Like
+   * `forAnotherEmulator`, it follows the emulator this game is set to run
+   * under.
+   */
+  staysOnDevice: boolean
   /** The file in the emulator's save tree, when this device has one. */
   localPath: string | null
   /** Its modification time on this device, ISO. Null when only RomM has it. */

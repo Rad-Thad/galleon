@@ -1,7 +1,7 @@
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { startApp, type App } from './driver.ts'
+import { atHome, standInEmulator, startApp, type App } from './driver.ts'
 import { startScenario } from './harness.ts'
 import { layoutOffenders, MEASURE_LAYOUT, type Layout } from './layout.ts'
 import { startFakeRomm } from './server.ts'
@@ -330,10 +330,82 @@ async function iconless(): Promise<void> {
   }
 }
 
+/**
+ * The Saves tab of a game whose states stay on this device (M2-15).
+ *
+ * A Genesis game under RetroArch, whose states `statesSync` keeps local: one
+ * this device made and one RomM holds from elsewhere, beside a save that does
+ * sync, so the grey badge is seen against the ones that move.
+ */
+async function localStates(): Promise<void> {
+  const server = await startFakeRomm()
+  const configHome = join(HOMES, 'states-xdg')
+  rmSync(configHome, { recursive: true, force: true })
+  const stateDir = join(configHome, 'retroarch', 'states')
+  mkdirSync(stateDir, { recursive: true })
+  writeFileSync(join(stateDir, 'cavestory.state1'), 'stopped mid-boss')
+  server.holdSave({
+    romId: 1,
+    fileName: 'cavestory.srm',
+    emulator: 'genesis_plus_gx',
+    content: 'from another device'
+  })
+  server.holdState({
+    romId: 1,
+    fileName: 'cavestory.state2',
+    emulator: 'genesis_plus_gx',
+    content: 'stopped somewhere else'
+  })
+  const app = await startApp({
+    baseUrl: server.baseUrl,
+    token: server.token,
+    settings: {
+      systemEmulators: { genesis: 'retroarch' },
+      emulatorPaths: { retroarch: standInEmulator().path }
+    },
+    env: { XDG_CONFIG_HOME: configHome },
+    viewport: NOVA,
+    home: join(HOMES, 'states')
+  })
+  try {
+    await attempt('game-saves-states', async () => {
+      await atHome(app)
+      await app.goTo('library')
+      await app.waitFor(`document.querySelector('[data-rom="1"]')`, 'the library to fill')
+      await app.choose('[data-rom="1"]')
+      await app.waitFor(`document.querySelector('[data-screen="game"]')`, 'the game page')
+      await app.choose('[data-action="download"]')
+      await app.waitFor(
+        `(await window.rommix.library.installed()).some((one) => one.romId === 1)`,
+        'the game to arrive'
+      )
+      // Entered again, so the list is read with the game on this device: it is
+      // the installed copy that names the emulator whose rule applies.
+      await app.goTo('library')
+      await app.choose('[data-rom="1"]')
+      await app.waitFor(`document.querySelector('[data-screen="game"]')`, 'the game page')
+      await app.choose('[data-tab="saves"]')
+      await app.waitFor(
+        `[...document.querySelectorAll('.asset-list .status--badge')].filter(
+           (one) => one.dataset.state === 'off'
+         ).length === 2`,
+        'both states marked as not synced'
+      )
+      // The download's toasts sit over the header; the shot is of the tab.
+      await app.waitFor(`!document.querySelector('.toast')`, 'the toasts to go', 20_000)
+      await shoot(app, 'game-saves-states')
+    })
+  } finally {
+    await app.stop()
+    await server.close().catch(() => undefined)
+  }
+}
+
 rmSync(OUT, { recursive: true, force: true })
 mkdirSync(OUT, { recursive: true })
 await signedIn()
 if (wanted('library-iconless')) await iconless()
+if (wanted('game-saves-states')) await localStates()
 await setup()
 contactSheet()
 
