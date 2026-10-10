@@ -404,12 +404,15 @@ export function useGameSaves(
         answered: passed.current.size
       }
       setConflicts(rest.list.length > 0 ? rest : null)
-      await reload()
     } finally {
       answering.current = false
       setBusy(false)
       setProgress(null)
     }
+    // Outside the guard: the next question is already on screen, and an answer
+    // given while the Saves tab catches up is the player's to have heard. A
+    // later refresh overtaking this one is what `run` is for.
+    await reload()
   }
 
   return {

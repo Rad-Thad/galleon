@@ -82,6 +82,11 @@ export interface FakeRomm {
    * these on one game is the thing worth being able to set up.
    */
   holdPlaySession: (session: { romId: number; seconds: number }) => void
+  /**
+   * Answer every listing of saves this much later, for a scenario that needs
+   * the app caught between asking and hearing back. Zero answers at once.
+   */
+  slowSaveListings: (ms: number) => void
   /** The same for a save state, which RomM keeps at its own endpoint. */
   holdState: (state: { romId: number; fileName: string; emulator: string; content: string }) => void
   /** Saves and states this server was sent, in order. */
@@ -875,6 +880,7 @@ export async function startFakeRomm(options: FakeRommOptions = {}): Promise<Fake
    */
   let pairing: { userCode: string; deviceCode: string; approved: boolean } | null = null
 
+  let saveListingDelay = 0
   const server: Server = createServer((req, res) => {
     const chunks: Buffer[] = []
     req.on('data', (chunk: Buffer) => chunks.push(chunk))
@@ -1242,7 +1248,11 @@ export async function startFakeRomm(options: FakeRommOptions = {}): Promise<Fake
         }
         const romId = Number(url.searchParams.get('rom_id') ?? 0)
         const asking = url.searchParams.get('device_id')
-        return json(
+        const listing = (body: unknown): void => {
+          if (saveListingDelay > 0) setTimeout(() => json(body), saveListingDelay)
+          else json(body)
+        }
+        return listing(
           held
             .filter((one) => one.save.rom_id === romId)
             .map((one) =>
@@ -1433,6 +1443,9 @@ export async function startFakeRomm(options: FakeRommOptions = {}): Promise<Fake
     asked,
     platforms,
     uploaded,
+    slowSaveListings: (ms) => {
+      saveListingDelay = ms
+    },
     holdPlaySession: ({ romId, seconds }) => {
       PLAY_SESSIONS.set(romId, [...(PLAY_SESSIONS.get(romId) ?? []), seconds * 1000])
     },

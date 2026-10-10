@@ -1350,6 +1350,7 @@ Lines the tooling reads (exact forms):
   - Line 2: "the playlist path never has .m3u in a folder name" (a RomM folder named `… (USA).m3u`), plus `gameFolderName` units.
   - 4 of the 5 download tests and the install test fail on 73c7193 (checked by the evaluator).
   - `scripts/agent/check.sh` green; `npm run test:romm` 22/22; `npm run test:app` 229/229.
+  - Flaky (#139): the PR's x64 leg failed `test/app/conflicts.test.ts` (keep this device's never closed the dialog). A real bug from M2-16: `answerConflict` held its `answering` guard through the Saves-tab `reload()` after the next conflict was on screen, so a press in that window was dropped. New `FakeRomm.slowSaveListings` makes the scenario press in that window: fails every time before, 3/3 after the guard is released before the refresh.
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Evaluator: see the PR.
 - Device / acceptance: none.
