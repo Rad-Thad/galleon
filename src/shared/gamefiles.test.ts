@@ -4,9 +4,14 @@ import {
   archiveIsTheRom,
   chooseLaunchFile,
   fileNameOf,
+  discsOf,
   folderOf,
-  isLaunchable
+  gameFolderName,
+  isLaunchable,
+  pathInGame,
+  playlistFor
 } from './gamefiles.ts'
+import type { RommRomFile } from './types/romm.ts'
 
 const file = (name: string, sizeBytes = 1024): { name: string; sizeBytes: number } => ({
   name,
@@ -230,4 +235,57 @@ test('a name with no directory in front of it has no folder to name', () => {
 
 test('a file at the root is in the root', () => {
   assert.equal(folderOf('/rommix.AppImage'), '')
+})
+
+const romFile = (file_name: string, file_path: string): RommRomFile =>
+  ({ file_name, file_path }) as RommRomFile
+
+test("a file keeps the folders below the game's own, and only those", () => {
+  const game = { fs_path: 'roms/dc', fs_name: 'Dream Set (USA)' }
+  assert.equal(
+    pathInGame(game, romFile('track01.bin', 'roms/dc/Dream Set (USA)/Disc 2')),
+    'Disc 2/track01.bin'
+  )
+  assert.equal(pathInGame(game, romFile('a.gdi', 'roms/dc/Dream Set (USA)/')), 'a.gdi')
+  // A library mounted under another prefix still finds the game by its folder.
+  assert.equal(
+    pathInGame(game, romFile('t.bin', 'library/roms/dc/Dream Set (USA)/Disc 1')),
+    'Disc 1/t.bin'
+  )
+  // Nothing to line up with: the leaf, as before.
+  assert.equal(pathInGame(game, romFile('t.bin', 'elsewhere/x')), 't.bin')
+})
+
+test('discs are the descriptors of each folder, or its images, in number order', () => {
+  assert.deepEqual(
+    discsOf([
+      'Disc 10/disc.gdi',
+      'Disc 10/track01.bin',
+      'Disc 2/disc.gdi',
+      'Disc 2/track01.bin',
+      'readme.txt'
+    ]),
+    ['Disc 2/disc.gdi', 'Disc 10/disc.gdi']
+  )
+  assert.deepEqual(discsOf(['B (Disc 2).chd', 'B (Disc 1).chd', 'cover.png']), [
+    'B (Disc 1).chd',
+    'B (Disc 2).chd'
+  ])
+  // A cue beside its tracks is one disc, whatever the tracks are called.
+  assert.deepEqual(discsOf(['A.cue', 'A (Track 1).bin', 'A (Track 2).bin']), ['A.cue'])
+})
+
+test('a playlist only for several discs on a system that changes discs by one', () => {
+  const two = ['G (Disc 1).iso', 'G (Disc 2).iso']
+  assert.equal(playlistFor(two, 'gc'), 'G (Disc 1).iso\nG (Disc 2).iso\n')
+  assert.equal(playlistFor(['G (Disc 1).iso'], 'gc'), null)
+  assert.equal(playlistFor(two, 'switch'), null)
+  assert.equal(playlistFor(two, 'ps2'), null)
+})
+
+test('a game folder never carries .m3u in its name', () => {
+  assert.equal(gameFolderName('Saga (USA).m3u'), 'Saga (USA)')
+  assert.equal(gameFolderName('Saga.M3U (USA)'), 'Saga (USA)')
+  assert.equal(gameFolderName('.m3u'), 'game')
+  assert.equal(gameFolderName('Saga (USA)'), 'Saga (USA)')
 })

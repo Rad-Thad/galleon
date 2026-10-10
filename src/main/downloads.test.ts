@@ -15,12 +15,13 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  statSync,
   truncateSync,
   writeFileSync
 } from 'node:fs'
 import { readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, relative, sep } from 'node:path'
 import type { EmulatorState } from '@config/emulators'
 import { SHARED_LIBRARY, type DownloadItem, type RommRom } from '@shared/types'
 import { spaceOf } from './disk.ts'
@@ -1901,5 +1902,150 @@ describe('the room on the drive', () => {
     await downloads.enqueue(rom({ fs_size_bytes: total }))
 
     assert.equal((await settled(downloads, 1)).state, 'done')
+  })
+})
+
+describe('a game of several discs', () => {
+  /**
+   * A multi-file game as RomM describes one: each file named by its leaf, with
+   * the folder it was found in beside it. The shapes are the synthetic
+   * library's (test/romm/make-library.mjs), which are the owner's.
+   */
+  function discSet(
+    platform: string,
+    folder: string,
+    files: { path: string; bytes: number }[],
+    id = 7
+  ): RommRom {
+    return rom({
+      id,
+      name: folder,
+      fs_name: folder,
+      fs_name_no_ext: folder,
+      fs_extension: '',
+      fs_path: `roms/${platform}`,
+      has_multiple_files: true,
+      // RomM's slug for the system, beside the owner's folder name for it.
+      platform_slug: platform === 'ps1' ? 'psx' : platform,
+      platform_fs_slug: platform,
+      files: files.map(({ path, bytes }, at) => {
+        const cut = path.lastIndexOf('/')
+        const below = cut === -1 ? '' : `/${path.slice(0, cut)}`
+        return {
+          id: at + 1,
+          rom_id: id,
+          file_name: path.slice(cut + 1),
+          file_path: `roms/${platform}/${folder}${below}`,
+          file_size_bytes: bytes
+        }
+      }) as RommRom['files']
+    })
+  }
+
+  test("a PS1 folder of discs is launched by Galleon's own playlist, in disc order", async () => {
+    const { downloads, store, root } = manager({ perFile: true })
+    const saga = 'Galleon Test Saga (USA)'
+    await downloads.enqueue(
+      discSet('ps1', saga, [
+        { path: `${saga} (Disc 2).chd`, bytes: 20 },
+        { path: `${saga} (Disc 10).chd`, bytes: 30 },
+        { path: `${saga} (Disc 1).chd`, bytes: 10 }
+      ])
+    )
+    assert.equal((await settled(downloads, 7)).state, 'done')
+
+    const dir = join(root, 'roms', 'psx', saga)
+    const installed = store.getInstalled(7)
+    assert.equal(installed?.launchPath, join(dir, `${saga}.m3u`))
+    assert.equal(
+      readFileSync(join(dir, `${saga}.m3u`), 'utf8'),
+      `${saga} (Disc 1).chd\n${saga} (Disc 2).chd\n${saga} (Disc 10).chd\n`
+    )
+    assert.ok(installed?.files.includes(`${saga}.m3u`))
+  })
+
+  test('a GameCube folder of two discs gets the same, and a server playlist is never fetched', async () => {
+    const { downloads, store, root } = manager({ perFile: true })
+    const cube = 'Galleon Test Two Discs (USA)'
+    await downloads.enqueue(
+      discSet('ngc', cube, [
+        { path: `${cube} (Disc 1).iso`, bytes: 10 },
+        { path: `${cube} (Disc 2).iso`, bytes: 20 },
+        // Written for a layout that is not this one, so it is not followed.
+        { path: `${cube}.m3u`, bytes: 99 }
+      ])
+    )
+    assert.equal((await settled(downloads, 7)).state, 'done')
+
+    const dir = join(root, 'roms', 'gc', cube)
+    assert.equal(
+      readFileSync(join(dir, `${cube}.m3u`), 'utf8'),
+      `${cube} (Disc 1).iso\n${cube} (Disc 2).iso\n`
+    )
+    assert.equal(store.getInstalled(7)?.launchPath, join(dir, `${cube}.m3u`))
+  })
+
+  test('generic track names in a folder per disc keep to their own disc', async () => {
+    const { downloads, store, root } = manager({ perFile: true })
+    const dream = 'Galleon Test Dream Set (USA)'
+    const disc = (n: number, size: number): { path: string; bytes: number }[] => [
+      { path: `Disc ${n}/disc.gdi`, bytes: 8 },
+      { path: `Disc ${n}/track01.bin`, bytes: size },
+      { path: `Disc ${n}/track02.raw`, bytes: size + 1 },
+      { path: `Disc ${n}/track03.bin`, bytes: size + 2 }
+    ]
+    await downloads.enqueue(discSet('dc', dream, [...disc(1, 10), ...disc(2, 40)]))
+    assert.equal((await settled(downloads, 7)).state, 'done')
+
+    const dir = join(root, 'roms', 'dreamcast', dream)
+    // Each disc's tracks are its own bytes, not the other disc's written over them.
+    assert.equal(statSync(join(dir, 'Disc 1', 'track01.bin')).size, 10)
+    assert.equal(statSync(join(dir, 'Disc 2', 'track01.bin')).size, 40)
+    assert.equal(statSync(join(dir, 'Disc 2', 'track03.bin')).size, 42)
+    assert.equal(
+      readFileSync(join(dir, `${dream}.m3u`), 'utf8'),
+      'Disc 1/disc.gdi\nDisc 2/disc.gdi\n'
+    )
+    const installed = store.getInstalled(7)
+    assert.equal(installed?.launchPath, join(dir, `${dream}.m3u`))
+    assert.equal(installed?.files.filter((name) => name.endsWith('track01.bin')).length, 2)
+  })
+
+  test('the playlist path never has .m3u in a folder name', async () => {
+    const { downloads, store, root } = manager({ perFile: true })
+    // RomM holds this set in a folder named like a playlist, as some libraries do.
+    const named = 'Galleon Test Saga (USA).m3u'
+    await downloads.enqueue(
+      discSet('ps1', named, [
+        { path: 'Galleon Test Saga (USA) (Disc 1).chd', bytes: 10 },
+        { path: 'Galleon Test Saga (USA) (Disc 2).chd', bytes: 20 }
+      ])
+    )
+    assert.equal((await settled(downloads, 7)).state, 'done')
+
+    const playlist = store.getInstalled(7)?.launchPath ?? ''
+    assert.ok(playlist.endsWith('.m3u'), playlist)
+    const folders = relative(root, playlist).split(sep).slice(0, -1)
+    assert.deepEqual(
+      folders.filter((folder) => folder.toLowerCase().includes('.m3u')),
+      []
+    )
+    assert.ok(existsSync(playlist))
+  })
+
+  test('a game of one disc writes none and launches its descriptor', async () => {
+    const { downloads, store, root } = manager({ perFile: true })
+    const single = 'Galleon Test Single Track (USA)'
+    await downloads.enqueue(
+      discSet('ps1', single, [
+        { path: `${single}.cue`, bytes: 8 },
+        { path: `${single} (Track 1).bin`, bytes: 64 },
+        { path: `${single} (Track 2).bin`, bytes: 32 }
+      ])
+    )
+    assert.equal((await settled(downloads, 7)).state, 'done')
+    const dir = join(root, 'roms', 'psx', single)
+    assert.equal(store.getInstalled(7)?.launchPath, join(dir, `${single}.cue`))
+    assert.equal(existsSync(join(dir, `${single}.m3u`)), false)
   })
 })

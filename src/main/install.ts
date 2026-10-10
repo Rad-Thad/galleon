@@ -1,7 +1,13 @@
-import { readdir, rename, rm, stat } from 'node:fs/promises'
+import { readdir, rename, rm, stat, writeFile } from 'node:fs/promises'
 import type { Dirent } from 'node:fs'
 import { basename, dirname, extname, join, relative } from 'node:path'
-import { chooseLaunchFile } from '@shared/gamefiles'
+import {
+  chooseLaunchFile,
+  discsOf,
+  gameFolderName,
+  isServerPlaylist,
+  playlistFor
+} from '@shared/gamefiles'
 import type { RommRom } from '@shared/types'
 import { safeJoin } from './safepath.ts'
 import { extractZip } from './zip.ts'
@@ -50,6 +56,32 @@ export async function pickLaunchFile(dir: string, system: string): Promise<strin
   )
   const chosen = chooseLaunchFile(sized, system)
   return chosen ? join(dir, chosen) : null
+}
+
+/**
+ * Write the playlist a game of several discs is launched by, and name it.
+ *
+ * `files` is what the game is made of, relative to `gameDir`. Null where the
+ * game takes no playlist (see `playlistFor`); then the launch file is chosen as
+ * for any other game. A playlist the server sent is passed over, never read:
+ * the one written here lists the discs that are actually in the folder, and
+ * takes the folder's own name, which carries no `.m3u` (see `gameFolderName`).
+ */
+export async function writePlaylist(
+  gameDir: string,
+  files: readonly string[],
+  system: string
+): Promise<string | null> {
+  const discs = files.filter((file) => !isServerPlaylist(file))
+  const text = playlistFor(discs, system)
+  if (text === null) return null
+  const name = `${basename(gameDir)}.m3u`
+  await writeFile(join(gameDir, name), text)
+  log.info('install', 'wrote a playlist for the discs', {
+    dir: gameDir,
+    discs: discsOf(discs).length
+  })
+  return name
 }
 
 export interface InstallResult {
@@ -124,7 +156,7 @@ export async function unpack(
   // `targetPath` came through `Library.plan`, which has already refused a name
   // that leaves the system folder; the staging name is derived here and gets
   // the same check.
-  const staged = await safeJoin(systemDir, rom.fs_name_no_ext)
+  const staged = await safeJoin(systemDir, gameFolderName(rom.fs_name_no_ext))
   if (!staged) {
     log.error('install', 'refused a name that leaves the system folder', undefined, {
       romId: rom.id,
@@ -260,12 +292,16 @@ export async function unpack(
     dir: dirTarget
   })
 
+  const files = (await installedFiles(dirTarget)).filter((file) => !isServerPlaylist(file))
+  const playlist = await writePlaylist(dirTarget, files, system)
   return {
     path: dirTarget,
-    launchPath: (await pickLaunchFile(dirTarget, system)) ?? dirTarget,
+    launchPath: playlist
+      ? join(dirTarget, playlist)
+      : ((await pickLaunchFile(dirTarget, system)) ?? dirTarget),
     sizeBytes: await directorySize(dirTarget),
     isDirectory: true,
-    files: await installedFiles(dirTarget)
+    files: playlist ? [...files, playlist].sort() : await installedFiles(dirTarget)
   }
 }
 

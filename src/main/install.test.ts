@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { afterEach, describe, test } from 'node:test'
-import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 import type { RommRom } from '@shared/types'
@@ -372,5 +372,39 @@ describe('what a game is recorded as consisting of', () => {
     )
 
     assert.deepEqual(installed.files?.sort(), ['disc.bin', 'disc.cue'])
+  })
+})
+
+describe('a disc set that arrives as one archive', () => {
+  test("is launched by Galleon's playlist, never the one RomM put in the archive", async () => {
+    const { zip, dir } = await archiveOf({
+      'Disc 1/disc.gdi': 'one',
+      'Disc 1/track01.bin': 'first disc',
+      'Disc 2/disc.gdi': 'two',
+      'Disc 2/track01.bin': 'second disc',
+      'Set (USA).m3u': 'Set (USA) (Disc 1).cue\n'
+    })
+    scratches.push(dir)
+    const target = join(dir, 'Set (USA)')
+
+    const installed = await unpack(
+      rom({ fs_name: 'Set (USA).m3u', fs_name_no_ext: 'Set (USA)', fs_extension: 'm3u' }),
+      zip,
+      dir,
+      'dreamcast',
+      target,
+      true
+    )
+
+    assert.equal(installed.launchPath, join(target, 'Set (USA).m3u'))
+    assert.equal(readFileSync(installed.launchPath, 'utf8'), 'Disc 1/disc.gdi\nDisc 2/disc.gdi\n')
+    assert.equal(readFileSync(join(target, 'Disc 2', 'track01.bin'), 'utf8'), 'second disc')
+    assert.deepEqual(installed.files, [
+      'Disc 1/disc.gdi',
+      'Disc 1/track01.bin',
+      'Disc 2/disc.gdi',
+      'Disc 2/track01.bin',
+      'Set (USA).m3u'
+    ])
   })
 })

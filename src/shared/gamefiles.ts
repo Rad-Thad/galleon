@@ -4,10 +4,13 @@
 import {
   CONTAINER_SYSTEMS,
   DESCRIPTOR_EXTENSIONS,
+  DISC_IMAGE_EXTENSIONS,
+  PLAYLIST_SYSTEMS,
   ROMSET_SYSTEMS,
   SIDECAR_EXTENSIONS
 } from '../config/romfiles.ts'
 import type { ContainerFormat } from '../config/romfiles.ts'
+import type { RommRom, RommRomFile } from './types/romm.ts'
 
 /**
  * The file at the end of a path.
@@ -151,4 +154,105 @@ function largest(files: readonly GameFile[]): GameFile {
     if (file.sizeBytes > best.sizeBytes) best = file
   }
   return best
+}
+
+/**
+ * Where one of a multi-file game's files sits inside the game's own folder.
+ *
+ * RomM names each file by its leaf alone, and a disc set laid out as a folder
+ * per disc repeats those leaves: every Dreamcast disc has its own
+ * `track01.bin`. Written by leaf they land on one another, and the second disc
+ * replaces the first's tracks. The folder RomM found the file in is
+ * `file_path`, which is the ROM's `fs_path`, then the game's folder, then
+ * whatever lies below it; what lies below is kept. Where the two do not line
+ * up the leaf is all there is to go on.
+ */
+export function pathInGame(
+  rom: Pick<RommRom, 'fs_path' | 'fs_name'>,
+  file: Pick<RommRomFile, 'file_name' | 'file_path'>
+): string {
+  const segments = (path: string): string[] =>
+    path.split('/').filter((segment) => segment !== '' && segment !== '.')
+  let dir = segments(file.file_path ?? '')
+  const base = segments(rom.fs_path ?? '')
+  if (base.length > 0 && base.every((segment, at) => dir[at] === segment)) {
+    dir = dir.slice(base.length)
+  } else {
+    const at = dir.indexOf(rom.fs_name)
+    if (at === -1) return file.file_name
+    dir = dir.slice(at)
+  }
+  if (dir[0] === rom.fs_name) dir = dir.slice(1)
+  return [...dir, file.file_name].join('/')
+}
+
+/**
+ * Is this a playlist the server keeps for a game?
+ *
+ * Never fetched or launched: it lists discs by whatever paths its author's
+ * layout had, which is not the layout this download makes, and Galleon writes
+ * its own from the discs that actually arrived. See `discsOf`.
+ */
+export function isServerPlaylist(name: string): boolean {
+  return extensionOf(name) === '.m3u'
+}
+
+const DISC_IMAGES: ReadonlySet<string> = new Set(DISC_IMAGE_EXTENSIONS)
+const PLAYLISTS: ReadonlySet<string> = new Set(PLAYLIST_SYSTEMS)
+const TRACK_DESCRIPTORS: ReadonlySet<string> = new Set(
+  DESCRIPTOR_EXTENSIONS.filter((extension) => extension !== '.m3u')
+)
+
+/**
+ * The discs of a game, in play order, as paths relative to its folder.
+ *
+ * Read from the files the game is made of rather than from what sits beside
+ * them on disk, so nothing that happens to share the folder becomes a disc.
+ * Each folder answers for itself: its descriptors where it has any, since a
+ * `.cue` or `.gdi` is the disc and the tracks it names are not, and otherwise
+ * its whole disc images. Ordered by number as well as by letter, so a tenth
+ * disc follows the ninth.
+ */
+export function discsOf(paths: readonly string[]): string[] {
+  const byFolder = new Map<string, string[]>()
+  for (const path of paths) {
+    const folder = path.includes('/') ? folderOf(path) : ''
+    byFolder.set(folder, [...(byFolder.get(folder) ?? []), path])
+  }
+  const discs: string[] = []
+  for (const inFolder of byFolder.values()) {
+    const descriptors = inFolder.filter((path) => TRACK_DESCRIPTORS.has(extensionOf(path)))
+    discs.push(
+      ...(descriptors.length > 0
+        ? descriptors
+        : inFolder.filter((path) => DISC_IMAGES.has(extensionOf(path))))
+    )
+  }
+  return discs.sort((a, b) => a.localeCompare(b, 'en', { numeric: true }))
+}
+
+/**
+ * The playlist Galleon writes for a game, or null where it writes none.
+ *
+ * One only for a game of more than one disc on a system that changes discs
+ * through a playlist. The lines are relative to the playlist, which sits at the
+ * top of the game's folder.
+ */
+export function playlistFor(paths: readonly string[], system: string): string | null {
+  if (!PLAYLISTS.has(system)) return null
+  const discs = discsOf(paths)
+  return discs.length > 1 ? discs.map((disc) => `${disc}\n`).join('') : null
+}
+
+/**
+ * The name of a multi-file game's folder on this disk.
+ *
+ * An emulator can read any path with `.m3u` in it as a playlist, folders
+ * included, and a folder RomM holds a disc set in is often named that way. So
+ * the folder Galleon makes for a game never carries it, and nor does the path
+ * of the playlist written into it.
+ */
+export function gameFolderName(name: string): string {
+  const cleaned = name.replace(/\.m3u/gi, '').trim()
+  return cleaned === '' ? 'game' : cleaned
 }
