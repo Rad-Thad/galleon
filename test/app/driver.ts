@@ -1187,6 +1187,14 @@ export async function startApp(options: StartOptions): Promise<App> {
    * row whose order the page will simply state, and a walk that pressed Right
    * until something looked right would leave the bar the moment it ran off the
    * end of it.
+   *
+   * Home is waited for until it has settled, for the reason `atHome` gives: its
+   * hero takes the highlight when the shelves answer, and a walk to the next
+   * section started before then has its last press land on the hero's game.
+   * The hero is only drawn when a shelf has something, so a library with
+   * nothing in it has settled once the shelves have answered. Choosing home
+   * from home redraws nothing, so the highlight stays in the bar and there is
+   * nothing to wait for.
    */
   const goTo = async (route: string): Promise<void> => {
     const item = `.topbar__nav [data-route="${route}"]`
@@ -1230,7 +1238,24 @@ export async function startApp(options: StartOptions): Promise<App> {
         if (!(await inBar())) break
         await press(distance > 0 ? 'Right' : 'Left')
       }
-      if (await arrived()) return press('Enter')
+      if (await arrived()) {
+        const homeSettled = `(() => {
+          const screen = document.querySelector('[data-screen="home"]')
+          return Boolean(screen) && !screen.querySelector('.spinner')
+        })()`
+        const settledAlready = route === 'home' && (await read<boolean>(homeSettled))
+        await press('Enter')
+        if (route === 'home' && !settledAlready) {
+          await waitFor(
+            `${homeSettled} && (() => {
+               const hero = document.querySelector('[data-screen="home"] .hero')
+               return !hero || hero.dataset.focused === 'true'
+             })()`,
+            'the home screen to settle'
+          )
+        }
+        return
+      }
     }
 
     throw new Error(
