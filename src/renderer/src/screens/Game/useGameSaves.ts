@@ -1,8 +1,27 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { SaveProgress } from '@shared/api'
-import type { SaveAsset, SaveDeleteScope, SavePushPreview } from '@shared/types'
+import { conflictsIn } from '@shared/saveassets'
+import type {
+  ConflictChoice,
+  PendingSave,
+  SaveAsset,
+  SaveDeleteScope,
+  SavePushPreview
+} from '@shared/types'
 import { useApp, useI18n } from '../../state'
+import type { ConflictAnswer } from './ConflictDialog'
 import { deleteScopeLabel } from './tabs'
+
+/** The conflicts the dialog is working through, and the name of this device's column. */
+export interface OpenConflicts {
+  list: PendingSave[]
+  deviceName: string
+  /**
+   * How many have been answered since the dialog opened, so its count moves on
+   * with each answer rather than staying at the first of however many are left.
+   */
+  answered: number
+}
 
 /** How this game is named and pictured in a toast. */
 type Subject = () => { title: string; coverPath: string | null }
@@ -50,6 +69,12 @@ export function useGameSaves(
   /** The row whose delete was asked for, awaiting which end and an answer. */
   deleting: SaveAsset | null
   setDeleting: (asset: SaveAsset | null) => void
+  /** The conflict dialog's list, first one showing. Null while it is closed. */
+  conflicts: OpenConflicts | null
+  /** Open the dialog on this game's conflicts, or say there are none. */
+  openConflicts: () => Promise<void>
+  answerConflict: (answer: ConflictAnswer) => Promise<void>
+  closeConflicts: () => void
 } {
   const { t } = useI18n()
   const { notify, offline, settings, saveSettings, unsentSaves } = useApp()
@@ -61,6 +86,17 @@ export function useGameSaves(
   const [progress, setProgress] = useState<SaveProgress | null>(null)
   const [confirmingPush, setConfirmingPush] = useState<SavePushPreview | null>(null)
   const [deleting, setDeleting] = useState<SaveAsset | null>(null)
+  const [conflicts, setConflicts] = useState<OpenConflicts | null>(null)
+  /**
+   * Conflicts already answered while the dialog has been open, by path.
+   *
+   * A skip moves nothing, so the next listing still has the file in it; and one
+   * whose answer failed is still a conflict. Both wait for the next time the
+   * dialog is opened.
+   */
+  const passed = useRef(new Set<string>())
+  /** An answer being carried out. The dialog's buttons stay live; see `ConflictDialog`. */
+  const answering = useRef(false)
 
   /**
    * This game's saves on both sides, refetched after every pull or push so the
@@ -162,6 +198,7 @@ export function useGameSaves(
         )
       }
       await reload()
+      if (direction === 'push' && result.failed > 0) await showConflicts(false)
     } catch {
       // Reported centrally.
     } finally {
@@ -241,6 +278,7 @@ export function useGameSaves(
         subject()
       )
       await reload()
+      if (result.failed > 0) await showConflicts(false)
     } catch {
       // Reported centrally.
     } finally {
@@ -275,6 +313,105 @@ export function useGameSaves(
     }
   }
 
+  /**
+   * This game's conflicts as RomM stands now, less those already answered.
+   *
+   * Taken from a fresh push preview each time, so the dialog only ever shows a
+   * pair as the two ends hold it this minute: after an answer, the file it
+   * settled is in sync and drops out on its own.
+   */
+  const currentConflicts = async (): Promise<OpenConflicts> => {
+    const preview = await window.rommix.saves.pushPreview(romId)
+    return {
+      list: conflictsIn(preview.files).filter((file) => !passed.current.has(file.path)),
+      deviceName: preview.deviceName,
+      answered: passed.current.size
+    }
+  }
+
+  /**
+   * Put the conflicts in front of the player, if there are any.
+   *
+   * `sayNone` for the button that asked: there, finding nothing is an answer
+   * worth giving. After a push that failed it is not, since the failure has
+   * already been said and a refusal that was not a conflict has no dialog.
+   */
+  const showConflicts = async (sayNone: boolean): Promise<void> => {
+    passed.current = new Set()
+    const found = await currentConflicts()
+    if (found.list.length > 0) setConflicts(found)
+    else if (sayNone) notify(t('conflict.none'), 'ok', subject())
+  }
+
+  const openConflicts = async (): Promise<void> => {
+    setBusy(true)
+    try {
+      await showConflicts(true)
+    } catch {
+      // Reported centrally.
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /**
+   * Carry out the answer to the conflict on show, then move to the next.
+   *
+   * Only these three answers act, and only on the one pair the dialog showed:
+   * the choice names that file's path or that RomM copy's id, never the game.
+   * A keep is believed only when something actually moved: a path the fresh
+   * scan no longer finds comes back as nothing failed and nothing sent, and
+   * reading that as kept would tell the player a save is safe on RomM when it
+   * never left.
+   */
+  const answerConflict = async (answer: ConflictAnswer): Promise<void> => {
+    const open = conflicts
+    const current = open?.list[0]
+    if (!open || !current || answering.current) return
+    answering.current = true
+    setBusy(true)
+    try {
+      if (answer !== 'skip') {
+        const choice: ConflictChoice =
+          answer === 'device'
+            ? { keep: 'device', path: current.path }
+            : { keep: 'romm', kind: current.kind, id: current.replaces?.id ?? -1 }
+        const result = await window.rommix.saves.resolve(romId, choice).catch(() => null)
+        const kept = result !== null && result.failed === 0 && result.saves + result.states > 0
+        notify(
+          t(
+            kept
+              ? answer === 'device'
+                ? 'conflict.keptDevice'
+                : 'conflict.keptRomm'
+              : 'conflict.notKept',
+            { file: current.fileName }
+          ),
+          kept ? 'ok' : 'warn',
+          subject()
+        )
+      }
+      // Every answered pair, kept or not: one that failed is still a conflict,
+      // and putting it straight back in front of the player would ask the
+      // question they just answered.
+      passed.current.add(current.path)
+      const next = await currentConflicts().catch(() => null)
+      // The rest of the list as it was, where RomM could not be asked again:
+      // the answered one is still dropped, and the others are still questions.
+      const rest = next ?? {
+        ...open,
+        list: open.list.filter((file) => file.path !== current.path),
+        answered: passed.current.size
+      }
+      setConflicts(rest.list.length > 0 ? rest : null)
+      await reload()
+    } finally {
+      answering.current = false
+      setBusy(false)
+      setProgress(null)
+    }
+  }
+
   return {
     assets,
     waiting,
@@ -288,6 +425,10 @@ export function useGameSaves(
     confirmingPush,
     setConfirmingPush,
     deleting,
-    setDeleting
+    setDeleting,
+    conflicts,
+    openConflicts,
+    answerConflict,
+    closeConflicts: () => setConflicts(null)
   }
 }

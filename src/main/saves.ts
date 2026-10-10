@@ -905,6 +905,7 @@ export class SaveSync {
           isDirectory: asset.isDirectory === true,
           replaces: existing
             ? {
+                id: existing.id,
                 sizeBytes: existing.file_size_bytes,
                 updatedAt: existing.updated_at,
                 emulator: existing.emulator,

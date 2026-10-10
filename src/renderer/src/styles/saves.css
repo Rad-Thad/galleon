@@ -148,3 +148,38 @@
   align-items: center;
   gap: 8px;
 }
+
+/* A conflict's two copies, side by side: the answer is read across them. */
+.conflict {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.conflict__side {
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.conflict__side h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  font-size: calc(16px * var(--type-scale));
+}
+
+.conflict__side p {
+  margin: 4px 0;
+}
+
+.conflict__who {
+  font-weight: 600;
+}
+
+.conflict__file {
+  word-break: break-all;
+}
