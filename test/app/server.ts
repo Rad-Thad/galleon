@@ -1205,29 +1205,39 @@ export async function startFakeRomm(options: FakeRommOptions = {}): Promise<Fake
             id: 900 + asked.length,
             rom_id: romId,
             user_id: user.id,
-            file_name: fileName,
-            file_name_no_ext: fileName.replace(/\.[^.]+$/, ''),
-            file_extension: fileName.split('.').pop() ?? '',
-            file_size_bytes: Buffer.byteLength(content),
-            download_path: fileName,
+            file_name: overwrite ? fileName : 'uploaded',
+            file_name_no_ext: overwrite ? fileName.replace(/\.[^.]+$/, '') : 'uploaded',
+            file_extension: overwrite ? (fileName.split('.').pop() ?? '') : '',
+            file_size_bytes: overwrite ? Buffer.byteLength(content) : 0,
+            download_path: overwrite ? fileName : 'uploaded',
             emulator: url.searchParams.get('emulator'),
             slot,
             content_hash: createHash('md5').update(content).digest('hex'),
             origin_device_id: deviceId,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
+            created_at: overwrite ? new Date().toISOString() : '2026-01-01T00:00:00Z',
+            updated_at: overwrite ? new Date().toISOString() : '2026-01-01T00:00:00Z'
           }
-          // Kept, as RomM keeps it, so a conflict it settled stays settled: a
-          // slot is a history and takes a new copy, while a save under no slot
-          // is one file and a same-named upload replaces it in place.
-          if (!slot && newest) {
+          /**
+           * Only a chosen overwrite is kept, as RomM keeps it, so the conflict
+           * it settled stays settled: a slot is a history and takes a new copy,
+           * and a save under no slot is one file that a same-named upload
+           * replaces in place.
+           *
+           * Every other upload is answered and not listed back. Kept, it would
+           * carry the moment it arrived as its time, and a scenario that writes
+           * the save again a moment later would find the two within the sync
+           * tolerance and read them as the same copy.
+           */
+          if (overwrite && !slot && newest) {
             Object.assign(newest.save, { ...saved, id: newest.save.id })
             newest.content = content
             if (deviceId) recordSync(newest.save.id, deviceId)
             return json(newest.save)
           }
-          held.push({ save: saved, content })
-          if (deviceId) recordSync(saved.id, deviceId)
+          if (overwrite) {
+            held.push({ save: saved, content })
+            if (deviceId) recordSync(saved.id, deviceId)
+          }
           return json(saved)
         }
         const romId = Number(url.searchParams.get('rom_id') ?? 0)

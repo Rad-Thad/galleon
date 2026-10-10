@@ -1321,3 +1321,19 @@ Lines the tooling reads (exact forms):
 - Device / acceptance: none.
 - Found on the way: the VM image ships a stale `/var/run/docker.pid`, so `dockerd` refuses to start until it is removed.
 - Next: M2-16 part 2: the conflict dialog (two columns, three choices, focus held on its choice), `test/app/server.ts` 409 and device_syncs, test:app per choice, and the `shots:nova` shot.
+
+## 2026-10-10 11:55 UTC session 01GArgoSV73fZG156nCcACVa (routine run)
+
+- Device results: none new. The bridge last checked in at 20:06 UTC (15.8 h ago); its last skip was still "no 'nightly' release published yet".
+- Worked on: M2-16 part 2 of 2 (tracking issue #133). Part 1, PR #135, merged at 9e7aa30 (CI x64 6:00, arm64 2:23).
+- Result: PR (this one). PASSES M2-16 (verification `agent-screenshot`; all three lines).
+- Evidence:
+  - New `ConflictDialog` (screens/Game): the pair side by side, this device (its RomM name, local time, size) and RomM (`originName` from `origin_device_id`, or "another device"; time; size), and three answers: keep this device's (`saves:resolve` `{keep:'device', path}`, the one overwrite), keep RomM's (`{keep:'romm', kind, id}`: by id, backup, `/downloaded`), Skip (focused on arrival, moves nothing). B closes it and moves nothing. Opened after a push with refused files when any pair is a conflict, and from a "Settle conflicts" button on the waiting notice. `useGameSaves.answerConflict` is the only renderer caller of `saves.resolve`; a keep counts as done only when something moved (keep-device's `failed 0, saves 0` reads as not settled). The pairs are `conflictsIn` (shared/saveassets.ts), the drain's own rule; `PendingSave.replaces` now carries RomM's `id`. 13 new strings, translated in all four catalogues.
+  - Line 1: `test/app/server.ts` answers like SPEC.md section 7: a 409 for a slot upload this device has no current record for, or a same-named one it holds an older record of; `device_syncs` on a listing that names a device; `/downloaded` records the device; `overwrite=true` uploads are kept (a slot takes a new copy, a slot-less save is replaced in place); `holdSave({ staleFor })` and `devices` options. Ordinary uploads are still answered and not listed back (kept, their arrival time put a re-written save within the sync tolerance and broke three push tests in `games.test.ts`). `test/app/conflicts.test.ts` (5): a push refused twice opens the dialog with both columns and Skip focused; moving the highlight over the answers sends nothing; keep RomM's fetches that id's content and posts `/downloaded`, sends nothing, writes RomM's bytes; keep this device's sends exactly that file with `overwrite=true`; Skip sends nothing and leaves the file.
+  - Line 2: the dialog's buttons stay mounted and enabled between conflicts (a disabled button drops the highlight to a neighbour); `conflicts.test.ts` asserts `conflict-keep-romm` is still focused after the list moves from "1 of 2" to "2 of 2".
+  - Line 3: `shots:nova` 21/21 with the new `game-conflict`; looked at it at 1280x960: two equal columns, names, times and sizes legible, three buttons on one row, accent only on the focused Skip, nothing clipped.
+  - `scripts/agent/check.sh` green; `npm run test:app` 229/229 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root).
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none. How the dialog reads from the sofa belongs in the acceptance session's look-and-feel pass.
+- Next: `next.mjs`: M6-04, M6-05 (M0-10, M0-13 and M2-08 wait on the device, M0-21 or #110's date).
