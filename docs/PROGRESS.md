@@ -1404,3 +1404,7 @@ Lines the tooling reads (exact forms):
 - Device / acceptance: none.
 - Next: M8-06 line 2 once RomM 5.4.0 (or a newer stable) is published: follow `docs/MAINTENANCE.md` "RomM versions". Otherwise `next.mjs` has nothing eligible (M0-10, M0-13 and M2-08 wait on the device or #110's date).
 - Notes: init.sh stops before `npm ci` when Docker's daemon is down; start `dockerd` and run it again.
+
+## 2026-10-10 14:47 UTC session 01D4wbSbJU6yiTdNuXuVCU33 (routine run, stop)
+
+- Stopped: nothing eligible. M8-06 part 1 merged in #145 at bbc4182 (CI x64 5:35, arm64 0:53); its line 2 waits for a stable RomM 5.4.0 (#144 stays open). M0-10 and M0-13 wait on the device (bridge last seen 18.7 h ago), M2-08 on #110's safe default (2026-10-13 01:00 UTC), M4 on Gate 1, Dependabot #1 on a device baseline.
