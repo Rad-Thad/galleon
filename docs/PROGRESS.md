@@ -1424,3 +1424,7 @@ Lines the tooling reads (exact forms):
 - Device / acceptance: none.
 - Next: the bridge's "no 'nightly' release published yet" while a `nightly` prerelease exists (published 2026-10-09 11:40 UTC); otherwise nothing eligible (see the 14:47 stop entry).
 - Notes: a stale `/var/run/docker.pid` stopped `dockerd` from starting on this VM; remove it if the pid it names is not running.
+
+## 2026-10-10 15:53 UTC session 01128vAgxbdPsR2MHe8eY3Gw (routine run, stop)
+
+- Stopped: nothing eligible. Flaky #147 (`main` red at 34ba1b9) fixed in #148, merged at 0f6807c (CI x64 5:43, arm64 0:48; evaluator PASS). Everything else is as in the 14:47 stop entry: M8-06 line 2 waits for a stable RomM 5.4.0, M0-10 and M0-13 wait on the device (the bridge was last seen 19.8 h ago), M2-08 waits for #110's safe default (2026-10-13 01:00 UTC), M4 waits for Gate 1, and Dependabot #1 waits for a device baseline.
