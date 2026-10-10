@@ -36,7 +36,7 @@ const STORED = 0
 const DEFLATED = 8
 
 /**
- * Why a file has no hash. It never leaves `contentHashOf`, which turns every
+ * Why a file has no hash. It never leaves `localContentHash`, which turns every
  * error into null, so its reason is for a debugger, not for anyone's screen.
  */
 class Unhashable extends Error {}
@@ -54,7 +54,10 @@ export type ReadObserver = (bytes: number) => void
  * meets writes them (SPEC.md section 10), and null makes the caller fall back
  * to its other evidence rather than trust a wrong hash.
  */
-export async function contentHashOf(path: string, onRead?: ReadObserver): Promise<string | null> {
+export async function localContentHash(
+  path: string,
+  onRead?: ReadObserver
+): Promise<string | null> {
   try {
     const end = await endOfCentralDirectory(path, onRead)
     if (end === null) return await fileMd5(path, onRead)
@@ -244,22 +247,38 @@ function entryMd5(zip: yauzl.ZipFile, entry: yauzl.Entry): Promise<string> {
 
 /**
  * The name as Python's zipfile decodes it: UTF-8 when the entry says so,
- * otherwise code page 437, cut at the first NUL.
+ * otherwise code page 437; then the Info-ZIP Unicode Path field, when it is
+ * version 1 and its checksum matches the name as stored, which is how WinRAR
+ * and Windows zip tools carry a name that code page 437 cannot hold. Cut at
+ * the first NUL either way. A field Python cannot read is an error here too.
  */
 export function entryName(entry: {
   fileName: string | Buffer
   generalPurposeBitFlag: number
+  extraFields?: readonly { id: number; data: Buffer }[]
 }): string {
   const raw = typeof entry.fileName === 'string' ? Buffer.from(entry.fileName) : entry.fileName
-  const name =
+  let name =
     entry.generalPurposeBitFlag & UTF8_FLAG
-      ? new TextDecoder('utf-8', { fatal: true }).decode(raw)
+      ? strictUtf8(raw)
       : Array.from(raw, (byte) =>
           byte < 0x80 ? String.fromCharCode(byte) : CP437_HIGH[byte - 0x80]
         ).join('')
+  for (const field of entry.extraFields ?? []) {
+    if (field.id !== UNICODE_PATH) continue
+    if (field.data.length < 5) throw new Unhashable('short Unicode Path field')
+    if (field.data[0] !== 1 || field.data.readUInt32LE(1) !== crc32(raw)) continue
+    const unicode = strictUtf8(field.data.subarray(5))
+    if (unicode) name = unicode
+  }
   const nul = name.indexOf('\0')
   return nul === -1 ? name : name.slice(0, nul)
 }
+
+const UNICODE_PATH = 0x7075
+
+const strictUtf8 = (bytes: Buffer): string =>
+  new TextDecoder('utf-8', { fatal: true }).decode(bytes)
 
 /** Code page 437's upper half, which is what Python decodes a legacy name with. */
 const CP437_HIGH =

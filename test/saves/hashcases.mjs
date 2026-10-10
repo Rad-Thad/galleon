@@ -26,7 +26,7 @@ const UTF8 = 0x0800
 /**
  * A stored zip. Each entry: `name` (string, written as UTF-8 with the UTF-8
  * flag, or a Buffer written as is with no flag), `data`, and optionally `crc`
- * to write a wrong checksum.
+ * to write a wrong checksum and `extra`, the central directory's extra field.
  */
 export function storedZip(entries, { comment = Buffer.alloc(0) } = {}) {
   const locals = []
@@ -37,6 +37,7 @@ export function storedZip(entries, { comment = Buffer.alloc(0) } = {}) {
     const name = raw ? entry.name : Buffer.from(entry.name, 'utf8')
     const flags = raw ? 0 : UTF8
     const crc = entry.crc ?? crc32(entry.data)
+    const extra = entry.extra ?? Buffer.alloc(0)
     const local = Buffer.alloc(30)
     local.writeUInt32LE(0x04034b50, 0)
     local.writeUInt16LE(20, 4)
@@ -58,8 +59,9 @@ export function storedZip(entries, { comment = Buffer.alloc(0) } = {}) {
     central.writeUInt32LE(entry.data.length, 20)
     central.writeUInt32LE(entry.data.length, 24)
     central.writeUInt16LE(name.length, 28)
+    central.writeUInt16LE(extra.length, 30)
     central.writeUInt32LE(offset, 42)
-    centrals.push(central, name)
+    centrals.push(central, name, extra)
     offset += local.length + name.length + entry.data.length
   }
   const directory = Buffer.concat(centrals)
@@ -71,6 +73,19 @@ export function storedZip(entries, { comment = Buffer.alloc(0) } = {}) {
   end.writeUInt32LE(offset, 16)
   end.writeUInt16LE(comment.length, 20)
   return Buffer.concat([...locals, directory, end, comment])
+}
+
+/**
+ * An Info-ZIP Unicode Path field (0x7075): version, the checksum of the name
+ * as stored, then the name in UTF-8.
+ */
+export function unicodePath(stored, unicode, { version = 1, crc = crc32(stored) } = {}) {
+  const data = Buffer.concat([Buffer.from([version]), Buffer.alloc(4), unicode])
+  data.writeUInt32LE(crc >>> 0, 1)
+  const header = Buffer.alloc(4)
+  header.writeUInt16LE(0x7075, 0)
+  header.writeUInt16LE(data.length, 2)
+  return Buffer.concat([header, data])
 }
 
 const a = bytesFor('a', 3000)
@@ -133,6 +148,41 @@ export function hashCases() {
     astralName: storedZip([
       { name: '\u{1F600}.bin', data: a },
       { name: '～.bin', data: b }
+    ]),
+    // What WinRAR and Windows zip tools write for a name code page 437 cannot
+    // hold: a placeholder name, and the real one in a Unicode Path field.
+    unicodePath: storedZip([
+      {
+        name: Buffer.from('SAVE/???.sav'),
+        data: a,
+        extra: unicodePath(Buffer.from('SAVE/???.sav'), Buffer.from('SAVE/\u30bb\u30fc\u30d6.sav'))
+      },
+      { name: 'SAVE/b.bin', data: b }
+    ]),
+    // A field whose checksum is not the stored name's is ignored, and so is
+    // one of another version.
+    unicodePathStale: storedZip([
+      {
+        name: Buffer.from('SAVE/old.sav'),
+        data: a,
+        extra: unicodePath(Buffer.from('SAVE/old.sav'), Buffer.from('SAVE/new.sav'), { crc: 1 })
+      },
+      {
+        name: Buffer.from('SAVE/two.sav'),
+        data: b,
+        extra: unicodePath(Buffer.from('SAVE/two.sav'), Buffer.from('SAVE/other.sav'), {
+          version: 2
+        })
+      }
+    ]),
+    // A field that is not UTF-8: Python refuses the archive, and RomM stores
+    // no hash.
+    unicodePathBroken: storedZip([
+      {
+        name: Buffer.from('SAVE/x.sav'),
+        data: a,
+        extra: unicodePath(Buffer.from('SAVE/x.sav'), Buffer.from([0xff, 0xfe]))
+      }
     ]),
     emptyZip: storedZip([])
   }

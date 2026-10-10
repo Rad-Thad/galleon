@@ -21,7 +21,7 @@ import {
   stampMtime,
   walk
 } from './savefiles.ts'
-import { contentHashOf } from './savehash.ts'
+import { localContentHash } from './savehash.ts'
 import { hashCases } from '../../test/saves/hashcases.mjs'
 
 /**
@@ -231,7 +231,7 @@ describe('whether both ends hold the same save', () => {
     // The md5 of the zip's bytes is not what RomM stores for it.
     const bytesMd5 = createHash('md5').update(cases.ordered).digest('hex')
     assert.equal(await sameContent(join(root, 'ordered.zip'), bytesMd5), false)
-    const hashOfOrdered = await contentHashOf(join(root, 'ordered.zip'))
+    const hashOfOrdered = await localContentHash(join(root, 'ordered.zip'))
     assert.ok(hashOfOrdered)
     assert.equal(await sameContent(join(root, 'reordered.zip'), hashOfOrdered.toUpperCase()), true)
   })

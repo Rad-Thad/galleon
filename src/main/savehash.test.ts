@@ -12,7 +12,7 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { byCodePoint, contentHashOf, entryName, READ_CHUNK_BYTES } from './savehash.ts'
+import { byCodePoint, localContentHash, entryName, READ_CHUNK_BYTES } from './savehash.ts'
 import { bytesFor, hashCases, storedZip } from '../../test/saves/hashcases.mjs'
 import { FIXTURES, MANIFEST } from '../../test/saves/fixtures.mjs'
 import type { FixtureEntry } from '../../test/saves/fixtures.mjs'
@@ -47,72 +47,96 @@ const ordinary = linesHash([`SAVE/a.bin:${md5(a)}`, `SAVE/b.bin:${md5(b)}`])
 
 describe('a save that is not a zip', () => {
   test('is the md5 of its bytes', async () => {
-    assert.equal(await contentHashOf(written(cases.plain)), md5(cases.plain))
+    assert.equal(await localContentHash(written(cases.plain)), md5(cases.plain))
   })
 
   test('even when it starts the way a zip does, since RomM looks for the end record', async () => {
-    assert.equal(await contentHashOf(written(cases.zipSignatureOnly)), md5(cases.zipSignatureOnly))
+    assert.equal(
+      await localContentHash(written(cases.zipSignatureOnly)),
+      md5(cases.zipSignatureOnly)
+    )
   })
 
   test('and when it is shorter than an end record could be', async () => {
-    assert.equal(await contentHashOf(written(Buffer.from('tiny'))), md5('tiny'))
+    assert.equal(await localContentHash(written(Buffer.from('tiny'))), md5('tiny'))
   })
 
   test('a file that cannot be read has no hash', async () => {
-    assert.equal(await contentHashOf(join(scratch(), 'missing')), null)
+    assert.equal(await localContentHash(join(scratch(), 'missing')), null)
   })
 })
 
 describe('a zip', () => {
   test('is the md5 of its sorted name:md5 lines', async () => {
-    assert.equal(await contentHashOf(written(cases.ordered)), ordinary)
+    assert.equal(await localContentHash(written(cases.ordered)), ordinary)
   })
 
   test('whose entries come in another order hashes the same', async () => {
-    assert.equal(await contentHashOf(written(cases.reordered)), ordinary)
+    assert.equal(await localContentHash(written(cases.reordered)), ordinary)
   })
 
   test('ignores directory entries', async () => {
-    assert.equal(await contentHashOf(written(cases.withDirectories)), ordinary)
+    assert.equal(await localContentHash(written(cases.withDirectories)), ordinary)
   })
 
   test('with bytes in front of it, after it, or a comment, hashes as the zip it holds', async () => {
     for (const name of ['prefixed', 'trailing', 'commented'] as const) {
-      assert.equal(await contentHashOf(written(cases[name])), ordinary, name)
+      assert.equal(await localContentHash(written(cases[name])), ordinary, name)
     }
   })
 
   test('with no entries is the md5 of no lines', async () => {
-    assert.equal(await contentHashOf(written(cases.emptyZip)), md5(''))
+    assert.equal(await localContentHash(written(cases.emptyZip)), md5(''))
   })
 
   test('with a repeated name hashes the last entry of that name, twice', async () => {
     assert.equal(
-      await contentHashOf(written(cases.repeatedName)),
+      await localContentHash(written(cases.repeatedName)),
       linesHash([`SAVE/a.bin:${md5(c)}`, `SAVE/a.bin:${md5(c)}`, `SAVE/b.bin:${md5(b)}`])
     )
   })
 
   test('names a legacy entry in code page 437', async () => {
     assert.equal(
-      await contentHashOf(written(cases.legacyName)),
+      await localContentHash(written(cases.legacyName)),
       linesHash([`S.bin:${md5(b)}`, `SÇß.bin:${md5(a)}`])
     )
   })
 
   test('sorts names by code point, as Python does', async () => {
     assert.equal(
-      await contentHashOf(written(cases.astralName)),
+      await localContentHash(written(cases.astralName)),
       linesHash([`～.bin:${md5(b)}`, `\u{1F600}.bin:${md5(a)}`])
     )
   })
 
+  test('takes a name from an Info-ZIP Unicode Path field whose checksum matches', async () => {
+    assert.equal(
+      await localContentHash(written(cases.unicodePath)),
+      linesHash([`SAVE/b.bin:${md5(b)}`, `SAVE/\u30bb\u30fc\u30d6.sav:${md5(a)}`])
+    )
+  })
+
+  test('and ignores one of another version or for another name', async () => {
+    assert.equal(
+      await localContentHash(written(cases.unicodePathStale)),
+      linesHash([`SAVE/old.sav:${md5(a)}`, `SAVE/two.sav:${md5(b)}`])
+    )
+  })
+
+  test('a Unicode Path field that is not UTF-8, or too short to read, gives no hash', async () => {
+    assert.equal(await localContentHash(written(cases.unicodePathBroken)), null)
+    const short = Buffer.from([0x75, 0x70, 0x02, 0x00, 0x01, 0x00])
+    const zip = storedZip([{ name: Buffer.from('x.sav'), data: a, extra: short }])
+    assert.equal(await localContentHash(written(zip)), null)
+  })
+
   test('with a damaged entry has no hash, as RomM stores none', async () => {
-    assert.equal(await contentHashOf(written(cases.badChecksum)), null)
+    assert.equal(await localContentHash(written(cases.badChecksum)), null)
   })
 
   test('a raw save holding an end record it does not mean has no hash either', async () => {
-    assert.equal(await contentHashOf(written(cases.endInRawSave)), null)
+    assert.equal(await localContentHash(written(cases.endInRawSave)), null)
   })
 
   test('a compression method yauzl cannot read gives no hash rather than a wrong one', async () => {
@@ -120,14 +144,14 @@ describe('a zip', () => {
     // Method 12, bzip2, in both headers.
     zip.writeUInt16LE(12, 8)
     zip.writeUInt16LE(12, 30 + 'SAVE/a.bin'.length + a.length + 10)
-    assert.equal(await contentHashOf(written(zip)), null)
+    assert.equal(await localContentHash(written(zip)), null)
   })
 
   test('an encrypted entry gives no hash', async () => {
     const zip = storedZip([{ name: 'SAVE/a.bin', data: a }])
     zip.writeUInt16LE(zip.readUInt16LE(6) | 1, 6)
     zip.writeUInt16LE(zip.readUInt16LE(30 + 10 + a.length + 8) | 1, 30 + 10 + a.length + 8)
-    assert.equal(await contentHashOf(written(zip)), null)
+    assert.equal(await localContentHash(written(zip)), null)
   })
 })
 
@@ -138,7 +162,7 @@ test('every golden fixture hashes to the content_hash its manifest expects', asy
   assert.ok(fixtures.length > 0)
   for (const fixture of fixtures) {
     assert.equal(
-      await contentHashOf(join(FIXTURES, fixture.path)),
+      await localContentHash(join(FIXTURES, fixture.path)),
       fixture.contentHash,
       fixture.path
     )
@@ -165,7 +189,7 @@ describe('memory', () => {
     const size = 24 * 1024 * 1024
     const path = sparse(size, Buffer.from('head'), Buffer.from('tail'))
     const reads: number[] = []
-    const hash = await contentHashOf(path, (bytes) => reads.push(bytes))
+    const hash = await localContentHash(path, (bytes) => reads.push(bytes))
     assert.equal(hash, md5(readFileSync(path)))
     assert.ok(Math.max(...reads) <= LIMIT, `largest read ${Math.max(...reads)}`)
     assert.ok(Math.max(...reads) <= Math.max(READ_CHUNK_BYTES, 0x10000 + 22))
@@ -176,7 +200,7 @@ describe('memory', () => {
     const big = Buffer.alloc(20 * 1024 * 1024, 7)
     const path = written(storedZip([{ name: 'SAVE/big.bin', data: big }]), 'big.zip')
     const reads: number[] = []
-    const hash = await contentHashOf(path, (bytes) => reads.push(bytes))
+    const hash = await localContentHash(path, (bytes) => reads.push(bytes))
     assert.equal(hash, linesHash([`SAVE/big.bin:${md5(big)}`]))
     assert.ok(Math.max(...reads) <= LIMIT, `largest read ${Math.max(...reads)}`)
     assert.ok(reads.reduce((sum, n) => sum + n, 0) >= big.length)

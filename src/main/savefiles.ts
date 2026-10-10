@@ -3,7 +3,7 @@ import { basename, extname, join } from 'node:path'
 import { SAVE_CONVENTIONS } from '@config/emulators'
 import type { SavePaths } from '@config/emulators'
 import type { RommRom, SaveSyncState } from '@shared/types'
-import { contentHashOf } from './savehash.ts'
+import { localContentHash } from './savehash.ts'
 import { log } from './log.ts'
 
 /**
@@ -325,7 +325,7 @@ export function timesAgree(localMtimeMs: number, remoteUpdatedAt: string): boole
  * and a save folder on exFAT rounds every mtime it is given. Both show up as a
  * copy that looks changed and is not.
  *
- * `contentHashOf`, so a save that is a zip compares the way RomM hashed it:
+ * `localContentHash`, so a save that is a zip compares the way RomM hashed it:
  * by what is inside it, not by its bytes.
  *
  * False where there is nothing to compare against, never where the file cannot
@@ -335,7 +335,7 @@ export function timesAgree(localMtimeMs: number, remoteUpdatedAt: string): boole
  */
 export async function sameContent(path: string, contentHash: string | null): Promise<boolean> {
   if (!contentHash) return false
-  const actual = await contentHashOf(path)
+  const actual = await localContentHash(path)
   return actual !== null && actual === contentHash.toLowerCase()
 }
 

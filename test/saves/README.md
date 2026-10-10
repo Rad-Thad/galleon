@@ -50,6 +50,6 @@ order, with directory entries, with bytes before or after them or a comment, a
 repeated name, a code page 437 name, names whose order differs by code point
 and by UTF-16, an empty zip, a damaged entry, a raw save that holds an end
 record by chance, and one that only starts like a zip. `src/main/savehash.test.ts`
-holds the app's `contentHashOf` to what each means; `hash.real.ts` uploads
+holds the app's `localContentHash` to what each means; `hash.real.ts` uploads
 each, and every fixture, to Docker RomM 5.2.0 and requires the hash the server
 stores to be the app's.

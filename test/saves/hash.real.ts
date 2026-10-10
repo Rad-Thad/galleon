@@ -12,7 +12,7 @@ import assert from 'node:assert/strict'
 import { randomBytes } from 'node:crypto'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { contentHashOf } from '../../src/main/savehash.ts'
+import { localContentHash } from '../../src/main/savehash.ts'
 import { assertFitsSchema, client, romNamed, scratch, watch } from '../romm/server.ts'
 import { FIXTURES, MANIFEST } from './fixtures.mjs'
 import type { FixtureEntry } from './fixtures.mjs'
@@ -40,7 +40,7 @@ test('RomM stores the hash the app computes, for every edge case', async (t) => 
       null,
       { overwrite: false }
     )
-    assert.equal(saved.content_hash, await contentHashOf(file), name)
+    assert.equal(saved.content_hash, await localContentHash(file), name)
   }
   assertFitsSchema(sent)
 })
@@ -58,6 +58,6 @@ test("RomM's stored hash of every golden fixture is the app's", async () => {
       null,
       { overwrite: false }
     )
-    assert.equal(saved.content_hash, await contentHashOf(path), entry.path)
+    assert.equal(saved.content_hash, await localContentHash(path), entry.path)
   }
 })
