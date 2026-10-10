@@ -1053,3 +1053,21 @@ Lines the tooling reads (exact forms):
 - Evaluator: see the PR.
 - Device / acceptance: none (`agent-screenshot`).
 - Next: `next.mjs`'s first feature that does not wait on the device (M2-01 the save-sync spec, M6-04, M6-05).
+
+## 2026-10-10 00:26 UTC session fa6308b1 (routine run)
+
+- Device results: none new. The bridge last checked in at 20:06 UTC; a nightly was published at 00:16 UTC, after it.
+- Worked on: M2-01 (tracking issue #108), the save-sync spec. M1-15's part 2, PR #107, merged at df0c42f before this run.
+- Result: PR (this one). PASSES M2-01 (ci).
+- Evidence:
+  - `docs/save-sync/SPEC.md`, written from Argosy at 2714d54 and RomM at tag 5.2.0 (both cloned into the scratchpad, read as specification only, nothing copied).
+  - Line 1: every Argosy statement cites `A:`/`Adoc:` file and line; every RomM statement cites `R:` source at 5.2.0 or an `S:` pointer into `openapi-5.2.0.json`.
+  - Line 2: section 10, one table per system (SNES, GBA, PS1, PSP, PS2, GameCube, Wii, Dreamcast) with Android emulator/core, handler, archive shape, tag, Linux emulator and verdict.
+  - Line 3: section 11, the differences from `src/main/saves.ts` and `src/main/romm/client.ts`, with line citations; also RomMix's `autocleanup=true`.
+  - Line 4: the evaluator's verdict is in the PR; section 12 lists the questions for M2-02.
+  - Findings worth knowing: Argosy uses negotiate on 5.2.0 (its gate is version 4.9.0, not the heartbeat); RomM 5.2.0 ignores `rom_ids`; a slotted upload gets a timestamp-tagged name; a first upload into an occupied slot is a 409; `autocleanup` deletes server saves, so Galleon never sends it; Argosy has two automatic `overwrite=true` paths that Galleon must not copy (section 8).
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none.
+- Next: M2-08 (per-system decision, needs-human) and M2-02 (shape report), per PLAN.md's M2 order; or `next.mjs`'s first feature.
