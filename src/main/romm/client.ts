@@ -160,8 +160,9 @@ export function normaliseBaseUrl(input: string): string {
 /** How `RommClient.uploadSave` asks RomM to treat the slot it uploads into. */
 export interface UploadSaveOptions {
   /**
-   * The player chose this device's save over the server's, so replace what the
-   * slot holds even if another device moved it on. Nothing else may set it
+   * The player chose this device's save over the server's when resolving a
+   * conflict, so replace what the slot holds even if another device moved it
+   * on. Nothing else may set it, not even an approved push
    * (docs/save-sync/SPEC.md section 7; `overwrite.allowlist.test.ts`).
    */
   keepThisDevice?: boolean

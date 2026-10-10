@@ -14,10 +14,12 @@ import { join, relative } from 'node:path'
 
 const SRC = join(import.meta.dirname, '..')
 
-/** Every module allowed to ask for an overwrite, and the choice behind it. */
-const ALLOWED: Record<string, string> = {
-  'main/saves.ts': '`pushSelected`, the files the player approved in the push dialog'
-}
+/**
+ * Every module allowed to ask for an overwrite, and the choice behind it.
+ * None yet: the choice belongs to resolving a conflict, after RomM refused an
+ * upload, and the conflict view that offers it is still to come.
+ */
+const ALLOWED: Record<string, string> = {}
 
 function* sources(dir: string): Generator<string> {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -32,7 +34,7 @@ test("nothing but the player's choice asks RomM to overwrite a save", () => {
   for (const path of sources(SRC)) {
     const source = readFileSync(path, 'utf8')
     const count =
-      (source.match(/keepThisDevice:\s*true\b/g)?.length ?? 0) +
+      (source.match(/keepThisDevice:\s*(?!false\b)[\w.!]/g)?.length ?? 0) +
       (source.match(/overwrite['"]?\s*[=:,]\s*['"]?true/g)?.length ?? 0)
     if (count > 0) asking[relative(SRC, path).split('\\').join('/')] = count
   }
@@ -41,8 +43,6 @@ test("nothing but the player's choice asks RomM to overwrite a save", () => {
     Object.keys(ALLOWED).sort(),
     `modules that ask for an overwrite: ${JSON.stringify(asking)}`
   )
-  // One place in the module that may, so a second one is a new decision.
-  assert.equal(asking['main/saves.ts'], 1)
 })
 
 test('the client sends overwrite only from the option that names the choice', () => {

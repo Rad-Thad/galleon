@@ -850,7 +850,7 @@ describe('pushing', () => {
     assert.deepEqual(uploaded, [])
   })
 
-  test("only the files a player approved keep this device's save over the server's", async () => {
+  test("no push keeps this device's save over the server's, approved or not", async () => {
     const { sync, target, saveDir, uploaded } = setUp()
     const path = join(saveDir, 'Sonic the Hedgehog (USA).srm')
     writeFileSync(path, 'local')
@@ -862,7 +862,7 @@ describe('pushing', () => {
 
     assert.deepEqual(
       uploaded.map((item) => item.keepThisDevice),
-      [false, false, false, true]
+      [false, false, false, false]
     )
   })
 

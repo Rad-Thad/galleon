@@ -1214,10 +1214,10 @@ Lines the tooling reads (exact forms):
 - Result: PR (this one). M2-06 stays false until lines 2 to 4.
 - Evidence:
   - `RommClient.uploadSave` sends `overwrite=false` unless `UploadSaveOptions.keepThisDevice`, and never sends `autocleanup` (SPEC.md section 8: it has RomM delete a slot's older saves because of an upload nobody chose, a rail 2 breach the inherited client made on every slotted upload). The old `overwrite` and `autocleanup` options are gone.
-  - `SaveSync.pushSelected` (the push dialog, which names whose copy each file replaces) is the only caller that keeps this device's save; `push`, `pushNow` and `drain` send false.
-  - Line 1: `savesync.test.ts` "only the files a player approved keep this device's save over the server's" (push, pushNow, drain false; pushSelected true). `overwrite.allowlist.test.ts` reads every source file: only `main/saves.ts` asks for an overwrite, once, and the client's only `overwrite` is `String(keepThisDevice)`. `romm.test.ts`: the default is `overwrite=false` with or without a slot and no `autocleanup`; keepThisDevice sends `true`.
+  - No production caller sets `keepThisDevice` yet: `push`, `pushNow`, `drain` and `pushSelected` (the routine "ask before sending" dialog) all send false. The choice belongs to the conflict view (a 409's three choices), which does not exist yet; `roundtrip.real.ts` exercises it against Docker RomM.
+  - Line 1: `savesync.test.ts` "no push keeps this device's save over the server's, approved or not". `overwrite.allowlist.test.ts` reads every source file: no module sets `keepThisDevice` to anything but `false` or names `overwrite=true`, and the client's only `overwrite` is `String(keepThisDevice)`. `romm.test.ts`: the default is `overwrite=false` with or without a slot and no `autocleanup`; keepThisDevice sends `true`.
   - `scripts/agent/check.sh` green; `npm run test:saves` 38/38 and `npm run test:romm` 21/21 on Docker 5.2.0.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: see the PR. The first verdict was FAIL: `pushSelected` had been made the keep-this-device choice, so every confirmed push would have overwritten; it now sends false.
 - Device / acceptance: none.
 - Next: M2-06 part 2 (line 2): downloads with `device_id` and `optimistic=false` through the safe writer, then `POST /api/saves/{id}/downloaded`, with fault injection. Part 3: lines 3 and 4, and a 409 shown to the player as a conflict (today a refused upload is counted as failed and logged).

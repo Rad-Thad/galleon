@@ -987,10 +987,10 @@ export class SaveSync {
     chosen: readonly string[],
     onProgress?: (progress: SaveProgress) => void
   ): Promise<SaveSyncResult> {
-    // The dialog named whose copy each file replaces, so approving it is the
-    // player keeping this device's save; nowhere else may say so.
+    // Approving a push is not choosing this device's save over another's: a
+    // copy the server moved on still comes back as a refusal to settle.
     return this.oneAtATime(target.rom.id, () =>
-      this.sendChosen(target, chosen, { keepThisDevice: true }, onProgress)
+      this.sendChosen(target, chosen, { keepThisDevice: false }, onProgress)
     )
   }
 
