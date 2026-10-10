@@ -1369,7 +1369,7 @@ Lines the tooling reads (exact forms):
   - Line 1: new `test/romm/downloads.real.ts`, the app's own queue, library and store over a scratch `GALLEON_HOME` against Docker RomM: "a multi-file game paused mid-file resumes that file by range and refetches none it finished" (half of disc 2 on disk, Pause, resume: disc 1 fetched once, disc 2 `[null, bytes=<half>-]`, every file matches its md5, playlist written) and "a file whose bytes do not match its hash is fetched again alone, and said once" (disc 2's first copy has a flipped byte: fetched `[null, null]`, disc 1 once, one warning, md5s match).
   - `scripts/agent/check.sh` green; `npm run test:romm` 24/24 on 5.2.0 and 5.3.1.
   - Flaky (#141): 5.3.1's provisioning was refused once on a cold start ("Invalid session", socket.io polling across four RomM workers) and passed when run again. Not a test assertion; root cause to fix within two units.
-- CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR). The first x64 run failed only `pr-body.mjs`: the PR was opened without the template's `Feature:` line; the body was fixed and this note is the push that re-runs it.
+- Evaluator: PASS (quoted in the PR).
 - Device / acceptance: none.
 - Next: #141 (test:romm provisioning on 5.3.1), then `next.mjs`: M8-06.
