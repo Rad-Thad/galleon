@@ -1,5 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { REQUIRED_SCOPES } from '../../src/main/romm/client.ts'
 import {
   PROFILES,
@@ -154,4 +155,17 @@ test('test:romm runs every profile by default, or the ones named, once each', ()
   ])
   assert.throws(() => profilesFrom(['--profile', 'v999']), /unknown profile v999/)
   assert.throws(() => profilesFrom(['--profile']), /unknown argument/)
+})
+
+test('every Docker RomM runs one web worker, which the scan handshake needs', () => {
+  // A socket.io polling session lives in the process that opened it; see
+  // compose.yml. Read as text: the file is plain YAML and no parser is a
+  // dependency.
+  const compose = readFileSync('test/romm/compose.yml', 'utf8')
+  const shared = /environment: &romm-env\n((?: {4}.*\n)+)/.exec(compose)?.[1] ?? ''
+  assert.match(shared, /^ {4}WEB_SERVER_CONCURRENCY: '1'$/m)
+  const images = compose.match(/image: rommapp\/romm:/g) ?? []
+  const inheriting = compose.match(/<<: \*romm-env/g) ?? []
+  assert.equal(images.length, Object.keys(PROFILES).length)
+  assert.equal(inheriting.length, images.length)
 })
