@@ -19,7 +19,8 @@ import {
   UnsupportedServerError,
   atLeast,
   isComparable,
-  MINIMUM_SERVER_VERSION
+  MINIMUM_SERVER_VERSION,
+  negotiatesByGame
 } from './romm/index.ts'
 import type { Store } from './store.ts'
 
@@ -1983,6 +1984,40 @@ describe('the oldest server this build can read', () => {
       .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))[0]
 
     assert.equal(MINIMUM_SERVER_VERSION, oldest)
+  })
+
+  test('a pre-launch negotiate names its game only on a RomM that reads the name', () => {
+    assert.equal(negotiatesByGame('5.0'), false)
+    assert.equal(negotiatesByGame('5.0.0'), false)
+    assert.equal(negotiatesByGame('5.2.0'), false)
+    assert.equal(negotiatesByGame('5.3.0'), true)
+    assert.equal(negotiatesByGame('5.3.1'), true)
+    assert.equal(negotiatesByGame('5.4.0'), true)
+    // No number to weigh: the unscoped path, which is right on every server.
+    assert.equal(negotiatesByGame('development'), false)
+    assert.equal(negotiatesByGame(null), false)
+    assert.equal(negotiatesByGame(undefined), false)
+  })
+
+  test('the first version that scopes is the first schema/ document with rom_ids', () => {
+    // Read from RomM's own documents rather than trusted to the changelog: a
+    // server that ignores the field answers for the whole library.
+    const versions = readdirSync(new URL('../../schema/', import.meta.url))
+      .filter((name) => name.startsWith('romm-') && name.endsWith('.json'))
+      .map((name) => name.replace(/^romm-|\.json$/g, ''))
+    for (const version of versions) {
+      const document = JSON.parse(
+        readFileSync(new URL(`../../schema/romm-${version}.json`, import.meta.url), 'utf8')
+      ) as {
+        components: { schemas: Record<string, { properties?: Record<string, unknown> }> }
+      }
+      const payload = document.components.schemas.SyncNegotiatePayload?.properties ?? {}
+      assert.equal(
+        'rom_ids' in payload,
+        negotiatesByGame(version),
+        `${version}: rom_ids ${'rom_ids' in payload ? 'is' : 'is not'} in its negotiate payload`
+      )
+    }
   })
 
   test('every scope an endpoint RomMix calls requires is one RomMix asks for', () => {
