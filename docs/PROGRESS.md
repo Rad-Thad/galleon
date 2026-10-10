@@ -1433,7 +1433,7 @@ Lines the tooling reads (exact forms):
 
 - Stopped: nothing eligible, as in the 15:53 stop entry. The bridge's "no 'nightly' release published yet" is not a bridge bug: it comes from `bridge/status.json`, which the bridge writes only when it skips (see the DEVICE-RESULTS note after 9390ac8), and that file is still the one from 2026-10-08. The bridge tested a nightly every hour on 2026-10-09 up to d4c2d35 (20:06 UTC) and has been silent since, while `nightly` is current (assets from 8a5c0f9, 16:05 UTC). That silence is on the device side; the 7-day `needs-human` note is not due before 2026-10-16.
 
-## 2026-10-10 17:58 UTC session 011jEpBMC6dNybVMQkJqnRiR (routine run)
+## 2026-10-10 17:44 UTC session 011jEpBMC6dNybVMQkJqnRiR (routine run)
 
 - Device results: none new. The bridge last checked in at 20:06 UTC (21.4 h ago), as in the 16:26 stop entry.
 - Worked on: M8-06 line 2 (tracking issue #144). RomM 5.4.0 went stable on Docker Hub at 15:19 UTC today.
