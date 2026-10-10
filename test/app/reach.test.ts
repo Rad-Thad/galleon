@@ -111,8 +111,12 @@ for (const screen of ['library', 'collections', 'downloads', 'bios', 'emulators'
     const { app } = scenario
     await app.goTo(screen)
     await app.waitFor(`document.querySelector('[data-screen="${screen}"]')`, screen)
+    // A list that fills after its screen is drawn, walked before it filled,
+    // would pass having visited only what surrounds it.
     if (screen === 'library')
       await app.waitFor(`document.querySelector('[data-rom]')`, 'the library to fill')
+    if (screen === 'collections')
+      await app.waitFor(`document.querySelector('[data-collection]')`, 'the collections to fill')
     await walkEvery(app, screen)
   })
 
