@@ -7,6 +7,7 @@ import { changedAt, mayBeSentUnasked, AUTOSAVE_SLOT } from '@shared/saveassets'
 import { SAVE_CONVENTIONS, emulatorById, statesSync } from '@config/emulators'
 import type { SaveContext, SaveLocation, SavePaths } from '@config/emulators'
 import type {
+  ConflictChoice,
   EmulatorState,
   PendingSave,
   RommDevice,
@@ -1076,6 +1077,54 @@ export class SaveSync {
   }
 
   /**
+   * Settle a conflict the way the player just said to.
+   *
+   * The one caller allowed to keep this device's save over the server's
+   * (docs/save-sync/SPEC.md section 7): an approved push is not that choice, and
+   * neither is anything automatic. RomM's copy is pulled by id past the
+   * newer-wins rule, which is what lets the player take an older save back.
+   */
+  async resolve(
+    target: SaveTarget,
+    choice: ConflictChoice,
+    onProgress?: (progress: SaveProgress) => void
+  ): Promise<SaveSyncResult> {
+    return this.oneAtATime(target.rom.id, async () => {
+      if (choice.keep === 'device') {
+        const result = await this.sendChosen(
+          target,
+          [choice.path],
+          { keepThisDevice: true },
+          onProgress
+        )
+        log.info('saves', "kept this device's copy over RomM's", {
+          romId: target.rom.id,
+          path: choice.path,
+          ...result
+        })
+        return result
+      }
+
+      const paths = this.locate(target)
+      const run = progressRun(target.rom.id, 'pull', null, onProgress)
+      const pulled = await this.pullKind(target, paths, choice.kind, run, choice.id)
+      const result = {
+        saves: choice.kind === 'save' ? pulled.written : 0,
+        states: choice.kind === 'state' ? pulled.written : 0,
+        failed: pulled.failed,
+        skippedReason: pulled.failed > 0 ? null : this.reasonFor(paths, pulled.written)
+      }
+      log.info('saves', "kept RomM's copy over this device's", {
+        romId: target.rom.id,
+        kind: choice.kind,
+        id: choice.id,
+        ...result
+      })
+      return result
+    })
+  }
+
+  /**
    * Why nothing was synced, when nothing was.
    *
    * Only ever shown alongside a zero count: an emulator whose battery saves are
@@ -1196,11 +1245,19 @@ export class SaveSync {
     return wanted
   }
 
+  /**
+   * `chosen` is the id of the one copy a player picked when resolving a
+   * conflict: only that copy is pulled, and it comes down whichever end is
+   * newer, since being older is the very thing the player has just overruled.
+   * Everything else stays — the tag rule, the same-bytes check and the copy
+   * `keepBackup` puts aside.
+   */
   private async pullKind(
     target: SaveTarget,
     paths: SavePaths,
     kind: 'save' | 'state',
-    run?: SaveRun
+    run?: SaveRun,
+    chosen?: number
   ): Promise<PullCount> {
     const location = this.syncLocationFor(paths, target, kind)
     if (!location) return { written: 0, offered: 0, failed: 0 }
@@ -1257,7 +1314,19 @@ export class SaveSync {
       })
     }
 
-    const wanted = this.toPull(kind, usable)
+    const picked = chosen === undefined ? usable : usable.filter((item) => item.id === chosen)
+    const wanted = this.toPull(kind, picked)
+    // A copy the player chose and this pass will not bring down — gone from
+    // the server, a state another core wrote, or a save in another client's
+    // slot, which `toPull` pairs with no file here — is a choice that did not
+    // happen, and counted as one so the screen does not report it as done.
+    if (chosen !== undefined && wanted.length === 0) {
+      log.warn('saves', `the chosen ${kind} is not one this game can take`, {
+        romId: target.rom.id,
+        id: chosen
+      })
+      return { written: 0, offered: remote.length, failed: 1 }
+    }
     if (wanted.length === 0) return { written: 0, offered: remote.length, failed: 0 }
 
     /**
@@ -1384,7 +1453,13 @@ export class SaveSync {
       const landed = archive
         ? this.env.newest(location.dir) || undefined
         : (match?.mtimeMs ?? (await stat(destination).catch(() => null))?.mtimeMs)
-      if (landed !== undefined && landed >= remoteTime - SYNC_TOLERANCE_MS) continue
+      if (
+        chosen === undefined &&
+        landed !== undefined &&
+        landed >= remoteTime - SYNC_TOLERANCE_MS
+      ) {
+        continue
+      }
 
       /**
        * The clocks say fetch it. The bytes get the last word.

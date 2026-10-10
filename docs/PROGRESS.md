@@ -1304,3 +1304,20 @@ Lines the tooling reads (exact forms):
 - Evaluator: see the PR.
 - Device / acceptance: none. Which systems sync states is worth a look in the acceptance session once #110's choices land (M2-08): a system moved to a standalone keeps its states local by this table.
 - Next: `next.mjs`: M2-16 (conflicts decided by the player), M6-04, M6-05.
+
+## 2026-10-10 10:26 UTC session 01WJLMHgmSaGbgp24PVLDoTf (routine run)
+
+- Device results: none new. The bridge last checked in at 20:06 UTC (14.4 h ago); its last skip was still "no 'nightly' release published yet" (the Nightly workflow itself ran green at 09:59 UTC).
+- Worked on: M2-16 part 1 of 2 (tracking issue #133). M2-15's PR #132 merged at 139a09a. M0-10, M0-13 and M2-08 wait on the device, M0-21 or #110's date.
+- Result: PR (this one). M2-16 stays false: its three acceptance lines are the dialog, test:app and the shot, all part 2.
+- Evidence:
+  - New `ConflictChoice` (shared/types/saves.ts) and `SaveSync.resolve`, the one caller of `keepThisDevice: true`: "keep this device's" sends that one path through `sendChosen` (intersected with a fresh scan, as an approved push is); "keep RomM's" pulls that one copy by id through `pullKind(…, chosen)`, past the newer-wins check only. The tag rule, the same-bytes check, `keepBackup` and the download confirmation still apply. A chosen copy that is gone, not loadable here, or in another client's named slot (which pairs with no file here) is counted `failed`. Skip is renderer-only. IPC `saves:resolve` rechecks the game's unsent saves afterwards, as `saves:pushSelected` does.
+  - `overwrite.allowlist.test.ts` now names `main/saves.ts` (`SaveSync.resolve`) as the only module allowed to ask for an overwrite.
+  - `savesync.test.ts` "settling a conflict the way the player said to" (6): keep-device uploads only that file with `keepThisDevice`; an invented path uploads nothing; keep-RomM writes RomM's bytes over a newer local save that `pullNow` leaves alone, with the backup and `/downloaded` confirmation; it moves no other copy and uploads nothing; a vanished id fails and leaves the local save untouched; so does a copy in another client's slot (found by the evaluator).
+  - `scripts/agent/check.sh` green; `npm run test:saves` 42/42 on Docker 5.2.0 (the client's overwrite and download-confirm calls `resolve` uses are the ones `roundtrip.real.ts` and `transfer.real.ts` hold to RomM); `npm run test:app` 224/224.
+  - Flaky (#134): `test/app/reach.test.ts` walked the BIOS screen and the game page before their data loaded (2 failures in 13 isolated runs on main). It now waits for `[data-bios-platform]` and the first `[data-tab]`; 15/15 isolated runs after.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none.
+- Found on the way: the VM image ships a stale `/var/run/docker.pid`, so `dockerd` refuses to start until it is removed.
+- Next: M2-16 part 2: the conflict dialog (two columns, three choices, focus held on its choice), `test/app/server.ts` 409 and device_syncs, test:app per choice, and the `shots:nova` shot.

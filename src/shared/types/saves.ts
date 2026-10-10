@@ -260,3 +260,24 @@ export interface SavePushPreview {
   /** The device name RomM will record against the upload. */
   deviceName: string
 }
+
+/**
+ * The player's answer to a conflict, where the answer moves a file.
+ *
+ * Skipping is the third answer and moves nothing, so it never reaches the main
+ * process. Each choice names one copy, never "this game's saves": a conflict
+ * is about one pair, and an answer that swept up the rest of the game would be
+ * deciding questions nobody was shown.
+ */
+export type ConflictChoice =
+  /**
+   * This device's file replaces what RomM holds, even where another device
+   * moved it on since. Named by path, which the main process intersects with
+   * its own scan, as it does for an approved push.
+   */
+  | { keep: 'device'; path: string }
+  /**
+   * RomM's copy, by its id, comes down over this device's file whichever is
+   * newer — after the local file is copied aside, as every pull does.
+   */
+  | { keep: 'romm'; kind: 'save' | 'state'; id: number }

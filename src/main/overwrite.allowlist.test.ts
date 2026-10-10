@@ -14,12 +14,10 @@ import { join, relative } from 'node:path'
 
 const SRC = join(import.meta.dirname, '..')
 
-/**
- * Every module allowed to ask for an overwrite, and the choice behind it.
- * None yet: the choice belongs to resolving a conflict, after RomM refused an
- * upload, and the conflict view that offers it is still to come.
- */
-const ALLOWED: Record<string, string> = {}
+/** Every module allowed to ask for an overwrite, and the choice behind it. */
+const ALLOWED: Record<string, string> = {
+  'main/saves.ts': "SaveSync.resolve, the player's 'keep this device's save' in a conflict"
+}
 
 function* sources(dir: string): Generator<string> {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {

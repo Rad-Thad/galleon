@@ -1,5 +1,6 @@
 import type { SaveProgress } from '@shared/api'
 import type {
+  ConflictChoice,
   SaveAsset,
   SaveDeleteScope,
   SavePushPreview,
@@ -92,6 +93,27 @@ export function registerSaveIpc(rommix: RomMixApp, handle: Handle): void {
     await rommix.recheckUnsentSaves(romId)
     return result
   })
+
+  /**
+   * The player's answer to a conflict, for one file.
+   *
+   * Rechecked afterwards for the same reason as an approved push: keeping this
+   * device's copy can still fail on the wire, and keeping RomM's is what clears
+   * a game whose only waiting file was the one in question.
+   */
+  handle(
+    'saves:resolve',
+    async (romId: number, choice: ConflictChoice): Promise<SaveSyncResult> => {
+      const result = await saveSync.resolve(
+        await saveContext(rommix, romId),
+        choice,
+        saveProgress(rommix)
+      )
+      if (choice.keep === 'device' && result.failed > 0) rommix.noteUnsentSaves(romId, 0)
+      await rommix.recheckUnsentSaves(romId)
+      return result
+    }
+  )
 
   /**
    * Delete one save or state from one end of the sync — this device, or RomM.
