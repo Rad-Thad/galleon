@@ -1591,49 +1591,41 @@ describe('firmware, saves and states', () => {
     assert.equal(url.searchParams.get('rom_id'), '5')
     assert.equal(url.searchParams.get('emulator'), 'retroarch')
     assert.equal(url.searchParams.get('device_id'), 'romm-device-9')
-    // Overwriting is the point: the copy on the server is meant to be replaced
-    // by the one the emulator just wrote.
-    assert.equal(url.searchParams.get('overwrite'), 'true')
-    // No slot, so nothing to keep bounded — the upload replaces a copy rather
-    // than joining a history.
+    // Spelled out rather than left off: RomM's own default could change, and a
+    // refusal is what lets another device's newer save become a question.
+    assert.equal(url.searchParams.get('overwrite'), 'false')
     assert.equal(url.searchParams.get('slot'), null)
     assert.equal(url.searchParams.get('autocleanup'), null)
   })
 
-  test('a save sent under a slot asks for that slot to be kept bounded', async () => {
+  test('a save sent under a slot never asks RomM to delete older copies', async () => {
     const { store } = fakeStore({ deviceId: 'romm-device-9' })
     const file = join(scratch(), 'sonic.srm')
     writeFileSync(file, 'save bytes')
     const sent = serve(() => json({ id: 21 }))
 
-    await new RommClient(store).uploadSave(5, file, 'sonic.srm', 'retroarch', 'autosave')
+    await new RommClient(store).uploadSave(5, file, 'sonic.srm', 'snes9x', 'autosave')
 
     const url = new URL(sent[0].url)
     assert.equal(url.searchParams.get('slot'), 'autosave')
-    // RomM files every upload into a slot as another copy and `overwrite` does
-    // not apply within one, so a push after each session would otherwise leave
-    // a copy after each session with nothing ever taking one away. How many
-    // survive is the server's own default, which is why no limit is sent.
-    assert.equal(url.searchParams.get('autocleanup'), 'true')
+    assert.equal(url.searchParams.get('overwrite'), 'false')
+    // Cleanup is RomM deleting saves because of an upload nobody chose.
+    assert.equal(url.searchParams.get('autocleanup'), null)
     assert.equal(url.searchParams.get('autocleanup_limit'), null)
   })
 
-  test('a save sent without overwrite or cleanup says both, slot and all', async () => {
+  test("keeping this device's save is the one upload that overwrites", async () => {
     const { store } = fakeStore({ deviceId: 'romm-device-9' })
     const file = join(scratch(), 'sonic.srm')
     writeFileSync(file, 'save bytes')
     const sent = serve(() => json({ id: 21 }))
 
     await new RommClient(store).uploadSave(5, file, 'sonic.srm', 'snes9x', 'autosave', {
-      overwrite: false,
-      autocleanup: false
+      keepThisDevice: true
     })
 
     const url = new URL(sent[0].url)
-    assert.equal(url.searchParams.get('slot'), 'autosave')
-    // Spelled out rather than left off: RomM's own default could change, and
-    // a refusal is what lets another device's newer save become a question.
-    assert.equal(url.searchParams.get('overwrite'), 'false')
+    assert.equal(url.searchParams.get('overwrite'), 'true')
     assert.equal(url.searchParams.get('autocleanup'), null)
   })
 

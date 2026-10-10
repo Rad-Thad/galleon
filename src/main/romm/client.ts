@@ -159,10 +159,13 @@ export function normaliseBaseUrl(input: string): string {
 
 /** How `RommClient.uploadSave` asks RomM to treat the slot it uploads into. */
 export interface UploadSaveOptions {
-  /** Replace whatever the slot holds, even if another device moved it on. */
-  overwrite?: boolean
-  /** Let RomM delete the slot's oldest copies beyond its own limit. */
-  autocleanup?: boolean
+  /**
+   * The player chose this device's save over the server's when resolving a
+   * conflict, so replace what the slot holds even if another device moved it
+   * on. Nothing else may set it, not even an approved push
+   * (docs/save-sync/SPEC.md section 7; `overwrite.allowlist.test.ts`).
+   */
+  keepThisDevice?: boolean
 }
 
 export class RommClient {
@@ -1188,19 +1191,17 @@ export class RommClient {
    * so nothing here has to ask what version it is talking to.
    *
    * A slot is a history and not a file: RomM files each upload into it as a new
-   * copy under a name it stamps with the time, and `overwrite` does not apply
-   * within one. So the cleanup goes with the slot — without it a push after
-   * every session would leave a copy on the server after every session, for
-   * every game, with nothing ever taking one away. How many it keeps is the
-   * server's own default, deliberately not named here: retention belongs to the
-   * machine holding the files, and either way it is more than the single
-   * overwritten copy a slotless upload leaves.
+   * copy under a name it stamps with the time. `autocleanup` is never sent: it
+   * has RomM delete the slot's oldest copies, which is the server deleting
+   * saves because of an upload nobody chose (docs/save-sync/SPEC.md section 8).
+   * An unchanged save adds no copy; RomM returns the one it already holds.
    *
-   * `options` sets both flags apart from that: `overwrite: false` lets RomM
-   * refuse an upload into a slot another device moved on (a 409, see
-   * `RommError.status`), and `autocleanup: false` keeps every copy in the slot.
-   * That is the upload docs/save-sync/SPEC.md (sections 7 and 8) asks for, and
-   * what `npm run test:saves` holds the server to.
+   * `overwrite` is always spelled out, `false` unless `keepThisDevice`: RomM
+   * then refuses an upload into a slot another device moved on (a 409, see
+   * `RommError.status`), which is what lets that device's newer save become a
+   * question rather than a loss. That is the upload docs/save-sync/SPEC.md
+   * (sections 3 and 7) asks for, and what `npm run test:saves` holds the
+   * server to.
    */
   async uploadSave(
     romId: number,
@@ -1208,14 +1209,14 @@ export class RommClient {
     fileName: string,
     emulator: string | null,
     slot: string | null,
-    { overwrite = true, autocleanup = slot !== null }: UploadSaveOptions = {}
+    { keepThisDevice = false }: UploadSaveOptions = {}
   ): Promise<RommSave> {
-    const params = new URLSearchParams({ rom_id: String(romId), overwrite: String(overwrite) })
+    const params = new URLSearchParams({
+      rom_id: String(romId),
+      overwrite: String(keepThisDevice)
+    })
     if (emulator) params.set('emulator', emulator)
-    if (slot) {
-      params.set('slot', slot)
-      if (autocleanup) params.set('autocleanup', 'true')
-    }
+    if (slot) params.set('slot', slot)
     const deviceId = await this.deviceId()
     if (deviceId) params.set('device_id', deviceId)
 
@@ -1229,6 +1230,7 @@ export class RommClient {
       emulator,
       slot,
       deviceId,
+      keepThisDevice,
       bytes: payload.length,
       from: filePath
     })
