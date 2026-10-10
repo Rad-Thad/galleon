@@ -1064,6 +1064,8 @@ export const es: Catalog = {
   'error.saveEndedEarly': 'Solo llegó parte de {name} desde RomM, así que no se tocó el archivo.',
   'error.saveBadTime':
     'No se pudo leer la hora de una partida guardada ({value}), así que no se comparó.',
+  'error.saveNotBackedUp':
+    'No se pudo hacer antes una copia de {name}, así que se dejó como estaba.',
   'error.saveIsFolder':
     '{name} es una carpeta en este dispositivo, así que no se escribió ningún archivo encima.',
   'error.saveTreeTooLarge':

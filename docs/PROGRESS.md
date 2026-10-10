@@ -1221,3 +1221,20 @@ Lines the tooling reads (exact forms):
 - Evaluator: see the PR. The first verdict was FAIL: `pushSelected` had been made the keep-this-device choice, so every confirmed push would have overwritten; it now sends false.
 - Device / acceptance: none.
 - Next: M2-06 part 2 (line 2): downloads with `device_id` and `optimistic=false` through the safe writer, then `POST /api/saves/{id}/downloaded`, with fault injection. Part 3: lines 3 and 4, and a 409 shown to the player as a conflict (today a refused upload is counted as failed and logged).
+
+## 2026-10-10 06:52 UTC session 01RtDaof2sqMLZnGpXpjGrUh (routine run, second unit)
+
+- Device results: none new.
+- Worked on: M2-06 part 2 (tracking issue #124): acceptance line 2; and a rail 2 bug in M2-07's writer found on the way. Part 1's PR #125 merged at 00f9641; its CI wall time was x64 6:50, arm64 2:08.
+- Result: PR (this one). M2-06 stays false until lines 3 and 4.
+- Evidence:
+  - `RommClient.downloadSave` asks for `/api/saves/{id}/content?device_id&optimistic=false` when this device has an id, so the GET records nothing; new `confirmSaveDownloaded` posts `{device_id}` to `/api/saves/{id}/downloaded`. `SaveSync.pullKind` confirms a save only after `restoreFile`/`restoreArchive` returned; states are never confirmed (RomM keeps no records for them); a refused confirmation is logged and the save still counts as pulled.
+  - Line 2: `savesync.test.ts` "telling RomM a save arrived": confirmed once by id after a write; never after a download that breaks off, a download whose md5 is not RomM's, or a save the writer could not put in place (backups folder blocked); never for a state; a refused confirmation leaves the save pulled. `romm.test.ts`: the download URL carries `device_id` and `optimistic=false`; the confirmation's method, path and body; a refusal throws.
+  - Bug (separate commit, `fix(saves)`): `keepBackup` swallowed a failed copy, so `replaceSave`, `unpackSave` and `removeSave` overwrote or deleted a save with no backup (the log said "could not be copied aside" and the pull went on). It now checks the first slot holds the save's own bytes and throws `SaveNotBackedUp`; nothing is written. `savewriter.test.ts` "a save that cannot be copied aside is left as it was" (pull, folder unpack, delete). New string `error.saveNotBackedUp` in all four catalogues (translated).
+  - `scripts/agent/check.sh` green; `npm run test:saves` 38/38 and `npm run test:romm` 21/21 on Docker 5.2.0; `npm run test:app` 224/224 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root). `games.test.ts` "the server's copy is brought down before the game starts" now also asserts `optimistic=false` and the `/downloaded` POST, which `test/app/server.ts` answers.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none.
+- Next: M2-06 part 3: line 3 (an identical retry adds no slot row, test:saves on 5.2.0 and 5.3.1), line 4 (`play_sessions` with the session's completion), and a 409 shown to the player as a conflict.
+- Found on the way: the first CI run failed x64 `test:app`, whose check matched the content path exactly and so missed the new query; it was not run before the push because only main-process code changed. A change to what goes over the wire to RomM needs `test:app` too.
+- Notes: a confirmation that fails is not retried yet (Argosy retries before the next sync); a save whose bytes already match is stamped without a download and so never confirmed. Both leave RomM offering the same download again, which costs a transfer, not a save.

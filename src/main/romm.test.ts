@@ -1558,7 +1558,7 @@ describe('firmware, saves and states', () => {
   })
 
   test('saves and states are listed and fetched per game', async () => {
-    const { store } = fakeStore()
+    const { store } = fakeStore({ deviceId: 'romm-device-9' })
     const dir = scratch()
     const sent = serve((request) =>
       request.url.includes('/content') ? new Response('save bytes') : json([])
@@ -1572,9 +1572,46 @@ describe('firmware, saves and states', () => {
 
     assert.equal(sent[0].url, 'https://romm.example/api/saves?rom_id=5')
     assert.equal(sent[1].url, 'https://romm.example/api/states?rom_id=5')
-    assert.equal(sent[2].url, 'https://romm.example/api/saves/11/content')
+    assert.equal(
+      sent[2].url,
+      'https://romm.example/api/saves/11/content?device_id=romm-device-9&optimistic=false'
+    )
     assert.equal(sent[3].url, 'https://romm.example/api/states/12/content')
     assert.equal(readFileSync(join(dir, 'a.srm'), 'utf8'), 'save bytes')
+  })
+
+  test('a save is downloaded under this device with nothing recorded yet', async () => {
+    const { store } = fakeStore({ deviceId: 'romm-device-9' })
+    const sent = serve(() => new Response('save bytes'))
+    const to = join(scratch(), 'a.srm')
+
+    await new RommClient(store).downloadSave(11, to)
+
+    const url = new URL(sent[0].url)
+    assert.equal(url.pathname, '/api/saves/11/content')
+    assert.equal(url.searchParams.get('device_id'), 'romm-device-9')
+    // RomM's default records the device as holding the save when the GET
+    // starts, before a byte has been checked or written.
+    assert.equal(url.searchParams.get('optimistic'), 'false')
+    assert.equal(readFileSync(to, 'utf8'), 'save bytes')
+  })
+
+  test('a save that arrived is confirmed under this device', async () => {
+    const { store } = fakeStore({ deviceId: 'romm-device-9' })
+    const sent = serve(() => json({}))
+
+    await new RommClient(store).confirmSaveDownloaded(11)
+
+    assert.equal(sent[0].method, 'POST')
+    assert.equal(sent[0].url, 'https://romm.example/api/saves/11/downloaded')
+    assert.deepEqual(JSON.parse(String(sent[0].body)), { device_id: 'romm-device-9' })
+  })
+
+  test('a confirmation RomM refuses is an error the caller sees', async () => {
+    const { store } = fakeStore({ deviceId: 'romm-device-9' })
+    serve(() => json({ detail: 'nope' }, 404))
+
+    await assert.rejects(new RommClient(store).confirmSaveDownloaded(11), RommError)
   })
 
   test('a save is uploaded with the device and emulator that produced it', async () => {

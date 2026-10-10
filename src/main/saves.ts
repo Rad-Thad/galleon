@@ -1407,6 +1407,8 @@ export class SaveSync {
             item.file_size_bytes
           )
         }
+        // States carry no device records on RomM, so only a save is confirmed.
+        if (kind === 'save') await this.confirmPulled(target.rom.id, item)
         written += 1
         log.info('saves', `${kind} pulled`, {
           romId: target.rom.id,
@@ -1436,6 +1438,28 @@ export class SaveSync {
       }
     }
     return { written, offered: remote.length, failed }
+  }
+
+  /**
+   * Tell RomM this device holds a save that has just been written in place.
+   *
+   * Reached only after the write: a download that broke off, failed its check
+   * or could not be put in place throws before it, so the server never records
+   * this device as current with a save it does not have. A confirmation that
+   * fails costs only a repeat of the same download later, so it is logged and
+   * the save still counts as pulled.
+   */
+  private async confirmPulled(romId: number, item: RommSave | RommState): Promise<void> {
+    try {
+      await this.client.confirmSaveDownloaded(item.id)
+    } catch (cause) {
+      log.warn('saves', 'could not tell RomM a save arrived', {
+        romId,
+        id: item.id,
+        fileName: item.file_name,
+        reason: (cause as Error).message
+      })
+    }
   }
 
   /**

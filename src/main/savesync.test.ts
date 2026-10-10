@@ -118,6 +118,8 @@ function setUp(
     archive?: Record<string, string>
     /** How many bytes arrive before the connection drops. See `download`. */
     breakAfter?: number
+    /** Whether RomM refuses to record that this device holds a save. */
+    confirmFails?: boolean
   } = {}
 ): {
   sync: SaveSync
@@ -128,6 +130,7 @@ function setUp(
   backups: string
   uploaded: Uploaded[]
   deleted: number[]
+  confirmed: number[]
   store: Store
 } {
   const home = scratch()
@@ -138,6 +141,7 @@ function setUp(
 
   const uploaded: Uploaded[] = []
   const deleted: number[] = []
+  const confirmed: number[] = []
 
   /** What the server hands over: a file's contents, or a zip of a folder. */
   const download = async (to: string): Promise<void> => {
@@ -197,6 +201,10 @@ function setUp(
       uploaded.push({ fileName, from: filePath, slot: null, keepThisDevice: false })
       return save({ file_name: fileName })
     },
+    confirmSaveDownloaded: async (id: number) => {
+      if (options.confirmFails) throw new RommError('refused', 500)
+      confirmed.push(id)
+    },
     deleteSaves: async (ids: number[]) => void deleted.push(...ids),
     deleteStates: async (ids: number[]) => void deleted.push(...ids)
   } as unknown as RommClient
@@ -229,6 +237,7 @@ function setUp(
     backups,
     uploaded,
     deleted,
+    confirmed,
     store
   }
 }
@@ -1776,5 +1785,83 @@ describe('pairing on the slot rather than the name', () => {
     ]
     assert.equal(slotted?.localPath, join(saveDir, 'Sonic the Hedgehog (USA).srm'))
     assert.equal(byName?.localPath, null)
+  })
+})
+
+describe('telling RomM a save arrived', () => {
+  const local = (saveDir: string): string => join(saveDir, 'Sonic the Hedgehog (USA).srm')
+
+  test('a save written in place is confirmed, once, by its id', async () => {
+    const { sync, target, saveDir, confirmed } = setUp({ saves: [save({ id: 31 })] })
+
+    const result = await sync.pullNow(target)
+
+    assert.equal(result.saves, 1)
+    assert.equal(readFileSync(local(saveDir), 'utf8'), REMOTE_BYTES)
+    assert.deepEqual(confirmed, [31])
+  })
+
+  test('a download that breaks off is never confirmed', async () => {
+    const { sync, target, confirmed } = setUp({ saves: [save({ id: 31 })], breakAfter: 4 })
+
+    const result = await sync.pullNow(target)
+
+    assert.equal(result.failed, 1)
+    assert.deepEqual(confirmed, [])
+  })
+
+  test('a download that is not the file RomM holds is never confirmed', async () => {
+    const { sync, target, confirmed } = setUp({
+      saves: [save({ id: 31, content_hash: md5('another save altogether') })]
+    })
+
+    const result = await sync.pullNow(target)
+
+    assert.equal(result.failed, 1)
+    assert.deepEqual(confirmed, [])
+  })
+
+  test('a save that cannot be put in place is never confirmed', async () => {
+    const { sync, target, saveDir, backups, confirmed } = setUp({ saves: [save({ id: 31 })] })
+    // An older save to replace, and a file where its backup must go: the
+    // writer refuses to replace what it cannot keep a copy of, after the bytes
+    // arrived whole, which is the last step that can fail.
+    writeFileSync(local(saveDir), 'the save that is here')
+    const old = new Date('2026-07-01T12:00:00.000Z')
+    utimesSync(local(saveDir), old, old)
+    writeFileSync(backups, 'not a folder')
+
+    const result = await sync.pullNow(target)
+
+    assert.equal(result.failed, 1)
+    assert.equal(readFileSync(local(saveDir), 'utf8'), 'the save that is here')
+    assert.deepEqual(confirmed, [])
+  })
+
+  test('a state is never confirmed, RomM keeping no records for states', async () => {
+    const { sync, target, confirmed } = setUp({
+      states: [
+        save({ id: 32, file_name: 'Sonic the Hedgehog (USA).state1' }) as unknown as RommState
+      ]
+    })
+
+    const result = await sync.pullNow(target)
+
+    assert.equal(result.states, 1)
+    assert.deepEqual(confirmed, [])
+  })
+
+  test('a confirmation RomM refuses leaves the save pulled', async () => {
+    const { sync, target, saveDir, confirmed } = setUp({
+      saves: [save({ id: 31 })],
+      confirmFails: true
+    })
+
+    const result = await sync.pullNow(target)
+
+    assert.equal(result.saves, 1)
+    assert.equal(result.failed, 0)
+    assert.equal(readFileSync(local(saveDir), 'utf8'), REMOTE_BYTES)
+    assert.deepEqual(confirmed, [])
   })
 })

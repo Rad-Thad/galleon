@@ -1087,6 +1087,8 @@ export const de: Catalog = {
     'Von {name} kam nur ein Teil von RomM an, daher blieb die Datei unberührt.',
   'error.saveBadTime':
     'Die Zeitangabe eines Spielstands ist unlesbar ({value}), daher wurde er nicht verglichen.',
+  'error.saveNotBackedUp':
+    '{name} konnte vorher nicht gesichert werden und wurde deshalb nicht verändert.',
   'error.saveIsFolder':
     '{name} ist auf diesem Gerät ein Ordner, daher wurde keine Datei darüber geschrieben.',
   'error.saveTreeTooLarge':

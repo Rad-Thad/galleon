@@ -22,6 +22,7 @@ import {
   removeSave,
   replaceSave,
   SaveFolderInTheWay,
+  SaveNotBackedUp,
   stageBeside,
   unpackSave
 } from './savewriter.ts'
@@ -360,5 +361,49 @@ describe('keeping copies of a save a pull is about to overwrite', () => {
     const root = tree({})
 
     await keepBackup(join(root, 'gone.srm'), join(root, 'kept'))
+  })
+})
+
+describe('a save that cannot be copied aside is left as it was', () => {
+  /** A backups folder that cannot be made, because a file holds its name. */
+  function blocked(root: string): string {
+    const into = join(root, 'kept')
+    writeFileSync(into, 'not a folder')
+    return into
+  }
+
+  test('a pull writes nothing over it', async () => {
+    const root = tree({ 'game.srm': 'only here' })
+    const path = join(root, 'game.srm')
+    const partial = await staged(path, 'from the server')
+
+    await errorsDuring(() =>
+      assert.rejects(replaceSave(path, partial, blocked(root)), SaveNotBackedUp)
+    )
+
+    assert.equal(readFileSync(path, 'utf8'), 'only here')
+  })
+
+  test('a folder save is not unpacked over', async () => {
+    const root = tree({ 'from/save.dat': 'from the server', 'title/save.dat': 'only here' })
+    const archive = join(root, 'save.zip')
+    await zipDirectory(join(root, 'from'), archive)
+    const dir = join(root, 'title')
+
+    await errorsDuring(() =>
+      assert.rejects(unpackSave(dir, archive, blocked(root)), SaveNotBackedUp)
+    )
+
+    assert.equal(readFileSync(join(dir, 'save.dat'), 'utf8'), 'only here')
+    assert.equal(existsSync(`${dir}.part`), false)
+  })
+
+  test('a delete removes nothing', async () => {
+    const root = tree({ 'game.srm': 'only here' })
+    const path = join(root, 'game.srm')
+
+    await errorsDuring(() => assert.rejects(removeSave(path, blocked(root)), SaveNotBackedUp))
+
+    assert.equal(readFileSync(path, 'utf8'), 'only here')
   })
 })

@@ -1165,12 +1165,44 @@ export class RommClient {
     if (!res.ok) throw await this.toError(res)
   }
 
+  /**
+   * GET /api/saves/{id}/content — the bytes, and nothing recorded yet.
+   *
+   * Under this device and `optimistic=false`: by default RomM records the
+   * device as holding the save the moment the GET starts, which a download
+   * that breaks off or fails its check would leave standing, and the next
+   * negotiate would then trust a save this device does not have
+   * (docs/save-sync/SPEC.md section 6). The record is made by
+   * `confirmSaveDownloaded`, once the save is in place.
+   */
   async downloadSave(
     id: number,
     destination: string,
     onProgress?: (progress: DownloadProgress) => void
   ): Promise<void> {
-    await streamToFile(this.transport, `/api/saves/${id}/content`, destination, onProgress)
+    const deviceId = await this.deviceId()
+    const query = deviceId
+      ? `?${new URLSearchParams({ device_id: deviceId, optimistic: 'false' }).toString()}`
+      : ''
+    await streamToFile(this.transport, `/api/saves/${id}/content${query}`, destination, onProgress)
+  }
+
+  /**
+   * POST /api/saves/{id}/downloaded — tell RomM this device now holds the save.
+   *
+   * Only once the bytes are written where the emulator reads them: it is what
+   * RomM's next decision for this device starts from. Without a device id
+   * there is nothing to record against, so nothing is sent.
+   */
+  async confirmSaveDownloaded(id: number): Promise<void> {
+    const deviceId = await this.deviceId()
+    if (!deviceId) return
+    const res = await this.request(`/api/saves/${id}/downloaded`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device_id: deviceId })
+    })
+    if (!res.ok) throw await this.toError(res)
   }
 
   async downloadState(
