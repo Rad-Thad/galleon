@@ -1450,3 +1450,8 @@ Lines the tooling reads (exact forms):
 - Evaluator: see the PR.
 - Device / acceptance: none. The owner's server stays on 5.2.0 (step 10).
 - Next: nothing eligible unless the device reports; see the 15:53 stop entry.
+
+## 2026-10-10 18:04 UTC session 011jEpBMC6dNybVMQkJqnRiR (routine run, stop)
+
+- Stopped: the run's time is up. M8-06 is done: #151 merged at 75e5bc2 (CI x64 7:37, arm64 2:16; evaluator PASS); `passes` true, #144 closed. The first x64 run failed only features-check, because the PROGRESS entry carried a time later than the run; fixed by re-dating it. Otherwise nothing eligible, as in the 15:53 stop entry: M0-10 and M0-13 wait on the device (bridge last seen 22 h ago), M2-08 on #110's safe default (2026-10-13 01:00 UTC), M4 on Gate 1, Dependabot #1 on a device baseline.
+- Notes: on this VM, `git commit -a` with the pre-commit hook failed with "Error building trees"; `git add` then `git commit` works.
