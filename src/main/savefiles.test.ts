@@ -11,7 +11,18 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { BACKUP_COPIES, cpDirectory, keepBackup, sizeOf, stampMtime, walk } from './savefiles.ts'
+import { createHash } from 'node:crypto'
+import {
+  BACKUP_COPIES,
+  cpDirectory,
+  keepBackup,
+  sameContent,
+  sizeOf,
+  stampMtime,
+  walk
+} from './savefiles.ts'
+import { contentHashOf } from './savehash.ts'
+import { hashCases } from '../../test/saves/hashcases.mjs'
 
 /**
  * The disk half of save sync: what is under a save folder, how big it is, and
@@ -208,5 +219,26 @@ describe('keeping copies of a save a pull is about to overwrite', () => {
     const root = tree({})
 
     await keepBackup(join(root, 'gone.srm'), join(root, 'kept'))
+  })
+})
+
+describe('whether both ends hold the same save', () => {
+  test("a zip save is the same as RomM's when what is inside it is, in any order", async () => {
+    const root = tree({})
+    const cases = hashCases()
+    writeFileSync(join(root, 'ordered.zip'), cases.ordered)
+    writeFileSync(join(root, 'reordered.zip'), cases.reordered)
+    // The md5 of the zip's bytes is not what RomM stores for it.
+    const bytesMd5 = createHash('md5').update(cases.ordered).digest('hex')
+    assert.equal(await sameContent(join(root, 'ordered.zip'), bytesMd5), false)
+    const hashOfOrdered = await contentHashOf(join(root, 'ordered.zip'))
+    assert.ok(hashOfOrdered)
+    assert.equal(await sameContent(join(root, 'reordered.zip'), hashOfOrdered.toUpperCase()), true)
+  })
+
+  test('nothing to compare against, or nothing to read, is not the same', async () => {
+    const root = tree({ 'a.srm': 'bytes' })
+    assert.equal(await sameContent(join(root, 'a.srm'), null), false)
+    assert.equal(await sameContent(join(root, 'missing.srm'), 'abc'), false)
   })
 })

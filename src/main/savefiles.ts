@@ -3,7 +3,7 @@ import { basename, extname, join } from 'node:path'
 import { SAVE_CONVENTIONS } from '@config/emulators'
 import type { SavePaths } from '@config/emulators'
 import type { RommRom, SaveSyncState } from '@shared/types'
-import { hashOf } from './integrity.ts'
+import { contentHashOf } from './savehash.ts'
 import { log } from './log.ts'
 
 /**
@@ -316,7 +316,7 @@ export function timesAgree(localMtimeMs: number, remoteUpdatedAt: string): boole
 }
 
 /**
- * Do both ends hold the same bytes?
+ * Do both ends hold the same save?
  *
  * The one comparison in save sync that no clock takes part in. Everything else
  * weighs a local mtime against an `updated_at` another machine stamped, and the
@@ -325,8 +325,8 @@ export function timesAgree(localMtimeMs: number, remoteUpdatedAt: string): boole
  * and a save folder on exFAT rounds every mtime it is given. Both show up as a
  * copy that looks changed and is not.
  *
- * `hashOf` rather than a second implementation — see `verifyDownload`, which
- * asks the same question of a download. RomM states this one as md5.
+ * `contentHashOf`, so a save that is a zip compares the way RomM hashed it:
+ * by what is inside it, not by its bytes.
  *
  * False where there is nothing to compare against, never where the file cannot
  * be read: an unreadable save is a question for the caller's own rules, and
@@ -335,7 +335,7 @@ export function timesAgree(localMtimeMs: number, remoteUpdatedAt: string): boole
  */
 export async function sameContent(path: string, contentHash: string | null): Promise<boolean> {
   if (!contentHash) return false
-  const actual = await hashOf(path, 'md5').catch(() => null)
+  const actual = await contentHashOf(path)
   return actual !== null && actual === contentHash.toLowerCase()
 }
 
