@@ -16,15 +16,17 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { statePath, type State } from './lib.mjs'
 import { BIOS, BIOS_STUB_BYTES, ROMS } from './make-library.mjs'
+import { pathInGame, playlistFor } from '../../src/shared/gamefiles.ts'
 
 const profile = process.env.ROMM_PROFILE ?? 'v520'
 
 interface Rom {
   fs_name: string
+  fs_path: string
   platform_fs_slug: string
   has_multiple_files: boolean
   has_nested_single_file: boolean
-  files: { file_name: string; is_top_level: boolean }[]
+  files: { file_name: string; file_path: string; is_top_level: boolean }[]
 }
 
 function readState(): State {
@@ -78,6 +80,30 @@ test('a multi-disc folder has multiple files, one per disc', async () => {
     assert.equal(rom.has_nested_single_file, false)
     assert.equal(rom.files.filter((f) => f.is_top_level).length, 2)
   }
+})
+
+test("a multi-disc folder's files sit where pathInGame says, and get a playlist", async () => {
+  const got = await roms()
+  for (const [name, system] of [
+    ['ps1/Galleon Test Saga (USA)', 'psx'],
+    ['ngc/Galleon Test Two Discs (USA)', 'gc']
+  ]) {
+    const rom = got.get(name)
+    assert.ok(rom, name)
+    const want = ROMS.filter((path) => path.startsWith(`roms/${name}/`))
+      .map((path) => path.slice(`roms/${name}/`.length))
+      .sort()
+    const paths = rom.files.map((file) => pathInGame(rom, file)).sort()
+    assert.deepEqual(paths, want)
+    assert.ok(playlistFor(paths, system), name)
+  }
+  // Below the game's own folder the layout is kept, which is what stops two
+  // discs' same-named tracks landing on one another.
+  const portable = got.get('psp/Galleon Test Portable (USA)')
+  assert.ok(portable)
+  assert.ok(
+    portable.files.map((file) => pathInGame(portable, file)).includes('PSP/GAME/GTST00001/DLC.EDAT')
+  )
 })
 
 test('a PSP folder with extras below its image is a nested single file', async () => {

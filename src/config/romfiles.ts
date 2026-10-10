@@ -159,3 +159,38 @@ export const CONTAINER_SYSTEMS: Readonly<Record<string, ContainerFormat>> = {
     ]
   }
 }
+
+/**
+ * Whole disc images: a file that is one disc by itself, with no tracks beside
+ * it to describe. A disc set made of these has one per disc, where a set made
+ * of tracks has one descriptor per disc instead — see `discsOf`.
+ */
+export const DISC_IMAGE_EXTENSIONS: readonly string[] = [
+  '.chd',
+  '.iso',
+  '.cdi',
+  '.pbp',
+  '.rvz',
+  '.gcz',
+  '.gcm',
+  '.ciso',
+  '.wbfs',
+  '.cso'
+]
+
+/**
+ * Disc systems whose emulators change discs through an `.m3u` playlist.
+ *
+ * ES-DE system names. A game of several discs on one of these is handed over
+ * as a playlist Galleon writes itself, so the emulator's disc menu has every
+ * disc in it; anywhere else the first disc is launched, as a single-disc game
+ * would be.
+ */
+export const PLAYLIST_SYSTEMS: readonly string[] = [
+  'psx',
+  'gc',
+  'dreamcast',
+  'saturn',
+  'segacd',
+  'pcenginecd'
+]

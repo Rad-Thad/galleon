@@ -1337,3 +1337,22 @@ Lines the tooling reads (exact forms):
 - Evaluator: see the PR.
 - Device / acceptance: none. How the dialog reads from the sofa belongs in the acceptance session's look-and-feel pass.
 - Next: `next.mjs`: M6-04, M6-05 (M0-10, M0-13 and M2-08 wait on the device, M0-21 or #110's date).
+
+## 2026-10-10 12:38 UTC session 012udxzCZk5g1tJicTEicpMr (routine run)
+
+- Device results: none new. The bridge last checked in at 20:06 UTC (16.3 h ago); its last skip was still "no 'nightly' release published yet".
+- Worked on: M6-04 (tracking issue #137). M2-16 part 2, PR #136, merged at 73c7193.
+- Result: PR (this one). PASSES M6-04 (verification `ci`; both lines).
+- Evidence:
+  - A multi-file game fetched file by file wrote each file under its leaf name, so a folder-per-disc set (every Dreamcast disc has a `track01.bin`) had disc 2 overwrite disc 1. New `pathInGame` (shared/gamefiles.ts): the file's path below the game's folder, from `file_path` minus the ROM's `fs_path` and folder; the leaf where they do not line up. `fetchFileByFile` and the pending record use it; `safeJoin` still refuses a name that climbs out.
+  - A server `.m3u` is never fetched (`filesToFetch`) or launched. `discsOf` reads the discs from the game's own files (each folder's `.cue`/`.gdi`, else its whole images, number order); `playlistFor` writes one only for 2+ discs on `PLAYLIST_SYSTEMS` (src/config/romfiles.ts, beside the new `DISC_IMAGE_EXTENSIONS`). `writePlaylist` (install.ts) puts `<folder>.m3u` at the top of the game folder and it becomes the launch path, on the per-file and the archive path alike. `gameFolderName` strips `.m3u` from the folder Galleon makes (plan, adopt, staging).
+  - Line 1: `downloads.test.ts` "a game of several discs" (5): the synthetic library's PS1 Saga folder (discs 1, 2, 10 in order) and GameCube Two Discs folder (a server `.m3u` beside them is not fetched: 30 bytes arrive, not 129) each launch Galleon's playlist; a two-disc GDI set with generic track names keeps each disc's own bytes; a one-disc cue/bin writes none. `install.test.ts`: an archive with RomM's `.m3u` and folder-per-disc GDIs launches Galleon's. `gamefiles.test.ts` (4). `library.real.ts`: on Docker RomM 5.2.0 the PS1 and GameCube folders' files sit where `pathInGame` says and get a playlist; the PSP folder keeps `PSP/GAME/GTST00001/DLC.EDAT`.
+  - Line 2: "the playlist path never has .m3u in a folder name" (a RomM folder named `… (USA).m3u`), plus `gameFolderName` units.
+  - 4 of the 5 download tests and the install test fail on 73c7193 (checked by the evaluator).
+  - `scripts/agent/check.sh` green; `npm run test:romm` 22/22; `npm run test:app` 229/229.
+  - Flaky (#139): the PR's x64 leg failed `test/app/conflicts.test.ts` (keep this device's never closed the dialog). A real bug from M2-16: `answerConflict` held its `answering` guard through the Saves-tab `reload()` after the next conflict was on screen, so a press in that window was dropped. New `FakeRomm.slowSaveListings` makes the scenario press in that window: fails every time before, 3/3 after the guard is released before the refresh.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none.
+- Next: `next.mjs`: M6-05 (resumable per-file downloads).
+- Notes: a game already installed under a folder named with `.m3u` is no longer adopted at that path (none are installed yet). A multi-disc game on a flat-library emulator (only Eden, Switch) could leave empty subfolders on cancel; not a shape that exists today.

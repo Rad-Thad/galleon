@@ -161,6 +161,10 @@ describe('a conflict is the player’s to settle', () => {
   })
 
   test("keeping RomM's brings that copy down, and the highlight stays on that answer", async () => {
+    // RomM slow to list saves: the next question is on screen while the Saves
+    // tab is still being refreshed behind it, which is when the player answers
+    // it on a slow machine. The next scenario presses in that window.
+    server.slowSaveListings(2000)
     await app.choose('[data-action="conflict-keep-romm"]')
     await app.waitFor(
       `document.querySelector('.overlay [data-conflict]')?.dataset.conflict.endsWith('cavestory.sav')`,
@@ -193,8 +197,12 @@ describe('a conflict is the player’s to settle', () => {
   })
 
   test("keeping this device's sends that one file with overwrite, and only it", async () => {
-    await app.choose('[data-action="conflict-keep-device"]')
-    await app.waitFor(`!document.querySelector('.overlay')`, 'the dialog to close')
+    try {
+      await app.choose('[data-action="conflict-keep-device"]')
+      await app.waitFor(`!document.querySelector('.overlay')`, 'the dialog to close')
+    } finally {
+      server.slowSaveListings(0)
+    }
 
     const sent = overwrites()
     assert.equal(sent.length, 1, `overwrites: ${JSON.stringify(sent)}`)

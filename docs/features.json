@@ -1964,7 +1964,7 @@
     ],
     "verification": "ci",
     "depends_on": ["M0-07"],
-    "passes": false
+    "passes": true
   },
   {
     "id": "M6-05",
