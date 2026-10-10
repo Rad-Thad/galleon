@@ -922,7 +922,7 @@
     ],
     "verification": "ci",
     "depends_on": ["M0-08"],
-    "passes": false
+    "passes": true
   },
   {
     "id": "M2-02",
