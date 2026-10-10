@@ -401,11 +401,77 @@ async function localStates(): Promise<void> {
   }
 }
 
+/**
+ * The conflict dialog (M2-16): a save this device and RomM both moved on.
+ *
+ * RomM holds a newer copy in the shared slot from another device that this
+ * device never took, so a push of the local save is refused and the dialog
+ * opens with both copies side by side.
+ */
+async function conflict(): Promise<void> {
+  const server = await startFakeRomm({
+    devices: [
+      {
+        id: 'some-other-device',
+        name: 'Argosy @ phone',
+        hostname: null,
+        client_device_identifier: null
+      }
+    ]
+  })
+  const configHome = join(HOMES, 'conflict-xdg')
+  rmSync(configHome, { recursive: true, force: true })
+  const saveDir = join(configHome, 'retroarch', 'saves')
+  server.holdSave({
+    romId: 1,
+    fileName: 'Cave Story (E).srm',
+    slot: 'autosave',
+    emulator: 'genesis_plus_gx',
+    content: 'saved at the Egg Corridor'
+  })
+  const app = await startApp({
+    baseUrl: server.baseUrl,
+    token: server.token,
+    settings: {
+      systemEmulators: { genesis: 'retroarch' },
+      emulatorPaths: { retroarch: standInEmulator().path },
+      confirmSavePush: false
+    },
+    env: { XDG_CONFIG_HOME: configHome },
+    viewport: NOVA,
+    home: join(HOMES, 'conflict')
+  })
+  try {
+    await attempt('game-conflict', async () => {
+      await atHome(app)
+      await app.goTo('library')
+      await app.waitFor(`document.querySelector('[data-rom="1"]')`, 'the library to fill')
+      await app.choose('[data-rom="1"]')
+      await app.waitFor(`document.querySelector('[data-screen="game"]')`, 'the game page')
+      await app.choose('[data-action="download"]')
+      await app.waitFor(
+        `(await window.rommix.library.installed()).some((one) => one.romId === 1)`,
+        'the game to arrive'
+      )
+      mkdirSync(saveDir, { recursive: true })
+      writeFileSync(join(saveDir, 'cavestory.srm'), 'saved in the Mimiga Village, further on')
+      await app.choose('[data-action="push-saves"]')
+      await app.waitFor(`document.querySelector('.overlay [data-conflict]')`, 'the conflict')
+      await app.waitFor(`!document.querySelector('.toast')`, 'the toasts to go', 20_000)
+      await shoot(app, 'game-conflict')
+    })
+  } finally {
+    await app.stop()
+    await server.close().catch(() => undefined)
+  }
+}
+
 rmSync(OUT, { recursive: true, force: true })
 mkdirSync(OUT, { recursive: true })
 await signedIn()
 if (wanted('library-iconless')) await iconless()
 if (wanted('game-saves-states')) await localStates()
+if (wanted('game-conflict')) await conflict()
 await setup()
 contactSheet()
 

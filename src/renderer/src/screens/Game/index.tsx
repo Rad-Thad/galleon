@@ -15,6 +15,7 @@ import { CollectionsDialog } from './CollectionsDialog'
 import { StatusDialog } from './StatusDialog'
 import { GameHero } from './GameHero'
 import { SaveTransfer } from './SaveTransfer'
+import { ConflictDialog } from './ConflictDialog'
 import {
   DeleteAssetDialog,
   LaunchVariantDialog,
@@ -211,7 +212,11 @@ export function GameScreen({
     confirmingPush,
     setConfirmingPush,
     deleting,
-    setDeleting
+    setDeleting,
+    conflicts,
+    openConflicts,
+    answerConflict,
+    closeConflicts
   } = useGameSaves(romId, subjectOf)
 
   const { favourite, toggleFavourite, status, setStatus, chooseStatus } = useGameMarks(
@@ -670,6 +675,21 @@ export function GameScreen({
               ))}
             </ul>
           )}
+          {/* The answer to the first reason, beside it: a conflict is settled
+              one pair at a time, in the dialog, by the player. */}
+          {outstanding && outstanding.conflicts > 0 && entry ? (
+            <div className="btn-row">
+              <FocusButton
+                icon="saves"
+                variant="ghost"
+                action="settle-conflicts"
+                onSelect={() => void openConflicts()}
+                disabled={working || running || offline === true}
+              >
+                {t('saves.settle')}
+              </FocusButton>
+            </div>
+          ) : null}
         </div>
       ) : null}
 
@@ -856,6 +876,17 @@ export function GameScreen({
           entry={entry}
           onKeep={() => setConfirmingRemoval(false)}
           onUninstall={() => void uninstall()}
+        />
+      ) : null}
+
+      {conflicts && conflicts.list.length > 0 ? (
+        <ConflictDialog
+          conflict={conflicts.list[0]}
+          position={conflicts.answered + 1}
+          total={conflicts.answered + conflicts.list.length}
+          deviceName={conflicts.deviceName}
+          onAnswer={(answer) => void answerConflict(answer)}
+          onClose={closeConflicts}
         />
       ) : null}
 

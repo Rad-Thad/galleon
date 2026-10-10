@@ -68,3 +68,16 @@ export function mayBeSentUnasked(file: PendingSave): boolean {
   if (file.replaces.isNewer) return false
   return file.replaces.fromThisDevice === true
 }
+
+/**
+ * The files a push would send that are the player's to decide, one by one.
+ *
+ * Exactly the ones `mayBeSentUnasked` turns down that have a copy on RomM to
+ * weigh them against: the conflict dialog puts the two side by side, and a
+ * file RomM holds nothing under has no other side to show. The same rule the
+ * drain counts by, so the notice that there are conflicts and the dialog that
+ * settles them cannot disagree about how many there are.
+ */
+export function conflictsIn(files: readonly PendingSave[]): PendingSave[] {
+  return files.filter((file) => file.replaces !== null && !mayBeSentUnasked(file))
+}

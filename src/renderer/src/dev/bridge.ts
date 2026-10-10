@@ -895,6 +895,7 @@ const bridge: RomMixBridge = {
             slot: 'autosave',
             isDirectory: false,
             replaces: {
+              id: 41,
               sizeBytes: 8192,
               updatedAt: '2026-08-19T21:59:00Z',
               emulator: 'genesis_plus_gx',

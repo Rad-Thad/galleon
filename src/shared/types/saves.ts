@@ -224,6 +224,8 @@ export interface PendingSave {
    * where confirming is worth the interruption.
    */
   replaces: {
+    /** RomM's id for that copy: what "keep RomM's" names when it is a conflict. */
+    id: number
     sizeBytes: number
     updatedAt: string
     emulator: string | null
