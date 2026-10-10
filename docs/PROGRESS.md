@@ -1387,3 +1387,20 @@ Lines the tooling reads (exact forms):
 - Evaluator: see the PR.
 - Device / acceptance: none.
 - Next: `next.mjs`: M8-06.
+
+## 2026-10-10 14:38 UTC session 01D4wbSbJU6yiTdNuXuVCU33 (routine run)
+
+- Device results: none new. The bridge last checked in at 20:06 UTC (18.4 h ago); its last skip was still "no 'nightly' release published yet".
+- Worked on: M8-06, part 1 (tracking issue #144). #143 (flaky #141) merged at 915a833 before this run.
+- Result: PR (this one). M8-06 line 1 met; `passes` stays false until line 2 can be proved.
+- Evidence:
+  - Line 1: new `docs/MAINTENANCE.md`, numbered steps for upstream ports (M0-19's weekly issue), adding a RomM version to the matrix, Electron updates gated on the next nightly's device run (revert first thing on a newly failing check), other Dependabot updates and pinned actions/digests, and scheduled workflows. Linked from CLAUDE.md's list of deeper docs.
+  - Automation: `upstream.yml` gains "Keep scheduled workflows enabled" (`actions: write`): every workflow with a `schedule:` that is `active` or `disabled_inactivity` is re-enabled weekly, which resets GitHub's 60-day inactivity clock; one a person disabled is left alone. Proved by a `workflow_dispatch` run of the branch (link in the PR).
+  - Line 2 cannot be proved today: Docker Hub's newest stable RomM is 5.3.1 (2026-09-23), already in the matrix; 5.4.0 is at beta.1 (2026-10-09). The procedure was rehearsed against `rommapp/romm:5.4.0-beta.1@sha256:8823a21f…` following steps 2 to 7 and then reverted (nothing committed): the index has `linux/amd64` and `linux/arm64`; provisioning passed (8 platforms, 52 s); `schema:fetch` wrote 329 schemas and `romm.test.ts` passed 251/251 with it; `test:romm-real` 24/24; `test:saves` 39/42. The rehearsal added step 7's "compare with the previous profile" after `hash.real.ts` failed on both 5.3.1 and the beta.
+  - What 5.4 will need, from that rehearsal: `sync.real.ts`-style session tests in `test/saves/` fail on the beta: "a session a newer negotiate superseded is finished, not an error" (the older session reads `completed`, not `superseded`) and "play recorded during a session is sent with the session's completion" (the play session is not there: `undefined` where 97 was expected). Both touch save sync (rail 2); investigate when 5.4.0 is stable, with its own golden tests.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none.
+- Next: M8-06 line 2 once RomM 5.4.0 (or a newer stable) is published: follow `docs/MAINTENANCE.md` "RomM versions". Otherwise `next.mjs` has nothing eligible (M0-10, M0-13 and M2-08 wait on the device or #110's date).
+- Notes: init.sh stops before `npm ci` when Docker's daemon is down; start `dockerd` and run it again.
