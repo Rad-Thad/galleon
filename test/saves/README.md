@@ -20,3 +20,24 @@ Golden saves for the Argosy-compatible engine (M2), in `test/fixtures/saves/<sys
 Where a shape rests on something only the owner's server can confirm, the
 fixture's `note` says so and names SPEC.md section 12's question; the shape
 report (M2-02) cross-checks them.
+
+## Round trips
+
+`npm run test:saves` brings up Docker RomM 5.2.0 (`test/romm/compose.yml`),
+provisions it, and runs `roundtrip.real.ts` against it. For every fixture:
+
+- An Argosy device, a stand-in written from SPEC.md sections 3, 5 and 6 (never
+  Argosy's code), uploads it to `autosave`. RomM must store it under its
+  stamped name with the manifest's tag, size and `content_hash`; Argosy and
+  then the fork's client, a second device holding the same bytes, each
+  negotiate to `no_op` twice in a row, and the fork downloads it byte for byte.
+- The fork's client uploads a changed save into that slot with
+  `overwrite=false`: RomM refuses it with a 409 and stores nothing. Only the
+  player's "keep this device's save" (`overwrite=true`) puts it there, beside
+  Argosy's, and Argosy's next negotiate answers `download` for it.
+- The reverse: the fork uploads first, a new Argosy device is told to download
+  it, gets the same bytes, and then negotiates to `no_op` twice.
+
+Each scenario empties its game's slot first, which is why the suite runs only
+against the disposable servers in `test/romm/compose.yml`. CI runs it on both
+architectures when save, client or fixture code changes (the `changes` step).

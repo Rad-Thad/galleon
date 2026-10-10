@@ -79,8 +79,9 @@ jobs:
       # Which slow work this change needs (docs/PLAN.md section 4). A pull
       # request is checked out as a merge commit and main moves by squash
       # merges, so the first parent is the base in both cases. Docker RomM 5.2.0
-      # runs once, on x64, when client, save or fixture code changed; a manual
-      # dispatch runs every version on both architectures. Packaging is left out
+      # runs once, on x64, when client, save or fixture code changed, and the
+      # save round trips on both architectures; a manual dispatch runs every
+      # version on both architectures. Packaging is left out
       # only for a pull request that changes nothing but prose: a push to main
       # always packages, because the canary job publishes what it made.
       - name: changes
@@ -94,7 +95,12 @@ jobs:
           if grep -qE '^(src/main/romm/|src/main/saves[^/]*\.ts$|src/main/saves-compat/|test/romm/|test/fixtures/|schema/)' <<<"$changed"; then
             romm=true
           fi
+          saves=false
+          if grep -qE '^(src/main/romm/|src/main/saves[^/]*\.ts$|src/main/saves-compat/|test/romm/|test/saves/|test/fixtures/saves/|schema/)' <<<"$changed"; then
+            saves=true
+          fi
           if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+            saves=true
             profiles='v520 v531'
           elif [ "$ARCH" = x64 ] && [ "$romm" = true ]; then
             profiles=v520
@@ -113,6 +119,7 @@ jobs:
           echo "docs_only=$docs_only" >>"$GITHUB_OUTPUT"
           echo "package=$package" >>"$GITHUB_OUTPUT"
           echo "romm_profiles=$profiles" >>"$GITHUB_OUTPUT"
+          echo "saves=$saves" >>"$GITHUB_OUTPUT"
 
       # The same gates `.release-it.js` runs before it prepares a release, repeated
       # here because a pull request never goes through release-it. Once, on x64:
@@ -187,6 +194,13 @@ jobs:
           args=()
           for profile in $PROFILES; do args+=(--profile "$profile"); done
           npm run test:romm -- "${args[@]}"
+
+      # The save round trips against Docker RomM 5.2.0 (test/saves/README.md),
+      # on both architectures, when save, client or fixture code changed: they
+      # are what save sync promises Argosy, and arm64 is the device's.
+      - name: Save round trips
+        if: steps.changes.outputs.saves == 'true'
+        run: npm run test:saves
 
       # `npm run appimage` is these two together; they are split so that a
       # failing bundle and a failing package are separate red steps. The

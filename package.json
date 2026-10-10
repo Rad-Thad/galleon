@@ -28,6 +28,8 @@
     "test:app": "./scripts/test-app.sh",
     "test:romm": "node test/romm/run.mjs",
     "test:romm-real": "node --import ./scripts/test-resolve.mjs --experimental-transform-types --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test test/romm/*.real.ts",
+    "test:saves": "node test/romm/run.mjs --suite saves --profile v520",
+    "test:saves-real": "node --import ./scripts/test-resolve.mjs --experimental-transform-types --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test test/saves/*.real.ts",
     "build": "npm run typecheck && electron-vite build",
     "pack:dir": "npm run build && electron-builder --linux dir",
     "package": "electron-builder --linux AppImage --publish never",

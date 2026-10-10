@@ -167,10 +167,7 @@ test('every fixture is a save Argosy would upload, named and tagged as the spec 
 
 test('every fixture belongs to a ROM in the Docker library', () => {
   const libraryRoms = new Set(ROMS.flatMap((path) => [path, path.replace(/\/[^/]+$/, '')]))
-  // Wii joins the Docker library with the round-trip harness, which needs it.
-  const pending = new Set(['roms/wii/Galleon Test Remote (USA).iso'])
   for (const fixture of manifest()) {
-    if (pending.has(fixture.rom)) continue
     assert.ok(libraryRoms.has(fixture.rom), `${fixture.rom} is not in make-library.mjs`)
   }
 })
