@@ -2070,4 +2070,5 @@ Lines the tooling reads (exact forms):
   - `docs/TESTING.md`: the cycle's bullet names `not-refocused` and `refocusMs`.
   - `scripts/agent/check.sh` green; `npm run test:app` 241/241 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root).
 - CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: PASS. Its note (the `deviceCycle` comment left above `ownFocused`) is fixed.
 - Device / acceptance: none until run.sh sends payloads (M0-22's bundle). Watch the first device run for Galleon's own window: under gamescope the self-test's window must be one gamescope will focus again.

@@ -247,11 +247,6 @@ export function devicePlan(home: string): EmulatorScenarioDeps['plan'] {
 }
 
 /**
- * `EmulatorScenarioDeps.cycle` on the device. The display is opened on the
- * first look for a window and closed after the cycle, and each cycle has its
- * own finder, since a finder keeps the atoms it found missing.
- */
-/**
  * `LaunchDeps.ownFocused` over a window finder: Galleon's window is the one
  * whose process is in Galleon's own group, which the emulator never shares
  * since it is started as the leader of a new one (see `startPlan`).
@@ -268,6 +263,11 @@ export function ownFocused(
   }
 }
 
+/**
+ * `EmulatorScenarioDeps.cycle` on the device. The display is opened on the
+ * first look for a window and closed after the cycle, and each cycle has its
+ * own finder, since a finder keeps the atoms it found missing.
+ */
 export function deviceCycle(
   env: NodeJS.ProcessEnv = process.env,
   open: (env: NodeJS.ProcessEnv) => Promise<X11 | null> = openDisplay
