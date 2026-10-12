@@ -1668,6 +1668,7 @@ Lines the tooling reads (exact forms):
     - `scrollScenario`: `grid.scroll@<profile>` per requested profile, switching only when needed; a profile still not in force is `skip` / `profile-not-set`. Clocks are sampled every `SAMPLE_MS` (`profileObserved`, `governor`, `policy7MaxKHz`, `gpuMHz`). Thresholds per the catalogue; no profiles means plain `grid.scroll` held to Performance's.
   - `index.ts` registers it; TESTING.md's request section documents the scenario and the handshake. The save-writer allow-list names the handshake files.
   - Tests: `src/main/selftestscroll.test.ts` 21/21. `test/app/selftest.test.ts` 8/8; new: signed in to a fake RomM with a 1,300-game platform, the built app scrolls it (VM: 1571 frames, 167 games visited, p95 33.4 ms at 60 Hz under Xvfb) and the run is `complete`. The not-implemented example is now `power.read`. `test/app/perf.test.ts` 2/2 after the move.
+  - CI x64 failed once on 29ffac1: the abort test saw no press (60 s, not about 1 s). Cause: `startApp` returns once a page target exists, so the test could plant its pad in a document the app's own page then replaced. Under CPU load on the VM the press arrives while `index.html` is still `loading` with nothing mounted. Fix: the test waits for `[data-screen]` before `plugInPad`. Passes 3/3 under load and 8/8 for the file.
   - `scripts/agent/check.sh` green.
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Evaluator: see the PR.

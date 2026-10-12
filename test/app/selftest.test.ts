@@ -253,6 +253,10 @@ test('a press on the controller stops the run within a second, as aborted-by-use
     }
   })
   try {
+    // `startApp` returns once there is a page to talk to, which can be before
+    // the app's own document has replaced it; a pad planted in that one is
+    // gone with it, and the press is never seen.
+    await app.waitFor(`document.querySelector('[data-screen]')`, 'the first screen')
     const pad = await app.plugInPad()
     const pressed = Date.now()
     // The app may quit before the press has been answered.
