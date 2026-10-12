@@ -1573,3 +1573,23 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Evaluator: see the PR.
 - Device / acceptance: none yet; run.sh does not write a request yet. Next: the remaining part 4 pieces (start-up, grid scroll, screenshots, small download, privacy mode, abort on input, sandbox, run.sh's request).
+
+## 2026-10-12 04:26 UTC session 01RGSMShKzBQaeNLAXc7CMRy (hourly heartbeat)
+
+- Device results: DEVICE-RESULTS aff285b5c2de4b6b4e0b59769cdb68d9a0e17098 complete. Still the minimal harness; nothing flips.
+- Worked on: M0-21 part 4b (tracking issue #155): acceptance line 10, the `download.small` scenario. Part 4a, PR #159, merged at c864cba; its CI wall time was x64 5:52, arm64 0:58.
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - New `src/main/selftestdownload.ts`, `downloadScenario`:
+    - It picks the smallest game on the SNES and GBA platforms (every page) that RomM publishes a digest for. None is a `skip` (`no-hashed-snes-or-gba-title`); a game already installed is a `skip` and is left alone.
+    - The real download queue fetches it into the test home. The scenario counts the queue's `downloading` updates, then hashes the kept file itself against RomM's digest.
+    - Failures are codes: `download-<state>`, `outside-test-home`, `installed-as-folder`, `no-progress-events`, `hash-mismatch`, `not-deleted`.
+    - Whatever the outcome, the game is uninstalled; a transfer that did not finish is cancelled so no part-file stays. An abort cancels the transfer. `safety.romsDownloadedBytes` and `safety.romsLeft` are filled in.
+    - Metrics: platform slug, bytes, `downloadMs`, `progressEvents`, hash algorithm. No game name.
+  - `index.ts` registers it beside `server.heartbeat`.
+  - `test/app/server.ts`: a `gba` option adds a Game Boy Advance platform and one game.
+  - Tests: `src/main/selftestdownload.test.ts` 11/11; `test/app/selftest.test.ts` 4/4, `npm run test:app` 234/234 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root). The new app test runs `download.small` in the built app against the fake RomM: pass, progress events counted, the content endpoint asked, only GET and HEAD sent, no file of the game left under the home.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none yet; run.sh does not write a request yet. Next: `startup.cold`, `grid.scroll` per profile, screenshots, privacy mode, abort on input, the sandbox, run.sh's request.
