@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict'
 import { afterEach, describe, test } from 'node:test'
 import {
+  constants,
+  copyFileSync,
   existsSync,
   lstatSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
-  readlinkSync,
   rmSync,
   symlinkSync,
   writeFileSync
@@ -74,6 +75,11 @@ function withRecipe(
   extra: Partial<EmulatorDescriptor> = {}
 ): EmulatorDescriptor {
   return { ...example, ...extra, sandbox } as EmulatorDescriptor
+}
+
+/** A filesystem that cannot clone, such as the owner's BIOS on another disk. */
+function noClone(): never {
+  throw Object.assign(new Error('no reflinks here'), { code: 'ENOTSUP' })
 }
 
 const EMPTY: SandboxRecipe = { args: [], env: {}, unset: [], files: [] }
@@ -556,7 +562,7 @@ describe('prepareSandbox', () => {
       unset: [],
       files: [{ path: 'config/example/example.cfg', content: 'x = 1\n' }]
     })
-    assert.equal(prepareSandbox(result, null), 0)
+    assert.deepEqual(prepareSandbox(result, null), { kind: 'ready', biosFiles: 0 })
     for (const dir of [...Object.values(result.folders), ...Object.values(result.env)]) {
       assert.ok(existsSync(dir), dir)
     }
@@ -565,7 +571,7 @@ describe('prepareSandbox', () => {
     assert.ok(!existsSync(`${cfg}.part`))
   })
 
-  test("links the owner's BIOS files, nested folders too, and never copies them", () => {
+  test("gives the sandbox its own copy of the owner's BIOS files, nested folders too", () => {
     const home = scratch()
     const owner = scratch()
     writeFileSync(join(owner, 'scph5501.bin'), 'bios')
@@ -573,24 +579,75 @@ describe('prepareSandbox', () => {
     writeFileSync(join(owner, 'dc', 'dc_boot.bin'), 'dc')
     const result = ready(home)
 
-    assert.equal(prepareSandbox(result, owner), 2)
-    const link = join(result.folders.bios, 'scph5501.bin')
-    assert.ok(lstatSync(link).isSymbolicLink())
-    assert.equal(readlinkSync(link), join(owner, 'scph5501.bin'))
-    assert.equal(
-      readlinkSync(join(result.folders.bios, 'dc', 'dc_boot.bin')),
-      join(owner, 'dc', 'dc_boot.bin')
-    )
+    assert.deepEqual(prepareSandbox(result, owner), { kind: 'ready', biosFiles: 2 })
+    const copy = join(result.folders.bios, 'scph5501.bin')
+    assert.ok(!lstatSync(copy).isSymbolicLink())
+    assert.equal(readFileSync(copy, 'utf8'), 'bios')
+    assert.equal(readFileSync(join(result.folders.bios, 'dc', 'dc_boot.bin'), 'utf8'), 'dc')
   })
 
-  test('a second start of the same emulator keeps the links it has', () => {
+  test("an emulator writing beside its BIOS never reaches the owner's file", () => {
+    const home = scratch()
+    const owner = scratch()
+    writeFileSync(join(owner, 'dc_nvmem.bin'), 'owner')
+    const result = ready(home)
+    prepareSandbox(result, owner)
+    writeFileSync(join(result.folders.bios, 'dc_nvmem.bin'), 'sandbox')
+    assert.equal(readFileSync(join(owner, 'dc_nvmem.bin'), 'utf8'), 'owner')
+  })
+
+  test('a clone costs none of the copy budget', () => {
+    const home = scratch()
+    const owner = scratch()
+    writeFileSync(join(owner, 'a.bin'), 'aaaa')
+    writeFileSync(join(owner, 'b.bin'), 'bbbb')
+    const reflink = (source: string, target: string): void =>
+      copyFileSync(source, target, constants.COPYFILE_EXCL)
+    assert.deepEqual(prepareSandbox(ready(home), owner, reflink, 0), {
+      kind: 'ready',
+      biosFiles: 2
+    })
+  })
+
+  test('where nothing can be cloned, copies stay within the budget or the launch is skipped', () => {
+    const owner = scratch()
+    writeFileSync(join(owner, 'a.bin'), 'aaaa')
+    writeFileSync(join(owner, 'b.bin'), 'bbbb')
+    assert.deepEqual(prepareSandbox(ready(scratch()), owner, noClone, 8), {
+      kind: 'ready',
+      biosFiles: 2
+    })
+    assert.deepEqual(prepareSandbox(ready(scratch()), owner, noClone, 7), {
+      kind: 'skip',
+      reason: CANNOT_SANDBOX,
+      detail: 'bios-too-large'
+    })
+  })
+
+  test('a second start of the same emulator keeps the copies it has, written to or not', () => {
     const home = scratch()
     const owner = scratch()
     writeFileSync(join(owner, 'gba_bios.bin'), 'bios')
     const result = ready(home)
-    assert.equal(prepareSandbox(result, owner), 1)
-    assert.equal(prepareSandbox(result, owner), 0)
-    assert.ok(lstatSync(join(result.folders.bios, 'gba_bios.bin')).isSymbolicLink())
+    assert.deepEqual(prepareSandbox(result, owner), { kind: 'ready', biosFiles: 1 })
+    writeFileSync(join(result.folders.bios, 'gba_bios.bin'), 'written')
+    assert.deepEqual(prepareSandbox(result, owner, noClone, 0), { kind: 'ready', biosFiles: 0 })
+    assert.equal(readFileSync(join(result.folders.bios, 'gba_bios.bin'), 'utf8'), 'written')
+  })
+
+  test("a link to the owner's file left in the sandbox is replaced by a copy", () => {
+    const home = scratch()
+    const owner = scratch()
+    writeFileSync(join(owner, 'scph5501.bin'), 'bios')
+    const result = ready(home)
+    mkdirSync(result.folders.bios, { recursive: true })
+    const copy = join(result.folders.bios, 'scph5501.bin')
+    symlinkSync(join(owner, 'scph5501.bin'), copy)
+
+    assert.deepEqual(prepareSandbox(result, owner), { kind: 'ready', biosFiles: 1 })
+    assert.ok(!lstatSync(copy).isSymbolicLink())
+    writeFileSync(copy, 'sandbox')
+    assert.equal(readFileSync(join(owner, 'scph5501.bin'), 'utf8'), 'bios')
   })
 
   test('stops descending into BIOS folders past its depth', () => {
@@ -600,12 +657,15 @@ describe('prepareSandbox', () => {
     mkdirSync(deep, { recursive: true })
     writeFileSync(join(deep, 'too-deep.bin'), 'x')
     writeFileSync(join(owner, 'a', 'b', 'c', 'kept.bin'), 'x')
-    assert.equal(prepareSandbox(ready(home), owner), 1)
+    assert.deepEqual(prepareSandbox(ready(home), owner), { kind: 'ready', biosFiles: 1 })
   })
 
-  test('a missing BIOS folder links nothing', () => {
+  test('a missing BIOS folder copies nothing', () => {
     const home = scratch()
-    assert.equal(prepareSandbox(ready(home), join(home, 'nowhere')), 0)
+    assert.deepEqual(prepareSandbox(ready(home), join(home, 'nowhere')), {
+      kind: 'ready',
+      biosFiles: 0
+    })
   })
 })
 

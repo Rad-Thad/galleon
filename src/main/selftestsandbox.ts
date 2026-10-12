@@ -1,10 +1,13 @@
 import {
+  constants,
+  copyFileSync,
+  lstatSync,
   mkdirSync,
   readdirSync,
   realpathSync,
   renameSync,
   statSync,
-  symlinkSync,
+  unlinkSync,
   writeFileSync
 } from 'node:fs'
 import { isAbsolute, join, relative, resolve } from 'node:path'
@@ -30,8 +33,15 @@ import { execPrefix } from './host.ts'
 /** The reason a launch check gives when it would not start an emulator. */
 export const CANNOT_SANDBOX = 'cannot-sandbox'
 
-/** How deep below the owner's BIOS folder files are linked into a sandbox. */
+/** How deep below the owner's BIOS folder files are cloned into a sandbox. */
 const BIOS_DEPTH = 4
+
+/**
+ * How many bytes of BIOS one sandbox may copy outright where the filesystem
+ * cannot clone them, so a large BIOS set on another disk cannot fill the
+ * test home.
+ */
+export const BIOS_COPY_BUDGET = 512 * 1024 * 1024
 
 /** Where one emulator's sandbox lives, below the test home. */
 export function sandboxFolders(home: string, emulator: string): SandboxFolders {
@@ -167,62 +177,127 @@ export function sandboxEnvironment(
 }
 
 /**
- * Makes the sandbox's folders, writes the recipe's files and links the
- * owner's BIOS files into `folders.bios`.
+ * Clones `source` to `target` sharing its blocks, or throws when the
+ * filesystem cannot (another disk, or no reflinks); throws `EEXIST` when
+ * `target` exists. A clone that fails leaves no `target` behind.
+ */
+export type CloneFile = (source: string, target: string) => void
+
+/** `CloneFile` for a real start. */
+export function cloneFile(source: string, target: string): void {
+  copyFileSync(source, target, constants.COPYFILE_EXCL | constants.COPYFILE_FICLONE_FORCE)
+}
+
+export type PreparedSandbox =
+  | { kind: 'ready'; biosFiles: number }
+  | { kind: 'skip'; reason: typeof CANNOT_SANDBOX; detail: string }
+
+/**
+ * Makes the sandbox's folders, writes the recipe's files and gives the
+ * sandbox its own copy of each of the owner's BIOS files in `folders.bios`.
  *
- * Links, not copies: a BIOS set can be gigabytes, and the emulator only reads
- * it. A write through a link would reach the owner's file, which is what the
- * owner-state manifest around every run is there to catch. Returns how many
- * BIOS files were linked.
+ * Never a symlink: emulators keep NVRAM and flash beside their BIOS, and a
+ * write through a link would land in the owner's file. A clone shares the
+ * owner's blocks until something writes, so a large BIOS set costs nothing on
+ * the same filesystem; elsewhere each file is copied, within
+ * `BIOS_COPY_BUDGET`. Past the budget the launch is skipped as
+ * `cannot-sandbox` rather than started with part of the owner's BIOS.
+ * `biosFiles` counts the files this call added; a second start of the same
+ * emulator keeps the copies it has, written to or not.
  */
 export function prepareSandbox(
   plan: Extract<SandboxPlan, { kind: 'run' }>,
-  ownerBios: string | null
-): number {
+  ownerBios: string | null,
+  clone: CloneFile = cloneFile,
+  copyBudget: number = BIOS_COPY_BUDGET
+): PreparedSandbox {
   const { folders } = plan
   for (const dir of [...Object.values(folders), ...Object.values(xdgRoots(folders))]) {
     mkdirSync(dir, { recursive: true })
   }
   for (const file of plan.files) writeWhole(file.path, file.content)
-  return ownerBios === null ? 0 : linkTree(ownerBios, folders.bios, BIOS_DEPTH)
+  if (ownerBios === null) return { kind: 'ready', biosFiles: 0 }
+  const tally = { files: 0, copied: 0, budget: copyBudget, clone }
+  if (!copyTree(ownerBios, folders.bios, BIOS_DEPTH, tally)) {
+    return { kind: 'skip', reason: CANNOT_SANDBOX, detail: 'bios-too-large' }
+  }
+  return { kind: 'ready', biosFiles: tally.files }
 }
 
-function linkTree(from: string, to: string, depth: number): number {
+interface Tally {
+  files: number
+  copied: number
+  readonly budget: number
+  readonly clone: CloneFile
+}
+
+/** False once a copy would go past the budget. */
+function copyTree(from: string, to: string, depth: number, tally: Tally): boolean {
   let entries: string[]
   try {
     entries = readdirSync(from)
   } catch {
-    return 0
+    return true
   }
-  let linked = 0
   for (const name of entries) {
     const source = join(from, name)
+    let size = 0
     let kind: 'file' | 'dir' | null = null
     try {
       const info = statSync(source)
       kind = info.isFile() ? 'file' : info.isDirectory() ? 'dir' : null
+      size = info.size
     } catch {
       continue
     }
     if (kind === 'file') {
-      if (linkOnce(source, join(to, name))) linked += 1
+      if (!copyOnce(source, join(to, name), size, tally)) return false
     } else if (kind === 'dir' && depth > 1) {
       mkdirSync(join(to, name), { recursive: true })
-      linked += linkTree(source, join(to, name), depth - 1)
+      if (!copyTree(source, join(to, name), depth - 1, tally)) return false
     }
   }
-  return linked
+  return true
 }
 
-/** A second launch of the same emulator finds its links already made. */
-function linkOnce(source: string, link: string): boolean {
+function copyOnce(source: string, target: string, size: number, tally: Tally): boolean {
+  if (keptFrom(target)) return true
   try {
-    symlinkSync(source, link)
+    tally.clone(source, target)
+    tally.files += 1
     return true
   } catch (cause) {
-    if ((cause as NodeJS.ErrnoException).code === 'EEXIST') return false
+    if (exists(cause)) return true
+  }
+  if (tally.copied + size > tally.budget) return false
+  try {
+    copyFileSync(source, target, constants.COPYFILE_EXCL)
+  } catch (cause) {
+    if (exists(cause)) return true
     throw cause
   }
+  tally.copied += size
+  tally.files += 1
+  return true
+}
+
+/**
+ * Whether the sandbox already holds its own `target`. A link is never kept: a
+ * sandbox laid out by a build that linked BIOS files still holds the links.
+ */
+function keptFrom(target: string): boolean {
+  let link: boolean
+  try {
+    link = lstatSync(target).isSymbolicLink()
+  } catch {
+    return false
+  }
+  if (link) unlinkSync(target)
+  return !link
+}
+
+function exists(cause: unknown): boolean {
+  return (cause as NodeJS.ErrnoException).code === 'EEXIST'
 }
 
 function writeWhole(path: string, content: string): void {
