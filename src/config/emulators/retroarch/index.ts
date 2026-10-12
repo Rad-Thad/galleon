@@ -1,7 +1,13 @@
 import { coreForSystem, systemsWithCore } from '../../systems.ts'
 import { libretroCore, libretroSavePaths, readLibretroConfig } from '../libretro.ts'
 import { joinPath } from '../savepaths.ts'
-import type { CoreContext, EmulatorDescriptor, RequiredCore } from '../types.ts'
+import type {
+  CoreContext,
+  EmulatorDescriptor,
+  RequiredCore,
+  SandboxContext,
+  SandboxRecipe
+} from '../types.ts'
 
 const RETROARCH_APP_ID = 'org.libretro.RetroArch'
 
@@ -19,6 +25,77 @@ function configCandidates(ctx: CoreContext): readonly string[] {
     joinPath(ctx.configDir, 'retroarch', 'retroarch.cfg'),
     joinPath(ctx.home, '.config', 'retroarch', 'retroarch.cfg')
   ].filter((path) => path !== '')
+}
+
+/**
+ * The core this game needs, and the folder RetroArch will look for it in.
+ *
+ * From `libretro_directory` rather than the templated `dirs`, because that is
+ * the directory RetroArch searches when `launch` names a core by file name —
+ * install it anywhere else and the bare name resolves to nothing, which is
+ * the fatal "path is not set" this exists to prevent.
+ */
+function requiredCore(ctx: CoreContext): RequiredCore | null {
+  return libretroCore(
+    readLibretroConfig(ctx.env, configCandidates(ctx), ctx.home),
+    coreForSystem(ctx.system),
+    joinPath(ctx.configDir, 'retroarch', 'cores') || null
+  )
+}
+
+/** The appended config, which `sandbox` writes beside the sandbox's own folders. */
+const SANDBOX_APPEND = 'retroarch-sandbox.cfg'
+
+/**
+ * RetroArch started on a config of the sandbox's own, with the folders it
+ * writes to named in an appended one.
+ *
+ * `--config` alone is not enough: RetroArch takes its save, state and system
+ * folders from the config, and an empty one falls back to defaults that can
+ * sit beside the game. The appended config names every folder it writes,
+ * keeps saves and states out of the game's folder, and turns off saving the
+ * config on exit so the sandbox's file stays what was written. Cores are the
+ * owner's, read where RetroArch would load them from; without a core for the
+ * system there is nothing to start.
+ */
+function sandboxRecipe(ctx: SandboxContext): SandboxRecipe | null {
+  const core = requiredCore({ system: ctx.system, ...ctx.owner })
+  if (core === null) return null
+  const { folders } = ctx
+  const config = joinPath(folders.config, 'retroarch')
+  const settings: Record<string, string> = {
+    config_save_on_exit: 'false',
+    libretro_directory: core.dir,
+    savefile_directory: folders.saves,
+    savestate_directory: folders.states,
+    system_directory: folders.bios,
+    savefiles_in_content_dir: 'false',
+    savestates_in_content_dir: 'false',
+    systemfiles_in_content_dir: 'false',
+    screenshots_in_content_dir: 'false',
+    core_options_path: joinPath(config, 'retroarch-core-options.cfg'),
+    content_history_path: joinPath(config, 'content_history.lpl'),
+    playlist_directory: joinPath(config, 'playlists'),
+    screenshot_directory: joinPath(folders.data, 'screenshots'),
+    cache_directory: joinPath(folders.data, 'cache'),
+    log_dir: joinPath(folders.data, 'logs')
+  }
+  const append = Object.entries(settings)
+    .map(([key, value]) => `${key} = "${value}"\n`)
+    .join('')
+  return {
+    args: [
+      '--config',
+      joinPath(config, 'retroarch.cfg'),
+      '--appendconfig',
+      joinPath(folders.root, SANDBOX_APPEND)
+    ],
+    env: {},
+    files: [
+      { path: 'config/retroarch/retroarch.cfg', content: '' },
+      { path: SANDBOX_APPEND, content: append }
+    ]
+  }
 }
 
 /**
@@ -83,20 +160,8 @@ export const retroarch: EmulatorDescriptor = {
   // Its system folder takes any firmware file dropped in.
   bios: undefined,
   biosStagingNote: undefined,
-  /**
-   * The core for this system, and the folder RetroArch will look for it in.
-   *
-   * From `libretro_directory` rather than the templated `dirs`, because that is
-   * the directory RetroArch searches when `launch` names a core by file name —
-   * install it anywhere else and the bare name resolves to nothing, which is
-   * the fatal "path is not set" this exists to prevent.
-   */
-  core: (ctx: CoreContext): RequiredCore | null =>
-    libretroCore(
-      readLibretroConfig(ctx.env, configCandidates(ctx), ctx.home),
-      coreForSystem(ctx.system),
-      joinPath(ctx.configDir, 'retroarch', 'cores') || null
-    ),
+  // See `requiredCore`.
+  core: requiredCore,
   // Nothing: the one setup step RetroArch really needs — a core for the system
   // being played — RomMix now performs itself, from `core` above.
   setupNotes: [],
@@ -119,5 +184,5 @@ export const retroarch: EmulatorDescriptor = {
     if (!core) return null
     return [...exec, '-f', '-L', `${core}_libretro.so`, romPath]
   },
-  sandbox: undefined
+  sandbox: sandboxRecipe
 }

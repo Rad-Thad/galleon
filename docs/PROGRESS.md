@@ -1738,3 +1738,24 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Evaluator: see the PR.
 - Device / acceptance: none yet; nothing starts an emulator in the self-test yet. Next: RetroArch's recipe (`--config` plus an appended config), then Dolphin, DuckStation and the XDG-only emulators, then flatpaks.
+
+## 2026-10-12 10:52 UTC session 019YTjCVcH4zVLC76deCJNbC (hourly heartbeat, second unit)
+
+- Device results: unchanged since the entry above. Part 5a, PR #169, merged at f49339c; its CI wall time was x64 6:32, arm64 0:59.
+- Worked on: M0-21 part 5b (tracking issue #155): RetroArch's sandbox recipe (acceptance line 4, "RetroArch `--config` plus an appended config naming the sandbox's folders").
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - `SandboxContext` gains `owner` (home, config root, file reader), which a recipe reads and never writes. `planSandbox` takes it from its caller.
+  - `src/config/emulators/retroarch/index.ts`:
+    - `requiredCore` is the old `core` body, shared by `core` and the recipe.
+    - `sandboxRecipe`: `--config <sandbox>/config/retroarch/retroarch.cfg --appendconfig <sandbox>/retroarch-sandbox.cfg`, placed right after the program. The appended config:
+      - names the save, state, system, core-options, history, playlist, screenshot, cache and log folders, all inside the sandbox;
+      - keeps saves, states, system files and screenshots out of the game's folder;
+      - sets `config_save_on_exit = "false"`;
+      - loads cores from the owner's `libretro_directory`.
+    - A system with no core is null, so it is `cannot-sandbox`. A flatpak RetroArch is still skipped until the flatpak part.
+  - Tests: `src/main/selftestsandbox.test.ts` 23/23 (4 new for RetroArch). Every folder in the appended config except the owner's cores is checked to be inside the sandbox.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none yet; nothing starts an emulator in the self-test yet, and the Nova's RetroArch is a flatpak (G0-7). Next: Dolphin, DuckStation and the XDG-only emulators, then flatpaks.
