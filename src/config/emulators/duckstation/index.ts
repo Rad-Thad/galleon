@@ -19,15 +19,19 @@ const PORTABLE_MARKERS = ['portable.txt', 'settings.ini']
  *
  * A portable marker beside the AppImage would root DuckStation there, in the
  * owner's folder, whatever the environment says, so its presence declines the
- * sandbox. Only the AppImage is started, since DuckStation looks for the
- * marker beside the AppImage file itself. A binary is looked up beside wherever
- * its links resolve, and a distro's `duckstation-qt` is usually such a link,
- * which a reader of the owner's files cannot follow.
+ * sandbox. DuckStation looks for the marker beside the AppImage file a link
+ * leads to; a marker beside the link declines too, so the sandbox never rests
+ * on which of the two a build reads. Only the AppImage is started: a binary
+ * install is a distro's or a build's, whose layout the recipe has not been
+ * checked against.
  */
 function sandboxRecipe(ctx: SandboxContext): SandboxRecipe | null {
   if (ctx.installKind !== 'appimage') return null
-  const beside = dirName(ctx.installRef)
-  if (PORTABLE_MARKERS.some((name) => ctx.owner.env.exists(joinPath(beside, name)))) return null
+  const beside = [dirName(ctx.installRef), dirName(ctx.installTarget)]
+  const marked = beside.some((dir) =>
+    PORTABLE_MARKERS.some((name) => ctx.owner.env.exists(joinPath(dir, name)))
+  )
+  if (marked) return null
   const { folders } = ctx
   const settings = [
     '[Main]',

@@ -1,4 +1,12 @@
-import { mkdirSync, readdirSync, renameSync, statSync, symlinkSync, writeFileSync } from 'node:fs'
+import {
+  mkdirSync,
+  readdirSync,
+  realpathSync,
+  renameSync,
+  statSync,
+  symlinkSync,
+  writeFileSync
+} from 'node:fs'
 import { isAbsolute, join, relative, resolve } from 'node:path'
 import type {
   EmulatorDescriptor,
@@ -47,6 +55,20 @@ export interface SandboxRequest {
   home: string
   /** The owner's install, which a recipe may read from. */
   owner: SandboxContext['owner']
+  /**
+   * A path with every link followed, or null when it cannot be read; see
+   * `resolveLinks`. A parameter so the plan stays checkable without a disk.
+   */
+  realPath: (path: string) => string | null
+}
+
+/** `realPath` for a real start. */
+export function resolveLinks(path: string): string | null {
+  try {
+    return realpathSync(path)
+  } catch {
+    return null
+  }
 }
 
 export type SandboxPlan =
@@ -95,12 +117,15 @@ export function planSandbox(request: SandboxRequest): SandboxPlan {
   if (install.kind === 'flatpak' || install.kind === 'scripts')
     return skip(`${install.kind}-install`)
   if (descriptor.sandbox === undefined) return skip('no-recipe')
+  const target = request.realPath(install.ref)
+  if (target === null) return skip('install-unreadable')
 
   const folders = sandboxFolders(home, descriptor.id)
   const recipe = descriptor.sandbox({
     system,
     installKind: install.kind,
     installRef: install.ref,
+    installTarget: target,
     folders,
     owner
   })

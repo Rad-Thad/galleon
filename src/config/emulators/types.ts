@@ -421,6 +421,12 @@ export interface SandboxContext {
    * recipe looks there first.
    */
   readonly installRef: string
+  /**
+   * `installRef` with every link followed, and the same when it is no link.
+   * A program usually finds the files beside it through this path, so a
+   * recipe looks for a marker beside both.
+   */
+  readonly installTarget: string
   readonly folders: SandboxFolders
   /**
    * The owner's own install, to read from and never to write: where a recipe

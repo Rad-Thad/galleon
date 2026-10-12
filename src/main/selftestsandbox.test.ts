@@ -8,6 +8,7 @@ import {
   readFileSync,
   readlinkSync,
   rmSync,
+  symlinkSync,
   writeFileSync
 } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -21,7 +22,13 @@ import type {
 } from '@config/emulators'
 import { EMULATORS, emulatorById } from '@config/emulators'
 import { example } from '@config/emulators/example/index.ts'
-import { CANNOT_SANDBOX, planSandbox, prepareSandbox, sandboxFolders } from './selftestsandbox.ts'
+import {
+  CANNOT_SANDBOX,
+  planSandbox,
+  prepareSandbox,
+  resolveLinks,
+  sandboxFolders
+} from './selftestsandbox.ts'
 
 /**
  * The self-test's emulator sandbox: what an emulator is started with, which
@@ -77,7 +84,8 @@ function plan(descriptor: EmulatorDescriptor, install = BINARY, system = 'snes')
     system,
     romPath: '/payload/game.sfc',
     home: HOME,
-    owner: OWNER
+    owner: OWNER,
+    realPath: (path) => path
   })
 }
 
@@ -145,6 +153,7 @@ describe('planSandbox', () => {
         system: 'nes',
         installKind: 'appimage',
         installRef: '/apps/example.AppImage',
+        installTarget: '/apps/example.AppImage',
         folders: sandboxFolders(HOME, 'example'),
         owner: OWNER
       }
@@ -229,7 +238,8 @@ describe('planSandbox', () => {
           system,
           romPath: '/payload/game',
           home: HOME,
-          owner: OWNER
+          owner: OWNER,
+          realPath: (path) => path
         })
         if (result.kind === 'skip') {
           assert.equal(result.reason, CANNOT_SANDBOX, descriptor.id)
@@ -265,7 +275,8 @@ describe("RetroArch's recipe", () => {
       system,
       romPath: '/payload/game.sfc',
       home: HOME,
-      owner
+      owner,
+      realPath: (path) => path
     })
   }
 
@@ -341,14 +352,19 @@ describe("DuckStation's recipe", () => {
     ref: '/home/owner/Applications/DuckStation-arm64.AppImage'
   }
 
-  function duckPlan(install: ResolvedInstall = appImage, files: Record<string, string> = {}) {
+  function duckPlan(
+    install: ResolvedInstall = appImage,
+    files: Record<string, string> = {},
+    links: Record<string, string> = {}
+  ) {
     return planSandbox({
       descriptor: duckstation!,
       install,
       system: 'psx',
       romPath: '/payload/game.cue',
       home: HOME,
-      owner: { ...OWNER, env: machine(files) }
+      owner: { ...OWNER, env: machine(files) },
+      realPath: (path) => links[path] ?? path
     })
   }
 
@@ -405,6 +421,45 @@ describe("DuckStation's recipe", () => {
     })
   }
 
+  const linked: ResolvedInstall = { kind: 'appimage', ref: '/home/owner/bin/duckstation.AppImage' }
+  const target = '/home/owner/Applications/DuckStation-arm64.AppImage'
+
+  test('is not started with a marker beside the AppImage a link leads to', () => {
+    assert.deepEqual(
+      duckPlan(linked, { '/home/owner/Applications/portable.txt': '' }, { [linked.ref]: target }),
+      { kind: 'skip', reason: CANNOT_SANDBOX, detail: 'no-recipe' }
+    )
+  })
+
+  test('is not started with a marker beside the link either', () => {
+    assert.deepEqual(
+      duckPlan(linked, { '/home/owner/bin/settings.ini': '' }, { [linked.ref]: target }),
+      { kind: 'skip', reason: CANNOT_SANDBOX, detail: 'no-recipe' }
+    )
+  })
+
+  test('starts through the link when neither folder has a marker', () => {
+    const result = duckPlan(linked, {}, { [linked.ref]: target })
+    assert.equal(result.kind, 'run')
+    if (result.kind !== 'run') return
+    assert.equal(result.argv[0], linked.ref)
+  })
+
+  test('is not started when the AppImage cannot be read', () => {
+    assert.deepEqual(
+      planSandbox({
+        descriptor: duckstation!,
+        install: appImage,
+        system: 'psx',
+        romPath: '/payload/game.cue',
+        home: HOME,
+        owner: OWNER,
+        realPath: () => null
+      }),
+      { kind: 'skip', reason: CANNOT_SANDBOX, detail: 'install-unreadable' }
+    )
+  })
+
   test('is not started as a binary or a flatpak', () => {
     assert.equal(duckPlan({ kind: 'binary', ref: '/usr/bin/duckstation-qt' }).kind, 'skip')
     assert.equal(duckPlan({ kind: 'flatpak', ref: 'org.duckstation.DuckStation' }).kind, 'skip')
@@ -419,7 +474,8 @@ describe('prepareSandbox', () => {
       system: 'snes',
       romPath: '/payload/game.sfc',
       home,
-      owner: OWNER
+      owner: OWNER,
+      realPath: (path) => path
     })
     assert.equal(result.kind, 'run')
     if (result.kind !== 'run') throw new Error('expected a plan')
@@ -483,5 +539,24 @@ describe('prepareSandbox', () => {
   test('a missing BIOS folder links nothing', () => {
     const home = scratch()
     assert.equal(prepareSandbox(ready(home), join(home, 'nowhere')), 0)
+  })
+})
+
+describe('resolveLinks', () => {
+  test('follows a chain of links to the file and leaves a file as it is', () => {
+    const dir = scratch()
+    const file = join(dir, 'DuckStation-arm64.AppImage')
+    writeFileSync(file, '')
+    symlinkSync(file, join(dir, 'first'))
+    symlinkSync(join(dir, 'first'), join(dir, 'second'))
+    assert.equal(resolveLinks(join(dir, 'second')), file)
+    assert.equal(resolveLinks(file), file)
+  })
+
+  test('answers null for a dangling link or a missing file', () => {
+    const dir = scratch()
+    symlinkSync(join(dir, 'gone'), join(dir, 'dangling'))
+    assert.equal(resolveLinks(join(dir, 'dangling')), null)
+    assert.equal(resolveLinks(join(dir, 'missing')), null)
   })
 })
