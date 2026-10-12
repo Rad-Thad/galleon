@@ -1582,13 +1582,13 @@ Lines the tooling reads (exact forms):
 - Evidence:
   - New `src/main/selftestdownload.ts`, `downloadScenario`:
     - It picks the smallest game on the SNES and GBA platforms (every page) that RomM publishes a digest for. None is a `skip` (`no-hashed-snes-or-gba-title`); a game already installed is a `skip` and is left alone.
-    - The real download queue fetches it into the test home. The scenario counts the queue's `downloading` updates, then hashes the kept file itself against RomM's digest.
+    - The real download queue fetches it into the test home. The scenario counts the queue's updates that carry bytes (the 0-byte announcement every transfer starts with does not count, which the evaluator caught), then hashes the kept file itself against RomM's digest.
     - Failures are codes: `download-<state>`, `outside-test-home`, `installed-as-folder`, `no-progress-events`, `hash-mismatch`, `not-deleted`.
-    - Whatever the outcome, the game is uninstalled; a transfer that did not finish is cancelled so no part-file stays. An abort cancels the transfer. `safety.romsDownloadedBytes` and `safety.romsLeft` are filled in.
+    - Whatever the outcome, the game is uninstalled; a transfer that did not finish is cancelled so no part-file stays. An abort cancels the transfer; a run already aborted fetches nothing (`skip`, `aborted`). `safety.romsDownloadedBytes` and `safety.romsLeft` are filled in.
     - Metrics: platform slug, bytes, `downloadMs`, `progressEvents`, hash algorithm. No game name.
   - `index.ts` registers it beside `server.heartbeat`.
   - `test/app/server.ts`: a `gba` option adds a Game Boy Advance platform and one game.
-  - Tests: `src/main/selftestdownload.test.ts` 11/11; `test/app/selftest.test.ts` 4/4, `npm run test:app` 234/234 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root). The new app test runs `download.small` in the built app against the fake RomM: pass, progress events counted, the content endpoint asked, only GET and HEAD sent, no file of the game left under the home.
+  - Tests: `src/main/selftestdownload.test.ts` 12/12; `test/app/selftest.test.ts` 4/4, `npm run test:app` 234/234 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root). The new app test runs `download.small` in the built app against the fake RomM: pass, progress events counted, the content endpoint asked, only GET and HEAD sent, no file of the game left under the home.
   - `scripts/agent/check.sh` green.
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Evaluator: see the PR.

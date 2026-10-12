@@ -114,12 +114,17 @@ export function downloadScenario(deps: DownloadScenarioDeps): Scenario {
     if (rom === null) return result('skip', 'no-hashed-snes-or-gba-title')
     // A game already here is not one this run may take away afterwards.
     if (deps.store.getInstalled(rom.id)) return result('skip', 'already-installed')
+    // The listener below hears only an abort still to come.
+    if (signal.aborted) return result('skip', 'aborted')
 
     const digest = keptDigest(rom)!
+    // Only updates that carry bytes: the queue announces every transfer as it
+    // starts, before anything has arrived, and counting that would pass a
+    // download whose progress reporting is broken.
     let progressEvents = 0
     const onUpdate = (items: DownloadItem[]): void => {
       const item = items.find((candidate) => candidate.romId === rom.id)
-      if (item?.state === 'downloading') progressEvents += 1
+      if (item && item.state !== 'done' && item.receivedBytes > 0) progressEvents += 1
     }
     // An aborted run stops the transfer rather than waiting it out.
     const onAbort = (): void => void deps.downloads.cancel(rom.id)

@@ -68,11 +68,16 @@ class FakeQueue extends EventEmitter {
   async enqueue(game: RommRom): Promise<DownloadItem> {
     const item = { romId: game.id, state: 'downloading', receivedBytes: 0 } as DownloadItem
     this.items = [item]
-    if (this.behaviour !== 'silent') this.emit('update', this.items)
+    // As the real queue does: the transfer is announced before a byte arrives.
+    this.emit('update', this.items)
     if (this.behaviour === 'hang') return item
     if (this.behaviour === 'error') {
       item.state = 'error'
       return item
+    }
+    if (this.behaviour !== 'silent') {
+      item.receivedBytes = BYTES.length
+      this.emit('update', this.items)
     }
     const path = join(this.dir, game.fs_name)
     writeFileSync(path, this.behaviour === 'corrupt' ? Buffer.from('other bytes') : BYTES)
@@ -155,7 +160,7 @@ describe('download.small', () => {
     assert.equal(existsSync(join(home, 'game-11.sfc')), false)
     assert.equal(result.metrics.bytes, 512)
     assert.equal(result.metrics.hashAlgorithm, 'md5')
-    assert.ok((result.metrics.progressEvents as number) > 0)
+    assert.equal(result.metrics.progressEvents, 1)
     assert.equal(sums.romsDownloadedBytes, BYTES.length)
     assert.equal(sums.romsLeft, 0)
   })
@@ -201,7 +206,7 @@ describe('download.small', () => {
     assert.deepEqual(queue.cancelled, [11])
   })
 
-  test('a download that reports no progress fails', async () => {
+  test('a download that only announces itself, with no bytes reported, fails', async () => {
     const { result } = await run('silent')
     assert.equal(result.result, 'fail')
     assert.equal(result.reason, 'no-progress-events')
@@ -219,6 +224,15 @@ describe('download.small', () => {
     assert.equal(result.result, 'fail')
     assert.equal(result.reason, 'not-deleted')
     assert.equal(sums.romsLeft, 1)
+  })
+
+  test('a run already aborted fetches nothing', async () => {
+    const controller = new AbortController()
+    controller.abort()
+    const { result, queue } = await run('ok', undefined, { signal: controller.signal })
+    assert.equal(result.result, 'skip')
+    assert.equal(result.reason, 'aborted')
+    assert.equal(queue.items.length, 0)
   })
 
   test('an abort stops the transfer rather than waiting it out', async () => {
