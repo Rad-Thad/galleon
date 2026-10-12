@@ -96,8 +96,8 @@ export type SandboxPlan =
       strays: string[]
       /**
        * The folder the emulator starts in: the sandbox's root. An emulator can
-       * read and write relative to it, and Eden takes a `user` folder there as
-       * its whole portable layout, so it is never one of the owner's.
+       * read and write relative to it, and some take a `user` folder there as
+       * their whole portable layout, so it is never one of the owner's.
        */
       cwd: string
       /** Where the copies of the owner's BIOS files go; see `SandboxRecipe.bios`. */
