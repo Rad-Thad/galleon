@@ -1943,3 +1943,23 @@ Lines the tooling reads (exact forms):
 - Evaluator: see the PR.
 - Device / acceptance: none; no launch scenario calls `planSandbox` yet.
 - Next: open for M0-21 line 4: flatpaks (5d), the portable `user` folders of Eden and shadPS4; then the synthetic 1,300-game platform.
+
+## 2026-10-12 16:50 UTC session 01CZXRhAceMMinhpATALtvqG (hourly heartbeat)
+
+- Device results: three new, the minimal harness again; nothing flips, no safety failures. Part 5i of M0-21, PR #181, merged at d142eb3; its CI wall time was x64 6:08, arm64 0:57.
+  - DEVICE-RESULTS 7f8e113 complete
+  - DEVICE-RESULTS 9f95aca complete
+  - DEVICE-RESULTS dffeebe complete
+- Worked on: M0-21 part 5j (tracking issue #155): a sandbox recipe for Eden.
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - Eden's `src/common/fs/path_util.cpp` (read as specification): on Linux a `user` folder in the **working folder** is the whole portable layout; otherwise `$XDG_DATA_HOME/eden`, `$XDG_CONFIG_HOME/eden` and `$XDG_CACHE_HOME/eden`. So every sandbox plan now carries `cwd`, the sandbox's root, for the launch check to start in.
+  - `SandboxRecipe.bios`: the sandbox folder the owner's BIOS copies go to, for an emulator that reads them from a fixed place (null for `folders.bios`). A folder outside the sandbox skips the start as `cannot-sandbox` / `bios-outside-sandbox`. `SandboxContext.owner` gains `dataDir`.
+  - Eden's recipe: AppImage only; needs the owner's `<data>/eden/keys/prod.keys`, because Eden opens a warning at start-up without it (`OnCheckFirmwareDecryption`); keys are copied to the sandbox's `data/eden/keys`; `config/eden/qt-config.ini` sets `[UI] confirmStop=2` (Ask_Never, so a SIGTERM closes it without a question) and `check_for_updates=false` (the update dialog).
+  - Tests: `src/main/selftestsandbox.test.ts` 56/56; new: the start folder is the sandbox root; the BIOS folder is the default, the recipe's, or refused outside the sandbox; `prepareSandbox` copies into the recipe's folder; Eden's plan, keys folder, settings file, and skips without `prod.keys` or as a binary or flatpak.
+  - `docs/TESTING.md`: the sandbox bullet names the start folder and the recipe's BIOS folder.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: PASS. Notes for the launch check: pass the emulator's own `paths.bios` as `ownerBios`; Eden's "Wayland detected" box (`OnCheckGraphicsBackend`) would wait for a person under native Wayland, which Game Mode is not (DEVICE-FACTS: X11 on `:1`).
+- Device / acceptance: none; no launch scenario calls `planSandbox` yet.
+- Next: shadPS4's recipe (rule out its portable `user` folder first), then the launch scenario itself.

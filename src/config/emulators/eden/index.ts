@@ -1,5 +1,44 @@
+import { joinPath } from '../savepaths.ts'
 import { switchSavePaths } from '../switch-saves.ts'
-import type { EmulatorDescriptor } from '../types.ts'
+import type { EmulatorDescriptor, SandboxContext, SandboxRecipe } from '../types.ts'
+
+/**
+ * Eden started in its sandbox, with the owner's keys and a settings file that
+ * asks nothing.
+ *
+ * With no `user` folder in the folder it starts in, Eden keeps everything
+ * under `$XDG_DATA_HOME/eden` and `$XDG_CONFIG_HOME/eden`, which the self-test
+ * points into the sandbox; the sandbox's root, where every start begins, holds
+ * none. Its keys have no setting of their own, so the copies go where Eden
+ * reads them: without `prod.keys` it opens a warning before anything else and
+ * waits for a person, so a start without the owner's is skipped. The settings
+ * file turns off the question Eden asks before it closes, which would leave
+ * the graceful exit waiting on a person too, and the update check, which
+ * opens a dialog of its own. Only the AppImage is started, as armadaOS's
+ * catalog installs it; a binary install is a build whose layout the recipe has
+ * not been checked against.
+ */
+function sandboxRecipe(ctx: SandboxContext): SandboxRecipe | null {
+  if (ctx.installKind !== 'appimage' || ctx.owner.dataDir === null) return null
+  const settings = [
+    '[UI]',
+    // Read as an index into Eden's `ConfirmStop`: never ask.
+    'confirmStop\\default=false',
+    'confirmStop=2',
+    'check_for_updates\\default=false',
+    'check_for_updates=false',
+    ''
+  ].join('\n')
+  return {
+    args: [],
+    env: {},
+    unset: [],
+    needs: [joinPath(ctx.owner.dataDir, 'eden/keys/prod.keys')],
+    strays: [],
+    bios: joinPath(ctx.folders.data, 'eden/keys'),
+    files: [{ path: 'config/eden/qt-config.ini', content: settings }]
+  }
+}
 
 /**
  * Eden — a Nintendo Switch emulator continuing the Yuzu codebase.
@@ -160,5 +199,5 @@ export const eden: EmulatorDescriptor = {
    * filename begins with a dash is read as an option and the launch fails.
    */
   launch: ({ exec, romPath }) => [...exec, '-f', '-g', romPath],
-  sandbox: undefined
+  sandbox: sandboxRecipe
 }

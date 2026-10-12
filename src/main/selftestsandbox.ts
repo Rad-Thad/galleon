@@ -94,6 +94,14 @@ export type SandboxPlan =
       unset: string[]
       /** See `SandboxRecipe.strays`. */
       strays: string[]
+      /**
+       * The folder the emulator starts in: the sandbox's root. An emulator can
+       * read and write relative to it, and Eden takes a `user` folder there as
+       * its whole portable layout, so it is never one of the owner's.
+       */
+      cwd: string
+      /** Where the copies of the owner's BIOS files go; see `SandboxRecipe.bios`. */
+      bios: string
       folders: SandboxFolders
       files: { path: string; content: string }[]
     }
@@ -153,6 +161,8 @@ export function planSandbox(request: SandboxRequest): SandboxPlan {
     content: file.content
   }))
   if (files.some((file) => !inside(folders.root, file.path))) return skip('file-outside-sandbox')
+  const bios = recipe.bios === null ? folders.bios : resolve(folders.root, recipe.bios)
+  if (!inside(folders.root, bios)) return skip('bios-outside-sandbox')
   if (recipe.needs.some((path) => request.realPath(path) === null))
     return skip('needed-file-missing')
 
@@ -170,7 +180,17 @@ export function planSandbox(request: SandboxRequest): SandboxPlan {
   const env: Record<string, string> = { ...descriptor.env, ...recipe.env }
   for (const name of unset) delete env[name]
   const strays = recipe.strays.filter((path) => isAbsolute(path))
-  return { kind: 'run', argv, env: { ...env, ...roots }, unset, strays, folders, files }
+  return {
+    kind: 'run',
+    argv,
+    env: { ...env, ...roots },
+    unset,
+    strays,
+    cwd: folders.root,
+    bios,
+    folders,
+    files
+  }
 }
 
 /** The environment a planned start gets, from the one Galleon was started with. */
@@ -231,7 +251,7 @@ export type PreparedSandbox =
 
 /**
  * Makes the sandbox's folders, writes the recipe's files and gives the
- * sandbox its own copy of each of the owner's BIOS files in `folders.bios`.
+ * sandbox its own copy of each of the owner's BIOS files in the plan's `bios`.
  *
  * Never a symlink: emulators keep NVRAM and flash beside their BIOS, and a
  * write through a link would land in the owner's file. A clone shares the
@@ -249,13 +269,13 @@ export function prepareSandbox(
   copyBudget: number = BIOS_COPY_BUDGET
 ): PreparedSandbox {
   const { folders } = plan
-  for (const dir of [...Object.values(folders), ...Object.values(xdgRoots(folders))]) {
+  for (const dir of [...Object.values(folders), ...Object.values(xdgRoots(folders)), plan.bios]) {
     mkdirSync(dir, { recursive: true })
   }
   for (const file of plan.files) writeWhole(file.path, file.content)
   if (ownerBios === null) return { kind: 'ready', biosFiles: 0 }
   const tally = { files: 0, copied: 0, budget: copyBudget, clone }
-  if (!copyTree(ownerBios, folders.bios, BIOS_DEPTH, tally)) {
+  if (!copyTree(ownerBios, plan.bios, BIOS_DEPTH, tally)) {
     return { kind: 'skip', reason: CANNOT_SANDBOX, detail: 'bios-too-large' }
   }
   return { kind: 'ready', biosFiles: tally.files }

@@ -69,6 +69,7 @@ function machine(files: Record<string, string> = {}): SaveEnvironment {
 const OWNER: SandboxContext['owner'] = {
   home: '/home/owner',
   configDir: '/home/owner/.config',
+  dataDir: '/home/owner/.local/share',
   env: machine()
 }
 
@@ -84,7 +85,15 @@ function noClone(): never {
   throw Object.assign(new Error('no reflinks here'), { code: 'ENOTSUP' })
 }
 
-const EMPTY: SandboxRecipe = { args: [], env: {}, unset: [], needs: [], strays: [], files: [] }
+const EMPTY: SandboxRecipe = {
+  args: [],
+  env: {},
+  unset: [],
+  needs: [],
+  strays: [],
+  bios: null,
+  files: []
+}
 
 function plan(descriptor: EmulatorDescriptor, install = BINARY, system = 'snes') {
   return planSandbox({
@@ -122,6 +131,7 @@ describe('planSandbox', () => {
       unset: [],
       needs: [],
       strays: [],
+      bios: null,
       files: []
     }))
     const result = plan(descriptor, BINARY, 'nes')
@@ -144,6 +154,7 @@ describe('planSandbox', () => {
         unset: [],
         needs: [],
         strays: [],
+        bios: null,
         files: []
       }),
       { env: { FROM_DESCRIPTOR: '1', FROM_RECIPE: 'descriptor' } }
@@ -185,6 +196,7 @@ describe('planSandbox', () => {
         unset: ['OVERRIDE_DIR', 'FROM_DESCRIPTOR', 'XDG_DATA_HOME'],
         needs: [],
         strays: [],
+        bios: null,
         files: []
       }),
       { env: { FROM_DESCRIPTOR: '1' } }
@@ -235,6 +247,7 @@ describe('planSandbox', () => {
       unset: [],
       needs: [],
       strays: [],
+      bios: null,
       files: [{ path: 'config/example.cfg', content: 'x = 1\n' }]
     }))
     const result = plan(descriptor)
@@ -244,6 +257,35 @@ describe('planSandbox', () => {
       { path: join(HOME, 'sandbox', 'example', 'config', 'example.cfg'), content: 'x = 1\n' }
     ])
   })
+
+  test("starts in the sandbox's root, never the folder Galleon was started in", () => {
+    const result = plan(withRecipe(() => EMPTY))
+    assert.equal(result.kind, 'run')
+    if (result.kind !== 'run') return
+    assert.equal(result.cwd, join(HOME, 'sandbox', 'example'))
+  })
+
+  test("copies BIOS files into the sandbox's bios folder unless the recipe names another", () => {
+    const standard = plan(withRecipe(() => EMPTY))
+    assert.equal(standard.kind, 'run')
+    if (standard.kind !== 'run') return
+    assert.equal(standard.bios, standard.folders.bios)
+
+    const keys = plan(withRecipe(({ folders }) => ({ ...EMPTY, bios: join(folders.data, 'keys') })))
+    assert.equal(keys.kind, 'run')
+    if (keys.kind !== 'run') return
+    assert.equal(keys.bios, join(HOME, 'sandbox', 'example', 'data', 'keys'))
+  })
+
+  for (const bios of ['/home/owner/bios', '../../owner/bios']) {
+    test(`is not started when the recipe's BIOS folder ${bios} is outside the sandbox`, () => {
+      assert.deepEqual(plan(withRecipe(() => ({ ...EMPTY, bios }))), {
+        kind: 'skip',
+        reason: CANNOT_SANDBOX,
+        detail: 'bios-outside-sandbox'
+      })
+    })
+  }
 
   const refusals: [string, EmulatorDescriptor, ResolvedInstall, string][] = [
     ['an emulator without a recipe', withRecipe(undefined), BINARY, 'no-recipe'],
@@ -268,6 +310,7 @@ describe('planSandbox', () => {
         unset: [],
         needs: [],
         strays: [],
+        bios: null,
         files: [{ path: '../../.config/x', content: '' }]
       })),
       BINARY,
@@ -281,6 +324,7 @@ describe('planSandbox', () => {
         unset: [],
         needs: [],
         strays: [],
+        bios: null,
         files: [{ path: '.', content: '' }]
       })),
       BINARY,
@@ -294,6 +338,7 @@ describe('planSandbox', () => {
         unset: [],
         needs: [],
         strays: [],
+        bios: null,
         files: [{ path: '/etc/x', content: '' }]
       })),
       BINARY,
@@ -606,6 +651,91 @@ describe("DuckStation's recipe", () => {
   })
 })
 
+describe("Eden's recipe", () => {
+  const eden = emulatorById('eden')
+  assert.ok(eden)
+  const appImage: ResolvedInstall = {
+    kind: 'appimage',
+    ref: '/home/owner/Applications/Eden-Linux-aarch64.AppImage'
+  }
+  const ownerKeys = '/home/owner/.local/share/eden/keys/prod.keys'
+
+  function edenPlan(
+    install: ResolvedInstall = appImage,
+    readable: (path: string) => boolean = () => true,
+    owner: SandboxContext['owner'] = OWNER
+  ) {
+    return planSandbox({
+      descriptor: eden!,
+      install,
+      system: 'switch',
+      romPath: '/payload/game.nro',
+      home: HOME,
+      owner,
+      realPath: (path) => (readable(path) ? path : null)
+    })
+  }
+
+  /** The settings file as section/key and value, the way Eden's ini reader takes it. */
+  function settings(files: { path: string; content: string }[], root: string) {
+    const file = files.find((f) => f.path === join(root, 'config', 'eden', 'qt-config.ini'))
+    assert.ok(file)
+    const read: Record<string, string> = {}
+    let section = ''
+    for (const line of file.content.split('\n')) {
+      const header = /^\[(\w+)\]$/.exec(line)
+      if (header) section = header[1]
+      const entry = /^([\w\\]+)=(.*)$/.exec(line)
+      if (entry) read[`${section}/${entry[1]}`] = entry[2]
+    }
+    return read
+  }
+
+  test('starts in the sandbox, which holds no portable user folder, fullscreen on the game', () => {
+    const result = edenPlan()
+    assert.equal(result.kind, 'run')
+    if (result.kind !== 'run') return
+    assert.equal(result.cwd, result.folders.root)
+    assert.ok(result.files.every((f) => !f.path.startsWith(join(result.cwd, 'user'))))
+    assert.deepEqual(result.argv, [appImage.ref, '-f', '-g', '/payload/game.nro'])
+    assert.equal(result.env.XDG_DATA_HOME, result.folders.data)
+    assert.equal(result.env.XDG_CONFIG_HOME, result.folders.config)
+  })
+
+  test('takes copies of the owner keys where Eden reads them, below XDG_DATA_HOME', () => {
+    const result = edenPlan()
+    assert.equal(result.kind, 'run')
+    if (result.kind !== 'run') return
+    assert.equal(result.bios, join(result.env.XDG_DATA_HOME, 'eden', 'keys'))
+  })
+
+  test('asks nothing before it closes and checks for no update', () => {
+    const result = edenPlan()
+    assert.equal(result.kind, 'run')
+    if (result.kind !== 'run') return
+    assert.deepEqual(settings(result.files, result.folders.root), {
+      'UI/confirmStop\\default': 'false',
+      // Eden's ConfirmStop::Ask_Never.
+      'UI/confirmStop': '2',
+      'UI/check_for_updates\\default': 'false',
+      'UI/check_for_updates': 'false'
+    })
+  })
+
+  test("is not started without the owner's prod.keys", () => {
+    assert.deepEqual(
+      edenPlan(appImage, (path) => path !== ownerKeys),
+      { kind: 'skip', reason: CANNOT_SANDBOX, detail: 'needed-file-missing' }
+    )
+    assert.equal(edenPlan(appImage, () => true, { ...OWNER, dataDir: null }).kind, 'skip')
+  })
+
+  test('is not started as a binary or a flatpak', () => {
+    assert.equal(edenPlan({ kind: 'binary', ref: '/usr/bin/eden' }).kind, 'skip')
+    assert.equal(edenPlan({ kind: 'flatpak', ref: 'dev.eden_emu.eden' }).kind, 'skip')
+  })
+})
+
 describe('prepareSandbox', () => {
   function ready(home: string, recipe: SandboxRecipe = EMPTY) {
     const result = planSandbox({
@@ -630,6 +760,7 @@ describe('prepareSandbox', () => {
       unset: [],
       needs: [],
       strays: [],
+      bios: null,
       files: [{ path: 'config/example/example.cfg', content: 'x = 1\n' }]
     })
     assert.deepEqual(prepareSandbox(result, null), { kind: 'ready', biosFiles: 0 })
@@ -654,6 +785,20 @@ describe('prepareSandbox', () => {
     assert.ok(!lstatSync(copy).isSymbolicLink())
     assert.equal(readFileSync(copy, 'utf8'), 'bios')
     assert.equal(readFileSync(join(result.folders.bios, 'dc', 'dc_boot.bin'), 'utf8'), 'dc')
+  })
+
+  test("copies the owner's BIOS files into the folder the recipe names", () => {
+    const home = scratch()
+    const owner = scratch()
+    writeFileSync(join(owner, 'prod.keys'), 'keys')
+    const result = ready(home, { ...EMPTY, bios: 'data/emu/keys' })
+
+    assert.deepEqual(prepareSandbox(result, owner), { kind: 'ready', biosFiles: 1 })
+    assert.equal(
+      readFileSync(join(result.folders.data, 'emu', 'keys', 'prod.keys'), 'utf8'),
+      'keys'
+    )
+    assert.ok(!existsSync(join(result.folders.bios, 'prod.keys')))
   })
 
   test("an emulator writing beside its BIOS never reaches the owner's file", () => {

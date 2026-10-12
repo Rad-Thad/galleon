@@ -380,6 +380,7 @@ export const example: EmulatorDescriptor = {
    *   unset: [],
    *   needs: [],
    *   strays: [],
+   *   bios: null,
    *   files: [{ path: 'example.cfg', content: `bios = "${folders.bios}"\n` }]
    * })
    * ```

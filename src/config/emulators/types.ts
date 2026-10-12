@@ -432,9 +432,10 @@ export interface SandboxContext {
   /**
    * The owner's own install, to read from and never to write: where a recipe
    * finds what the sandbox borrows rather than holds, such as RetroArch's
-   * cores.
+   * cores. `dataDir` is the owner's data root for this install, as the probe
+   * found it.
    */
-  readonly owner: Omit<CoreContext, 'system'>
+  readonly owner: Omit<CoreContext, 'system'> & { readonly dataDir: string | null }
 }
 
 /**
@@ -470,6 +471,12 @@ export interface SandboxRecipe {
    * still empty; see `clearStrays`.
    */
   readonly strays: readonly string[]
+  /**
+   * Where in the sandbox the copies of the owner's BIOS files go, for an
+   * emulator that reads them from a folder of its own it cannot be told about,
+   * such as Eden's keys. Null for `folders.bios`.
+   */
+  readonly bios: string | null
   /** Written whole before the start; `path` is relative to `folders.root`. */
   readonly files: readonly { readonly path: string; readonly content: string }[]
 }
