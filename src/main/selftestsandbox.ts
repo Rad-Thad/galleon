@@ -1,5 +1,5 @@
 import { mkdirSync, readdirSync, renameSync, statSync, symlinkSync, writeFileSync } from 'node:fs'
-import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
+import { isAbsolute, join, relative, resolve } from 'node:path'
 import type {
   EmulatorDescriptor,
   ResolvedInstall,
@@ -53,10 +53,7 @@ export type SandboxPlan =
   | {
       kind: 'run'
       argv: string[]
-      /**
-       * Merged over the child's environment; see `childEnvironment`. Empty for a
-       * flatpak, whose environment is in `argv` (see `flatpakPrefix`).
-       */
+      /** Merged over the child's environment; see `childEnvironment`. */
       env: Record<string, string>
       folders: SandboxFolders
       files: { path: string; content: string }[]
@@ -88,14 +85,15 @@ function xdgRoots(folders: SandboxFolders): Record<string, string> {
 /**
  * How to start this game inside the emulator's sandbox, or why not.
  *
- * Pure: nothing is written until `prepareSandbox`. A `scripts` install is
- * somebody else's launcher that may reset any variable it is given, so it is
- * never started on the strength of the XDG roots alone. A flatpak is started
- * through `flatpakPrefix`.
+ * Pure: nothing is written until `prepareSandbox`. A flatpak runs in a
+ * filesystem view of its own, and a `scripts` install is somebody else's
+ * launcher that may reset any variable it is given, so neither is started on
+ * the strength of the XDG roots alone.
  */
 export function planSandbox(request: SandboxRequest): SandboxPlan {
   const { descriptor, install, system, romPath, variant, home, owner } = request
-  if (install.kind === 'scripts') return skip('scripts-install')
+  if (install.kind === 'flatpak' || install.kind === 'scripts')
+    return skip(`${install.kind}-install`)
   if (descriptor.sandbox === undefined) return skip('no-recipe')
 
   const folders = sandboxFolders(home, descriptor.id)
@@ -114,13 +112,8 @@ export function planSandbox(request: SandboxRequest): SandboxPlan {
   }))
   if (files.some((file) => !inside(folders.root, file.path))) return skip('file-outside-sandbox')
 
-  const env = { ...descriptor.env, ...recipe.env, ...xdgRoots(folders) }
-  const flatpak = install.kind === 'flatpak'
   const argv = descriptor.launch({
-    exec: [
-      ...(flatpak ? flatpakPrefix(install.ref, env, folders.root, romPath) : execPrefix(install)),
-      ...recipe.args
-    ],
+    exec: [...execPrefix(install), ...recipe.args],
     installRef: install.ref,
     system,
     romPath,
@@ -128,32 +121,8 @@ export function planSandbox(request: SandboxRequest): SandboxPlan {
   })
   if (argv === null) return skip('unsupported-system')
 
-  return { kind: 'run', argv, env: flatpak ? {} : env, folders, files }
-}
-
-/**
- * `flatpak run` for a sandboxed start: the environment crosses into the app
- * through `--env`, the sandbox is the one folder of the test home it may
- * write, and the game's folder is visible read-only.
- *
- * The environment goes nowhere else. The spawned `flatpak` command reads the
- * XDG roots too, to find the owner's per-user installations, and would find
- * none inside the sandbox.
- */
-function flatpakPrefix(
-  appId: string,
-  env: Record<string, string>,
-  root: string,
-  romPath: string
-): string[] {
-  return [
-    'flatpak',
-    'run',
-    `--filesystem=${root}`,
-    `--filesystem=${dirname(romPath)}:ro`,
-    ...Object.entries(env).map(([key, value]) => `--env=${key}=${value}`),
-    appId
-  ]
+  const env = { ...descriptor.env, ...recipe.env, ...xdgRoots(folders) }
+  return { kind: 'run', argv, env, folders, files }
 }
 
 /**
