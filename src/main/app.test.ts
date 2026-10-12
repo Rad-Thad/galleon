@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { isAssetPath } from './app.ts'
+import { RomMixApp, isAssetPath } from './app.ts'
+import { ReadOnlyGuard } from './romm/guard.ts'
 
 /**
  * What the image protocol will serve.
@@ -31,4 +32,17 @@ test('anything else the token would answer for is refused', () => {
 test('a path that climbs out of the assets root is not an asset path', () => {
   assert.equal(isAssetPath('/assets/../api/users/me'), false)
   assert.equal(isAssetPath('assets/romm/../../api/token'), false)
+})
+
+test('under the read-only guard the catch-up sends nothing', async () => {
+  // A catch-up that ran would touch the store, the client and the offline
+  // cache; a held one touches none of them, so a bare receiver proves it.
+  const held = Object.create(RomMixApp.prototype) as RomMixApp
+  const guard = new ReadOnlyGuard()
+  let guarded: ReadOnlyGuard | null = null
+  Object.assign(held, { client: { readOnly: (g: ReadOnlyGuard) => (guarded = g) } })
+  held.readOnly(guard)
+  assert.equal(guarded, guard)
+  await held.catchUp()
+  assert.equal(guard.serverWritesAttempted, 0)
 })

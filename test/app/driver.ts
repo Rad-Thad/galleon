@@ -104,7 +104,7 @@ function clearLastRunsShots(): void {
  * reading anything else here would make this the one part of the project that
  * will not run on the machine it was written on.
  */
-function electronBinary(): string {
+export function electronBinary(): string {
   const declared = process.env.ELECTRON_EXEC_PATH?.trim()
   if (declared) return declared
   return join(process.cwd(), 'node_modules', 'electron', 'dist', 'electron')

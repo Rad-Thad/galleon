@@ -58,6 +58,7 @@ const ALLOWED: Record<string, string> = {
   'main/romm/client.ts': 'firmware in the BIOS folder',
   'main/romm/transfer.ts': 'the staged file a caller names, which for a save is `stageBeside`',
   'main/root.ts': 'moving the app root',
+  'main/selftest.ts': 'the taken self-test request and the summary in the results folder',
   'main/store.ts': 'the settings file',
   'main/update.ts': 'the downloaded AppImage',
   'main/zip.ts': 'a staging folder or archive the caller names'

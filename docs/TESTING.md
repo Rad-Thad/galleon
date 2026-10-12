@@ -152,6 +152,11 @@ Adding a check: add it here, to the self-test or `run.sh`, and to the feature's 
 
 The app refuses a request without `readOnlyServer: true` and `privacy: true`, and ignores the file entirely unless `GALLEON_HOME` is set.
 
+- The app renames the file to `self-test-request.taken.json` before reading it, so a restart is a normal start.
+- A refused request gets a `summary.json` with `status: error` and the refusal code as `reason` (when its `resultsDir` is usable), and the app exits 1.
+- An accepted run exits 0 once `summary.json` is written, whatever the checks say. A requested check this build has no scenario for is `skip` with reason `not-implemented`; the run is then `partial` and `selftest.complete` fails.
+- `safety.server-readonly` is in every summary, requested or not.
+
 ## `summary.json` (written to `RESULTS_DIR`)
 
 ```json

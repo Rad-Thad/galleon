@@ -19,6 +19,8 @@ import { ReadOnlyError } from './errors.ts'
  */
 export class ReadOnlyGuard {
   serverWritesAttempted = 0
+  /** Reads that named a device and went out without it. See `withoutDeviceId`. */
+  deviceIdsRemoved = 0
 
   /** The path to send, or a `ReadOnlyError` for a request that could write. */
   admit(method: string, path: string): string {
@@ -27,7 +29,9 @@ export class ReadOnlyGuard {
       log.warn('romm', 'read-only: refused a request that could write', { method, path })
       throw new ReadOnlyError(t('error.readOnly', { method }))
     }
-    return withoutDeviceId(path)
+    const sent = withoutDeviceId(path)
+    if (sent !== path) this.deviceIdsRemoved += 1
+    return sent
   }
 }
 
