@@ -1,5 +1,5 @@
 import { app } from 'electron'
-import { chmod, readFile, rename, rm, writeFile } from 'node:fs/promises'
+import { chmod, copyFile, open, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import type { UpdateChannel, UpdatePolicy, UpdateStatus } from '@shared/types'
 import { fetchToFile } from './fetchfile.ts'
@@ -321,6 +321,43 @@ export function pickImage(assets: readonly UpdateAsset[]): UpdateAsset | null {
     assets.find((asset) => /\.appimage$/i.test(asset.name) && builtForThisMachine(asset.name)) ??
     null
   )
+}
+
+/** The files a release offers, as far as each names itself and a URL. */
+function assetsOf(release: GithubRelease): UpdateAsset[] {
+  return (release.assets ?? [])
+    .filter(
+      (
+        asset
+      ): asset is {
+        name: string
+        browser_download_url: string
+        size?: number
+        digest?: string
+      } => typeof asset.name === 'string' && typeof asset.browser_download_url === 'string'
+    )
+    .map((asset) => ({
+      name: asset.name,
+      url: asset.browser_download_url,
+      sizeBytes: asset.size ?? 0,
+      digest: parseDigest(asset.digest)
+    }))
+}
+
+/** The image this machine runs from a release, with its sums file when it has one. */
+function imageOf(release: GithubRelease): UpdateAsset | null {
+  const assets = assetsOf(release)
+  const image = pickImage(assets)
+  const checksums = assets.find((asset) => asset.name === CHECKSUMS)?.url
+  return image && checksums ? { ...image, checksums } : image
+}
+
+/** What `Updater.rehearse` found. Codes, not prose: the self-test publishes them. */
+export interface Rehearsal {
+  /** Null when the matching image was accepted and the corrupted copy refused. */
+  failure: 'no-image' | 'no-checksums' | 'matching-refused' | 'corrupted-accepted' | null
+  name: string | null
+  bytes: number
 }
 
 /**
@@ -658,27 +695,7 @@ export class Updater {
         return this.current
       }
 
-      const assets: UpdateAsset[] = (release.assets ?? [])
-        .filter(
-          (
-            asset
-          ): asset is {
-            name: string
-            browser_download_url: string
-            size?: number
-            digest?: string
-          } => typeof asset.name === 'string' && typeof asset.browser_download_url === 'string'
-        )
-        .map((asset) => ({
-          name: asset.name,
-          url: asset.browser_download_url,
-          sizeBytes: asset.size ?? 0,
-          digest: parseDigest(asset.digest)
-        }))
-
-      const image = pickImage(assets)
-      const checksums = assets.find((asset) => asset.name === CHECKSUMS)?.url
-      this.pending = image && checksums ? { ...image, checksums } : image
+      this.pending = imageOf(release)
       // Two separate reasons a release cannot be installed here — no build for
       // this architecture, and a copy of RomMix that cannot replace itself —
       // and the version is still reported either way, with the page to get it
@@ -790,6 +807,60 @@ export class Updater {
       throw new Error(t('error.downloadNotPublished', { name: asset.name }))
     }
     return stated
+  }
+
+  /**
+   * The self-test's run of the update path, into `dir` and nowhere else.
+   *
+   * The canary release and its `SHA256SUMS` are read and the image is fetched
+   * and verified exactly as `download` does, then a copy with one byte changed
+   * is put to the same verification, which has to refuse it. Nothing is made
+   * executable or renamed onto the running image: on the device that image is
+   * the one the harness is testing, and the test home is the only place a run
+   * may write. Both files are removed before this returns.
+   */
+  async rehearse(dir: string): Promise<Rehearsal> {
+    const response = await this.ask(CANARY_API, 'application/vnd.github+json')
+    const asset = imageOf((await response.json()) as GithubRelease)
+    if (!asset) return { failure: 'no-image', name: null, bytes: 0 }
+    if (!asset.checksums) return { failure: 'no-checksums', name: asset.name, bytes: 0 }
+    const image = join(dir, asset.name)
+    const corrupted = `${image}.corrupted`
+    try {
+      const digest = await this.publishedDigest(asset)
+      const { receivedBytes } = await fetchToFile(asset.url, image, {
+        sizeHint: asset.sizeBytes,
+        refused: (status) => new Error(t('update.downloadFailed', { url: asset.url, status }))
+      })
+      const subject = { kind: 'update', name: asset.name, required: true }
+      try {
+        await verifyDownload(image, digest, subject)
+      } catch {
+        return { failure: 'matching-refused', name: asset.name, bytes: receivedBytes }
+      }
+      await copyFile(image, corrupted)
+      // The middle rather than an end, so a check that only read a header or
+      // a length would still be caught accepting it.
+      const handle = await open(corrupted, 'r+')
+      try {
+        const at = Math.floor(receivedBytes / 2)
+        const byte = Buffer.alloc(1)
+        await handle.read(byte, 0, 1, at)
+        byte[0] ^= 0xff
+        await handle.write(byte, 0, 1, at)
+      } finally {
+        await handle.close()
+      }
+      try {
+        await verifyDownload(corrupted, digest, subject)
+      } catch {
+        return { failure: null, name: asset.name, bytes: receivedBytes }
+      }
+      return { failure: 'corrupted-accepted', name: asset.name, bytes: receivedBytes }
+    } finally {
+      await rm(image, { force: true })
+      await rm(corrupted, { force: true })
+    }
   }
 
   /**

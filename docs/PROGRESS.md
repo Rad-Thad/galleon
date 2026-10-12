@@ -1819,3 +1819,18 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Evaluator: see the PR.
 - Device / acceptance: none yet; run.sh does not start the app until M0-22, which will write `version` into the request. Next: `update.verify` (part 3b).
+
+## 2026-10-12 12:43 UTC session 01SEPBgzYPhDLgKBBmqwLbFn (hourly heartbeat, second unit)
+
+- Device results: unchanged since the entry above. Part 3a, PR #173, merged at 763ea72; its CI wall time was x64 6:23, arm64 0:59.
+- Worked on: M0-13 part 3b (tracking issue #57): the `update.verify` self-test scenario (acceptance line 5).
+- Result: PR (this one). M0-13 stays false.
+- Evidence:
+  - `Updater.rehearse(dir)` (`src/main/update.ts`): reads the `canary` release, picks this machine's image, takes its digest from `SHA256SUMS` through `publishedDigest`, fetches it into `dir` and verifies it as `download` does; then a copy with its middle byte flipped must be refused by the same verification. Nothing is made executable or renamed; both files are removed. The release's asset parsing moved into `assetsOf` and `imageOf`, shared with `check`.
+  - `src/main/selftestupdate.ts`: `update.verify` runs the rehearsal in `$GALLEON_HOME/update-verify/`, removes the folder, and fails `installed-image-changed` when `APPIMAGE`'s size, change time or inode differ afterwards. Other reasons: `no-image`, `no-checksums`, `matching-refused`, `corrupted-accepted`, `channel-unreadable` (the error's words stay in the log).
+  - Tests: `src/main/updater.test.ts` 3 new (canary read, sums fetched, folder empty, running image untouched; a mismatch reported; no image or no sums named); `src/main/selftestupdate.test.ts` 5/5. `savewriter.allowlist.test.ts` lists the new writer.
+  - `docs/TESTING.md`: how `update.verify` judges.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: both of M0-13's device checks now exist as self-test scenarios; they run on the Nova once run.sh starts the app (M0-22). Not READY-FOR-DEVICE until then.

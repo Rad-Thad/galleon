@@ -2,7 +2,15 @@ import assert from 'node:assert/strict'
 import { afterEach, before, describe, test } from 'node:test'
 import { app } from 'electron'
 import { createHash } from 'node:crypto'
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { UpdatePolicy, UpdateStatus } from '@shared/types'
@@ -590,6 +598,57 @@ describe('checking it against SHA256SUMS', () => {
       false
     )
     assert.equal(existsSync(running), false)
+  })
+})
+
+describe('rehearsing the update for the self-test', () => {
+  function sumsFor(body: string): string {
+    return `${createHash('sha256').update(body).digest('hex')}  ${image}`
+  }
+
+  function serveCanary(assets: string[], sumsText: string): string[] {
+    return serve((url) => {
+      if (url.includes('api')) return release('canary', assets, null)
+      if (url.endsWith('/SHA256SUMS')) return new Response(sumsText)
+      return new Response(BODY)
+    })
+  }
+
+  test('reads the canary channel, accepts the matching image and refuses a corrupted copy', async () => {
+    const running = join(scratch(), image)
+    writeFileSync(running, 'the running version')
+    process.env.APPIMAGE = running
+    const dir = scratch()
+    const { updater: subject } = updater()
+    const asked = serveCanary([image, 'SHA256SUMS'], sumsFor(BODY))
+
+    const rehearsal = await subject.rehearse(dir)
+
+    assert.deepEqual(rehearsal, { failure: null, name: image, bytes: BODY.length })
+    assert.ok(asked[0]?.endsWith('/releases/tags/canary'))
+    assert.ok(asked.some((url) => url.endsWith('/SHA256SUMS')))
+    assert.deepEqual(readdirSync(dir), [])
+    assert.equal(readFileSync(running, 'utf8'), 'the running version')
+    assert.equal(subject.status.state, 'idle')
+  })
+
+  test('an image that does not match the sums file is reported, not accepted', async () => {
+    const dir = scratch()
+    const { updater: subject } = updater()
+    serveCanary([image, 'SHA256SUMS'], sumsFor('what CI built'))
+
+    const rehearsal = await subject.rehearse(dir)
+
+    assert.equal(rehearsal.failure, 'matching-refused')
+    assert.deepEqual(readdirSync(dir), [])
+  })
+
+  test('a channel with no image for this machine, or no sums file, is named', async () => {
+    const { updater: subject } = updater()
+    serveCanary(['galleon-steam.sh', 'SHA256SUMS'], '')
+    assert.equal((await subject.rehearse(scratch())).failure, 'no-image')
+    serveCanary([image], '')
+    assert.equal((await subject.rehearse(scratch())).failure, 'no-checksums')
   })
 })
 
