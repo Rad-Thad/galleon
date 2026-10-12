@@ -2010,3 +2010,17 @@ Lines the tooling reads (exact forms):
 - Evaluator: FAIL, then PASS. The first pass found the group left running when its leader exits (fixed: `groupAlive`). Notes for the wiring: an abort waits for the stop (up to two graces), so check the run-level one-second abort line; `exit.<emulator>`'s focus return and save-folder change are still to come.
 - Device / acceptance: none; no scenario calls `launchCycle` yet.
 - Next: the real window list (gamescope's focus and window-list atoms, else the X11 list, matched to the group), then wiring `launch.*` / `exit.*` into the scenario map with each installed emulator's payload from the request.
+
+## 2026-10-12 19:45 UTC session 01Y2Gq46ojpEwrMX1FdibYcd (hourly heartbeat)
+
+- Device results: nothing new since the entry above (newest 791c314, complete, the minimal harness); no safety failures, no regressions. Part 6b of M0-21, PR #185, merged at f1b536d; its CI wall time was x64 6:57, arm64 0:51.
+- Worked on: M0-21 part 7a (tracking issue #155): a small X11 client for the window list behind `launch.<emulator>`.
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - `src/main/x11.ts`: opens the unix socket `DISPLAY` names (local displays only) with the MIT-MAGIC-COOKIE-1 from `XAUTHORITY` or `~/.Xauthority` (none when there is no entry, as gamescope's XWayland may need), reads the first screen's root, and offers `internAtom`, `getProperty` (any type, in its own format) and `queryTree`. The Nova has no `xprop` or `xdotool`, and four requests do not justify a dependency. Nothing throws: an unreachable or refusing display opens as null; an X error, an unanswered request (`REQUEST_TIMEOUT_MS`) or a closed connection answers null. Events and GenericEvents between replies are passed over.
+  - Tests: `src/main/x11.test.ts` 21/21 (new), against a fake display on a unix socket that parses each request and builds each reply as the protocol lays them out: the setup with and without a cookie, refused, unanswered and with no server; the setup reply split across reads; atoms existing or made; 32- and 8-bit properties and a missing one; children, including a count past the reply's data; an X error then a working request; events between replies; a request timeout; requests after close and when the server goes away; Xauthority parsing (host and display match, wildcard family, empty display number, no match, truncated file); the `DISPLAY` forms taken and refused.
+  - `scripts/agent/check.sh` green; `x11.ts` 100% lines.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: FAIL, then PASS. The first pass found this entry missing; its note (a child count past the reply's data would reject) is fixed by capping the count.
+- Device / acceptance: none; nothing calls `openDisplay` yet.
+- Next: part 7b, `findWindow` over it: gamescope's root atoms (focused window, window list) else the X11 tree, matched to the started group through `_NET_WM_PID` and `/proc/<pid>/stat`; then wiring `launch.*` / `exit.*` into the scenario map.
