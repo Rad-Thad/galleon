@@ -43,7 +43,11 @@ export type Handle = <Args extends unknown[], Result>(
   fn: (...args: Args) => Promise<Result> | Result
 ) => void
 
-export function handler(report: (message: string) => void): Handle {
+export function handler(
+  report: (message: string) => void,
+  /** What the page may see of an answer or an error. See `RomMixApp.shown`. */
+  shown: <T>(value: T) => T = (value) => value
+): Handle {
   return function handle<Args extends unknown[], Result>(
     channel: string,
     fn: (...args: Args) => Promise<Result> | Result
@@ -58,7 +62,7 @@ export function handler(report: (message: string) => void): Handle {
       try {
         const result = await fn(...(args as Args))
         log[level]('ipc', `← ${channel}`, { ms: took() })
-        return result
+        return shown(result)
       } catch (cause) {
         // `instanceof Error` rather than reading `.message` off whatever it is:
         // something rejecting with `null` or `undefined` would throw a
@@ -72,7 +76,7 @@ export function handler(report: (message: string) => void): Handle {
         // else — but `cause` keeps the original stack attached on this side, so
         // an unhandled rejection in the main process still names where it came
         // from rather than pointing back at this line.
-        throw new Error(message, { cause })
+        throw new Error(shown(message), { cause })
       }
     })
   }

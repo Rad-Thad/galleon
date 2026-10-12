@@ -159,6 +159,12 @@ export interface FakeRomm {
     /** Back to running to the end at its own pace, which is how it starts. */
     flow: () => void
   }
+  /**
+   * Answer nothing for this game's content until the returned function is
+   * called: a transfer that stays in flight for as long as a test needs the
+   * app busy with it.
+   */
+  holdContent: (romId: number) => () => void
   close: () => Promise<void>
 }
 
@@ -740,6 +746,8 @@ export const BULK_PLATFORM = 5
 /** Start it on a port the operating system picks, so tests can run at once. */
 export async function startFakeRomm(options: FakeRommOptions = {}): Promise<FakeRomm> {
   const asked: Asked[] = []
+  /** Games whose content waits. See `FakeRomm.holdContent`. */
+  const contentHeld = new Map<number, Promise<void>>()
   const held: { save: RommSave; content: string }[] = []
   /** States this server holds, seeded by `holdState` or left by a push. */
   const heldStates: { state: RommState; content: string }[] = []
@@ -1402,6 +1410,11 @@ export async function startFakeRomm(options: FakeRommOptions = {}): Promise<Fake
       if (content) {
         const found = roms.find((one) => one.id === Number(content[1]))
         if (!found) return json({ detail: 'No such ROM' }, 404)
+        const waiting = contentHeld.get(found.id)
+        if (waiting) {
+          void waiting.then(() => serveBytes(req, res, ROM_BYTES))
+          return
+        }
         if (found.id !== 5) return serveBytes(req, res, ROM_BYTES)
         // The probe that asks whether this can be resumed wants one byte rather
         // than two megabytes of it, and is answered at once. Everything else is
@@ -1534,6 +1547,19 @@ export async function startFakeRomm(options: FakeRommOptions = {}): Promise<Fake
       flow: () => {
         slowAllowance = Infinity
       }
+    },
+    holdContent: (romId) => {
+      let release = (): void => undefined
+      contentHeld.set(
+        romId,
+        new Promise<void>((resolve) => {
+          release = () => {
+            contentHeld.delete(romId)
+            resolve()
+          }
+        })
+      )
+      return () => release()
     },
     approvePairing: () => {
       if (pairing) pairing.approved = true
