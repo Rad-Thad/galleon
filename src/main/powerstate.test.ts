@@ -19,7 +19,7 @@ import {
 /**
  * The power state the overlay labels every frame-time figure with. The
  * fixtures are the Nova's two profiles as docs/DEVICE-FACTS.md records them,
- * with Armada's files exactly as the device published them, and a desktop
+ * with the content of Armada's files as the device published it, and a desktop
  * that has none of these files: there every value must say it is unknown
  * rather than invent one.
  */
