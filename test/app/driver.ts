@@ -498,7 +498,7 @@ export function standInEmulator(options: { stubborn?: boolean } = {}): {
  */
 const SEEN = [THEMES_NOTICE]
 
-function seed(home: string, options: StartOptions): void {
+export function seed(home: string, options: StartOptions): void {
   const config = join(home, 'config')
   mkdirSync(config, { recursive: true })
 
