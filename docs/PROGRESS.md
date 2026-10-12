@@ -2037,6 +2037,6 @@ Lines the tooling reads (exact forms):
   - `docs/TESTING.md`: the launch bullet says how the window list is read.
   - `scripts/agent/check.sh` green; `selftestwindows.ts` 100% lines.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: (pending).
+- Evaluator: PASS. Notes for the wiring: a finder caches atoms that did not exist yet, so make one per launch cycle; against a display that stops answering one poll can take candidates × `REQUEST_TIMEOUT_MS`; a window under gamescope that states `_NET_WM_STATE` without the fullscreen atom reads `fullscreen: false`, so watch the first device run for false `not-fullscreen`.
 - Device / acceptance: none; no scenario calls `launchCycle` yet.
 - Next: wiring `launch.*` / `exit.*` into the scenario map (the real `start`, `signalGroup`, `groupAlive`, `openDisplay` + `windowFinder`, and each installed emulator's payload from the request).
