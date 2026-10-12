@@ -7,6 +7,20 @@
       "pass": 1,
       "skip": 0
     },
+    "finishedAt": "2026-10-12T02:02:03Z",
+    "path": "results/e6bb3bd6f790c76c7863647971bfc260570acd29/summary.json",
+    "runSeconds": 0,
+    "sha": "e6bb3bd6f790c76c7863647971bfc260570acd29",
+    "status": "complete"
+  },
+  {
+    "bridgeVersion": 1,
+    "counts": {
+      "error": 0,
+      "fail": 0,
+      "pass": 1,
+      "skip": 0
+    },
     "finishedAt": "2026-10-12T01:10:35Z",
     "path": "results/d729a7a1f85a595212377c87bb1e0324693d78de/summary.json",
     "runSeconds": 0,
