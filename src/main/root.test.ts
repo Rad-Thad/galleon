@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { afterEach, describe, test } from 'node:test'
+import { afterEach, describe, mock, test } from 'node:test'
 import {
   existsSync,
   mkdirSync,
@@ -9,6 +9,8 @@ import {
   rmSync,
   writeFileSync
 } from 'node:fs'
+import fs from 'node:fs'
+import { syncBuiltinESMExports } from 'node:module'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
@@ -241,11 +243,29 @@ describe('beside stock RomMix', () => {
     const testHome = join(home, 'test-home')
     process.env.GALLEON_HOME = testHome
     const before = snapshot(home)
-
-    assert.equal(resolveRoot(), testHome)
-    ensureRoot()
-    mkdirSync(profilePath(), { recursive: true })
-    writeFileSync(join(profilePath(), 'SingletonLock'), 'lock')
+    // Every file root.ts reads, so a read of the pointer shows even when its
+    // answer would be ignored.
+    const read: string[] = []
+    const original = fs.readFileSync
+    mock.method(fs, 'readFileSync', (...args: Parameters<typeof fs.readFileSync>) => {
+      read.push(String(args[0]))
+      return original(...args)
+    })
+    syncBuiltinESMExports()
+    try {
+      assert.equal(resolveRoot(), testHome)
+      ensureRoot()
+      mkdirSync(profilePath(), { recursive: true })
+      writeFileSync(join(profilePath(), 'SingletonLock'), 'lock')
+    } finally {
+      mock.restoreAll()
+      syncBuiltinESMExports()
+    }
+    assert.deepEqual(
+      read.filter((path) => !path.startsWith(testHome)),
+      [],
+      'nothing outside the test home is read'
+    )
 
     const after = snapshot(home)
     for (const [path, contents] of Object.entries(before)) {
