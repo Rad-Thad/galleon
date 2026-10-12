@@ -82,7 +82,7 @@ function noClone(): never {
   throw Object.assign(new Error('no reflinks here'), { code: 'ENOTSUP' })
 }
 
-const EMPTY: SandboxRecipe = { args: [], env: {}, unset: [], files: [] }
+const EMPTY: SandboxRecipe = { args: [], env: {}, unset: [], needs: [], files: [] }
 
 function plan(descriptor: EmulatorDescriptor, install = BINARY, system = 'snes') {
   return planSandbox({
@@ -118,6 +118,7 @@ describe('planSandbox', () => {
       args: ['-u', folders.data],
       env: {},
       unset: [],
+      needs: [],
       files: []
     }))
     const result = plan(descriptor, BINARY, 'nes')
@@ -138,6 +139,7 @@ describe('planSandbox', () => {
         args: [],
         env: { FROM_RECIPE: '1', XDG_CONFIG_HOME: '/home/owner/.config' },
         unset: [],
+        needs: [],
         files: []
       }),
       { env: { FROM_DESCRIPTOR: '1', FROM_RECIPE: 'descriptor' } }
@@ -150,12 +152,34 @@ describe('planSandbox', () => {
     assert.equal(result.env.XDG_CONFIG_HOME, result.folders.config)
   })
 
+  test('is not started when a file the recipe needs cannot be read, link or no link', () => {
+    const descriptor = withRecipe(() => ({ ...EMPTY, needs: ['/owner/needed.bin'] }))
+    const request = {
+      descriptor,
+      install: BINARY,
+      system: 'snes',
+      romPath: '/payload/game.sfc',
+      home: HOME,
+      owner: OWNER
+    }
+    assert.deepEqual(
+      planSandbox({ ...request, realPath: (path) => (path === '/owner/needed.bin' ? null : path) }),
+      {
+        kind: 'skip',
+        reason: CANNOT_SANDBOX,
+        detail: 'needed-file-missing'
+      }
+    )
+    assert.equal(planSandbox({ ...request, realPath: (path) => path }).kind, 'run')
+  })
+
   test("removes the recipe's unset variables, but never an XDG root", () => {
     const descriptor = withRecipe(
       () => ({
         args: [],
         env: { KEPT: '1' },
         unset: ['OVERRIDE_DIR', 'FROM_DESCRIPTOR', 'XDG_DATA_HOME'],
+        needs: [],
         files: []
       }),
       { env: { FROM_DESCRIPTOR: '1' } }
@@ -204,6 +228,7 @@ describe('planSandbox', () => {
       args: [],
       env: {},
       unset: [],
+      needs: [],
       files: [{ path: 'config/example.cfg', content: 'x = 1\n' }]
     }))
     const result = plan(descriptor)
@@ -235,6 +260,7 @@ describe('planSandbox', () => {
         args: [],
         env: {},
         unset: [],
+        needs: [],
         files: [{ path: '../../.config/x', content: '' }]
       })),
       BINARY,
@@ -242,7 +268,13 @@ describe('planSandbox', () => {
     ],
     [
       'a file at the sandbox root itself',
-      withRecipe(() => ({ args: [], env: {}, unset: [], files: [{ path: '.', content: '' }] })),
+      withRecipe(() => ({
+        args: [],
+        env: {},
+        unset: [],
+        needs: [],
+        files: [{ path: '.', content: '' }]
+      })),
       BINARY,
       'file-outside-sandbox'
     ],
@@ -252,6 +284,7 @@ describe('planSandbox', () => {
         args: [],
         env: {},
         unset: [],
+        needs: [],
         files: [{ path: '/etc/x', content: '' }]
       })),
       BINARY,
@@ -318,7 +351,11 @@ describe("RetroArch's recipe", () => {
   }
   const install: ResolvedInstall = { kind: 'binary', ref: '/usr/bin/retroarch' }
 
-  function retroPlan(system = 'snes', kind: ResolvedInstall = install) {
+  function retroPlan(
+    system = 'snes',
+    kind: ResolvedInstall = install,
+    realPath: (path: string) => string | null = (path) => path
+  ) {
     return planSandbox({
       descriptor: retroarch!,
       install: kind,
@@ -326,7 +363,7 @@ describe("RetroArch's recipe", () => {
       romPath: '/payload/game.sfc',
       home: HOME,
       owner,
-      realPath: (path) => path
+      realPath
     })
   }
 
@@ -404,6 +441,21 @@ describe("RetroArch's recipe", () => {
       Object.keys(env).filter((name) => name.startsWith('LIBRETRO_')),
       []
     )
+  })
+
+  test("is not started when the owner's core file is missing", () => {
+    const core = join(ownerCores, 'snes9x_libretro.so')
+    const seen: string[] = []
+    const missingCore = (path: string): string | null => {
+      seen.push(path)
+      return path === core ? null : path
+    }
+    assert.deepEqual(retroPlan('snes', install, missingCore), {
+      kind: 'skip',
+      reason: CANNOT_SANDBOX,
+      detail: 'needed-file-missing'
+    })
+    assert.ok(seen.includes(core))
   })
 
   test('is not started for a system with no core, nor as a flatpak', () => {
@@ -560,6 +612,7 @@ describe('prepareSandbox', () => {
       args: [],
       env: {},
       unset: [],
+      needs: [],
       files: [{ path: 'config/example/example.cfg', content: 'x = 1\n' }]
     })
     assert.deepEqual(prepareSandbox(result, null), { kind: 'ready', biosFiles: 0 })

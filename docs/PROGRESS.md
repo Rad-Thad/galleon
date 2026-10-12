@@ -1913,3 +1913,17 @@ Lines the tooling reads (exact forms):
 - Evaluator: PASS.
 - Notes: the first push failed `pr-body.mjs`: `Feature:` must start its own line in the PR body.
 - Device / acceptance: none; no launch scenario calls `prepareSandbox` yet.
+
+## 2026-10-12 15:44 UTC session 01GHqwaL39bhoXCitQmtPQfJ (hourly heartbeat, second unit)
+
+- Device results: unchanged since the entry above. Part 5g of M0-21, PR #179, merged; its CI wall time was x64 6:24, arm64 1:03.
+- Worked on: M0-21 part 5h (tracking issue #155): RetroArch is not started when the owner's core file is missing (evaluator note from part 5b).
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - `SandboxRecipe.needs`: files of the owner's an emulator cannot start without. `planSandbox` looks each up through `realPath` and skips as `cannot-sandbox` / `needed-file-missing` when one cannot be read. RetroArch's recipe needs `<libretro_directory>/<core>_libretro.so`.
+  - Tests: `src/main/selftestsandbox.test.ts` 42/42; new: a recipe's missing needed file skips the start and a readable one does not; RetroArch is skipped when the owner's core file is missing.
+  - `docs/TESTING.md`: the sandbox bullet names the missing needed file.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none; no launch scenario calls `planSandbox` yet.
