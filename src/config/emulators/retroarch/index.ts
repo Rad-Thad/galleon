@@ -117,6 +117,7 @@ function sandboxRecipe(ctx: SandboxContext): SandboxRecipe | null {
     unset: FOLDER_OVERRIDES,
     needs: [joinPath(core.dir, core.fileName)],
     strays: [STARTUP_TEMP],
+    bios: null,
     files: [
       { path: 'config/retroarch/retroarch.cfg', content: '' },
       { path: SANDBOX_APPEND, content: append }

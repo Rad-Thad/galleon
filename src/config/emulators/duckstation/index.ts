@@ -54,6 +54,7 @@ function sandboxRecipe(ctx: SandboxContext): SandboxRecipe | null {
     unset: [],
     needs: [],
     strays: [],
+    bios: null,
     files: [{ path: 'config/duckstation/settings.ini', content: settings }]
   }
 }
