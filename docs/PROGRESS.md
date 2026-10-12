@@ -1786,3 +1786,20 @@ Lines the tooling reads (exact forms):
 - CI: the first two x64 runs failed on this PR's paperwork, not its code: this entry first carried a time later than the run (`features-check`), then the body had no `Feature:` line (`pr-body`). Both fixed; the wall time is recorded in the next entry (this entry rides the PR).
 - Evaluator: see the PR.
 - Device / acceptance: none yet; nothing starts an emulator in the self-test yet. Next: flatpaks (5d), then Eden and shadPS4 (portable `user` folders to rule out first).
+
+## 2026-10-12 11:52 UTC session 01JYonW2Y3SeXmqbCVr1BU3J (hourly heartbeat, second unit)
+
+- Device results: unchanged since the entry above. Part 5c, PR #171, merged at 2bbc78c; its CI wall time was x64 6:17, arm64 1:03.
+- Worked on: M0-21 part 5d (tracking issue #155): flatpak installs in the sandbox.
+- Result: parked. No code lands; this PR carries only this entry. M0-21 stays false, and flatpaks are still skipped as `cannot-sandbox`.
+- What was tried: `flatpak run --filesystem=<sandbox> --filesystem=<game folder>:ro --env=<XDG roots>…`, with the spawn env left alone. Tests and `check.sh` were green.
+- Evaluator: FAIL, on three blocking points, all confirmed against flatpak's source (`common/flatpak-run.c`, `common/flatpak-context.c`):
+  - `--env` is applied before `flatpak_context_apply_env_appid`, which then overwrites `XDG_{DATA,CONFIG,CACHE,STATE}_HOME` with `~/.var/app/<id>/…`. The sandbox's XDG roots never reach the app.
+  - `--filesystem` only adds access. Flathub's RetroArch has `--filesystem=host`, so the app can still reach the owner's home.
+  - `flatpak run` always mounts, and creates folders in, the owner's `~/.var/app/<id>/`.
+- Next (exact steps on #155):
+  - start the `flatpak` process with `HOME=<sandbox>`, keeping the owner's `XDG_DATA_HOME` so per-user installs are still found;
+  - pass `--nofilesystem=host` and `--nofilesystem=home`, and drop the other host grants;
+  - expose the owner's cores, BIOS folder and payload folder `:ro`;
+  - test the argv for all of the above.
+- Process note: on this VM, `git commit -a` under the husky pre-commit hook fails with "invalid object … Error building trees". `git add` then `git commit` works.
