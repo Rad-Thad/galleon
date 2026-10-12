@@ -8,6 +8,7 @@ import { ReadOnlyGuard } from './romm/guard.ts'
 import { reportRefusal, runAndReport, takeRequest } from './selftest.ts'
 import { DOWNLOAD_CHECK, downloadScenario } from './selftestdownload.ts'
 import { HEARTBEAT_CHECK, heartbeatScenario } from './selftestserver.ts'
+import { watchInput } from './selftestinput.ts'
 import { STARTUP_CHECK, startupScenario, startupStart, watchHome } from './selfteststartup.ts'
 
 /** RomMix main process bootstrap. */
@@ -114,6 +115,8 @@ if (!app.requestSingleInstanceLock()) {
     if (selfTest?.kind === 'request' && guard) {
       // Before anything else is run, so the time is Home's first arrival.
       const reached = watchHome(window.webContents)
+      const stop = new AbortController()
+      if (selfTest.request.abortOnInput) void watchInput(window.webContents, () => stop.abort())
       // None of what follows a normal start: an update check, the launcher
       // beside the image and the catch-up all write somewhere, and the
       // harness, not this app, decides what the run may touch.
@@ -141,6 +144,7 @@ if (!app.requestSingleInstanceLock()) {
           ]
         ]),
         guard,
+        signal: stop.signal,
         version: app.getVersion()
       })
       quitting = true

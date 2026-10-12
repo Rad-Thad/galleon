@@ -360,6 +360,11 @@ export interface StartOptions {
    * mounted, so a runner without FUSE runs it too.
    */
   executable?: string
+  /**
+   * Files to put in the home after it is seeded, by path relative to it: a
+   * self-test request, which the application takes at start-up.
+   */
+  files?: Record<string, string>
 }
 
 /** How long the stand-in emulator stays up. See `standInEmulator`. */
@@ -594,6 +599,9 @@ export async function startApp(options: StartOptions): Promise<App> {
     mkdirSync(home, { recursive: true })
   }
   seed(home, options)
+  for (const [path, text] of Object.entries(options.files ?? {})) {
+    writeFileSync(join(home, path), text)
+  }
 
   // Once for the run rather than once per application: several scenarios start
   // a second RomMix of their own, and clearing on each of those threw away the

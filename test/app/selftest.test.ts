@@ -4,7 +4,7 @@ import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSy
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { after, test } from 'node:test'
-import { electronBinary, seed } from './driver.ts'
+import { electronBinary, seed, startApp } from './driver.ts'
 import { GBA_ROM, startFakeRomm } from './server.ts'
 import {
   REQUEST_FILE,
@@ -195,3 +195,45 @@ function gamesUnder(dir: string): string[] {
     name.includes('pockethomebrew')
   )
 }
+
+test('a press on the controller stops the run within a second, as aborted-by-user', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'galleon-selftest-abort-'))
+  homes.push(home)
+  const results = join(home, 'results')
+  // Signed out, so Home never comes and `startup.cold` is still waiting when
+  // the press arrives.
+  const app = await startApp({
+    baseUrl: 'http://127.0.0.1:9',
+    token: 'unused',
+    signedOut: true,
+    home,
+    files: {
+      [REQUEST_FILE]: JSON.stringify({
+        ...REQUEST,
+        checks: [RUN_CHECKS.complete, 'startup.cold'],
+        resultsDir: results
+      })
+    }
+  })
+  try {
+    const pad = await app.plugInPad()
+    const pressed = Date.now()
+    // The app may quit before the press has been answered.
+    await pad.hold(0).catch(() => undefined)
+    const summaryPath = join(results, SUMMARY_FILE)
+    while (!existsSync(summaryPath) && Date.now() - pressed < EXIT_TIMEOUT_MS) {
+      await new Promise((resolve) => setTimeout(resolve, 20))
+    }
+    const tookMs = Date.now() - pressed
+    assert.ok(existsSync(summaryPath), 'a summary is written')
+    assert.ok(tookMs < 1_000, `the run stopped ${tookMs} ms after the press`)
+    const summary = JSON.parse(readFileSync(summaryPath, 'utf8')) as Summary
+    assert.deepEqual(summaryErrors(summary), [])
+    assert.equal(summary.status, 'aborted-by-user')
+    const startup = summary.checks.find((c) => c.id === 'startup.cold')
+    assert.equal(startup?.result, 'skip')
+    assert.equal(startup?.reason, 'aborted-by-user')
+  } finally {
+    await app.stop()
+  }
+})
