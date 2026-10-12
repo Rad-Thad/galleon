@@ -6,7 +6,8 @@ import { log } from './log.ts'
 
 /**
  * Just enough of the X11 protocol to read the window list: open the display,
- * intern atoms, read window properties and list a window's children.
+ * intern atoms, read window properties, list a window's children and ask
+ * which window holds the focus.
  *
  * In Game Mode the session is gamescope's XWayland (DEVICE-FACTS), and the
  * window list and focus live there as root-window properties. The device has
@@ -27,6 +28,7 @@ const FAMILY_WILD = 65535
 const OP_QUERY_TREE = 15
 const OP_INTERN_ATOM = 16
 const OP_GET_PROPERTY = 20
+const OP_GET_INPUT_FOCUS = 43
 /** AnyPropertyType: the property in whatever type it was written. */
 const ANY_TYPE = 0
 /** Read in 4-byte units; a window list or a pid fits many times over. */
@@ -47,6 +49,8 @@ export interface X11 {
   getProperty: (window: number, atom: number) => Promise<Property | null>
   /** The window's children, bottom to top, or null on failure. */
   queryTree: (window: number) => Promise<number[] | null>
+  /** The window holding the keyboard focus (0 for none), or null on failure. */
+  inputFocus: () => Promise<number | null>
   close: () => void
 }
 
@@ -221,6 +225,13 @@ export function openSocket(socket: Socket, cookie: Buffer | null): Promise<X11 |
         // Never past the reply's own data, whatever the count says.
         const count = Math.min(reply.readUInt16LE(16), (reply.length - 32) / 4)
         return Array.from({ length: count }, (_, i) => reply.readUInt32LE(32 + 4 * i))
+      },
+      inputFocus: async () => {
+        const body = Buffer.alloc(4)
+        body.writeUInt8(OP_GET_INPUT_FOCUS, 0)
+        body.writeUInt16LE(1, 2)
+        const reply = await request(body)
+        return reply ? reply.readUInt32LE(8) : null
       },
       close: finish
     })

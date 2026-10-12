@@ -32,6 +32,8 @@ interface FakeDisplay {
   refuse?: boolean
   /** The setup is never answered. */
   mute?: boolean
+  /** The window GetInputFocus names. */
+  focus?: number
   /** QueryTree replies claim more children than they carry. */
   overcount?: boolean
   /** Sent ahead of every reply, as a server with events selected would. */
@@ -132,6 +134,8 @@ function answer(display: FakeDisplay, seq: number, request: Buffer): Buffer | nu
       h.writeUInt16LE(children.length + (display.overcount ? 5 : 0), 16)
     })
   }
+  if (opcode === 43)
+    return reply(seq, Buffer.alloc(0), (h) => h.writeUInt32LE(display.focus ?? 0, 8))
   throw new Error(`unexpected opcode ${opcode}`)
 }
 
@@ -366,6 +370,22 @@ describe('openSocket', () => {
       assert.deepEqual(await x11?.queryTree(0x400001), [])
     } finally {
       done()
+    }
+  })
+
+  test('names the window with the input focus', async () => {
+    const display = fake({ focus: 0x400001, failing: new Set() })
+    const { x11, done } = await open(display)
+    try {
+      assert.equal(await x11?.inputFocus(), 0x400001)
+    } finally {
+      done()
+    }
+    const failing = await open(fake({ failing: new Set([43]) }))
+    try {
+      assert.equal(await failing.x11?.inputFocus(), null)
+    } finally {
+      failing.done()
     }
   })
 
