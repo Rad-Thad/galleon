@@ -1,13 +1,16 @@
 import assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { after, describe, test } from 'node:test'
 import {
   gpuDevice,
   parseDefaultProfile,
+  parseIni,
   parseNumber,
+  parsePerfState,
   parseWord,
+  profileInForce,
   powerState,
   readPowerState,
   UNKNOWN
@@ -16,8 +19,9 @@ import {
 /**
  * The power state the overlay labels every frame-time figure with. The
  * fixtures are the Nova's two profiles as docs/DEVICE-FACTS.md records them,
- * and a desktop that has none of these files: there every value must say it is
- * unknown rather than invent one.
+ * with Armada's files exactly as the device published them, and a desktop
+ * that has none of these files: there every value must say it is unknown
+ * rather than invent one.
  */
 
 const roots: string[] = []
@@ -37,15 +41,10 @@ function tree(files: Record<string, string>): string {
 
 const POLICY = 'sys/devices/system/cpu/cpufreq/policy7'
 const GPU = 'sys/class/devfreq/3d00000.gpu'
-const CONF = [
-  '# Armada power profiles',
-  'default_profile=balanced',
-  '',
-  '[balanced]',
-  'cpu_governor=conservative',
-  'cpu_max=1.0',
-  ''
-].join('\n')
+const fixture = (name: string): string =>
+  readFileSync(join(import.meta.dirname, 'fixtures/armada', name), 'utf8')
+const CONF = fixture('power-profiles.conf')
+const PERF = fixture('perf-state.json')
 
 function nova(profile: 'balanced' | 'performance'): Record<string, string> {
   const balanced = profile === 'balanced'
@@ -57,7 +56,8 @@ function nova(profile: 'balanced' | 'performance'): Record<string, string> {
     [`${GPU}/governor`]: 'simple_ondemand\n',
     [`${GPU}/cur_freq`]: balanced ? '220000000\n' : '680000000\n',
     [`${GPU}/max_freq`]: '680000000\n',
-    'usr/share/armada/power-profiles.conf': CONF
+    'usr/share/armada/power-profiles.conf': CONF,
+    'run/armada/perf-state.json': PERF
   }
 }
 
@@ -70,7 +70,9 @@ describe('the power state', () => {
       gpuGovernor: 'simple_ondemand',
       gpuCurHz: 220000000,
       gpuMaxHz: 680000000,
-      defaultProfile: 'balanced'
+      profile: 'Balanced',
+      defaultProfile: 'balanced',
+      perf: 'global.gamescopeNice=-20'
     })
   })
 
@@ -79,6 +81,7 @@ describe('the power state', () => {
     assert.equal(state.cpuGovernor, 'performance')
     assert.equal(state.cpuMaxKHz, 2956800)
     assert.equal(state.gpuCurHz, 680000000)
+    assert.equal(state.profile, 'Performance')
   })
 
   test('an edited profile file in /etc wins over the factory one', async () => {
@@ -97,7 +100,9 @@ describe('the power state', () => {
       gpuGovernor: UNKNOWN,
       gpuCurHz: null,
       gpuMaxHz: null,
-      defaultProfile: UNKNOWN
+      profile: UNKNOWN,
+      defaultProfile: UNKNOWN,
+      perf: UNKNOWN
     })
   })
 
@@ -144,10 +149,60 @@ describe('the parsers', () => {
       gpuGovernor: null,
       gpuCur: null,
       gpuMax: null,
-      profileConf: null
+      profileConf: null,
+      perfState: null
     })
     assert.equal(state.cpuGovernor, 'performance')
     assert.equal(state.cpuMaxKHz, 2)
     assert.equal(state.gpuGovernor, UNKNOWN)
+  })
+
+  test("power-profiles.conf's sections and their keys", () => {
+    const sections = parseIni(CONF)
+    assert.equal(sections.get('general')?.get('default_profile'), 'balanced')
+    assert.equal(sections.get('profile.eco')?.get('cpu_underclock'), 'large')
+    assert.equal(sections.get('underclock.SM8550.medium')?.get('cpu_max_policy7'), '2092800')
+    assert.equal(parseIni('# a=b\n; c=d\n[x]\nnot a pair\n').get('x')?.size, 0)
+  })
+
+  test('the profile in force is the only one the governor and the prime cap fit', () => {
+    assert.equal(profileInForce(CONF, 'performance', 2956800), 'Performance')
+    assert.equal(profileInForce(CONF, 'conservative', 2092800), 'Balanced')
+    assert.equal(profileInForce(CONF, 'conservative', 1843200), 'Eco')
+    // Another SoC's cap for the same level names the same profile.
+    assert.equal(profileInForce(CONF, 'conservative', 2457600), 'Balanced')
+  })
+
+  test('and stays unknown when none fits, two fit, or something is missing', () => {
+    assert.equal(profileInForce(CONF, 'conservative', 2956800), UNKNOWN, 'a cap by hand')
+    assert.equal(profileInForce(CONF, 'performance', 2092800), UNKNOWN, 'capped, yet no underclock')
+    assert.equal(profileInForce(CONF, 'schedutil', 2956800), UNKNOWN, 'no such governor')
+    const twins = `${CONF}\n[profile.turbo]\ncpu_governor=performance\ncpu_underclock=none\n`
+    assert.equal(profileInForce(twins, 'performance', 2956800), UNKNOWN)
+    assert.equal(profileInForce(null, 'performance', 2956800), UNKNOWN)
+    assert.equal(profileInForce(CONF, UNKNOWN, 2956800), UNKNOWN)
+    assert.equal(profileInForce(CONF, 'performance', null), UNKNOWN)
+  })
+
+  test('a profile without a label is named by its section', () => {
+    const conf = '[profile.quiet]\ncpu_governor=powersave\n'
+    assert.equal(profileInForce(conf, 'powersave', 1000), 'quiet')
+  })
+
+  test('the perf contract, every entry under the layer that holds it', () => {
+    assert.equal(parsePerfState(PERF), 'global.gamescopeNice=-20')
+    assert.equal(
+      parsePerfState('{"global": {"nice": 0}, "override": {"620": {"cores": "4-7"}}}'),
+      'global.nice=0 override.620.cores=4-7'
+    )
+    const many = JSON.stringify({ global: Object.fromEntries([...'abcdefgh'].map((k) => [k, 1])) })
+    assert.match(parsePerfState(many), /^global\.a=1 .* global\.f=1 …$/)
+  })
+
+  test('and unknown where it is missing, unreadable or empty', () => {
+    assert.equal(parsePerfState(null), UNKNOWN)
+    assert.equal(parsePerfState('{not json'), UNKNOWN)
+    assert.equal(parsePerfState('{}'), UNKNOWN)
+    assert.equal(parsePerfState('42'), UNKNOWN)
   })
 })

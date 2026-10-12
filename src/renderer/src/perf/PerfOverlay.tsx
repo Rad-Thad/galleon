@@ -149,7 +149,13 @@ export function PerfOverlay({ screen }: { screen: string }): JSX.Element {
               max: mhz(power.gpuMaxHz, 1_000_000)
             })}
           </div>
-          <div>{t('perf.defaultProfile', { profile: word(power.defaultProfile) })}</div>
+          <div>
+            {t('perf.profile', {
+              profile: word(power.profile),
+              start: word(power.defaultProfile)
+            })}
+          </div>
+          <div>{t('perf.armadaPerf', { state: word(power.perf) })}</div>
         </>
       )}
     </aside>

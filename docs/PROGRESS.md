@@ -1469,3 +1469,23 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Evaluator: see the PR.
 - Device / acceptance: the next nightly after the merge publishes `power-facts.txt`. From it: parse perf-state.json in `src/main/powerstate.ts` with fixture tests, which finishes M0-10, and correct DEVICE-FACTS.md's _(assumed)_ power lines. Then M0-21 and M0-22.
+
+## 2026-10-12 02:10 UTC session 01EHqpGGic98WcbWMnSMyxnP (owner asked to push work forward)
+
+- Device results: DEVICE-RESULTS e6bb3bd6f790c76c7863647971bfc260570acd29 complete. Still the minimal harness (`harness.run` passed, nothing flips), now with `logs/power-facts.txt`. The sanitiser withheld and dropped nothing.
+- Worked on: M0-10 line 4 (tracking issue #66). #153 merged at e6bb3bd; its CI wall time was x64 5:46, arm64 0:51.
+- Result: PR (this one). PASSES M0-10 (verification `agent-screenshot`). Lines 1 to 3 were met in #69 and #71. Line 5 is informational and comes from M0-21's device checks.
+- Evidence:
+  - The device's files are now fixtures (`src/main/fixtures/armada/`). `perf-state.json` is `{"global": {"gamescopeNice": -20}}`. `power-profiles.conf` is INI, with `[profile.*]` and per-SoC `[underclock.*]` sections. Neither names the profile in force (DEVICE-FACTS.md, "Confirmed on the Nova").
+  - `src/main/powerstate.ts`:
+    - `parseIni` reads the conf's sections.
+    - `profileInForce` names the profile whose governor matches the prime cluster's and whose underclock level's policy7 cap is the cluster's current maximum. For a profile with no underclock, it names it when no level's cap is the current maximum. It names a profile only when exactly one fits; otherwise it returns `unknown`.
+    - `parsePerfState` lists every scalar as `layer.key=value`, without picking any by name, and cuts the list short for the corner. It returns `unknown` when the file is missing, malformed or empty.
+    - `PowerState` gains `profile` and `perf`.
+  - The overlay shows "Armada profile: {profile} (starts in {start})" and "Armada perf: {state}", in all four catalogues, translated.
+  - `src/main/powerstate.test.ts` 15/15. Against the device's files: Performance (2956800), Balanced (2092800, the Phase 0 cap), Eco (1843200), and another SoC's medium cap. `unknown` for a cap set by hand, two profiles that fit, an unknown governor, and missing inputs. The perf contract is checked for layers, truncation, malformed and empty input.
+  - `npm run test:app` 230/230. `npm run shots:nova` 21 screens. I opened `perf-overlay.png`: the two new lines are in the bottom-left corner below the CPU and GPU lines, inside the overlay's box, and the library layout is unchanged. On the VM they read "unknown", which is correct there.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none for M0-10. Next: M0-21 (self-test mode), now unblocked. `next.mjs` should list it.

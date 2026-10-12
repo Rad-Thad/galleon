@@ -764,7 +764,8 @@ export const de: Catalog = {
   'perf.measuring': 'Wird gemessen…',
   'perf.cpu': 'CPU {governor} {cur}/{max} MHz',
   'perf.gpu': 'GPU {governor} {cur}/{max} MHz',
-  'perf.defaultProfile': 'Armada startet in: {profile}',
+  'perf.profile': 'Armada-Profil: {profile} (startet in {start})',
+  'perf.armadaPerf': 'Armada-Perf: {state}',
   'perf.unknown': 'unbekannt',
   'settings.scaleHint':
     'Auto richtet sich nach dem Bildschirm: doppelt so groß auf einem 4K-Fernseher.',
