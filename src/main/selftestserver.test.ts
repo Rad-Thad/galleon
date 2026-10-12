@@ -103,6 +103,7 @@ describe('server.heartbeat', () => {
       request: {
         schema: 1,
         sha: 'c'.repeat(40),
+        version: null,
         budgetSeconds: 60,
         resultsDir: '/tmp/results',
         handshakeDir: null,

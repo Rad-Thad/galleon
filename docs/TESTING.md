@@ -130,6 +130,7 @@ Adding a check: add it here, to the self-test or `run.sh`, and to the feature's 
 {
   "schema": 1,
   "sha": "<40-hex commit>",
+  "version": "0.21.0",
   "budgetSeconds": 1800,
   "resultsDir": "/var/home/<user>/galleon-device-tests/<sha>/results",
   "handshakeDir": "/var/home/<user>/galleon-device-tests/<sha>/handshake",
@@ -156,6 +157,7 @@ The app refuses a request without `readOnlyServer: true` and `privacy: true`, an
 - A refused request gets a `summary.json` with `status: error` and the refusal code as `reason` (when its `resultsDir` is usable), and the app exits 1.
 - An accepted run exits 0 once `summary.json` is written, whatever the checks say. A requested check this build has no scenario for is `skip` with reason `not-implemented`; the run is then `partial` and `selftest.complete` fails.
 - `safety.server-readonly` is in every summary, requested or not.
+- `sha` and `version` are copied by run.sh from the nightly's `build-info.json`. `build.identity` passes when the build's stamped commit equals `sha` whole (a `-dirty` build fails `commit-mismatch`) and `app.getVersion()` equals `version`; with no `version` in the request it is `skip` / `no-build-version`. A `version` that is not a plain version string refuses the request (`request-version`), since it is copied into the summary. See `src/main/selftestidentity.ts`.
 - Privacy: from the moment a request is taken, everything the main process gives the page (answers, pushes, error messages) has the server's address and host, the account's name, e-mail and picture, and any pairing code replaced by a mask, so no screen or screenshot draws them. See `Privacy` in `src/main/privacy.ts`.
 - With `abortOnInput`, any controller button held down, or a stick moved from where it first rested, stops the run within a second: running checks end, unrun ones are `skip` / `aborted-by-user`, the summary's status is `aborted-by-user`, and the app exits 0 once it is written. The app watches through the page's Gamepad API, never OS input.
 - `grid.scroll` scrolls the library's largest platform (at least `MIN_GAMES` games; fewer is `skip` / `no-large-platform`) for `SCROLL_MS` per profile, holding Down and turning back at either end, driven in the page through the keyboard path the focus engine answers (never the Gamepad API, which the abort watches). It answers `grid.scroll@<profile>` for each name in `profiles`, or plain `grid.scroll` held to Performance's thresholds when `profiles` is empty. Metrics: `frames`, `p50Ms`, `p95Ms`, `p99Ms`, `droppedPct` (frames over 1.5 display intervals), `displayHz`, `visited`, `platform` (slug), `games`, and from the clocks read during the scroll `profileObserved`, `governor`, `policy7MaxKHz`, `gpuMHz`. The profile before and after each scroll, and at the scroll's start, is the one `armada-power status` names when it answers (else inferred from the clocks); samples taken mid-scroll read files only, so no process starts while frames are timed, and a sample that cannot tell the profile is left out of `profileObserved`. See `src/main/selftestscroll.ts`.

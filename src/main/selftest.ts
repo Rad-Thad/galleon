@@ -37,6 +37,8 @@ export type Result = (typeof RESULTS)[number]
 export interface SelfTestRequest {
   schema: 1
   sha: string
+  /** The version `build-info.json` names, or null when the harness gave none. */
+  version: string | null
   budgetSeconds: number
   resultsDir: string
   handshakeDir: string | null
@@ -145,6 +147,11 @@ export function takeRequest(home = homeFromEnvironment()): Taken | null {
 }
 
 const SHA = /^[0-9a-f]{40}$/
+/**
+ * A version as package.json writes one. The request's is copied into the
+ * published summary, so nothing that could carry more than a version gets in.
+ */
+const VERSION = /^[0-9A-Za-z][0-9A-Za-z.+-]{0,63}$/
 
 /**
  * The request, or why it is refused.
@@ -173,6 +180,10 @@ export function parseRequest(raw: unknown): Taken {
   if (r.screenshots !== undefined && !isStringArray(r.screenshots)) {
     return refuse('request-screenshots')
   }
+  const version = r.version === undefined ? null : r.version
+  if (version !== null && (typeof version !== 'string' || !VERSION.test(version))) {
+    return refuse('request-version')
+  }
   const payloads = typeof r.payloads === 'object' && r.payloads !== null ? r.payloads : {}
   if (!Object.values(payloads).every((p) => typeof p === 'string')) {
     return refuse('request-payloads')
@@ -182,6 +193,7 @@ export function parseRequest(raw: unknown): Taken {
     request: {
       schema: 1,
       sha,
+      version,
       budgetSeconds: r.budgetSeconds,
       resultsDir,
       handshakeDir: typeof r.handshakeDir === 'string' ? r.handshakeDir : null,
