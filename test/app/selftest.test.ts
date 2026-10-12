@@ -232,6 +232,31 @@ test('signed in to a library with no large platform, grid.scroll scrolls the syn
   }
 })
 
+test('launch and exit ids reach their scenarios, and no payload outside the home is started', async () => {
+  const { code, home, results } = await runWithRequest({
+    ...REQUEST,
+    checks: ['launch.retroarch', 'exit.retroarch', 'launch.duckstation'],
+    payloads: { retroarch: '../owner/roms/snes/game.sfc' }
+  })
+  assert.equal(code, 0)
+  const summary = JSON.parse(readFileSync(join(results, SUMMARY_FILE), 'utf8')) as Summary
+  assert.deepEqual(summaryErrors(summary), [])
+  assert.equal(summary.status, 'complete')
+  const checks = new Map(summary.checks.map((c) => [c.id, c]))
+  assert.deepEqual(
+    ['launch.retroarch', 'exit.retroarch', 'launch.duckstation'].map((id) => [
+      checks.get(id)?.result,
+      checks.get(id)?.reason
+    ]),
+    [
+      ['skip', 'payload-outside-home'],
+      ['skip', 'payload-outside-home'],
+      ['skip', 'no-payload']
+    ]
+  )
+  assert.ok(!existsSync(join(home, 'sandbox')), 'no sandbox was made')
+})
+
 test('a request without privacy is refused with an error summary and exit 1', async () => {
   const { code, results } = await runWithRequest({ ...REQUEST, privacy: false })
   assert.equal(code, 1)
