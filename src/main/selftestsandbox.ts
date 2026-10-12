@@ -14,6 +14,7 @@ import type {
   SandboxContext,
   SandboxFolders
 } from '@config/emulators'
+import { childEnvironment } from './childenv.ts'
 import { execPrefix } from './host.ts'
 
 /**
@@ -75,8 +76,10 @@ export type SandboxPlan =
   | {
       kind: 'run'
       argv: string[]
-      /** Merged over the child's environment; see `childEnvironment`. */
+      /** Merged over the child's environment; see `sandboxEnvironment`. */
       env: Record<string, string>
+      /** Removed from the child's environment before `env` is merged. */
+      unset: string[]
       folders: SandboxFolders
       files: { path: string; content: string }[]
     }
@@ -146,8 +149,21 @@ export function planSandbox(request: SandboxRequest): SandboxPlan {
   })
   if (argv === null) return skip('unsupported-system')
 
-  const env = { ...descriptor.env, ...recipe.env, ...xdgRoots(folders) }
-  return { kind: 'run', argv, env, folders, files }
+  const roots = xdgRoots(folders)
+  const unset = recipe.unset.filter((name) => !(name in roots))
+  const env: Record<string, string> = { ...descriptor.env, ...recipe.env }
+  for (const name of unset) delete env[name]
+  return { kind: 'run', argv, env: { ...env, ...roots }, unset, folders, files }
+}
+
+/** The environment a planned start gets, from the one Galleon was started with. */
+export function sandboxEnvironment(
+  plan: Extract<SandboxPlan, { kind: 'run' }>,
+  parentEnv: Readonly<Record<string, string | undefined>>
+): Record<string, string> {
+  const inherited = childEnvironment(parentEnv)
+  for (const name of plan.unset) delete inherited[name]
+  return { ...inherited, ...plan.env }
 }
 
 /**

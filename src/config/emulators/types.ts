@@ -450,6 +450,12 @@ export interface SandboxRecipe {
   readonly args: readonly string[]
   /** Merged over the XDG roots and the descriptor's own `env`. */
   readonly env: Readonly<Record<string, string>>
+  /**
+   * Variables removed from the environment the emulator inherits, for an
+   * emulator that lets one override a folder its config names. The XDG roots
+   * are never removed.
+   */
+  readonly unset: readonly string[]
   /** Written whole before the start; `path` is relative to `folders.root`. */
   readonly files: readonly { readonly path: string; readonly content: string }[]
 }

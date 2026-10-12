@@ -47,6 +47,21 @@ function requiredCore(ctx: CoreContext): RequiredCore | null {
 const SANDBOX_APPEND = 'retroarch-sandbox.cfg'
 
 /**
+ * Variables RetroArch reads after its config, each replacing a folder the
+ * config named; read from `config_load_file` in its `configuration.c`.
+ */
+const FOLDER_OVERRIDES = [
+  'LIBRETRO_DIRECTORY',
+  'LIBRETRO_ASSETS_DIRECTORY',
+  'LIBRETRO_AUTOCONFIG_DIRECTORY',
+  'LIBRETRO_CHEATS_DIRECTORY',
+  'LIBRETRO_DATABASE_DIRECTORY',
+  'LIBRETRO_SYSTEM_DIRECTORY',
+  'LIBRETRO_VIDEO_FILTER_DIRECTORY',
+  'LIBRETRO_VIDEO_SHADER_DIRECTORY'
+]
+
+/**
  * RetroArch started on a config of the sandbox's own, with the folders it
  * writes to named in an appended one.
  *
@@ -56,7 +71,8 @@ const SANDBOX_APPEND = 'retroarch-sandbox.cfg'
  * keeps saves and states out of the game's folder, and turns off saving the
  * config on exit so the sandbox's file stays what was written. Cores are the
  * owner's, read where RetroArch would load them from; without a core for the
- * system there is nothing to start.
+ * system there is nothing to start. A folder variable inherited from the
+ * session would win over the appended config, so none reaches it.
  */
 function sandboxRecipe(ctx: SandboxContext): SandboxRecipe | null {
   const core = requiredCore({ system: ctx.system, ...ctx.owner })
@@ -91,6 +107,7 @@ function sandboxRecipe(ctx: SandboxContext): SandboxRecipe | null {
       joinPath(folders.root, SANDBOX_APPEND)
     ],
     env: {},
+    unset: FOLDER_OVERRIDES,
     files: [
       { path: 'config/retroarch/retroarch.cfg', content: '' },
       { path: SANDBOX_APPEND, content: append }

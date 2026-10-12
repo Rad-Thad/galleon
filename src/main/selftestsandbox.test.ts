@@ -27,6 +27,7 @@ import {
   planSandbox,
   prepareSandbox,
   resolveLinks,
+  sandboxEnvironment,
   sandboxFolders
 } from './selftestsandbox.ts'
 
@@ -75,7 +76,7 @@ function withRecipe(
   return { ...example, ...extra, sandbox } as EmulatorDescriptor
 }
 
-const EMPTY: SandboxRecipe = { args: [], env: {}, files: [] }
+const EMPTY: SandboxRecipe = { args: [], env: {}, unset: [], files: [] }
 
 function plan(descriptor: EmulatorDescriptor, install = BINARY, system = 'snes') {
   return planSandbox({
@@ -110,6 +111,7 @@ describe('planSandbox', () => {
     const descriptor = withRecipe(({ folders }) => ({
       args: ['-u', folders.data],
       env: {},
+      unset: [],
       files: []
     }))
     const result = plan(descriptor, BINARY, 'nes')
@@ -129,6 +131,7 @@ describe('planSandbox', () => {
       () => ({
         args: [],
         env: { FROM_RECIPE: '1', XDG_CONFIG_HOME: '/home/owner/.config' },
+        unset: [],
         files: []
       }),
       { env: { FROM_DESCRIPTOR: '1', FROM_RECIPE: 'descriptor' } }
@@ -139,6 +142,36 @@ describe('planSandbox', () => {
     assert.equal(result.env.FROM_DESCRIPTOR, '1')
     assert.equal(result.env.FROM_RECIPE, '1')
     assert.equal(result.env.XDG_CONFIG_HOME, result.folders.config)
+  })
+
+  test("removes the recipe's unset variables, but never an XDG root", () => {
+    const descriptor = withRecipe(
+      () => ({
+        args: [],
+        env: { KEPT: '1' },
+        unset: ['OVERRIDE_DIR', 'FROM_DESCRIPTOR', 'XDG_DATA_HOME'],
+        files: []
+      }),
+      { env: { FROM_DESCRIPTOR: '1' } }
+    )
+    const result = plan(descriptor)
+    assert.equal(result.kind, 'run')
+    if (result.kind !== 'run') return
+    assert.deepEqual(result.unset, ['OVERRIDE_DIR', 'FROM_DESCRIPTOR'])
+    assert.ok(!('FROM_DESCRIPTOR' in result.env))
+    assert.equal(result.env.KEPT, '1')
+    assert.equal(result.env.XDG_DATA_HOME, result.folders.data)
+
+    const env = sandboxEnvironment(result, {
+      PATH: '/usr/bin',
+      DISPLAY: ':0',
+      OVERRIDE_DIR: '/home/owner/elsewhere',
+      XDG_DATA_HOME: '/home/owner/.local/share'
+    })
+    assert.ok(!('OVERRIDE_DIR' in env))
+    assert.equal(env.DISPLAY, ':0')
+    assert.equal(env.KEPT, '1')
+    assert.equal(env.XDG_DATA_HOME, result.folders.data)
   })
 
   test('tells the recipe the system, the install and the folders', () => {
@@ -164,6 +197,7 @@ describe('planSandbox', () => {
     const descriptor = withRecipe(() => ({
       args: [],
       env: {},
+      unset: [],
       files: [{ path: 'config/example.cfg', content: 'x = 1\n' }]
     }))
     const result = plan(descriptor)
@@ -191,19 +225,29 @@ describe('planSandbox', () => {
     ],
     [
       'a file outside the sandbox',
-      withRecipe(() => ({ args: [], env: {}, files: [{ path: '../../.config/x', content: '' }] })),
+      withRecipe(() => ({
+        args: [],
+        env: {},
+        unset: [],
+        files: [{ path: '../../.config/x', content: '' }]
+      })),
       BINARY,
       'file-outside-sandbox'
     ],
     [
       'a file at the sandbox root itself',
-      withRecipe(() => ({ args: [], env: {}, files: [{ path: '.', content: '' }] })),
+      withRecipe(() => ({ args: [], env: {}, unset: [], files: [{ path: '.', content: '' }] })),
       BINARY,
       'file-outside-sandbox'
     ],
     [
       'an absolute file path',
-      withRecipe(() => ({ args: [], env: {}, files: [{ path: '/etc/x', content: '' }] })),
+      withRecipe(() => ({
+        args: [],
+        env: {},
+        unset: [],
+        files: [{ path: '/etc/x', content: '' }]
+      })),
       BINARY,
       'file-outside-sandbox'
     ]
@@ -332,6 +376,28 @@ describe("RetroArch's recipe", () => {
       if (value === 'false') continue
       assert.ok(value.startsWith(`${result.folders.root}/`), `${key} = ${value}`)
     }
+  })
+
+  test('inherits none of the variables that would override a folder its config names', () => {
+    const result = retroPlan()
+    assert.equal(result.kind, 'run')
+    if (result.kind !== 'run') return
+    const session = {
+      PATH: '/usr/bin',
+      LIBRETRO_DIRECTORY: '/home/owner/cores',
+      LIBRETRO_SYSTEM_DIRECTORY: '/home/owner/bios',
+      LIBRETRO_CHEATS_DIRECTORY: '/home/owner/cheats',
+      LIBRETRO_ASSETS_DIRECTORY: '/home/owner/assets',
+      LIBRETRO_AUTOCONFIG_DIRECTORY: '/home/owner/autoconfig',
+      LIBRETRO_DATABASE_DIRECTORY: '/home/owner/database',
+      LIBRETRO_VIDEO_FILTER_DIRECTORY: '/home/owner/filters',
+      LIBRETRO_VIDEO_SHADER_DIRECTORY: '/home/owner/shaders'
+    }
+    const env = sandboxEnvironment(result, session)
+    assert.deepEqual(
+      Object.keys(env).filter((name) => name.startsWith('LIBRETRO_')),
+      []
+    )
   })
 
   test('is not started for a system with no core, nor as a flatpak', () => {
@@ -487,6 +553,7 @@ describe('prepareSandbox', () => {
     const result = ready(home, {
       args: [],
       env: {},
+      unset: [],
       files: [{ path: 'config/example/example.cfg', content: 'x = 1\n' }]
     })
     assert.equal(prepareSandbox(result, null), 0)

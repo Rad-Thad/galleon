@@ -1881,3 +1881,18 @@ Lines the tooling reads (exact forms):
 - Evaluator: PASS.
 - Device / acceptance: none; no launch scenario calls `planSandbox` yet.
 - Notes: open the PR with its `Feature:` line and date the entry before the push. CI reads the body from the push that triggered it, and editing the body does not re-run `build`, so a missing line costs a commit.
+
+## 2026-10-12 14:52 UTC session 01LwGckt1Kz8qHK8zoRirWxz (hourly heartbeat, second unit)
+
+- Device results: unchanged since the entry above. Part 5e, PR #177, merged at 9f95aca; its CI wall time was x64 6:23, arm64 1:02.
+- Worked on: M0-21 part 5f (tracking issue #155): the evaluator's note from part 5b, that RetroArch must not inherit `LIBRETRO_DIRECTORY`.
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - RetroArch's `configuration.c` reads eight `LIBRETRO_*_DIRECTORY` variables after its config and lets each replace a folder the config named; `LIBRETRO_SYSTEM_DIRECTORY` would put system files in the owner's folder whatever the appended config says.
+  - `SandboxRecipe.unset`: variables removed from the inherited environment (never an XDG root). RetroArch's recipe lists the eight. `planSandbox` carries them in the plan and drops them from the descriptor's own env; `sandboxEnvironment(plan, parentEnv)` builds the child's environment (`childEnvironment`, minus `unset`, plus the plan's env) for the launch check that will start emulators.
+  - Tests: `src/main/selftestsandbox.test.ts` 36/36; new: unset variables leave the plan and the inherited environment but XDG roots stay; RetroArch inherits no `LIBRETRO_*` variable from a session that sets all eight.
+  - `docs/TESTING.md`: the sandbox bullet names the removed variables.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none; no launch scenario calls `planSandbox` yet.
