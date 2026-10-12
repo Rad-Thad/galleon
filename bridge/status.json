@@ -1,9 +1,14 @@
 {
   "bridgeVersion": 1,
-  "lastSeen": "2026-10-08T15:06:00Z",
-  "lastSkip": "no 'nightly' release published yet",
-  "lastTested": null,
+  "lastPublished": "2026-10-08T15:06:02Z",
+  "lastSeen": "2026-10-12T08:04:00Z",
+  "lastSkip": "no new nightly",
+  "lastTested": "730da98825f828dfb68d7a1eafd93c68c792efda",
   "skipReasons": {
-    "no 'nightly' release published yet": 1
+    "busy: reaper running": 2,
+    "network unavailable (URLError)": 1,
+    "no 'nightly' release published yet": 7,
+    "no new nightly": 1,
+    "not on the charger": 6
   }
 }
