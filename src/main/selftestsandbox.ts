@@ -1,11 +1,13 @@
 import {
   constants,
   copyFileSync,
+  existsSync,
   lstatSync,
   mkdirSync,
   readdirSync,
   realpathSync,
   renameSync,
+  rmdirSync,
   statSync,
   unlinkSync,
   writeFileSync
@@ -90,6 +92,8 @@ export type SandboxPlan =
       env: Record<string, string>
       /** Removed from the child's environment before `env` is merged. */
       unset: string[]
+      /** See `SandboxRecipe.strays`. */
+      strays: string[]
       folders: SandboxFolders
       files: { path: string; content: string }[]
     }
@@ -165,7 +169,8 @@ export function planSandbox(request: SandboxRequest): SandboxPlan {
   const unset = recipe.unset.filter((name) => !(name in roots))
   const env: Record<string, string> = { ...descriptor.env, ...recipe.env }
   for (const name of unset) delete env[name]
-  return { kind: 'run', argv, env: { ...env, ...roots }, unset, folders, files }
+  const strays = recipe.strays.filter((path) => isAbsolute(path))
+  return { kind: 'run', argv, env: { ...env, ...roots }, unset, strays, folders, files }
 }
 
 /** The environment a planned start gets, from the one Galleon was started with. */
@@ -176,6 +181,36 @@ export function sandboxEnvironment(
   const inherited = childEnvironment(parentEnv)
   for (const name of plan.unset) delete inherited[name]
   return { ...inherited, ...plan.env }
+}
+
+/**
+ * The plan's stray folders that do not exist yet, read just before the start.
+ * Only these are the run's to clear: one that was already there is somebody
+ * else's.
+ */
+export function straysToClear(
+  plan: Extract<SandboxPlan, { kind: 'run' }>,
+  isThere: (path: string) => boolean = existsSync
+): string[] {
+  return plan.strays.filter((path) => !isThere(path))
+}
+
+/**
+ * Removes each folder from `straysToClear` after the emulator has exited, and
+ * answers the ones removed. Only an empty folder is removed, so nothing in it
+ * is ever deleted; one left behind is for the owner-state manifest to report.
+ */
+export function clearStrays(paths: readonly string[]): string[] {
+  const removed: string[] = []
+  for (const path of paths) {
+    try {
+      rmdirSync(path)
+      removed.push(path)
+    } catch {
+      // Not empty, not there, or not a folder: left as it is.
+    }
+  }
+  return removed
 }
 
 /**

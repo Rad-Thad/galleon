@@ -463,6 +463,13 @@ export interface SandboxRecipe {
    * did not set out to test, so it is skipped instead.
    */
   readonly needs: readonly string[]
+  /**
+   * Folders outside the sandbox the emulator makes on every start, whatever
+   * its config and environment say, such as RetroArch's temporary folder. The
+   * self-test removes each one afterwards if it was not there before and is
+   * still empty; see `clearStrays`.
+   */
+  readonly strays: readonly string[]
   /** Written whole before the start; `path` is relative to `folders.root`. */
   readonly files: readonly { readonly path: string; readonly content: string }[]
 }
