@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { after, test } from 'node:test'
 import { SETTLE_TIMEOUT_MS, electronBinary, seed, startApp } from './driver.ts'
 import { GBA_ROM, startFakeRomm } from './server.ts'
+import { SCROLL_MS } from '../../src/main/selftestscroll.ts'
 import {
   REQUEST_FILE,
   RUN_CHECKS,
@@ -24,6 +25,8 @@ import {
 
 /** Start-up, the run and the quit together, on a slow CI runner. */
 const EXIT_TIMEOUT_MS = 60_000
+/** The grid scroll's platform: past `MIN_GAMES`, the size of a real library's largest. */
+const GAMES = 1300
 
 const homes: string[] = []
 after(() => {
@@ -32,7 +35,8 @@ after(() => {
 
 async function runWithRequest(
   request: Record<string, unknown>,
-  server?: { baseUrl: string; token: string }
+  server?: { baseUrl: string; token: string },
+  timeoutMs = EXIT_TIMEOUT_MS
 ): Promise<{
   code: number | null
   home: string
@@ -60,7 +64,7 @@ async function runWithRequest(
     const timer = setTimeout(() => {
       child.kill('SIGKILL')
       reject(new Error(`the self-test never quit:\n${output}`))
-    }, EXIT_TIMEOUT_MS)
+    }, timeoutMs)
     child.on('exit', (exitCode) => {
       clearTimeout(timer)
       resolve(exitCode)
@@ -74,7 +78,7 @@ const REQUEST = {
   sha: 'b'.repeat(40),
   budgetSeconds: 600,
   handshakeDir: null,
-  checks: [RUN_CHECKS.complete, 'grid.scroll'],
+  checks: [RUN_CHECKS.complete, 'power.read'],
   profiles: ['performance'],
   payloads: {},
   fakeRomm: null,
@@ -92,12 +96,12 @@ test('a self-test request is taken, answered in summary.json, and the app quits 
   const summary = JSON.parse(readFileSync(join(results, SUMMARY_FILE), 'utf8')) as Summary
   assert.deepEqual(summaryErrors(summary), [])
   assert.equal(summary.sha, REQUEST.sha)
-  // `grid.scroll` has no scenario in this build, so not every check ran.
+  // `power.read` has no scenario in this build, so not every check ran.
   assert.equal(summary.status, 'partial')
   assert.equal(summary.safety.serverWritesAttempted, 0)
   const checks = new Map(summary.checks.map((c) => [c.id, c]))
   assert.equal(checks.get(RUN_CHECKS.serverReadOnly)?.result, 'pass')
-  assert.equal(checks.get('grid.scroll')?.reason, 'not-implemented')
+  assert.equal(checks.get('power.read')?.reason, 'not-implemented')
   assert.ok(checks.has(RUN_CHECKS.complete))
 })
 
@@ -119,6 +123,39 @@ test('signed in, startup.cold times the start to an interactive Home', async () 
     assert.equal(startup.metrics.measuredFrom, 'process')
     assert.ok(typeof startup.metrics.startupMs === 'number' && startup.metrics.startupMs > 0)
     assert.equal(summary.checks.find((c) => c.id === RUN_CHECKS.complete)?.result, 'pass')
+  } finally {
+    await server.close()
+  }
+})
+
+test(`signed in, grid.scroll scrolls the ${GAMES}-game platform and times its frames`, async () => {
+  const server = await startFakeRomm({ bulk: GAMES })
+  try {
+    const { code, results } = await runWithRequest(
+      { ...REQUEST, checks: [RUN_CHECKS.complete, 'grid.scroll'], profiles: [] },
+      server,
+      EXIT_TIMEOUT_MS + SCROLL_MS
+    )
+    assert.equal(code, 0)
+    const summary = JSON.parse(readFileSync(join(results, SUMMARY_FILE), 'utf8')) as Summary
+    assert.deepEqual(summaryErrors(summary), [])
+    const scroll = summary.checks.find((c) => c.id === 'grid.scroll')
+    // Pass or fail is the device's to say: a CI runner is not the Nova.
+    assert.ok(
+      scroll && (scroll.result === 'pass' || scroll.result === 'fail'),
+      JSON.stringify(scroll)
+    )
+    console.log(`grid.scroll: ${JSON.stringify(scroll.metrics)}`)
+    assert.equal(scroll.metrics.platform, 'nes')
+    assert.equal(scroll.metrics.games, GAMES)
+    // Far more games than one screen holds: the grid really moved.
+    assert.ok((scroll.metrics.visited as number) > 50, JSON.stringify(scroll.metrics))
+    assert.ok((scroll.metrics.frames as number) > (SCROLL_MS / 1000) * 10)
+    for (const key of ['p50Ms', 'p95Ms', 'p99Ms', 'droppedPct'])
+      assert.equal(typeof scroll.metrics[key], 'number', key)
+    assert.equal(summary.status, 'complete')
+    assert.equal(summary.checks.find((c) => c.id === RUN_CHECKS.complete)?.result, 'pass')
+    assert.equal(summary.checks.find((c) => c.id === RUN_CHECKS.serverReadOnly)?.result, 'pass')
   } finally {
     await server.close()
   }
@@ -216,6 +253,10 @@ test('a press on the controller stops the run within a second, as aborted-by-use
     }
   })
   try {
+    // `startApp` returns once there is a page to talk to, which can be before
+    // the app's own document has replaced it; a pad planted in that one is
+    // gone with it, and the press is never seen.
+    await app.waitFor(`document.querySelector('[data-screen]')`, 'the first screen')
     const pad = await app.plugInPad()
     const pressed = Date.now()
     // The app may quit before the press has been answered.

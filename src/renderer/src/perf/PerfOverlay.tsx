@@ -1,7 +1,7 @@
 import { type JSX, useEffect, useRef, useState } from 'react'
 import type { PerfState } from '@shared/types'
 import { useI18n } from '../state'
-import { type FrameStats, FrameWindow } from './frames'
+import { type FrameStats, FrameWindow } from '@shared/frames'
 
 /**
  * The performance overlay: frame times for the screen on display and the
