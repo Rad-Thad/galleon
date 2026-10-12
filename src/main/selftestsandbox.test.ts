@@ -26,10 +26,12 @@ import { example } from '@config/emulators/example/index.ts'
 import {
   CANNOT_SANDBOX,
   planSandbox,
+  clearStrays,
   prepareSandbox,
   resolveLinks,
   sandboxEnvironment,
-  sandboxFolders
+  sandboxFolders,
+  straysToClear
 } from './selftestsandbox.ts'
 
 /**
@@ -82,7 +84,7 @@ function noClone(): never {
   throw Object.assign(new Error('no reflinks here'), { code: 'ENOTSUP' })
 }
 
-const EMPTY: SandboxRecipe = { args: [], env: {}, unset: [], needs: [], files: [] }
+const EMPTY: SandboxRecipe = { args: [], env: {}, unset: [], needs: [], strays: [], files: [] }
 
 function plan(descriptor: EmulatorDescriptor, install = BINARY, system = 'snes') {
   return planSandbox({
@@ -119,6 +121,7 @@ describe('planSandbox', () => {
       env: {},
       unset: [],
       needs: [],
+      strays: [],
       files: []
     }))
     const result = plan(descriptor, BINARY, 'nes')
@@ -140,6 +143,7 @@ describe('planSandbox', () => {
         env: { FROM_RECIPE: '1', XDG_CONFIG_HOME: '/home/owner/.config' },
         unset: [],
         needs: [],
+        strays: [],
         files: []
       }),
       { env: { FROM_DESCRIPTOR: '1', FROM_RECIPE: 'descriptor' } }
@@ -180,6 +184,7 @@ describe('planSandbox', () => {
         env: { KEPT: '1' },
         unset: ['OVERRIDE_DIR', 'FROM_DESCRIPTOR', 'XDG_DATA_HOME'],
         needs: [],
+        strays: [],
         files: []
       }),
       { env: { FROM_DESCRIPTOR: '1' } }
@@ -229,6 +234,7 @@ describe('planSandbox', () => {
       env: {},
       unset: [],
       needs: [],
+      strays: [],
       files: [{ path: 'config/example.cfg', content: 'x = 1\n' }]
     }))
     const result = plan(descriptor)
@@ -261,6 +267,7 @@ describe('planSandbox', () => {
         env: {},
         unset: [],
         needs: [],
+        strays: [],
         files: [{ path: '../../.config/x', content: '' }]
       })),
       BINARY,
@@ -273,6 +280,7 @@ describe('planSandbox', () => {
         env: {},
         unset: [],
         needs: [],
+        strays: [],
         files: [{ path: '.', content: '' }]
       })),
       BINARY,
@@ -285,6 +293,7 @@ describe('planSandbox', () => {
         env: {},
         unset: [],
         needs: [],
+        strays: [],
         files: [{ path: '/etc/x', content: '' }]
       })),
       BINARY,
@@ -441,6 +450,13 @@ describe("RetroArch's recipe", () => {
       Object.keys(env).filter((name) => name.startsWith('LIBRETRO_')),
       []
     )
+  })
+
+  test('names the temporary folder its start-up makes outside the sandbox', () => {
+    const result = retroPlan()
+    assert.equal(result.kind, 'run')
+    if (result.kind !== 'run') return
+    assert.deepEqual(result.strays, ['/tmp/retroarch-tmp'])
   })
 
   test("is not started when the owner's core file is missing", () => {
@@ -613,6 +629,7 @@ describe('prepareSandbox', () => {
       env: {},
       unset: [],
       needs: [],
+      strays: [],
       files: [{ path: 'config/example/example.cfg', content: 'x = 1\n' }]
     })
     assert.deepEqual(prepareSandbox(result, null), { kind: 'ready', biosFiles: 0 })
@@ -719,6 +736,46 @@ describe('prepareSandbox', () => {
       kind: 'ready',
       biosFiles: 0
     })
+  })
+})
+
+describe('stray folders', () => {
+  function strayPlan(strays: string[]) {
+    const result = planSandbox({
+      descriptor: withRecipe(() => ({ ...EMPTY, strays })),
+      install: BINARY,
+      system: 'snes',
+      romPath: '/payload/game.sfc',
+      home: HOME,
+      owner: OWNER,
+      realPath: (path) => path
+    })
+    if (result.kind !== 'run') throw new Error('expected a plan')
+    return result
+  }
+
+  test('the plan keeps only absolute stray paths', () => {
+    assert.deepEqual(strayPlan(['/tmp/emu-tmp', 'relative/tmp']).strays, ['/tmp/emu-tmp'])
+  })
+
+  test("only a stray folder that is not there before the start is the run's to clear", () => {
+    const result = strayPlan(['/tmp/was-there', '/tmp/new'])
+    assert.deepEqual(
+      straysToClear(result, (path) => path === '/tmp/was-there'),
+      ['/tmp/new']
+    )
+  })
+
+  test('clears an empty stray folder and leaves one with something in it', () => {
+    const dir = scratch()
+    const empty = join(dir, 'empty-tmp')
+    const used = join(dir, 'used-tmp')
+    mkdirSync(empty)
+    mkdirSync(used)
+    writeFileSync(join(used, 'file'), 'x')
+    assert.deepEqual(clearStrays([empty, used, join(dir, 'never-made')]), [empty])
+    assert.ok(!existsSync(empty))
+    assert.ok(existsSync(join(used, 'file')))
   })
 })
 

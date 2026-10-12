@@ -62,6 +62,13 @@ const FOLDER_OVERRIDES = [
 ]
 
 /**
+ * The folder RetroArch's Unix start-up makes for its default cache folder
+ * before any config is read; `frontend/drivers/platform_unix.c` names the
+ * path outright, so neither `cache_directory` nor a variable moves it.
+ */
+const STARTUP_TEMP = '/tmp/retroarch-tmp'
+
+/**
  * RetroArch started on a config of the sandbox's own, with the folders it
  * writes to named in an appended one.
  *
@@ -109,6 +116,7 @@ function sandboxRecipe(ctx: SandboxContext): SandboxRecipe | null {
     env: {},
     unset: FOLDER_OVERRIDES,
     needs: [joinPath(core.dir, core.fileName)],
+    strays: [STARTUP_TEMP],
     files: [
       { path: 'config/retroarch/retroarch.cfg', content: '' },
       { path: SANDBOX_APPEND, content: append }

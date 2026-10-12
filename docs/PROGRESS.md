@@ -1927,3 +1927,19 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Evaluator: see the PR.
 - Device / acceptance: none; no launch scenario calls `planSandbox` yet.
+
+## 2026-10-12 15:53 UTC session 01GHqwaL39bhoXCitQmtPQfJ (hourly heartbeat, third unit)
+
+- Device results: unchanged since the entry above. Part 5h of M0-21, PR #180, merged at dffeebe; its CI wall time was x64 6:37, arm64 1:00.
+- Worked on: M0-21 part 5i (tracking issue #155): RetroArch makes `/tmp/retroarch-tmp` on every start (evaluator note from part 5b).
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - RetroArch's `frontend/drivers/platform_unix.c` (read as specification) makes `/tmp/retroarch-tmp` for its default cache folder before any config is read, so neither `cache_directory` nor a variable can move it.
+  - `SandboxRecipe.strays`: folders outside the sandbox an emulator makes whatever it is told. The plan carries the absolute ones; `straysToClear` (read just before the start) keeps only those not there yet; `clearStrays` (after exit) removes each one that is still empty and answers what it removed. A non-empty folder stays for the owner-state manifest to report.
+  - Tests: `src/main/selftestsandbox.test.ts` 46/46; new: only absolute strays are planned, one already there is never the run's, only an empty one is removed, and RetroArch's plan names `/tmp/retroarch-tmp`.
+  - `docs/TESTING.md`: the sandbox bullet names the stray folders.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none; no launch scenario calls `planSandbox` yet.
+- Next: open for M0-21 line 4: flatpaks (5d), the portable `user` folders of Eden and shadPS4; then the synthetic 1,300-game platform.

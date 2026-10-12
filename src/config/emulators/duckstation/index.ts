@@ -53,6 +53,7 @@ function sandboxRecipe(ctx: SandboxContext): SandboxRecipe | null {
     env: {},
     unset: [],
     needs: [],
+    strays: [],
     files: [{ path: 'config/duckstation/settings.ini', content: settings }]
   }
 }
