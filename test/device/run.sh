@@ -9,8 +9,8 @@
 # It also copies the power state the Nova shows into logs/power-facts.txt,
 # because the overlay's parsers (src/main/powerstate.ts) need the real format
 # of Armada's files and nothing else can see them (M0-10). Every source is
-# read-only to any user; nothing here switches a profile or writes outside
-# RESULTS_DIR.
+# readable by any user and the harness only reads it: nothing here switches
+# a profile or writes outside RESULTS_DIR.
 set -u
 
 # Nothing to undo: this harness starts no process and changes no state.
