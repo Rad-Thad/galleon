@@ -16,6 +16,7 @@ import { contentTypeOf, OfflineCache, rememberInstalledGames } from './offline.t
 import { runMigrations } from './migrations.ts'
 import { RommClient } from './romm/index.ts'
 import type { ReadOnlyGuard } from './romm/guard.ts'
+import { Privacy } from './privacy.ts'
 import { SaveSync } from './saves.ts'
 import { rootPaths } from './root.ts'
 import { Store } from './store.ts'
@@ -167,6 +168,22 @@ export class RomMixApp {
     this.client.readOnly(guard)
     this.catchUpHeld = true
   }
+
+  /**
+   * Hide the server and the account from everything the page is given from
+   * now on. See `Privacy`.
+   */
+  hideIdentity(): void {
+    this.privacy = new Privacy(() => this.store.server)
+  }
+
+  /** What the page may be given of a value: all of it, unless `hideIdentity` was called. */
+  shown<T>(value: T): T {
+    return this.privacy ? this.privacy.hide(value) : value
+  }
+
+  /** Set only by the device self-test. See `hideIdentity`. */
+  private privacy: Privacy | null = null
 
   /** The shutdown in progress, so a second exit joins it. See `shutdown`. */
   private shuttingDown: Promise<void> | null = null
@@ -508,7 +525,7 @@ export class RomMixApp {
 
   send(channel: string, payload: unknown): void {
     if (this.window && !this.window.isDestroyed()) {
-      this.window.webContents.send(channel, payload)
+      this.window.webContents.send(channel, this.shown(payload))
     }
   }
 

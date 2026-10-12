@@ -4,7 +4,7 @@ import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSy
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { after, test } from 'node:test'
-import { electronBinary, seed, startApp } from './driver.ts'
+import { SETTLE_TIMEOUT_MS, electronBinary, seed, startApp } from './driver.ts'
 import { GBA_ROM, startFakeRomm } from './server.ts'
 import {
   REQUEST_FILE,
@@ -235,5 +235,75 @@ test('a press on the controller stops the run within a second, as aborted-by-use
     assert.equal(startup?.reason, 'aborted-by-user')
   } finally {
     await app.stop()
+  }
+})
+
+test('while the self-test runs, no screen names the server or the account', async () => {
+  const server = await startFakeRomm({ gba: true })
+  // The download stays in flight, and so the run stays up, while every
+  // screen is visited.
+  const release = server.holdContent(GBA_ROM)
+  const home = mkdtempSync(join(tmpdir(), 'galleon-selftest-privacy-'))
+  homes.push(home)
+  const results = join(home, 'results')
+  const app = await startApp({
+    baseUrl: server.baseUrl,
+    token: server.token,
+    home,
+    files: {
+      [REQUEST_FILE]: JSON.stringify({
+        ...REQUEST,
+        abortOnInput: false,
+        checks: [RUN_CHECKS.complete, 'download.small'],
+        resultsDir: results
+      })
+    }
+  })
+  const secrets = [server.baseUrl, new URL(server.baseUrl).host, 'tester']
+  // The markup, what fields hold (which the markup does not carry), and the
+  // window's title.
+  const page = `[
+    document.documentElement.outerHTML,
+    ...[...document.querySelectorAll('input, textarea')].map((field) => field.value),
+    document.title
+  ].join('\\n')`
+  const named = async (where: string): Promise<void> => {
+    const text = (await app.read<string>(page)).toLowerCase()
+    for (const secret of secrets) {
+      assert.ok(!text.includes(secret.toLowerCase()), `${where} names ${secret}`)
+    }
+  }
+  try {
+    await app.waitFor(
+      `document.querySelector('.topbar__account')`,
+      'the top bar signed in',
+      SETTLE_TIMEOUT_MS
+    )
+    await named('the top bar on home')
+    for (const route of ['library', 'collections', 'downloads', 'bios', 'emulators', 'settings']) {
+      await app.goTo(route)
+      await app.waitFor(`document.querySelector('[data-screen="${route}"]')`, `the ${route} screen`)
+      await named(`the ${route} screen`)
+    }
+    await app.goTo('library')
+    await app.waitFor(`document.querySelector('[data-screen="library"]')`, 'the library')
+    await app.choose('[data-rom="1"]')
+    await app.waitFor(`document.querySelector('[data-screen="game"]')`, 'a game screen')
+    await named('a game screen')
+    await app.goTo('home')
+    await named('home')
+
+    release()
+    const summaryPath = join(results, SUMMARY_FILE)
+    const released = Date.now()
+    while (!existsSync(summaryPath) && Date.now() - released < EXIT_TIMEOUT_MS) {
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+    const summary = JSON.parse(readFileSync(summaryPath, 'utf8')) as Summary
+    assert.equal(summary.checks.find((c) => c.id === 'download.small')?.result, 'pass')
+  } finally {
+    release()
+    await app.stop()
+    await server.close()
   }
 })

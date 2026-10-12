@@ -23,7 +23,10 @@ import { registerUpdateIpc } from './updates.ts'
  * on it, since a channel is only reachable once the renderer asks for it.
  */
 export function registerIpc(rommix: RomMixApp): void {
-  const handle = handler((message) => rommix.send('app:error', message))
+  const handle = handler(
+    (message) => rommix.send('app:error', message),
+    (value) => rommix.shown(value)
+  )
 
   registerServerIpc(rommix, handle)
   registerLibraryIpc(rommix, handle)

@@ -1631,3 +1631,25 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Evaluator: see the PR.
 - Device / acceptance: none yet; run.sh does not write a request yet. Next: `grid.scroll` per profile, screenshots, privacy mode, the sandbox, run.sh's request.
+
+## 2026-10-12 06:47 UTC session 01KMyqfmFiWMjLUMxcgqYAnk (hourly heartbeat)
+
+- Device results: DEVICE-RESULTS 8e03ec7 complete; DEVICE-RESULTS 0999c29 complete. Still the minimal harness; nothing flips, no safety failures.
+- Worked on: M0-21 part 4e (tracking issue #155): acceptance line 3, privacy mode. Part 4d, PR #162, merged at d9804bc; its CI wall time was x64 5:41, arm64 0:55.
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - New `src/main/privacy.ts`, `Privacy`. It masks values on their way to the page, not in each screen, so a screen added later, or an error message that quotes the address, is covered too. It hides:
+    - the stored server's address, host and hostname, and the stored account name;
+    - any value met in a `username`, `email`, `ra_username`, `user_code`, `device_code` or `verification_path(_complete)` field, wherever the same value appears again;
+    - the account picture (`avatar_path` emptied).
+  - Secrets shorter than three characters are masked only as whole values.
+  - `RomMixApp.hideIdentity` turns it on. `index.ts` calls it right after `readOnly(guard)`, before the window exists. `RomMixApp.send` and the IPC `handler` (answers and error messages) pass everything through `RomMixApp.shown`.
+  - `test/app/server.ts`: `FakeRomm.holdContent` holds a game's content until released.
+  - TESTING.md's request section describes privacy.
+  - Tests:
+    - `src/main/privacy.test.ts` 9/9.
+    - `test/app/selftest.test.ts` 7/7. The new test holds the GBA download so the `download.small` run stays up. It then visits Home, Library, Collections, Downloads, BIOS, Emulators, Settings and a game screen, searching the markup, the field values and the title for the address, the host and the account name. With `hideIdentity()` disabled it fails ("the top bar on home names 127.0.0.1:…").
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none yet; run.sh does not write a request yet. Next: `grid.scroll` per profile, screenshots (now safe to take under privacy), the sandbox, run.sh's request.
