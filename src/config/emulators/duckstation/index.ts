@@ -1,5 +1,55 @@
-import { perRom } from '../savepaths.ts'
-import type { EmulatorDescriptor } from '../types.ts'
+import { dirName, joinPath, perRom } from '../savepaths.ts'
+import type { EmulatorDescriptor, SandboxContext, SandboxRecipe } from '../types.ts'
+
+/**
+ * Files that switch DuckStation to a portable layout, rooted beside the
+ * program instead of in the XDG folders.
+ */
+const PORTABLE_MARKERS = ['portable.txt', 'settings.ini']
+
+/**
+ * DuckStation started in its sandbox, on a settings file written there.
+ *
+ * With `XDG_CONFIG_HOME` set, DuckStation keeps everything under
+ * `$XDG_CONFIG_HOME/duckstation`, which the self-test points into the sandbox.
+ * The settings file then names the BIOS, memory card and save state folders
+ * the sandbox holds, and answers the two first-run questions DuckStation would
+ * otherwise ask in a window of its own: the setup wizard and the launcher
+ * shortcut.
+ *
+ * A portable marker beside the AppImage would root DuckStation there, in the
+ * owner's folder, whatever the environment says, so its presence declines the
+ * sandbox. Only the AppImage is started, since DuckStation looks for the
+ * marker beside the AppImage file itself. A binary is looked up beside wherever
+ * its links resolve, and a distro's `duckstation-qt` is usually such a link,
+ * which a reader of the owner's files cannot follow.
+ */
+function sandboxRecipe(ctx: SandboxContext): SandboxRecipe | null {
+  if (ctx.installKind !== 'appimage') return null
+  const beside = dirName(ctx.installRef)
+  if (PORTABLE_MARKERS.some((name) => ctx.owner.env.exists(joinPath(beside, name)))) return null
+  const { folders } = ctx
+  const settings = [
+    '[Main]',
+    'SetupWizardIncomplete = false',
+    'NoDesktopFile = true',
+    '',
+    '[BIOS]',
+    `SearchDirectory = ${folders.bios}`,
+    '',
+    '[MemoryCards]',
+    `Directory = ${folders.saves}`,
+    '',
+    '[Folders]',
+    `SaveStates = ${folders.states}`,
+    ''
+  ].join('\n')
+  return {
+    args: [],
+    env: {},
+    files: [{ path: 'config/duckstation/settings.ini', content: settings }]
+  }
+}
 
 /**
  * DuckStation — a PlayStation emulator, and what armadaOS's catalog installs
@@ -85,5 +135,5 @@ export const duckstation: EmulatorDescriptor = {
    * begins with a dash is still read as the file to boot.
    */
   launch: ({ exec, romPath }) => [...exec, '-batch', '-fullscreen', '-nogui', '--', romPath],
-  sandbox: undefined
+  sandbox: sandboxRecipe
 }

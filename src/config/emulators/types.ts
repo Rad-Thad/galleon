@@ -415,6 +415,12 @@ export interface SandboxContext {
   readonly system: string
   /** How the emulator was installed; a recipe can differ by kind. */
   readonly installKind: ResolvedInstall['kind']
+  /**
+   * The install's own path. An emulator that switches to a portable layout
+   * when a marker file sits beside its program would leave the sandbox, so its
+   * recipe looks there first.
+   */
+  readonly installRef: string
   readonly folders: SandboxFolders
   /**
    * The owner's own install, to read from and never to write: where a recipe

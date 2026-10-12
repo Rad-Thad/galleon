@@ -1759,3 +1759,30 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Evaluator: see the PR.
 - Device / acceptance: none yet; nothing starts an emulator in the self-test yet, and the Nova's RetroArch is a flatpak (G0-7). Next: Dolphin, DuckStation and the XDG-only emulators, then flatpaks.
+
+## 2026-10-12 11:50 UTC session 01JYonW2Y3SeXmqbCVr1BU3J (hourly heartbeat)
+
+- Device results: still the minimal harness; nothing flips, no safety failures. The bridge still skips for want of a `nightly` release. Part 5b, PR #170, merged at a0d7c3c; its CI wall time was x64 6:00, arm64 0:52. Recorded with full shas, which `device-results.mjs` needs to count them as read:
+  - DEVICE-RESULTS 8e03ec7a52bdc220a193f52dd7fe1a22a040577f complete
+  - DEVICE-RESULTS 0999c2927558ea5bf85742971754ab0b3bb1ec8f complete
+  - DEVICE-RESULTS 730da98825f828dfb68d7a1eafd93c68c792efda complete
+  - DEVICE-RESULTS b049a238cc395ad1bfa7c2f388e1fec9a1a128a4 complete
+  - DEVICE-RESULTS 094b31768c6b16b65325101ac61aa6bd98dc4e5e complete
+  - DEVICE-RESULTS f49339ccc8955c8e012ffe2b109b696368619ae8 complete
+- Worked on: M0-21 part 5c (tracking issue #155): DuckStation's sandbox recipe (acceptance line 4).
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - Read from DuckStation's source at the pinned commit `df805975` (`core.cpp` `SetDataRoot`, `settings.cpp` `EmuFolders::LoadConfig`, `qthost.cpp`):
+    - With `XDG_CONFIG_HOME` set, the data root is `$XDG_CONFIG_HOME/duckstation`, so the sandbox's XDG roots already hold it.
+    - A `portable.txt` or `settings.ini` beside the AppImage roots it there instead, whatever the environment says.
+    - A fresh settings file opens the setup wizard, and an AppImage asks once about a launcher shortcut.
+  - `SandboxContext` gains `installRef`, the install's path.
+  - `src/config/emulators/duckstation/index.ts` `sandboxRecipe`:
+    - writes `config/duckstation/settings.ini` naming the sandbox's BIOS, memory card and save state folders, with `SetupWizardIncomplete = false` and `NoDesktopFile = true`;
+    - declines (`cannot-sandbox`) when a portable marker sits beside the AppImage, and for a binary install, where DuckStation looks beside the resolved link.
+  - Tests: `src/main/selftestsandbox.test.ts` 28/28 (5 new for DuckStation).
+  - `scripts/agent/check.sh` green.
+- Found, not fixed (outside this unit): the descriptor's `dirs` say `~/.local/share/duckstation`, which is right only while `XDG_CONFIG_HOME` is unset; with it set, DuckStation uses `$XDG_CONFIG_HOME/duckstation`. Noted on #155 for the save-sync work.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none yet; nothing starts an emulator in the self-test yet. Next: flatpaks (5d), then Eden and shadPS4 (portable `user` folders to rule out first).
