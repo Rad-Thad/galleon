@@ -1910,5 +1910,6 @@ Lines the tooling reads (exact forms):
   - `docs/TESTING.md` and `docs/PLAN.md` describe copies instead of links.
   - `scripts/agent/check.sh` green.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS.
+- Notes: the first push failed `pr-body.mjs`: `Feature:` must start its own line in the PR body.
 - Device / acceptance: none; no launch scenario calls `prepareSandbox` yet.
