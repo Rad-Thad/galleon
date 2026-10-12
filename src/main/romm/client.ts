@@ -205,7 +205,6 @@ export class RommClient {
     this.registry = new DeviceRegistry(store, (path, init) => this.json(path, init))
   }
 
-  /** Watch whether requests are reaching the server. See `reachability`. */
   /**
    * Let only reads reach the server from now on, or every request again with
    * null. See `ReadOnlyGuard`.
@@ -214,6 +213,7 @@ export class RommClient {
     this.guard = guard
   }
 
+  /** Watch whether requests are reaching the server. See `reachability`. */
   observeReachability(listener: (reachable: boolean, reason?: string) => void): void {
     this.reachability = listener
   }

@@ -2525,8 +2525,12 @@ describe('the read-only guard', () => {
     const sent = serve(() => new Response('', { status: 401 }))
     const { store, cleared } = fakeStore({ accessToken: 'owner', refreshToken: 'owners-refresh' })
     const client = new RommClient(store)
-    client.readOnly(new ReadOnlyGuard())
-    await assert.rejects(() => client.me(), RommError)
+    const guard = new ReadOnlyGuard()
+    client.readOnly(guard)
+    // The server's own 401, not a refusal of the refresh: an expired token is
+    // not a write the self-test should report.
+    await assert.rejects(() => client.me(), { name: 'RommError', status: 401 })
+    assert.equal(guard.serverWritesAttempted, 0)
     assert.deepEqual(
       sent.map((one) => new URL(one.url).pathname),
       ['/api/users/me']
