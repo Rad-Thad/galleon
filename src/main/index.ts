@@ -3,6 +3,8 @@ import { IMAGE_SCHEME, RomMixApp } from './app.ts'
 import { registerIpc } from './ipc/index.ts'
 import { log, logSession } from './log.ts'
 import { ensureRoot, profilePath } from './root.ts'
+import { ReadOnlyGuard } from './romm/guard.ts'
+import { reportRefusal, runAndReport, takeRequest } from './selftest.ts'
 
 /** RomMix main process bootstrap. */
 
@@ -78,11 +80,21 @@ if (!app.requestSingleInstanceLock()) {
     node: process.versions.node
   })
 
+  // Before the app exists, so not one request goes out ahead of the guard.
+  const selfTest = takeRequest()
+  if (selfTest?.kind === 'refused') reportRefusal(selfTest, app.getVersion())
+  const guard = selfTest?.kind === 'request' ? new ReadOnlyGuard() : null
+
   const rommix = new RomMixApp()
+  if (guard) rommix.readOnly(guard)
   /** Set by the first quit, so the second one is let through. See below. */
   let quitting = false
 
   void app.whenReady().then(async () => {
+    if (selfTest?.kind === 'refused') {
+      app.exit(1)
+      return
+    }
     const took = log.since()
     rommix.registerImageProtocol()
     const pruned = rommix.store.pruneInstalled()
@@ -95,6 +107,21 @@ if (!app.requestSingleInstanceLock()) {
     await rommix.refreshEmulators()
     registerIpc(rommix)
     rommix.createWindow()
+    if (selfTest?.kind === 'request' && guard) {
+      // None of what follows a normal start: an update check, the launcher
+      // beside the image and the catch-up all write somewhere, and the
+      // harness, not this app, decides what the run may touch.
+      const code = await runAndReport({
+        request: selfTest.request,
+        scenarios: new Map(),
+        guard,
+        version: app.getVersion()
+      })
+      quitting = true
+      await rommix.shutdown()
+      app.exit(code)
+      return
+    }
     // After the window, which is what the first result is announced to. The
     // check itself is delayed — see `Updater.schedule`.
     rommix.updates.schedule()

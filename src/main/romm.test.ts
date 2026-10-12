@@ -2513,8 +2513,9 @@ describe('the read-only guard', () => {
   })
 
   test('a read that names a device is sent without it', async () => {
-    const { client, sent } = guarded()
+    const { client, guard, sent } = guarded()
     await client.savesForDevice(7, 'owners-device')
+    assert.equal(guard.deviceIdsRemoved, 1)
     assert.equal(sent.length, 1)
     assert.equal(new URL(sent[0].url).pathname, '/api/saves')
     assert.equal(new URL(sent[0].url).searchParams.get('rom_id'), '7')

@@ -1530,3 +1530,27 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Evaluator: see the PR.
 - Device / acceptance: none yet. Next: M0-21 part 3, the self-test request, runner and summary.json, which switches the guard on.
+
+## 2026-10-12 03:38 UTC session 01NaksJzKTFT4F1atU7bphfg (hourly heartbeat)
+
+- Device results: DEVICE-RESULTS ab3b9ffaba6409b4173df85d7ede429a539869b1 complete. Still the minimal harness; nothing flips.
+- Worked on: M0-21 part 3 (tracking issue #155): acceptance line 6 and the request half of the description. Part 2, PR #157, merged at 74af71f; its CI wall time was x64 6:34, arm64 2:14.
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - New `src/main/selftest.ts`:
+    - `takeRequest` looks only in a `GALLEON_HOME`. It renames `self-test-request.json` to `self-test-request.taken.json` before reading it, so a restart is a normal start.
+    - `parseRequest` refuses, with a reason code, a request without `readOnlyServer: true` or `privacy: true`, and a malformed one. `reportRefusal` writes an `error` summary when the results folder is usable, and the app exits 1.
+    - `runSelfTest` runs each requested check's scenario. A thrown scenario is that check's `error` and the run goes on as `partial`; the error's message stays in the log only. A check with no scenario yet is `skip` / `not-implemented`, and the run is `partial`. The budget skips the rest as `partial`, and an abort signal gives `aborted-by-user`.
+    - `safety.server-readonly` is in every summary and fails on any refused write. `selftest.complete` fails when any requested check did not run.
+    - `runAndReport` writes `summary.json` atomically and returns 0, or writes an error summary and returns 1. `summaryErrors` checks the TESTING.md schema.
+  - `ReadOnlyGuard` counts the `device_id`s it removes (`deviceIdsRemoved`, a metric of `safety.server-readonly`).
+  - `index.ts`: the request is taken before `RomMixApp` exists, and `rommix.readOnly(guard)` is switched on before any request. A self-test start skips the update check, the Steam launcher refresh, the connection watch and the catch-up. `RomMixApp.readOnly` holds the catch-up, so refused saves and play sessions are not re-queued on every reconnect (the evaluator's note from part 2). No scenarios are registered yet.
+  - TESTING.md's request section now states the taken file name, the exit codes, `not-implemented`, and that `safety.server-readonly` is always present.
+  - Tests:
+    - `src/main/selftest.test.ts` 19/19. The schema test parses the `summary.json` and request examples straight out of TESTING.md. The rest cover the refusals, the rename, throw, budget, abort, a refused write, and a runner fault that still leaves an error summary.
+    - `src/main/app.test.ts`: the held catch-up.
+    - `test/app/selftest.test.ts` 2/2: the built app takes a request, writes a valid summary, exits 0. A request without privacy exits 1 with an error summary.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none yet. Next: M0-21 part 4, the real scenarios (start-up, grid scroll per profile, screenshots, heartbeat, small download), privacy mode and abort on input. run.sh must then write the request.
