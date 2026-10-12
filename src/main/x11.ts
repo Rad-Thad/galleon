@@ -218,7 +218,8 @@ export function openSocket(socket: Socket, cookie: Buffer | null): Promise<X11 |
         body.writeUInt32LE(window, 4)
         const reply = await request(body)
         if (!reply) return null
-        const count = reply.readUInt16LE(16)
+        // Never past the reply's own data, whatever the count says.
+        const count = Math.min(reply.readUInt16LE(16), (reply.length - 32) / 4)
         return Array.from({ length: count }, (_, i) => reply.readUInt32LE(32 + 4 * i))
       },
       close: finish

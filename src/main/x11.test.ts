@@ -32,6 +32,8 @@ interface FakeDisplay {
   refuse?: boolean
   /** The setup is never answered. */
   mute?: boolean
+  /** QueryTree replies claim more children than they carry. */
+  overcount?: boolean
   /** Sent ahead of every reply, as a server with events selected would. */
   noise?: Buffer[]
   seen: { cookie: Buffer | null; opcodes: number[] }
@@ -127,7 +129,7 @@ function answer(display: FakeDisplay, seq: number, request: Buffer): Buffer | nu
     children.forEach((c, i) => list.writeUInt32LE(c, 4 * i))
     return reply(seq, list, (h) => {
       h.writeUInt32LE(ROOT, 8)
-      h.writeUInt16LE(children.length, 16)
+      h.writeUInt16LE(children.length + (display.overcount ? 5 : 0), 16)
     })
   }
   throw new Error(`unexpected opcode ${opcode}`)
@@ -362,6 +364,16 @@ describe('openSocket', () => {
     try {
       assert.deepEqual(await x11?.queryTree(ROOT), [0x400001, 0x600001])
       assert.deepEqual(await x11?.queryTree(0x400001), [])
+    } finally {
+      done()
+    }
+  })
+
+  test('a child count past the reply data lists only what is there', async () => {
+    const display = fake({ children: new Map([[ROOT, [0x400001]]]), overcount: true })
+    const { x11, done } = await open(display)
+    try {
+      assert.deepEqual(await x11?.queryTree(ROOT), [0x400001])
     } finally {
       done()
     }
