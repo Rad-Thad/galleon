@@ -17,9 +17,10 @@ import type {
  * Every emulator RomMix knows how to drive.
  *
  * Order is meaningful: it is the default answer to "which emulator for this
- * system", so the two that manage a whole emulation setup come first —
- * RetroDECK and EmuDeck already encode the user's own per-system arrangement,
- * and a standalone emulator is what covers the systems neither does.
+ * system" wherever `SYSTEM_DEFAULTS` does not name one, so the two that
+ * manage a whole emulation setup come first — RetroDECK and EmuDeck already
+ * encode the user's own per-system arrangement, and a standalone emulator is
+ * what covers the systems neither does.
  */
 export const EMULATORS: readonly EmulatorDescriptor[] = [
   retrodeck,
@@ -104,10 +105,10 @@ export function emulatorsForSystem(
  * The emulator RomMix uses for a system when the user has not chosen one.
  *
  * The system's entry in `SYSTEM_DEFAULTS`, else the first in preference order
- * that covers the system. Deliberately a *static*
- * result — it does not consider what happens to be installed — so the default
- * shown in Settings is a stable fact about the arrangement rather than
- * something that moves as emulators come and go.
+ * that covers the system. Deliberately a *static* result — it does not
+ * consider what happens to be installed — so the default shown in Settings is
+ * a stable fact about the arrangement rather than something that moves as
+ * emulators come and go.
  */
 export function defaultEmulatorFor(
   system: string,
@@ -124,9 +125,10 @@ export function defaultEmulatorFor(
  * more useful than a Switch ROM quietly failing inside something else.
  *
  * With nothing chosen, the system's `SYSTEM_DEFAULTS` entry wins if it is
- * available, then the first *available* emulator that runs the system, so an uninstalled default degrades to something that works instead of
- * a dead end. Candidates are always filtered by the system first — that is
- * what stops an SNES ROM ever reaching a Switch emulator.
+ * available, then the first *available* emulator that runs the system, so an
+ * uninstalled default degrades to something that works instead of a dead end.
+ * Candidates are always filtered by the system first — that is what stops an
+ * SNES ROM ever reaching a Switch emulator.
  */
 export function resolveEmulator(
   states: readonly EmulatorState[],
