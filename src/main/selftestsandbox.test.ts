@@ -133,7 +133,7 @@ describe('planSandbox', () => {
     assert.equal(result.env.XDG_CONFIG_HOME, result.folders.config)
   })
 
-  test('tells the recipe the system, the install kind and the folders', () => {
+  test('tells the recipe the system, the install and the folders', () => {
     const seen: unknown[] = []
     const descriptor = withRecipe((ctx) => {
       seen.push(ctx)
@@ -144,6 +144,7 @@ describe('planSandbox', () => {
       {
         system: 'nes',
         installKind: 'appimage',
+        installRef: '/apps/example.AppImage',
         folders: sandboxFolders(HOME, 'example'),
         owner: OWNER
       }
@@ -329,6 +330,84 @@ describe("RetroArch's recipe", () => {
       detail: 'no-recipe'
     })
     assert.equal(retroPlan('snes', { kind: 'flatpak', ref: 'org.libretro.RetroArch' }).kind, 'skip')
+  })
+})
+
+describe("DuckStation's recipe", () => {
+  const duckstation = emulatorById('duckstation')
+  assert.ok(duckstation)
+  const appImage: ResolvedInstall = {
+    kind: 'appimage',
+    ref: '/home/owner/Applications/DuckStation-arm64.AppImage'
+  }
+
+  function duckPlan(install: ResolvedInstall = appImage, files: Record<string, string> = {}) {
+    return planSandbox({
+      descriptor: duckstation!,
+      install,
+      system: 'psx',
+      romPath: '/payload/game.cue',
+      home: HOME,
+      owner: { ...OWNER, env: machine(files) }
+    })
+  }
+
+  /** The settings file as section/key and value, the way DuckStation reads it. */
+  function settings(files: { path: string; content: string }[], root: string) {
+    const file = files.find((f) => f.path === join(root, 'config', 'duckstation', 'settings.ini'))
+    assert.ok(file)
+    const read: Record<string, string> = {}
+    let section = ''
+    for (const line of file.content.split('\n')) {
+      const header = /^\[(\w+)\]$/.exec(line)
+      if (header) section = header[1]
+      const entry = /^(\w+) = (.*)$/.exec(line)
+      if (entry) read[`${section}/${entry[1]}`] = entry[2]
+    }
+    return read
+  }
+
+  test('roots DuckStation in the sandbox config, which XDG_CONFIG_HOME names', () => {
+    const result = duckPlan()
+    assert.equal(result.kind, 'run')
+    if (result.kind !== 'run') return
+    assert.equal(result.env.XDG_CONFIG_HOME, result.folders.config)
+    assert.deepEqual(result.argv, [
+      appImage.ref,
+      '-batch',
+      '-fullscreen',
+      '-nogui',
+      '--',
+      '/payload/game.cue'
+    ])
+  })
+
+  test('finds BIOS files, memory cards and states in the sandbox and asks nothing on start', () => {
+    const result = duckPlan()
+    assert.equal(result.kind, 'run')
+    if (result.kind !== 'run') return
+    assert.deepEqual(settings(result.files, result.folders.root), {
+      'Main/SetupWizardIncomplete': 'false',
+      'Main/NoDesktopFile': 'true',
+      'BIOS/SearchDirectory': result.folders.bios,
+      'MemoryCards/Directory': result.folders.saves,
+      'Folders/SaveStates': result.folders.states
+    })
+  })
+
+  for (const marker of ['portable.txt', 'settings.ini']) {
+    test(`is not started with ${marker} beside the AppImage`, () => {
+      assert.deepEqual(duckPlan(appImage, { [`/home/owner/Applications/${marker}`]: '' }), {
+        kind: 'skip',
+        reason: CANNOT_SANDBOX,
+        detail: 'no-recipe'
+      })
+    })
+  }
+
+  test('is not started as a binary or a flatpak', () => {
+    assert.equal(duckPlan({ kind: 'binary', ref: '/usr/bin/duckstation-qt' }).kind, 'skip')
+    assert.equal(duckPlan({ kind: 'flatpak', ref: 'org.duckstation.DuckStation' }).kind, 'skip')
   })
 })
 

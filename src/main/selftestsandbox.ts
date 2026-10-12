@@ -97,7 +97,13 @@ export function planSandbox(request: SandboxRequest): SandboxPlan {
   if (descriptor.sandbox === undefined) return skip('no-recipe')
 
   const folders = sandboxFolders(home, descriptor.id)
-  const recipe = descriptor.sandbox({ system, installKind: install.kind, folders, owner })
+  const recipe = descriptor.sandbox({
+    system,
+    installKind: install.kind,
+    installRef: install.ref,
+    folders,
+    owner
+  })
   if (recipe === null) return skip('no-recipe')
 
   const files = recipe.files.map((file) => ({
