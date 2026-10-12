@@ -38,7 +38,12 @@ function unpackLikeTheBridge(out: string) {
   return target
 }
 
-function runHarness(bundle: string, sha: string, appimage: boolean) {
+function runHarness(
+  bundle: string,
+  sha: string,
+  appimage: boolean,
+  env: Record<string, string> = {}
+) {
   const results = mkdtempSync(join(tmpdir(), 'bundle-results-'))
   mkdirSync(join(results, 'logs'))
   const image = join(results, 'Galleon-arm64.AppImage')
@@ -51,7 +56,8 @@ function runHarness(bundle: string, sha: string, appimage: boolean) {
       PATH: process.env.PATH,
       RESULTS_DIR: results,
       GALLEON_SHA: sha,
-      GALLEON_APPIMAGE: image
+      GALLEON_APPIMAGE: image,
+      ...env
     },
     encoding: 'utf8'
   })
@@ -132,6 +138,60 @@ describe('device-bundle', () => {
       assert.equal(check.result, 'fail')
       assert.match(check.reason, why)
     }
+  })
+
+  test('run.sh copies the power state the device shows, and only reads it', () => {
+    const root = mkdtempSync(join(tmpdir(), 'bundle-root-'))
+    const put = (path: string, text: string) => {
+      mkdirSync(join(root, path, '..'), { recursive: true })
+      writeFileSync(join(root, path), text)
+    }
+    put('run/armada/perf-state.json', '{"global": {"cores": 8}}')
+    put('usr/share/armada/power-profiles.conf', 'default_profile=balanced\n')
+    put('sys/devices/system/cpu/cpufreq/policy7/scaling_governor', 'conservative\n')
+    put('sys/class/devfreq/3d00000.gpu/governor', 'simple_ondemand\n')
+    const bin = mkdtempSync(join(tmpdir(), 'bundle-bin-'))
+    const calls = join(bin, 'calls')
+    writeFileSync(
+      join(bin, 'armada-power'),
+      `#!/bin/sh\necho "$*" >>'${calls}'\necho "profile: balanced"\n`
+    )
+    chmodSync(join(bin, 'armada-power'), 0o755)
+
+    const { run, results } = runHarness(unpackLikeTheBridge(built()), SHA, true, {
+      GALLEON_FACTS_ROOT: root,
+      PATH: `${bin}:${process.env.PATH}`
+    })
+    assert.equal(run.status, 0, run.stderr)
+    const facts = readFileSync(join(results, 'logs/power-facts.txt'), 'utf8')
+    for (const line of [
+      '== /run/armada/perf-state.json\n{"global": {"cores": 8}}',
+      '== /etc/armada/power-profiles.conf\n(unreadable)',
+      '== /usr/share/armada/power-profiles.conf\ndefault_profile=balanced',
+      '== /sys/devices/system/cpu/cpufreq/policy7/scaling_governor\nconservative',
+      '== /sys/class/devfreq/3d00000.gpu/governor\nsimple_ondemand',
+      '== armada-power status\nprofile: balanced\n(exit 0)'
+    ]) {
+      assert.ok(facts.includes(line), `power-facts.txt has ${JSON.stringify(line)}`)
+    }
+    // `profile` with an argument would switch it; the harness only asks.
+    assert.equal(readFileSync(calls, 'utf8'), 'profile\nstatus\n')
+    const [check] = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8')).checks
+    assert.deepEqual(check.evidence, ['logs/harness.log', 'logs/power-facts.txt'])
+  })
+
+  test('run.sh still passes where none of the power files or armada-power exist', () => {
+    const root = mkdtempSync(join(tmpdir(), 'bundle-empty-'))
+    const { run, results } = runHarness(unpackLikeTheBridge(built()), SHA, true, {
+      GALLEON_FACTS_ROOT: root,
+      PATH: '/usr/bin:/bin'
+    })
+    assert.equal(run.status, 0, run.stderr)
+    const facts = readFileSync(join(results, 'logs/power-facts.txt'), 'utf8')
+    assert.match(facts, /== \/run\/armada\/perf-state.json\n\(unreadable\)/)
+    assert.match(facts, /== armada-power status\n\(not installed\)/)
+    const [check] = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8')).checks
+    assert.equal(check.result, 'pass')
   })
 
   test('run.sh --cleanup is safe to run at any time', () => {

@@ -5,6 +5,12 @@
 # This is the minimal harness that stands in until M0-22: it starts nothing,
 # touches nothing outside RESULTS_DIR, and reports one check, `harness.run`,
 # so the path from a merge to `device-results` is exercised end to end.
+#
+# It also copies the power state the Nova shows into logs/power-facts.txt,
+# because the overlay's parsers (src/main/powerstate.ts) need the real format
+# of Armada's files and nothing else can see them (M0-10). Every source is
+# read-only to any user; nothing here switches a profile or writes outside
+# RESULTS_DIR.
 set -u
 
 # Nothing to undo: this harness starts no process and changes no state.
@@ -37,6 +43,50 @@ elif [ ! -x "${GALLEON_APPIMAGE:-}" ]; then
 fi
 echo "minimal harness: version ${version:-unknown}, harness.run $result" >"$log"
 
+# Tests point this at a fake root; on the device it is the real one.
+root=${GALLEON_FACTS_ROOT:-}
+facts="$RESULTS_DIR/logs/power-facts.txt"
+# Each source is capped so an unexpected file cannot crowd out the rest of
+# the bridge's per-run allowance.
+cap=65536
+fact_file() {
+  echo "== $1"
+  if [ -r "$root$1" ]; then
+    head -c "$cap" "$root$1"
+    echo
+  else
+    echo "(unreadable)"
+  fi
+}
+# armada-power talks to a D-Bus daemon; a hung daemon must not hold up the run.
+fact_command() {
+  echo "== armada-power $1"
+  if command -v armada-power >/dev/null 2>&1; then
+    out=$(timeout 10 armada-power "$1" 2>&1)
+    code=$?
+    printf '%s\n' "$out" | head -c "$cap"
+    echo "(exit $code)"
+  else
+    echo "(not installed)"
+  fi
+}
+{
+  fact_file /run/armada/perf-state.json
+  fact_file /etc/armada/power-profiles.conf
+  fact_file /usr/share/armada/power-profiles.conf
+  for name in scaling_governor scaling_cur_freq scaling_max_freq; do
+    fact_file /sys/devices/system/cpu/cpufreq/policy7/$name
+  done
+  for device in "$root"/sys/class/devfreq/*; do
+    [ -d "$device" ] || continue
+    for name in governor cur_freq max_freq; do
+      fact_file "/sys/class/devfreq/${device##*/}/$name"
+    done
+  done
+  fact_command profile
+  fact_command status
+} >"$facts" 2>&1
+
 tmp="$RESULTS_DIR/.summary.json.tmp"
 cat >"$tmp" <<JSON
 {
@@ -54,7 +104,7 @@ cat >"$tmp" <<JSON
       "metrics": {},
       "thresholds": {},
       "reason": $reason,
-      "evidence": ["logs/harness.log"]
+      "evidence": ["logs/harness.log", "logs/power-facts.txt"]
     }
   ],
   "notes": ["minimal harness: only harness.run until M0-22"]
