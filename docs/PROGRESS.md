@@ -2057,3 +2057,19 @@ Lines the tooling reads (exact forms):
 - Evaluator: PASS. Its note (a link inside the home could lead to the owner's files) is fixed: containment is checked again on the path with links followed.
 - Device / acceptance: none until run.sh sends payloads (M0-22's bundle).
 - Next: `exit.<emulator>`'s remaining lines (Galleon focused again within 6 s, the save folder changed when the payload saves), then the payloads in the device bundle.
+
+## 2026-10-12 22:27 UTC session 01CwtmZJVwJK3bmESpPhT6CX (hourly heartbeat)
+
+- Device results: DEVICE-RESULTS 2d001c4 complete (the minimal harness); no safety failures, no regressions, nothing newly passing. Part 8 of M0-21, PR #188, merged at 2a3dd91; its CI wall time is recorded on the PR's checks (median over the last ten PRs: x64 6:36, arm64 0:59).
+- Worked on: M0-21 part 9 (tracking issue #155): `exit.<emulator>` checks that Galleon holds the focus again after the emulator is gone.
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - `src/main/selftestlaunch.ts`: once a launch that saw its window has its group stopped without a kill, `watchForRefocus` polls `LaunchDeps.ownFocused` until it says true or `REFOCUS_MS` passes; a list that cannot tell, or throws, is not yet. `exit` fails `not-refocused` after `killed` and `exit-code`; metric `refocusMs`, threshold `REFOCUS_MS`. An abort while waiting skips both, as elsewhere in the cycle.
+  - `src/main/selftestemulators.ts`: `ownFocused` asks the cycle's window finder about Galleon's own process group (the emulator never shares it: `startPlan` makes it a group leader); wired into `deviceCycle`.
+  - Tests: `src/main/selftestlaunch.test.ts` 26/26 (new: refocus within the limit with its time, never refocused, a list that cannot tell or throws, not looked for after a kill / early exit / no window, abort while waiting). `src/main/selftestemulators.test.ts` 28/28 (new: `ownFocused` asks Galleon's group, cannot tell without a window or a group, defaults to this process).
+  - `docs/TESTING.md`: the cycle's bullet names `not-refocused` and `refocusMs`.
+  - `scripts/agent/check.sh` green; `npm run test:app` 241/241 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root).
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- CI: the first x64 leg failed the pull-request body check (the body had no `Feature:` line); the body was fixed and this entry's push re-ran it.
+- Evaluator: PASS. Its note (the `deviceCycle` comment left above `ownFocused`) is fixed.
+- Device / acceptance: none until run.sh sends payloads (M0-22's bundle). Watch the first device run for Galleon's own window: under gamescope the self-test's window must be one gamescope will focus again.

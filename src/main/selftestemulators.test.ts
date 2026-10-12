@@ -12,6 +12,7 @@ import {
   emulatorOf,
   emulatorScenarios,
   groupAlive,
+  ownFocused,
   payloadFor,
   runningInGroup,
   signalGroup,
@@ -19,6 +20,7 @@ import {
   type EmulatorScenarioDeps
 } from './selftestemulators.ts'
 import type { SandboxPlan } from './selftestsandbox.ts'
+import { processGroup } from './selftestwindows.ts'
 import type { X11 } from './x11.ts'
 
 /**
@@ -386,5 +388,52 @@ describe('the device cycle', () => {
     assert.equal(launch.metrics.biosFiles, 1)
     assert.equal(opened, 1)
     assert.equal(display.closed, 1)
+  })
+})
+
+describe('ownFocused', () => {
+  test("asks the window finder about Galleon's own group", async () => {
+    const asked: number[] = []
+    const focused = ownFocused(
+      async (group) => {
+        asked.push(group)
+        return { focused: group === 70, fullscreen: null }
+      },
+      7,
+      (pid) => pid * 10
+    )
+    assert.equal(await focused(), true)
+    assert.deepEqual(asked, [70])
+  })
+
+  test('no window of the group, or no group, cannot tell', async () => {
+    assert.equal(
+      await ownFocused(
+        async () => null,
+        7,
+        () => 70
+      )(),
+      null
+    )
+    let asked = 0
+    const gone = ownFocused(
+      async () => {
+        asked += 1
+        return { focused: true, fullscreen: null }
+      },
+      7,
+      () => null
+    )
+    assert.equal(await gone(), null)
+    assert.equal(asked, 0)
+  })
+
+  test("by default, this process's own group", async () => {
+    let asked: number | null = null
+    await ownFocused(async (group) => {
+      asked = group
+      return null
+    })()
+    assert.equal(asked, processGroup(process.pid))
   })
 })
