@@ -1864,3 +1864,19 @@ Lines the tooling reads (exact forms):
 - Evaluator: see the PR.
 - Device / acceptance: none.
 - Next: PSP, PS2, GameCube, Wii and Dreamcast join `SYSTEM_DEFAULTS` with their descriptors (M1-03 to M1-06, after M0-22). The ARMSX2, Dolphin and Flycast setting changes go with them (ADR 0005, decision 2). Then M2-08 can pass.
+
+## 2026-10-12 14:45 UTC session 01LwGckt1Kz8qHK8zoRirWxz (hourly heartbeat)
+
+- Device results: one new, the minimal harness again; nothing flips, no safety failures. Part 2b-1 of M2-08, PR #176, merged at 47042b9.
+  - DEVICE-RESULTS 7f8e113 complete
+- Worked on: M0-21 part 5e (tracking issue #155): DuckStation's portable-marker check when the AppImage is reached through a link (open note from part 5c).
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - `SandboxContext` gains `installTarget`, the install's path with every link followed. `planSandbox` takes it from a `realPath` parameter (`resolveLinks`, `realpathSync` that answers null, for a real start) and skips an install it cannot resolve as `cannot-sandbox` / `install-unreadable`.
+  - DuckStation's recipe declines when a portable marker sits beside the link or beside the AppImage it leads to.
+  - Tests: `src/main/selftestsandbox.test.ts` 34/34; new: a marker beside the link's target, a marker beside the link, a link with neither runs through the link, an unreadable install, and `resolveLinks` on a link chain, a dangling link and a missing file.
+  - `docs/TESTING.md`: the sandbox bullet names the unreadable install.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none; no launch scenario calls `planSandbox` yet.
