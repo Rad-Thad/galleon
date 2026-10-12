@@ -25,6 +25,12 @@ export const WINDOW_TIMEOUT_MS = 30_000
 export const SETTLE_MS = 3000
 /** How long after SIGTERM an emulator has to exit before it is killed. */
 export const EXIT_GRACE_MS = 10_000
+/**
+ * How long Galleon has to hold the focus again once the emulator is gone: a
+ * player who quits a game expects to be back in the library, not on a blank
+ * screen.
+ */
+export const REFOCUS_MS = 6000
 export const POLL_MS = 250
 
 /** What the window list says about the emulator's window. */
@@ -54,6 +60,11 @@ export interface LaunchDeps {
    * Only the group the cycle started is ever named.
    */
   findWindow: (group: number) => Promise<WindowSighting | null>
+  /**
+   * Whether Galleon's own window holds the focus; null when the window list
+   * cannot tell.
+   */
+  ownFocused: () => Promise<boolean | null>
   /** Signals the group the cycle started, and nothing else. */
   signalGroup: (group: number, signal: NodeJS.Signals) => void
   /**
@@ -123,6 +134,12 @@ export async function launchCycle(
   }
   const stop = await stopGroup(started, deps, now, sleep, exit)
   const removed = deps.clearStrays(strays)
+  // Only a cycle that saw the window list working and stopped the emulator
+  // cleanly can say whether the focus came back.
+  const refocusMs =
+    launch.sighting && !launch.early && !stop.killed
+      ? await watchForRefocus(deps, signal, now, sleep)
+      : undefined
 
   const launchMetrics = {
     windowMs: launch.sighting ? launchMs : null,
@@ -135,7 +152,8 @@ export async function launchCycle(
     code: stop.exited?.code ?? null,
     signal: stop.exited?.signal ?? null,
     killed: Number(stop.killed),
-    straysRemoved: removed.length
+    straysRemoved: removed.length,
+    refocusMs: refocusMs ?? null
   }
   if (signal.aborted) return both('skip', SKIP.aborted)
 
@@ -155,7 +173,7 @@ export async function launchCycle(
   const exitResult: CheckResult = {
     ...check(exitId, 'pass', null),
     metrics: exitMetrics,
-    thresholds: { exitMs: EXIT_GRACE_MS, code: 0, killed: 0 }
+    thresholds: { exitMs: EXIT_GRACE_MS, code: 0, killed: 0, refocusMs: REFOCUS_MS }
   }
   // An emulator gone before it was asked was never stopped, so the stop it
   // makes for a player is untested.
@@ -163,6 +181,8 @@ export async function launchCycle(
   else if (stop.killed) Object.assign(exitResult, { result: 'fail', reason: 'killed' })
   else if (stop.exited?.code !== 0) {
     Object.assign(exitResult, { result: 'fail', reason: 'exit-code' })
+  } else if (refocusMs === null) {
+    Object.assign(exitResult, { result: 'fail', reason: 'not-refocused' })
   }
   return [launchResult, exitResult]
 }
@@ -200,6 +220,29 @@ async function watchForWindow(
     await sleep(POLL_MS)
   }
   return { sighting: seen, early: false }
+}
+
+/**
+ * Polls until Galleon's window holds the focus again: how long it took, or
+ * null past `REFOCUS_MS`. A window list that cannot tell counts as not yet.
+ */
+async function watchForRefocus(
+  deps: LaunchDeps,
+  signal: AbortSignal,
+  now: () => number,
+  sleep: (ms: number) => Promise<void>
+): Promise<number | null> {
+  const askedAt = now()
+  while (!signal.aborted) {
+    try {
+      if ((await deps.ownFocused()) === true) return now() - askedAt
+    } catch (cause) {
+      log.info('selftest', 'the window list could not be read', { cause })
+    }
+    if (now() - askedAt >= REFOCUS_MS) break
+    await sleep(POLL_MS)
+  }
+  return null
 }
 
 interface Stopped {

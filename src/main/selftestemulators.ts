@@ -24,7 +24,7 @@ import {
   straysToClear,
   type SandboxPlan
 } from './selftestsandbox.ts'
-import { windowFinder, type WindowFinder } from './selftestwindows.ts'
+import { processGroup, windowFinder, type WindowFinder } from './selftestwindows.ts'
 import { openDisplay, type X11 } from './x11.ts'
 import { realHome } from './xdg.ts'
 
@@ -251,6 +251,23 @@ export function devicePlan(home: string): EmulatorScenarioDeps['plan'] {
  * first look for a window and closed after the cycle, and each cycle has its
  * own finder, since a finder keeps the atoms it found missing.
  */
+/**
+ * `LaunchDeps.ownFocused` over a window finder: Galleon's window is the one
+ * whose process is in Galleon's own group, which the emulator never shares
+ * since it is started as the leader of a new one (see `startPlan`).
+ */
+export function ownFocused(
+  findWindow: LaunchDeps['findWindow'],
+  self: number = process.pid,
+  groupOf: (pid: number) => number | null = processGroup
+): LaunchDeps['ownFocused'] {
+  return async () => {
+    const group = groupOf(self)
+    if (group === null) return null
+    return (await findWindow(group))?.focused ?? null
+  }
+}
+
 export function deviceCycle(
   env: NodeJS.ProcessEnv = process.env,
   open: (env: NodeJS.ProcessEnv) => Promise<X11 | null> = openDisplay
@@ -277,6 +294,7 @@ export function deviceCycle(
           groupAlive: (group) => groupAlive(group),
           prepare: (p) => prepareSandbox(p, state.paths.bios),
           findWindow,
+          ownFocused: ownFocused(findWindow),
           straysToClear: (p) => straysToClear(p),
           clearStrays
         },

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import {
   EXIT_GRACE_MS,
+  REFOCUS_MS,
   SETTLE_MS,
   WINDOW_TIMEOUT_MS,
   launchCycle,
@@ -43,6 +44,7 @@ interface Fake {
   signals: [number, NodeJS.Signals][]
   cleared: string[][]
   windowAsks: number
+  ownAsks: number
   clock: () => number
   exit: (e: Exited) => void
 }
@@ -60,6 +62,9 @@ interface FakeOptions {
   findWindow?: LaunchDeps['findWindow']
   /** The group outlives its leader: until a SIGTERM, or until a SIGKILL. */
   helper?: 'until-term' | 'until-kill'
+  /** Galleon's window holds the focus from this time, or never. Default: always. */
+  refocusAt?: number | 'never'
+  ownFocused?: LaunchDeps['ownFocused']
   /** Called on every sleep, for a test to act mid-cycle. */
   onSleep?: (t: number) => void
 }
@@ -73,6 +78,7 @@ function fake(options: FakeOptions = {}): Fake {
     signals: [],
     cleared: [],
     windowAsks: 0,
+    ownAsks: 0,
     clock: () => t,
     exit: (e) => resolveExit(e),
     deps: {
@@ -85,6 +91,13 @@ function fake(options: FakeOptions = {}): Fake {
           f.windowAsks += 1
           if (options.windowAt === undefined || t < options.windowAt) return null
           return options.window ?? FOCUSED
+        }),
+      ownFocused:
+        options.ownFocused ??
+        (async () => {
+          f.ownAsks += 1
+          const at = options.refocusAt ?? 0
+          return at !== 'never' && t >= at
         }),
       signalGroup: (group, sig) => {
         f.signals.push([group, sig])
@@ -246,6 +259,71 @@ describe('launchCycle', () => {
       [4242, 'SIGTERM'],
       [4242, 'SIGKILL']
     ])
+  })
+
+  test('Galleon focused again within the limit passes exit, with the time it took', async () => {
+    const f = fake({ windowAt: 0, refocusAt: SETTLE_MS + 1500 })
+    const [, exit] = await cycle(f)
+    assert.equal(exit.result, 'pass', exit.reason ?? '')
+    // Counted from the moment the group was gone.
+    assert.equal(exit.metrics.refocusMs, 1500 - Number(exit.metrics.exitMs))
+    assert.equal(exit.thresholds.refocusMs, REFOCUS_MS)
+  })
+
+  test('Galleon not focused again within the limit fails exit as not-refocused', async () => {
+    const f = fake({ windowAt: 0, refocusAt: 'never' })
+    const [launch, exit] = await cycle(f)
+    assert.equal(launch.result, 'pass')
+    assert.equal(exit.result, 'fail')
+    assert.equal(exit.reason, 'not-refocused')
+    assert.equal(exit.metrics.refocusMs, null)
+    assert.equal(exit.metrics.code, 0)
+  })
+
+  test('a window list that cannot tell or throws is not yet the focus back', async () => {
+    let asks = 0
+    const f = fake({
+      windowAt: 0,
+      ownFocused: async () => {
+        asks += 1
+        if (asks === 1) return null
+        if (asks === 2) throw new Error('display gone')
+        return true
+      }
+    })
+    const [, exit] = await cycle(f)
+    assert.equal(exit.result, 'pass', exit.reason ?? '')
+    assert.equal(asks, 3)
+    assert.ok(Number(exit.metrics.refocusMs) > 0)
+  })
+
+  test('the focus is not looked for after a kill, an early exit or no window', async () => {
+    for (const options of [
+      { windowAt: 0, onTerm: 'ignore' as const },
+      { exitsAt: 1000 },
+      { onTerm: { code: 0, signal: null } }
+    ]) {
+      const f = fake({ ...options, refocusAt: 'never' })
+      const [, exit] = await cycle(f)
+      assert.equal(f.ownAsks, 0)
+      assert.equal(exit.metrics.refocusMs, null)
+      assert.notEqual(exit.reason, 'not-refocused')
+    }
+  })
+
+  test('an abort while waiting for the focus skips both', async () => {
+    const controller = new AbortController()
+    const f = fake({
+      windowAt: 0,
+      refocusAt: 'never',
+      onSleep: () => {
+        if (f.ownAsks > 0) controller.abort()
+      }
+    })
+    const [launch, exit] = await cycle(f, PLAN, controller.signal)
+    assert.equal(launch.result, 'skip')
+    assert.equal(exit.result, 'skip')
+    assert.equal(f.ownAsks, 1)
   })
 
   test('a leader gone early with its group still there gets the group stopped', async () => {
