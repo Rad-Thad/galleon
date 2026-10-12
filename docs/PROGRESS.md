@@ -1992,6 +1992,6 @@ Lines the tooling reads (exact forms):
   - `docs/TESTING.md`: the `grid.scroll` bullet names the synthetic platform.
   - `scripts/agent/check.sh` green; `npm run test:app` 240/240 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root).
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS. Note: once offered, the synthetic platform hides a failing platform list for the rest of the run, so `download.small` would then skip rather than error (a skip never passes; `server.heartbeat` still fails).
 - Device / acceptance: none until run.sh starts the app (M0-22).
 - Next: the launch scenario (M0-21 line 4 and the description's launch and graceful exit); flatpaks stay parked (5d).
