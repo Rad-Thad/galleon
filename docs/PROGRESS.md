@@ -1705,3 +1705,18 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Evaluator: see the PR.
 - Device / acceptance: none yet. Next: #166, the synthetic platform, the sandbox (line 4), run.sh's request and handshake.
+
+## 2026-10-12 09:42 UTC session 01TWYP54GLiRNuHy52ig2n2g (hourly heartbeat)
+
+- Device results: DEVICE-RESULTS b049a23 complete. Still the minimal harness; nothing flips, no safety failures. The bridge still skips for want of a `nightly` release. Part 4h, PR #167, merged at b049a23.
+- Worked on: flaky #166, the self-test privacy app test that once gave up waiting for the library screen.
+- Result: PR (this one).
+- Evidence:
+  - Root cause: the test began walking the menu once the top bar was signed in, without `atHome`. Home's hero takes the highlight when the shelves answer, and that can come after the top bar. A press of Enter meant for the Library item then opens the hero's game, and the library screen never comes. `driver.ts` documents this race at `atHome`, and every other signed-in scenario waits there first.
+  - Shown on the VM: in 1 of 3 instrumented runs the hero was not yet drawn when the top bar was signed in, so the walk started inside that window. The failure itself did not reproduce in 10 runs alone under CPU load, 4 full-file runs under load, or 18 runs with `slowRomListings` swept from 50 to 700 ms: the window between `goTo`'s last check and its Enter is a few milliseconds.
+  - Fix: `test/app/selftest.test.ts` waits `atHome` after the signed-in top bar check, before the first `goTo`. Nothing is retried or skipped.
+  - After the fix: the test passes 6/6 under CPU load, and the file passes 9/9. `scripts/agent/check.sh` is green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none.
+- Next: M0-21 continues (the synthetic platform, the sandbox, run.sh's request and handshake). #110's safe default applies 2026-10-13 01:00 UTC.
