@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { after, test } from 'node:test'
 import { SETTLE_TIMEOUT_MS, atHome, electronBinary, seed, startApp } from './driver.ts'
 import { GBA_ROM, startFakeRomm } from './server.ts'
+import { SYNTHETIC_GAMES } from '../../src/main/selftestlibrary.ts'
 import { SCROLL_MS } from '../../src/main/selftestscroll.ts'
 import {
   REQUEST_FILE,
@@ -195,6 +196,37 @@ test(`signed in, grid.scroll scrolls the ${GAMES}-game platform and times its fr
     assert.equal(summary.status, 'complete')
     assert.equal(summary.checks.find((c) => c.id === RUN_CHECKS.complete)?.result, 'pass')
     assert.equal(summary.checks.find((c) => c.id === RUN_CHECKS.serverReadOnly)?.result, 'pass')
+  } finally {
+    await server.close()
+  }
+})
+
+test('signed in to a library with no large platform, grid.scroll scrolls the synthetic one', async () => {
+  const server = await startFakeRomm()
+  try {
+    const { code, results } = await runWithRequest(
+      { ...REQUEST, checks: ['grid.scroll'], profiles: [] },
+      server,
+      EXIT_TIMEOUT_MS + SCROLL_MS
+    )
+    assert.equal(code, 0)
+    const summary = JSON.parse(readFileSync(join(results, SUMMARY_FILE), 'utf8')) as Summary
+    assert.deepEqual(summaryErrors(summary), [])
+    const scroll = summary.checks.find((c) => c.id === 'grid.scroll')
+    assert.ok(
+      scroll && (scroll.result === 'pass' || scroll.result === 'fail'),
+      JSON.stringify(scroll)
+    )
+    console.log(`grid.scroll (synthetic): ${JSON.stringify(scroll.metrics)}`)
+    assert.equal(scroll.metrics.platform, 'galleon-synthetic')
+    assert.equal(scroll.metrics.games, SYNTHETIC_GAMES)
+    assert.ok((scroll.metrics.visited as number) > 50, JSON.stringify(scroll.metrics))
+    // Its games are answered inside the app: not one of them was asked of the server.
+    assert.equal(summary.checks.find((c) => c.id === RUN_CHECKS.serverReadOnly)?.result, 'pass')
+    assert.ok(
+      !server.asked.some((a) => /platform_ids=-|\/api\/roms\/-/.test(a.path)),
+      'a synthetic request reached the server'
+    )
   } finally {
     await server.close()
   }

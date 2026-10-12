@@ -345,6 +345,42 @@ describe('scrollScenario', () => {
     )
   })
 
+  test('no platform large enough: the synthetic one is scrolled when offered', async () => {
+    const f = fake({ platforms: [platform(1, 'gba', 12)] })
+    let offered = 0
+    f.deps.synthetic = () => {
+      offered += 1
+      return platform(-1, 'galleon-synthetic', 1300)
+    }
+    const results = await run(f, [])
+    assert.equal(offered, 1)
+    assert.deepEqual(f.scrolls, [-1])
+    assert.equal(results[0].result, 'pass')
+    assert.equal(results[0].metrics.platform, 'galleon-synthetic')
+    assert.equal(results[0].metrics.games, 1300)
+  })
+
+  test('a real platform large enough is scrolled, never the synthetic one', async () => {
+    const f = fake({})
+    let offered = 0
+    f.deps.synthetic = () => {
+      offered += 1
+      return platform(-1, 'galleon-synthetic', 1300)
+    }
+    await run(f, [])
+    assert.equal(offered, 0)
+    assert.deepEqual(f.scrolls, [5])
+  })
+
+  test('a server that does not list platforms: the synthetic one, else the failure', async () => {
+    const f = fake({})
+    f.deps.client = { platforms: () => Promise.reject(new Error('ECONNREFUSED')) }
+    await assert.rejects(() => run(f, []), /ECONNREFUSED/)
+    f.deps.synthetic = () => platform(-1, 'galleon-synthetic', 1300)
+    await run(f, [])
+    assert.deepEqual(f.scrolls, [-1])
+  })
+
   test('a scroll that could not start, finish or move is an error', async () => {
     const failed = await run(
       fake({ run: { intervals: [], visited: 0, failed: 'no-platform-chip' } }),
