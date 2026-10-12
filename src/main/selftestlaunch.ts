@@ -56,6 +56,12 @@ export interface LaunchDeps {
   findWindow: (group: number) => Promise<WindowSighting | null>
   /** Signals the group the cycle started, and nothing else. */
   signalGroup: (group: number, signal: NodeJS.Signals) => void
+  /**
+   * Whether any process of the group is still there. Asked only once the
+   * leader has exited, while the group's id cannot yet belong to anything
+   * else.
+   */
+  groupAlive: (group: number) => boolean
   /** See `straysToClear` and `clearStrays`. */
   straysToClear: (plan: Extract<SandboxPlan, { kind: 'run' }>) => string[]
   clearStrays: (paths: readonly string[]) => string[]
@@ -65,8 +71,9 @@ export interface LaunchDeps {
 
 /**
  * Both checks for one emulator. Never throws, and never leaves the emulator
- * running: whatever happens after the start, the group is asked to stop and,
- * past the grace, killed, so the next check starts on an empty screen.
+ * running: whatever happens after the start, anything left of the group is
+ * asked to stop and, past the grace, killed, so the next check starts on an
+ * empty screen.
  */
 export async function launchCycle(
   emulator: string,
@@ -82,7 +89,13 @@ export async function launchCycle(
   ]
   if (signal.aborted) return both('skip', SKIP.aborted)
   if (plan.kind === 'skip') return both('skip', plan.reason)
-  const prepared = deps.prepare(plan)
+  let prepared: PreparedSandbox
+  try {
+    prepared = deps.prepare(plan)
+  } catch (cause) {
+    log.warn('selftest', 'a sandbox could not be prepared', { emulator, cause })
+    return both('error', 'prepare-failed')
+  }
   if (prepared.kind === 'skip') return both('skip', prepared.reason)
 
   const now = deps.now ?? Date.now
@@ -199,6 +212,11 @@ interface Stopped {
  * SIGTERM to the group, the grace, then SIGKILL. A kill is what a player
  * would never want, so the exit check fails on it, but leaving the emulator
  * holding the screen for the rest of the run is worse.
+ *
+ * The group is done only when it is empty, not when its leader has exited: an
+ * AppImage's runtime or a launcher script can exit while the emulator it
+ * started lives on in the group. A leader that went by itself is not
+ * signalled unless something of its group is still there.
  */
 async function stopGroup(
   started: Started,
@@ -207,20 +225,25 @@ async function stopGroup(
   sleep: (ms: number) => Promise<void>,
   exit: () => Exited | null
 ): Promise<Stopped> {
+  const group = started.pid
   const early = exit()
-  if (early) return { exited: early, exitMs: null, killed: false }
   const askedAt = now()
-  deps.signalGroup(started.pid, 'SIGTERM')
+  if (!early || deps.groupAlive(group)) deps.signalGroup(group, 'SIGTERM')
   while (now() - askedAt < EXIT_GRACE_MS) {
-    const done = exit()
-    if (done) return { exited: done, exitMs: now() - askedAt, killed: false }
+    const leader = exit()
+    if (leader && !deps.groupAlive(group)) {
+      return { exited: leader, exitMs: early ? null : now() - askedAt, killed: false }
+    }
     await sleep(POLL_MS)
   }
-  const late = exit()
-  if (late) return { exited: late, exitMs: now() - askedAt, killed: false }
-  log.warn('selftest', 'an emulator ignored SIGTERM; killing its group', { pid: started.pid })
-  deps.signalGroup(started.pid, 'SIGKILL')
-  const killed = await Promise.race([started.exited, sleep(EXIT_GRACE_MS).then(() => null)])
+  const leader = exit()
+  if (leader && !deps.groupAlive(group)) {
+    return { exited: leader, exitMs: early ? null : now() - askedAt, killed: false }
+  }
+  log.warn('selftest', 'an emulator ignored SIGTERM; killing its group', { pid: group })
+  deps.signalGroup(group, 'SIGKILL')
+  const killed =
+    leader ?? (await Promise.race([started.exited, sleep(EXIT_GRACE_MS).then(() => null)]))
   return { exited: killed, exitMs: null, killed: true }
 }
 

@@ -58,6 +58,8 @@ interface FakeOptions {
   start?: LaunchDeps['start']
   prepare?: LaunchDeps['prepare']
   findWindow?: LaunchDeps['findWindow']
+  /** The group outlives its leader: until a SIGTERM, or until a SIGKILL. */
+  helper?: 'until-term' | 'until-kill'
   /** Called on every sleep, for a test to act mid-cycle. */
   onSleep?: (t: number) => void
 }
@@ -66,6 +68,7 @@ function fake(options: FakeOptions = {}): Fake {
   let t = 0
   let resolveExit: (e: Exited) => void = () => {}
   const exited = new Promise<Exited>((r) => (resolveExit = r))
+  let helperAlive = options.helper !== undefined
   const f: Fake = {
     signals: [],
     cleared: [],
@@ -85,9 +88,14 @@ function fake(options: FakeOptions = {}): Fake {
         }),
       signalGroup: (group, sig) => {
         f.signals.push([group, sig])
+        if (sig === 'SIGKILL' || options.helper === 'until-term') helperAlive = false
         if (sig === 'SIGKILL') resolveExit({ code: null, signal: 'SIGKILL' })
         else if (options.onTerm !== 'ignore')
           resolveExit(options.onTerm ?? { code: 0, signal: null })
+      },
+      groupAlive: (group) => {
+        assert.equal(group, 4242)
+        return helperAlive
       },
       straysToClear: (plan) => (plan.kind === 'run' ? [...plan.strays] : []),
       clearStrays: (paths) => {
@@ -238,6 +246,45 @@ describe('launchCycle', () => {
       [4242, 'SIGTERM'],
       [4242, 'SIGKILL']
     ])
+  })
+
+  test('a leader gone early with its group still there gets the group stopped', async () => {
+    const f = fake({ exitsAt: 1000, helper: 'until-term' })
+    const [launch, exit] = await cycle(f)
+    assert.equal(launch.reason, 'exited-early')
+    assert.equal(exit.reason, 'exited-early')
+    assert.deepEqual(f.signals, [[4242, 'SIGTERM']])
+  })
+
+  test('a clean leader exit with the group left running is killed and fails', async () => {
+    const f = fake({ windowAt: 0, helper: 'until-kill' })
+    const [launch, exit] = await cycle(f)
+    assert.equal(launch.result, 'pass')
+    assert.equal(exit.result, 'fail')
+    assert.equal(exit.reason, 'killed')
+    assert.equal(exit.metrics.code, 0)
+    assert.deepEqual(f.signals, [
+      [4242, 'SIGTERM'],
+      [4242, 'SIGKILL']
+    ])
+  })
+
+  test('a sandbox that throws while prepared is an error, and nothing starts', async () => {
+    let started = false
+    const f = fake({
+      prepare: () => {
+        throw new Error('ENOSPC')
+      },
+      start: () => {
+        started = true
+        throw new Error('unreachable')
+      }
+    })
+    const [launch, exit] = await cycle(f)
+    assert.equal(launch.result, 'error')
+    assert.equal(launch.reason, 'prepare-failed')
+    assert.equal(exit.reason, 'prepare-failed')
+    assert.equal(started, false)
   })
 
   test('a group that outlives even SIGKILL does not hold the run', async () => {
