@@ -3,6 +3,7 @@ import { isAbsolute, join } from 'node:path'
 import { log } from './log.ts'
 import { homeFromEnvironment } from './root.ts'
 import type { ReadOnlyGuard } from './romm/guard.ts'
+import type { ShotsOutcome } from './selftestshots.ts'
 
 /**
  * The device self-test: what the harness on the Nova asks a Galleon in a test
@@ -209,6 +210,8 @@ export interface RunOptions {
   power?: Summary['power']
   /** Set by input from the real controller. See `RUN_CHECKS`. */
   signal?: AbortSignal
+  /** Captures the request's `screenshots`, after every check. See `takeScreenshots`. */
+  screenshots?: (screens: readonly string[], signal: AbortSignal) => Promise<ShotsOutcome>
   now?: () => number
 }
 
@@ -269,9 +272,15 @@ export async function runSelfTest(options: RunOptions): Promise<Summary> {
     }
   }
 
+  const shots = await screenshots(options, signal, now() >= deadline)
+  // As for checks: screens this build cannot take, or had no time or no
+  // working capture for, are not "every requested check ran".
+  if (shots.missing.some((m) => UNTAKEN.has(m.slice(m.lastIndexOf(':') + 1)))) partial = true
+  for (const missing of shots.missing) notes.push(`screenshot ${missing}`)
+
   safety.serverWritesAttempted = guard.serverWritesAttempted
   checks.push(serverReadOnly(guard))
-  if (request.checks.includes(RUN_CHECKS.complete)) checks.push(complete(checks))
+  if (request.checks.includes(RUN_CHECKS.complete)) checks.push(complete(checks, shots))
   if (signal.aborted) notes.push('stopped by input from the controller')
 
   return {
@@ -312,26 +321,66 @@ function serverReadOnly(guard: ReadOnlyGuard): CheckResult {
   }
 }
 
+const SHOTS_THREW = 'screenshots-threw'
+
 /**
- * Passes only when every other requested check really ran: a check this build
- * has no scenario for, or one that threw or ran out of time, is not "the
- * requested scenarios ran", even though the summary itself is whole.
+ * The request's screenshots, never throwing: a capture that breaks leaves its
+ * screens missing, which `selftest.complete` answers for, and the summary is
+ * still written.
  */
-function complete(checks: readonly CheckResult[]): CheckResult {
+async function screenshots(
+  options: RunOptions,
+  signal: AbortSignal,
+  overBudget: boolean
+): Promise<ShotsOutcome> {
+  const screens = [...new Set(options.request.screenshots)]
+  const all = (code: string): ShotsOutcome => ({
+    evidence: [],
+    missing: screens.map((screen) => `${screen}:${code}`),
+    withheld: []
+  })
+  if (screens.length === 0) return { evidence: [], missing: [], withheld: [] }
+  if (signal.aborted) return all(SKIP.aborted)
+  if (overBudget) return all(SKIP.budget)
+  if (!options.screenshots) return all(SKIP.notImplemented)
+  try {
+    return await options.screenshots(screens, signal)
+  } catch (cause) {
+    log.warn('selftest', 'the screenshots threw', { cause })
+    return all(SHOTS_THREW)
+  }
+}
+
+/**
+ * Passes only when every other requested check really ran and every requested
+ * screen was captured: a check this build has no scenario for, or one that
+ * threw or ran out of time, is not "the requested scenarios ran", even though
+ * the summary itself is whole. A screen withheld for privacy was not asked
+ * for in any sense the run could meet, so it is counted but not missed.
+ */
+function complete(checks: readonly CheckResult[], shots: ShotsOutcome): CheckResult {
   const missing = checks.filter(
     (c) => c.result === 'error' || (c.result === 'skip' && c.reason !== null && UNRUN.has(c.reason))
   )
+  const pass = missing.length === 0 && shots.missing.length === 0
   return {
     id: RUN_CHECKS.complete,
-    result: missing.length === 0 ? 'pass' : 'fail',
-    metrics: { checks: checks.length, notRun: missing.length },
-    thresholds: { notRun: 0 },
-    reason: missing.length === 0 ? null : 'checks-not-run',
-    evidence: []
+    result: pass ? 'pass' : 'fail',
+    metrics: {
+      checks: checks.length,
+      notRun: missing.length,
+      screenshots: shots.evidence.length,
+      screenshotsMissing: shots.missing.length,
+      screenshotsWithheld: shots.withheld.length
+    },
+    thresholds: { notRun: 0, screenshotsMissing: 0 },
+    reason: pass ? null : missing.length > 0 ? 'checks-not-run' : 'screenshots-missing',
+    evidence: shots.evidence
   }
 }
 
 const UNRUN = new Set<string>(Object.values(SKIP))
+const UNTAKEN = new Set<string>([SKIP.budget, SKIP.notImplemented, SHOTS_THREW])
 
 function skipped(id: string, reason: string): CheckResult {
   return { id, result: 'skip', metrics: {}, thresholds: {}, reason, evidence: [] }

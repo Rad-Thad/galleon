@@ -128,6 +128,45 @@ test('signed in, startup.cold times the start to an interactive Home', async () 
   }
 })
 
+test("signed in, the requested screens are captured into shots/, and the library's are not", async () => {
+  const server = await startFakeRomm()
+  try {
+    const { code, results } = await runWithRequest(
+      {
+        ...REQUEST,
+        checks: [RUN_CHECKS.complete],
+        screenshots: ['settings', 'home', 'bios', 'emulators']
+      },
+      server
+    )
+    assert.equal(code, 0)
+    const summary = JSON.parse(readFileSync(join(results, SUMMARY_FILE), 'utf8')) as Summary
+    assert.deepEqual(summaryErrors(summary), [])
+    assert.deepEqual(summary.notes, [])
+    const complete = summary.checks.find((c) => c.id === RUN_CHECKS.complete)
+    assert.equal(complete?.result, 'pass', JSON.stringify(complete))
+    assert.deepEqual(complete.evidence, [
+      'shots/settings.png',
+      'shots/bios.png',
+      'shots/emulators.png'
+    ])
+    assert.equal(complete.metrics.screenshotsWithheld, 1)
+    assert.deepEqual(readdirSync(join(results, 'shots')).sort(), [
+      'bios.png',
+      'emulators.png',
+      'settings.png'
+    ])
+    for (const shot of complete.evidence) {
+      const png = readFileSync(join(results, shot))
+      assert.equal(png.subarray(1, 4).toString(), 'PNG', shot)
+      // The IHDR's width and height: the window's own frame, not an empty image.
+      assert.ok(png.readUInt32BE(16) > 0 && png.readUInt32BE(20) > 0, shot)
+    }
+  } finally {
+    await server.close()
+  }
+})
+
 test(`signed in, grid.scroll scrolls the ${GAMES}-game platform and times its frames`, async () => {
   const server = await startFakeRomm({ bulk: GAMES })
   try {

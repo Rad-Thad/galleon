@@ -9,6 +9,7 @@ import { reportRefusal, runAndReport, takeRequest } from './selftest.ts'
 import { DOWNLOAD_CHECK, downloadScenario } from './selftestdownload.ts'
 import { HEARTBEAT_CHECK, heartbeatScenario } from './selftestserver.ts'
 import { watchInput } from './selftestinput.ts'
+import { takeScreenshots } from './selftestshots.ts'
 import { GRID_CHECK, askForProfile, runScroll, scrollScenario } from './selftestscroll.ts'
 import { STARTUP_CHECK, startupScenario, startupStart, watchHome } from './selfteststartup.ts'
 
@@ -161,6 +162,13 @@ if (!app.requestSingleInstanceLock()) {
         ]),
         guard,
         signal: stop.signal,
+        screenshots: (screens, signal) =>
+          takeScreenshots({
+            contents: window.webContents,
+            resultsDir: selfTest.request.resultsDir,
+            screens,
+            signal
+          }),
         version: app.getVersion()
       })
       quitting = true

@@ -1673,3 +1673,19 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Evaluator: see the PR.
 - Device / acceptance: none yet; run.sh does not write a request or answer the handshake yet. Next: screenshots, the synthetic platform, the sandbox (line 4), run.sh's request and handshake.
+
+## 2026-10-12 08:26 UTC session 01LuBxq5s78Luq5JRhhZhgam (hourly heartbeat)
+
+- Device results: none new since 730da98 (ingested last session). Nothing flips, no safety failures. The bridge still skips for want of a `nightly` release.
+- Worked on: M0-21 part 4g (tracking issue #155): the screenshot scenario, the last of the three `selftest.complete` needs (acceptance line 7). Part 4f, PR #164, merged at 9ea2d67; its CI wall time was x64 6:03, arm64 1:02.
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - New `src/main/selftestshots.ts`, `takeScreenshots`: after the last check, each requested screen is opened from the menu bar (its own `onSelect`, as `scrollProbe` does), allowed to settle (finite animations finished, then two frames), captured with `capturePage` and written whole to `resultsDir/shots/<screen>.png`. Only screens in `SCREENS` are opened, so a request's name never reaches the page or a file name unchecked.
+  - Screens that draw the library (`LIBRARY_SCREENS`: home, library, collections, downloads, game) are never captured: on the Nova that library is the owner's, and nothing published may carry its titles. They count as withheld, not missing. The synthetic platform, when it lands, may lift this for runs without a server.
+  - `runSelfTest` takes the shots after the checks (not when aborted or over budget). The paths are `selftest.complete`'s evidence; metrics `screenshots`, `screenshotsMissing`, `screenshotsWithheld`. A missing screen is named in `notes` and fails `selftest.complete` with `screenshots-missing`; screens this build cannot take, or a capture that throws, leave the run `partial`.
+  - TESTING.md's request example now asks for settings, bios and emulators, and the request section documents the scenario.
+  - Tests: `src/main/selftestshots.test.ts` 8/8; `src/main/selftest.test.ts` 23/23 (4 new); `test/app/selftest.test.ts` 9/9 (new: signed in, settings, bios and emulators captured, home withheld). I opened the three PNGs: privacy masks the address and account on Settings; the first BIOS shot caught the menu mark mid-slide, which is why the probe waits for animations; after that fix the mark sits under the screen's own item and the platform badges are drawn.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none yet; run.sh does not write a request yet. Next: the synthetic platform, the sandbox (line 4), `armada-power status` in `readPowerState`, run.sh's request and handshake.

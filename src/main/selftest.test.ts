@@ -59,7 +59,7 @@ function rawRequest(overrides: Record<string, unknown> = {}): Record<string, unk
     readOnlyServer: true,
     privacy: true,
     abortOnInput: true,
-    screenshots: ['home'],
+    screenshots: [],
     ...overrides
   }
 }
@@ -303,6 +303,120 @@ describe('the run', () => {
     assert.deepEqual(summaryErrors(summary), [])
     assert.equal(summary.status, 'aborted-by-user')
     assert.equal(byId(summary).get('memory.resident')?.reason, SKIP.aborted)
+  })
+
+  test("the screenshots are taken after the checks and are selftest.complete's evidence", async () => {
+    const order: string[] = []
+    const summary = await runSelfTest({
+      request: request({
+        checks: ['selftest.complete', 'startup.cold'],
+        screenshots: ['settings', 'home', 'settings']
+      }),
+      scenarios: new Map<string, Scenario>([
+        [
+          'startup.cold',
+          async () => {
+            order.push('startup.cold')
+            return pass('startup.cold')
+          }
+        ]
+      ]),
+      screenshots: async (screens) => {
+        order.push(`shots:${screens.join(',')}`)
+        return { evidence: ['shots/settings.png'], missing: [], withheld: ['home'] }
+      },
+      guard: new ReadOnlyGuard(),
+      version: '0.21.0'
+    })
+    assert.deepEqual(summaryErrors(summary), [])
+    assert.deepEqual(order, ['startup.cold', 'shots:settings,home'])
+    assert.equal(summary.status, 'complete')
+    const complete = byId(summary).get(RUN_CHECKS.complete)
+    assert.equal(complete?.result, 'pass')
+    assert.deepEqual(complete?.evidence, ['shots/settings.png'])
+    assert.equal(complete?.metrics.screenshots, 1)
+    assert.equal(complete?.metrics.screenshotsWithheld, 1)
+    assert.deepEqual(summary.notes, [])
+  })
+
+  test('a screen without a shot fails selftest.complete and is named in the notes', async () => {
+    const summary = await runSelfTest({
+      request: request({ checks: ['selftest.complete'], screenshots: ['bios'] }),
+      scenarios: new Map(),
+      screenshots: async () => ({
+        evidence: [],
+        missing: ['bios:screen-not-reached'],
+        withheld: []
+      }),
+      guard: new ReadOnlyGuard(),
+      version: '0.21.0'
+    })
+    assert.deepEqual(summaryErrors(summary), [])
+    // The run itself was whole; the screen is what failed.
+    assert.equal(summary.status, 'complete')
+    const complete = byId(summary).get(RUN_CHECKS.complete)
+    assert.equal(complete?.result, 'fail')
+    assert.equal(complete?.reason, 'screenshots-missing')
+    assert.equal(complete?.metrics.screenshotsMissing, 1)
+    assert.deepEqual(summary.notes, ['screenshot bios:screen-not-reached'])
+  })
+
+  test('screenshots this build cannot take, or a capture that throws, leave the run partial', async () => {
+    const without = await runSelfTest({
+      request: request({ checks: ['selftest.complete'], screenshots: ['settings'] }),
+      scenarios: new Map(),
+      guard: new ReadOnlyGuard(),
+      version: '0.21.0'
+    })
+    assert.equal(without.status, 'partial')
+    assert.deepEqual(without.notes, [`screenshot settings:${SKIP.notImplemented}`])
+    assert.equal(byId(without).get(RUN_CHECKS.complete)?.result, 'fail')
+
+    const threw = await runSelfTest({
+      request: request({ checks: ['selftest.complete'], screenshots: ['settings'] }),
+      scenarios: new Map(),
+      screenshots: async () => assert.fail('capture broke'),
+      guard: new ReadOnlyGuard(),
+      version: '0.21.0'
+    })
+    assert.deepEqual(summaryErrors(threw), [])
+    assert.equal(threw.status, 'partial')
+    assert.deepEqual(threw.notes, ['screenshot settings:screenshots-threw'])
+  })
+
+  test('no screenshots are taken once the run is aborted or out of budget', async () => {
+    const abort = new AbortController()
+    abort.abort()
+    const aborted = await runSelfTest({
+      request: request({ checks: [], screenshots: ['settings'] }),
+      scenarios: new Map(),
+      screenshots: async () => assert.fail('captured after the abort'),
+      guard: new ReadOnlyGuard(),
+      version: '0.21.0',
+      signal: abort.signal
+    })
+    assert.equal(aborted.status, 'aborted-by-user')
+    assert.ok(aborted.notes.includes(`screenshot settings:${SKIP.aborted}`))
+
+    let clock = 0
+    const late = await runSelfTest({
+      request: request({ checks: ['startup.cold'], screenshots: ['settings'], budgetSeconds: 1 }),
+      scenarios: new Map<string, Scenario>([
+        [
+          'startup.cold',
+          async () => {
+            clock += 2000
+            return pass('startup.cold')
+          }
+        ]
+      ]),
+      screenshots: async () => assert.fail('captured over budget'),
+      guard: new ReadOnlyGuard(),
+      version: '0.21.0',
+      now: () => clock
+    })
+    assert.equal(late.status, 'partial')
+    assert.deepEqual(late.notes, [`screenshot settings:${SKIP.budget}`])
   })
 
   test('a write the guard refused fails safety.server-readonly, requested or not', async () => {
