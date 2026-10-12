@@ -2025,7 +2025,7 @@ Lines the tooling reads (exact forms):
 - Device / acceptance: none; nothing calls `openDisplay` yet.
 - Next: part 7b, `findWindow` over it: gamescope's root atoms (focused window, window list) else the X11 tree, matched to the started group through `_NET_WM_PID` and `/proc/<pid>/stat`; then wiring `launch.*` / `exit.*` into the scenario map.
 
-## 2026-10-12 20:05 UTC session 01Y2Gq46ojpEwrMX1FdibYcd (hourly heartbeat, second unit)
+## 2026-10-12 19:58 UTC session 01Y2Gq46ojpEwrMX1FdibYcd (hourly heartbeat, second unit)
 
 - Device results: unchanged since the entry above. Part 7a of M0-21, PR #186, merged at f222e50; its CI wall time was x64 6:04, arm64 1:04.
 - Worked on: M0-21 part 7b (tracking issue #155): `findWindow` for the launch cycle, over the X11 client.
