@@ -1,4 +1,4 @@
-import { BrowserWindow, app, protocol } from 'electron'
+import { BrowserWindow, app, protocol, screen } from 'electron'
 import { IMAGE_SCHEME, RomMixApp } from './app.ts'
 import { registerIpc } from './ipc/index.ts'
 import { log, logSession } from './log.ts'
@@ -9,6 +9,7 @@ import { reportRefusal, runAndReport, takeRequest } from './selftest.ts'
 import { DOWNLOAD_CHECK, downloadScenario } from './selftestdownload.ts'
 import { HEARTBEAT_CHECK, heartbeatScenario } from './selftestserver.ts'
 import { watchInput } from './selftestinput.ts'
+import { GRID_CHECK, askForProfile, runScroll, scrollScenario } from './selftestscroll.ts'
 import { STARTUP_CHECK, startupScenario, startupStart, watchHome } from './selfteststartup.ts'
 
 /** RomMix main process bootstrap. */
@@ -136,6 +137,17 @@ if (!app.requestSingleInstanceLock()) {
             })
           ],
           [HEARTBEAT_CHECK, heartbeatScenario(rommix.client)],
+          [
+            GRID_CHECK,
+            scrollScenario({
+              client: rommix.client,
+              scroll: (platformId, signal) => runScroll(window.webContents, platformId, signal),
+              power: () => readPowerState(),
+              askForProfile: (profile, signal) =>
+                askForProfile(selfTest.request.handshakeDir, profile, signal),
+              displayHz: () => screen.getPrimaryDisplay().displayFrequency || 60
+            })
+          ],
           [
             DOWNLOAD_CHECK,
             downloadScenario({

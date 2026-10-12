@@ -1653,3 +1653,22 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Evaluator: see the PR.
 - Device / acceptance: none yet; run.sh does not write a request yet. Next: `grid.scroll` per profile, screenshots (now safe to take under privacy), the sandbox, run.sh's request.
+
+## 2026-10-12 07:43 UTC session 016eMKUxtJxpe8K1xqKKvkXV (hourly heartbeat)
+
+- Device results: DEVICE-RESULTS 730da98 complete. Still the minimal harness; nothing flips, no safety failures. The bridge still skips for want of a `nightly` release.
+- Worked on: M0-21 part 4f (tracking issue #155): `grid.scroll` per profile, one of the three `selftest.complete` needs (acceptance line 7). Part 4e, PR #163, merged at 730da98; its CI wall time was x64 5:47, arm64 1:07.
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - `src/renderer/src/perf/frames.ts` (and its test) moved to `src/shared/frames.ts`, so the self-test computes p95 and dropped frames with the overlay's own arithmetic.
+  - New `src/main/selftestscroll.ts`:
+    - `largestPlatform`: the platform with the most games, at least `MIN_GAMES`; none is `skip` / `no-large-platform` (the synthetic platform without a server is still to come).
+    - `scrollProbe` / `runScroll`: in the page, the library menu and the platform chip are clicked (their own `onSelect`), a pointer move puts the highlight on the first game, then ArrowDown keydowns at the pad's repeat rate for `SCROLL_MS`, turning back when the highlight has stood still for `TURN_MS`. Frame intervals from `requestAnimationFrame`. Never the Gamepad API, which `watchInput` watches. A page that stops drawing or an abort ends the wait from the main side.
+    - `askForProfile`: the `want-profile` / `profile-set` handshake with run.sh (PLAN.md 5.3 step 8), files written whole and removed once answered.
+    - `scrollScenario`: `grid.scroll@<profile>` per requested profile, switching only when needed; a profile still not in force is `skip` / `profile-not-set`. Clocks are sampled every `SAMPLE_MS` (`profileObserved`, `governor`, `policy7MaxKHz`, `gpuMHz`). Thresholds per the catalogue; no profiles means plain `grid.scroll` held to Performance's.
+  - `index.ts` registers it; TESTING.md's request section documents the scenario and the handshake. The save-writer allow-list names the handshake files.
+  - Tests: `src/main/selftestscroll.test.ts` 21/21. `test/app/selftest.test.ts` 8/8; new: signed in to a fake RomM with a 1,300-game platform, the built app scrolls it (VM: 1571 frames, 167 games visited, p95 33.4 ms at 60 Hz under Xvfb) and the run is `complete`. The not-implemented example is now `power.read`. `test/app/perf.test.ts` 2/2 after the move.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none yet; run.sh does not write a request or answer the handshake yet. Next: screenshots, the synthetic platform, the sandbox (line 4), run.sh's request and handshake.
