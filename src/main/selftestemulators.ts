@@ -1,5 +1,4 @@
 import { spawn } from 'node:child_process'
-import { existsSync } from 'node:fs'
 import { basename, dirname, isAbsolute, relative, resolve } from 'node:path'
 import { emulatorById, type EmulatorState } from '@config/emulators'
 import { t } from './i18n.ts'
@@ -61,7 +60,8 @@ export interface EmulatorScenarioDeps {
     state: EmulatorState,
     signal: AbortSignal
   ) => Promise<[CheckResult, CheckResult]>
-  exists?: (path: string) => boolean
+  /** See `resolveLinks`. */
+  realPath?: (path: string) => string | null
 }
 
 /** The emulator a launch or exit id names, or null for any other id. */
@@ -73,24 +73,28 @@ export function emulatorOf(id: string): string | null {
 }
 
 /**
- * The payload's path and its system, the name of the folder it sits in
- * (`payloads/snes/hello.sfc` is `snes`), or the reason it cannot be used.
- * A payload is kept inside the test home: the self-test never hands an
- * emulator a file of the owner's.
+ * The payload's path, links followed, and its system, the name of the folder
+ * the request puts it in (`payloads/snes/hello.sfc` is `snes`), or the reason
+ * it cannot be used. A payload is kept inside the test home, as named and as
+ * its links lead: the self-test never hands an emulator a file of the owner's.
  */
 export function payloadFor(
   home: string,
   given: string | undefined,
-  exists: (path: string) => boolean = existsSync
+  realPath: (path: string) => string | null = resolveLinks
 ): { path: string; system: string } | { skip: string } {
   if (given === undefined || given === '') return { skip: LAUNCH_SKIP.noPayload }
   const path = resolve(home, given)
-  const rel = relative(home, path)
-  if (rel === '' || rel.startsWith('..') || isAbsolute(rel) || given.includes('\0')) {
-    return { skip: LAUNCH_SKIP.payloadOutside }
-  }
-  if (!exists(path)) return { skip: LAUNCH_SKIP.payloadMissing }
-  return { path, system: basename(dirname(path)) }
+  if (!inside(home, path) || given.includes('\0')) return { skip: LAUNCH_SKIP.payloadOutside }
+  const real = realPath(path)
+  if (real === null) return { skip: LAUNCH_SKIP.payloadMissing }
+  if (!inside(realPath(home) ?? home, real)) return { skip: LAUNCH_SKIP.payloadOutside }
+  return { path: real, system: basename(dirname(path)) }
+}
+
+function inside(root: string, path: string): boolean {
+  const rel = relative(root, path)
+  return rel !== '' && !rel.startsWith('..') && !isAbsolute(rel)
 }
 
 /** One scenario per launch or exit id in `checks`. */
@@ -126,7 +130,7 @@ async function runOne(
     skipped(`${LAUNCH_PREFIX}${emulator}`, reason),
     skipped(`${EXIT_PREFIX}${emulator}`, reason)
   ]
-  const payload = payloadFor(deps.home, deps.payloads[emulator], deps.exists)
+  const payload = payloadFor(deps.home, deps.payloads[emulator], deps.realPath)
   if ('skip' in payload) return both(payload.skip)
   const state = (await deps.emulators()).find((e) => e.id === emulator)
   if (!state?.available || !state.install) return both(LAUNCH_SKIP.notInstalled)

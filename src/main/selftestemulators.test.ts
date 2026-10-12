@@ -106,7 +106,7 @@ function harness(
         cycles.push({ emulator, plan: given })
         return [pass(`launch.${emulator}`), pass(`exit.${emulator}`)]
       },
-      exists: (path) => path.startsWith('/home/test/payloads/')
+      realPath: (path) => (path.startsWith('/home/test') ? path : null)
     }
   }
 }
@@ -123,7 +123,7 @@ describe('which emulator an id names', () => {
 })
 
 describe('the payload', () => {
-  const there = (): boolean => true
+  const there = (path: string): string => path
 
   test('a relative payload is found below the home, and its folder is its system', () => {
     assert.deepEqual(payloadFor('/home/test', 'payloads/snes/hello.sfc', there), {
@@ -152,9 +152,26 @@ describe('the payload', () => {
     }
   })
 
+  test('a payload that links out of the home is outside it', () => {
+    const links = (path: string): string =>
+      path === '/home/test/payloads/snes/hello.sfc' ? '/home/owner/roms/snes/game.sfc' : path
+    assert.deepEqual(payloadFor('/home/test', 'payloads/snes/hello.sfc', links), {
+      skip: LAUNCH_SKIP.payloadOutside
+    })
+  })
+
+  test('the path handed on is the one its links lead to, inside the home', () => {
+    const links = (path: string): string =>
+      path === '/home/test/payloads/snes/hello.sfc' ? '/home/test/bundle/hello.sfc' : path
+    assert.deepEqual(payloadFor('/home/test', 'payloads/snes/hello.sfc', links), {
+      path: '/home/test/bundle/hello.sfc',
+      system: 'snes'
+    })
+  })
+
   test('a payload not on disk is missing', () => {
     assert.deepEqual(
-      payloadFor('/home/test', 'payloads/snes/hello.sfc', () => false),
+      payloadFor('/home/test', 'payloads/snes/hello.sfc', () => null),
       { skip: LAUNCH_SKIP.payloadMissing }
     )
   })
