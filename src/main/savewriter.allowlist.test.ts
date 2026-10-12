@@ -59,6 +59,8 @@ const ALLOWED: Record<string, string> = {
   'main/romm/transfer.ts': 'the staged file a caller names, which for a save is `stageBeside`',
   'main/root.ts': 'moving the app root',
   'main/selftest.ts': 'the taken self-test request and the summary in the results folder',
+  'main/selftestsandbox.ts':
+    "a sandbox below the test home: the recipe's config files and links to the owner's BIOS",
   'main/selftestscroll.ts': "the profile handshake files in the request's handshake folder",
   'main/selftestshots.ts': "the screenshots in the request's results folder",
   'main/store.ts': 'the settings file',

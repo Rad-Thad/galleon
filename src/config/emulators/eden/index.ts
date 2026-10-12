@@ -159,5 +159,6 @@ export const eden: EmulatorDescriptor = {
    * argument is parsed only after getopt is done with the rest, so a ROM whose
    * filename begins with a dash is read as an option and the launch fails.
    */
-  launch: ({ exec, romPath }) => [...exec, '-f', '-g', romPath]
+  launch: ({ exec, romPath }) => [...exec, '-f', '-g', romPath],
+  sandbox: undefined
 }

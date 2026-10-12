@@ -118,5 +118,6 @@ export const retroarch: EmulatorDescriptor = {
     const core = coreForSystem(system)
     if (!core) return null
     return [...exec, '-f', '-L', `${core}_libretro.so`, romPath]
-  }
+  },
+  sandbox: undefined
 }

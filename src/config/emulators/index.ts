@@ -208,6 +208,9 @@ export type {
   ReleaseSource,
   RequiredCore,
   ResolvedInstall,
+  SandboxContext,
+  SandboxFolders,
+  SandboxRecipe,
   SaveFileConventions
 } from './types.ts'
 
