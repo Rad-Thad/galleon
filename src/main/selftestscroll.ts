@@ -256,6 +256,11 @@ export async function askForProfile(
 
 export interface ScrollScenarioDeps {
   client: { platforms(): Promise<RommPlatform[]> }
+  /**
+   * Have the library offer the synthetic platform, and name it, for a library
+   * with no platform of `MIN_GAMES`. See `selftestlibrary.ts`.
+   */
+  synthetic?: () => RommPlatform
   /** The page to scroll in. */
   scroll: (platformId: number, signal: AbortSignal) => Promise<ScrollRun | null>
   power: () => Promise<PowerState>
@@ -295,7 +300,14 @@ export function scrollScenario(deps: ScrollScenarioDeps): Scenario {
   return async ({ request, signal }) => {
     const wanted = request.profiles.map((p) => p.toLowerCase())
     const ids = wanted.length ? wanted.map((p) => `${GRID_CHECK}@${p}`) : [GRID_CHECK]
-    const platform = largestPlatform(await deps.client.platforms())
+    const listed = await deps.client.platforms().catch((cause: unknown) => {
+      // Without the synthetic platform there is nothing else to scroll, and
+      // the failure is the scenario's to report.
+      if (!deps.synthetic) throw cause
+      return []
+    })
+    const real = largestPlatform(listed)
+    const platform = real ?? deps.synthetic?.() ?? null
     if (!platform) return ids.map((id) => outcome(id, 'skip', 'no-large-platform', {}))
 
     const results: CheckResult[] = []

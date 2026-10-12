@@ -154,6 +154,7 @@ if (!app.requestSingleInstanceLock()) {
             GRID_CHECK,
             scrollScenario({
               client: rommix.client,
+              synthetic: () => rommix.client.offerSynthetic(),
               scroll: (platformId, signal) => runScroll(window.webContents, platformId, signal),
               power: () => readPowerState('/', { status: readArmadaStatus }),
               sample: () => readPowerState(),

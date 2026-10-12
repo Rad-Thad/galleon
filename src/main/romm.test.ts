@@ -26,6 +26,7 @@ import {
   MINIMUM_SERVER_VERSION,
   negotiatesByGame
 } from './romm/index.ts'
+import { SYNTHETIC_GAMES, SYNTHETIC_PLATFORM_ID } from './selftestlibrary.ts'
 import type { Store } from './store.ts'
 
 /**
@@ -2558,5 +2559,51 @@ describe('the read-only guard', () => {
     assert.equal(guard.admit('head', '/api/x?device_id=y'), '/api/x')
     assert.throws(() => guard.admit('patch', '/api/x'), ReadOnlyError)
     assert.equal(guard.serverWritesAttempted, 1)
+  })
+})
+
+describe('the self-test synthetic platform', () => {
+  const platformRow = { id: 4, slug: 'nes', rom_count: 12 }
+
+  test('nothing synthetic until the self-test offers it', async () => {
+    const { store } = fakeStore()
+    const sent = serve(() => json([platformRow]))
+    const client = new RommClient(store)
+    assert.deepEqual(
+      (await client.platforms()).map((p) => p.id),
+      [4]
+    )
+    await client.roms({ platform_ids: [SYNTHETIC_PLATFORM_ID] })
+    assert.equal(sent.length, 2)
+  })
+
+  test("listed beside the server's, and its games answered without a request", async () => {
+    const { store } = fakeStore()
+    const sent = serve(() => json([platformRow]))
+    const client = new RommClient(store)
+    assert.equal(client.offerSynthetic().id, SYNTHETIC_PLATFORM_ID)
+    assert.deepEqual(
+      (await client.platforms()).map((p) => p.id),
+      [4, SYNTHETIC_PLATFORM_ID]
+    )
+    assert.equal(sent.length, 1)
+    const page = await client.roms({ platform_ids: [SYNTHETIC_PLATFORM_ID], limit: 5 })
+    assert.equal(page.items.length, 5)
+    assert.equal(page.total, SYNTHETIC_GAMES)
+    assert.equal((await client.rom(page.items[2].id)).name, page.items[2].name)
+    const counts = await client.romCounts([SYNTHETIC_PLATFORM_ID], '0001')
+    assert.deepEqual(counts, { [SYNTHETIC_PLATFORM_ID]: 1 })
+    assert.equal(sent.length, 1)
+  })
+
+  test('the only platform listed while the server does not answer', async () => {
+    const { store } = fakeStore()
+    globalThis.fetch = (() => Promise.reject(new Error('ECONNREFUSED'))) as typeof globalThis.fetch
+    const client = new RommClient(store)
+    client.offerSynthetic()
+    assert.deepEqual(
+      (await client.platforms()).map((p) => p.id),
+      [SYNTHETIC_PLATFORM_ID]
+    )
   })
 })

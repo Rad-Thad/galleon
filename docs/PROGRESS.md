@@ -1978,3 +1978,20 @@ Lines the tooling reads (exact forms):
 - Evaluator: PASS.
 - Device / acceptance: none; no launch scenario calls `planSandbox` yet.
 - Next: open for M0-21 line 4: flatpaks (5d, parked); then the synthetic 1,300-game platform and the launch scenario.
+
+## 2026-10-12 17:27 UTC session 01UJtxTd83kpAeiL5yGyn5ve (hourly heartbeat)
+
+- Device results: one more since the entry above, the minimal harness again; nothing flips, no safety failures. Part 5k of M0-21, PR #183, merged at 791c314; its CI wall time was x64 6:20, arm64 0:55.
+  - DEVICE-RESULTS 791c314 complete
+- Worked on: M0-21 part 6a (tracking issue #155): the built-in synthetic 1,300-game platform for `grid.scroll`.
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - `src/main/selftestlibrary.ts`: a platform of `SYNTHETIC_GAMES` games with negative ids (RomM's are never below zero), no artwork, answered by page, search, order, count and id. `RommClient.offerSynthetic` lists it beside the server's platforms (alone when the server does not list them) and answers its pages, counts and games without a request. Only the self-test's `grid.scroll` calls it, and only when no real platform reaches `MIN_GAMES` or the platform list fails.
+  - Tests: `src/main/selftestlibrary.test.ts` 7/7 (new); `src/main/selftestscroll.test.ts` 26/26 (new: the synthetic platform is scrolled only when no real one qualifies or the list fails); `src/main/romm.test.ts` 139/139 (new: nothing synthetic until offered; its games answered with no request; the only platform when the server is away).
+  - `test/app/selftest.test.ts`: new case, a library with no large platform; the built app scrolls `galleon-synthetic` (1,300 games, 188 visited on the VM) and no synthetic id reaches the fake RomM.
+  - `docs/TESTING.md`: the `grid.scroll` bullet names the synthetic platform.
+  - `scripts/agent/check.sh` green; `npm run test:app` 240/240 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root).
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: PASS. Note: once offered, the synthetic platform hides a failing platform list for the rest of the run, so `download.small` would then skip rather than error (a skip never passes; `server.heartbeat` still fails).
+- Device / acceptance: none until run.sh starts the app (M0-22).
+- Next: the launch scenario (M0-21 line 4 and the description's launch and graceful exit); flatpaks stay parked (5d).

@@ -44,6 +44,12 @@ import { checksumOf, digestOf, unpackedChecksumOf } from './checksums.ts'
 import { DeviceRegistry } from './devices.ts'
 import { RommError, UnreachableError, UnsupportedServerError } from './errors.ts'
 import type { ReadOnlyGuard } from './guard.ts'
+import {
+  SYNTHETIC_PLATFORM_ID,
+  syntheticPage,
+  syntheticPlatform,
+  syntheticRom
+} from '../selftestlibrary.ts'
 import { atLeast, isComparable, MINIMUM_SERVER_VERSION } from './version.ts'
 import {
   fetchToFile,
@@ -201,6 +207,9 @@ export class RommClient {
   /** Set only by the device self-test. See `readOnly`. */
   private guard: ReadOnlyGuard | null = null
 
+  /** Set only by the device self-test. See `offerSynthetic`. */
+  private synthetic = false
+
   constructor(private readonly store: Store) {
     this.registry = new DeviceRegistry(store, (path, init) => this.json(path, init))
   }
@@ -211,6 +220,15 @@ export class RommClient {
    */
   readOnly(guard: ReadOnlyGuard | null): void {
     this.guard = guard
+  }
+
+  /**
+   * List the self-test's synthetic platform beside the server's and answer for
+   * its games here, without a request. See `selftestlibrary.ts`.
+   */
+  offerSynthetic(): RommPlatform {
+    this.synthetic = true
+    return syntheticPlatform()
   }
 
   /** Watch whether requests are reaching the server. See `reachability`. */
@@ -588,8 +606,17 @@ export class RommClient {
     return this.json<RommUser>('/api/users/me')
   }
 
-  platforms(): Promise<RommPlatform[]> {
-    return this.json<RommPlatform[]>('/api/platforms')
+  async platforms(): Promise<RommPlatform[]> {
+    if (!this.synthetic) return this.json<RommPlatform[]>('/api/platforms')
+    // The scroll that asked for it is measuring the grid, not the server, so
+    // a server that does not answer still leaves it something to scroll.
+    const held = await this.json<RommPlatform[]>('/api/platforms').catch((cause: unknown) => {
+      log.info('romm', 'only the synthetic platform is listed', {
+        reason: cause instanceof Error ? cause.message : String(cause)
+      })
+      return []
+    })
+    return [...held, syntheticPlatform()]
   }
 
   collections(): Promise<RommCollection[]> {
@@ -752,6 +779,8 @@ export class RommClient {
   }
 
   roms(query: RomQuery = {}): Promise<RommRomPage> {
+    const synthetic = this.synthetic ? syntheticPage(query) : null
+    if (synthetic) return Promise.resolve(synthetic)
     const params = new URLSearchParams()
     if (query.search_term) params.set('search_term', query.search_term)
     for (const id of query.platform_ids ?? []) params.append('platform_ids', String(id))
@@ -787,6 +816,15 @@ export class RommClient {
   async romCounts(platformIds: number[], searchTerm: string): Promise<Record<number, number>> {
     const queue = [...platformIds]
     const counts: Record<number, number> = {}
+    if (this.synthetic && queue.includes(SYNTHETIC_PLATFORM_ID)) {
+      queue.splice(queue.indexOf(SYNTHETIC_PLATFORM_ID), 1)
+      const page = syntheticPage({
+        platform_ids: [SYNTHETIC_PLATFORM_ID],
+        search_term: searchTerm,
+        limit: 1
+      })
+      if (page?.total != null) counts[SYNTHETIC_PLATFORM_ID] = page.total
+    }
     const ask = async (): Promise<void> => {
       for (let id = queue.shift(); id !== undefined; id = queue.shift()) {
         // Grouped, because the grid this number is a promise about is grouped:
@@ -818,6 +856,8 @@ export class RommClient {
   }
 
   rom(id: number): Promise<RommRom> {
+    const synthetic = this.synthetic ? syntheticRom(id) : null
+    if (synthetic) return Promise.resolve(synthetic)
     return this.json<RommRom>(`/api/roms/${id}`)
   }
 
