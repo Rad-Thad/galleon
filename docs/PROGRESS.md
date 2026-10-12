@@ -1721,7 +1721,7 @@ Lines the tooling reads (exact forms):
 - Device / acceptance: none.
 - Next: M0-21 continues (the synthetic platform, the sandbox, run.sh's request and handshake). #110's safe default applies 2026-10-13 01:00 UTC.
 
-## 2026-10-12 10:56 UTC session 019YTjCVcH4zVLC76deCJNbC (hourly heartbeat)
+## 2026-10-12 10:35 UTC session 019YTjCVcH4zVLC76deCJNbC (hourly heartbeat)
 
 - Device results: DEVICE-RESULTS 094b317 complete. Still the minimal harness; nothing flips, no safety failures. The bridge still skips for want of a `nightly` release. Flaky #166's fix, PR #168, merged at 094b317; its CI wall time was x64 6:04, arm64 0:51.
 - Worked on: M0-21 part 5a (tracking issue #155): the emulator sandbox's descriptor hook and planner, the first step of acceptance line 4.
