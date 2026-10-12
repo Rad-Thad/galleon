@@ -84,5 +84,6 @@ export const duckstation: EmulatorDescriptor = {
    * RomMix knows the game is over. `--` ends the options, so a ROM whose name
    * begins with a dash is still read as the file to boot.
    */
-  launch: ({ exec, romPath }) => [...exec, '-batch', '-fullscreen', '-nogui', '--', romPath]
+  launch: ({ exec, romPath }) => [...exec, '-batch', '-fullscreen', '-nogui', '--', romPath],
+  sandbox: undefined
 }

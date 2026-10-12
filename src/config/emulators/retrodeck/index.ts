@@ -172,5 +172,6 @@ export const retrodeck: EmulatorDescriptor = {
   env: { ra_cores_path: RETRODECK_CORES_DIR },
   // `exec` alone opens RetroDECK's own frontend.
   open: undefined,
-  launch: ({ exec, system, romPath }) => [...exec, '-s', system, romPath]
+  launch: ({ exec, system, romPath }) => [...exec, '-s', system, romPath],
+  sandbox: undefined
 }

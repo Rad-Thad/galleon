@@ -106,5 +106,6 @@ export const shadps4: EmulatorDescriptor = {
     // Worth knowing if a future release changes it — a value where none is
     // expected becomes a second positional argument, and the launch fails.
     return [...exec, '-f', 'true', game]
-  }
+  },
+  sandbox: undefined
 }

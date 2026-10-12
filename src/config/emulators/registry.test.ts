@@ -55,7 +55,8 @@ const FIELD_ORDER = [
   'setupNotes',
   'env',
   'open',
-  'launch'
+  'launch',
+  'sandbox'
 ] as const
 
 /**
