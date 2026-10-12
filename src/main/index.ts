@@ -13,6 +13,7 @@ import { watchInput } from './selftestinput.ts'
 import { takeScreenshots } from './selftestshots.ts'
 import { GRID_CHECK, askForProfile, runScroll, scrollScenario } from './selftestscroll.ts'
 import { STARTUP_CHECK, startupScenario, startupStart, watchHome } from './selfteststartup.ts'
+import { UPDATE_CHECK, updateScenario } from './selftestupdate.ts'
 import { buildStamp } from './update.ts'
 
 /** RomMix main process bootstrap. */
@@ -141,6 +142,14 @@ if (!app.requestSingleInstanceLock()) {
           ],
           [IDENTITY_CHECK, identityScenario({ version: app.getVersion(), commit: buildStamp() })],
           [HEARTBEAT_CHECK, heartbeatScenario(rommix.client)],
+          [
+            UPDATE_CHECK,
+            updateScenario({
+              rehearse: (dir, signal) => rommix.updates.rehearse(dir, signal),
+              home: resolveRoot(),
+              installed: process.env.APPIMAGE ?? null
+            })
+          ],
           [
             GRID_CHECK,
             scrollScenario({
