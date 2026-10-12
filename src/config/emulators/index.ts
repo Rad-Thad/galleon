@@ -72,17 +72,39 @@ export function orderedEmulators(
   return [...EMULATORS].sort((a, b) => rank(a) - rank(b))
 }
 
+/**
+ * The emulator each system runs by default, where that choice decides whether
+ * a save made in Argosy on Android continues here (ADR 0005,
+ * `docs/save-sync/SYSTEM-CHOICES.md`).
+ *
+ * It outranks the user's emulator ranking, which is a general preference, but
+ * never a choice recorded for the system itself. Systems whose chosen emulator
+ * Galleon cannot drive yet are absent and follow the ranking.
+ */
+export const SYSTEM_DEFAULTS: Readonly<Record<string, EmulatorId>> = {
+  snes: 'retroarch',
+  snesna: 'retroarch',
+  gba: 'retroarch',
+  psx: 'retroarch'
+}
+
 export function emulatorsForSystem(
   system: string,
   priority: readonly EmulatorId[] = []
 ): EmulatorDescriptor[] {
-  return orderedEmulators(priority).filter((emulator) => supportsSystem(emulator, system))
+  const candidates = orderedEmulators(priority).filter((emulator) =>
+    supportsSystem(emulator, system)
+  )
+  const preferred = SYSTEM_DEFAULTS[system]
+  const first = candidates.find((emulator) => emulator.id === preferred)
+  return first ? [first, ...candidates.filter((emulator) => emulator !== first)] : candidates
 }
 
 /**
  * The emulator RomMix uses for a system when the user has not chosen one.
  *
- * The first in preference order that covers the system. Deliberately a *static*
+ * The system's entry in `SYSTEM_DEFAULTS`, else the first in preference order
+ * that covers the system. Deliberately a *static*
  * result — it does not consider what happens to be installed — so the default
  * shown in Settings is a stable fact about the arrangement rather than
  * something that moves as emulators come and go.
@@ -101,8 +123,8 @@ export function defaultEmulatorFor(
  * null, not a silent substitution. Being told "Eden is not installed" is far
  * more useful than a Switch ROM quietly failing inside something else.
  *
- * With nothing chosen, the first *available* emulator that runs the system
- * wins, so an uninstalled default degrades to something that works instead of
+ * With nothing chosen, the system's `SYSTEM_DEFAULTS` entry wins if it is
+ * available, then the first *available* emulator that runs the system, so an uninstalled default degrades to something that works instead of
  * a dead end. Candidates are always filtered by the system first — that is
  * what stops an SNES ROM ever reaching a Switch emulator.
  */
@@ -121,7 +143,8 @@ export function resolveEmulator(
   const pick = system ? chosen[system] : undefined
   if (pick != null) return usable.find((state) => state.id === pick) ?? null
 
-  return usable[0] ?? null
+  const preferred = system ? SYSTEM_DEFAULTS[system] : undefined
+  return usable.find((state) => state.id === preferred) ?? usable[0] ?? null
 }
 
 /** How many systems this emulator covers, for display. */
