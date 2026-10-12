@@ -1455,3 +1455,17 @@ Lines the tooling reads (exact forms):
 
 - Stopped: the run's time is up. M8-06 is done: #151 merged at 75e5bc2 (CI x64 7:37, arm64 2:16; evaluator PASS); `passes` true, #144 closed. The first x64 run failed only features-check, because the PROGRESS entry carried a time later than the run; fixed by re-dating it. Otherwise nothing eligible, as in the 15:53 stop entry: M0-10 and M0-13 wait on the device (bridge last seen 22 h ago), M2-08 on #110's safe default (2026-10-13 01:00 UTC), M4 on Gate 1, Dependabot #1 on a device baseline.
 - Notes: on this VM, `git commit -a` with the pre-commit hook failed with "Error building trees"; `git add` then `git commit` works.
+
+## 2026-10-12 01:20 UTC session 01EHqpGGic98WcbWMnSMyxnP (owner asked to push work forward now the Nova is reachable)
+
+- Device results: DEVICE-RESULTS d729a7a1f85a595212377c87bb1e0324693d78de complete. The bridge is back (first result since 2026-10-09 20:06 UTC). As before, it was only the minimal harness: `harness.run` passed, no `safety.*` check ran, nothing flips.
+- Worked on: M0-10 line 4 (tracking issue #66). The device runs only the minimal harness until M0-22, and M0-22 needs M0-21, which needs M0-10. M0-10 waits only on the real format of `/run/armada/perf-state.json`, and the minimal harness was the only thing that could read it. Without that file, nothing could move.
+- Result: PR (this one). M0-10 stays false.
+- Evidence:
+  - `test/device/run.sh` now also writes `logs/power-facts.txt` and lists it in `harness.run`'s evidence. The file holds `/run/armada/perf-state.json`, both `power-profiles.conf` files, policy7's governor and current and max frequency, each devfreq device's governor and frequencies, and the output of `armada-power profile` and `armada-power status`. Each file is capped and each command has a timeout. It is read-only: it calls `profile` without an argument, which only asks, and writes nothing outside `RESULTS_DIR`. The bridge's existing sanitiser publishes `.txt`. No bridge change is needed.
+  - `scripts/device-bundle.test.ts` 10/10. New: "run.sh copies the power state the device shows, and only reads it" (fake root and a fake `armada-power` that records its arguments: exactly `profile` then `status`) and "run.sh still passes where none of the power files or armada-power exist".
+  - `shellcheck test/device/run.sh`: clean apart from the existing SC1007 on `CDPATH= cd`.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: the next nightly after the merge publishes `power-facts.txt`. From it: parse perf-state.json in `src/main/powerstate.ts` with fixture tests, which finishes M0-10, and correct DEVICE-FACTS.md's _(assumed)_ power lines. Then M0-21 and M0-22.
