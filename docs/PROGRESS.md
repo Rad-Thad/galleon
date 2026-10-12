@@ -1896,3 +1896,20 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Evaluator: see the PR.
 - Device / acceptance: none; no launch scenario calls `planSandbox` yet.
+
+## 2026-10-12 15:30 UTC session 01GHqwaL39bhoXCitQmtPQfJ (hourly heartbeat)
+
+- Device results: two new, the minimal harness again; nothing flips, no safety failures. Part 5f of M0-21, PR #178, merged at 75021a9; its CI wall time was x64 6:27, arm64 0:59.
+  - DEVICE-RESULTS 9f95aca complete
+- Worked on: M0-21 part 5g (tracking issue #155): the BIOS files in a sandbox are no longer symlinks to the owner's (evaluator note on acceptance line 4).
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - `prepareSandbox` gives `bios/` the sandbox's own copy of each of the owner's BIOS files: a copy-on-write clone (`COPYFILE_FICLONE_FORCE`, free on the Nova's btrfs) or, where the filesystem cannot clone, a plain copy within `BIOS_COPY_BUDGET`. Past the budget it answers `cannot-sandbox` / `bios-too-large`. A symlink left by an earlier build is replaced; a copy the emulator wrote to is kept.
+  - Why: emulators keep NVRAM and flash beside their BIOS (PCSX2-family `.nvm`, Flycast `dc_nvmem.bin`), and a write through a symlink lands in the owner's file.
+  - Tests: `src/main/selftestsandbox.test.ts` 40/40; new: a write to the sandbox's copy leaves the owner's file alone, a clone costs no budget, copies past the budget skip the launch, a second start keeps a written copy, an old link is replaced by a copy.
+  - `docs/TESTING.md` and `docs/PLAN.md` describe copies instead of links.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: PASS.
+- Notes: the first push failed `pr-body.mjs`: `Feature:` must start its own line in the PR body.
+- Device / acceptance: none; no launch scenario calls `prepareSandbox` yet.

@@ -398,7 +398,8 @@ export interface RequiredCore {
  * On the device the self-test starts real emulators beside the owner's own
  * setup, so everything an emulator would write — its settings, its data, its
  * saves and states — has to land here rather than in the owner's folders.
- * `bios` holds links to the owner's BIOS files: read, never written.
+ * `bios` holds the sandbox's own copies of the owner's BIOS files, so a write
+ * beside them never reaches the owner's.
  */
 export interface SandboxFolders {
   readonly root: string

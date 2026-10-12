@@ -60,7 +60,7 @@ const ALLOWED: Record<string, string> = {
   'main/root.ts': 'moving the app root',
   'main/selftest.ts': 'the taken self-test request and the summary in the results folder',
   'main/selftestsandbox.ts':
-    "a sandbox below the test home: the recipe's config files and links to the owner's BIOS",
+    "a sandbox below the test home: the recipe's config files and copies of the owner's BIOS",
   'main/selftestscroll.ts': "the profile handshake files in the request's handshake folder",
   'main/selftestshots.ts': "the screenshots in the request's results folder",
   'main/selftestupdate.ts': "the update rehearsal's folder in the test home",
