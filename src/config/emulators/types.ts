@@ -416,6 +416,12 @@ export interface SandboxContext {
   /** How the emulator was installed; a recipe can differ by kind. */
   readonly installKind: ResolvedInstall['kind']
   readonly folders: SandboxFolders
+  /**
+   * The owner's own install, to read from and never to write: where a recipe
+   * finds what the sandbox borrows rather than holds, such as RetroArch's
+   * cores.
+   */
+  readonly owner: Omit<CoreContext, 'system'>
 }
 
 /**

@@ -12,8 +12,14 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { EmulatorDescriptor, ResolvedInstall, SandboxRecipe } from '@config/emulators'
-import { EMULATORS } from '@config/emulators'
+import type {
+  EmulatorDescriptor,
+  ResolvedInstall,
+  SandboxContext,
+  SandboxRecipe,
+  SaveEnvironment
+} from '@config/emulators'
+import { EMULATORS, emulatorById } from '@config/emulators'
 import { example } from '@config/emulators/example/index.ts'
 import { CANNOT_SANDBOX, planSandbox, prepareSandbox, sandboxFolders } from './selftestsandbox.ts'
 
@@ -37,6 +43,24 @@ afterEach(() => {
 const BINARY: ResolvedInstall = { kind: 'binary', ref: '/usr/bin/example' }
 const HOME = '/test/home'
 
+/** The owner's machine as a recipe reads it: these text files and nothing else. */
+function machine(files: Record<string, string> = {}): SaveEnvironment {
+  return {
+    exists: (path) => path in files,
+    dirs: () => [],
+    files: () => [],
+    text: (path) => files[path] ?? null,
+    head: () => null,
+    newest: () => 0
+  }
+}
+
+const OWNER: SandboxContext['owner'] = {
+  home: '/home/owner',
+  configDir: '/home/owner/.config',
+  env: machine()
+}
+
 function withRecipe(
   sandbox: EmulatorDescriptor['sandbox'],
   extra: Partial<EmulatorDescriptor> = {}
@@ -47,7 +71,14 @@ function withRecipe(
 const EMPTY: SandboxRecipe = { args: [], env: {}, files: [] }
 
 function plan(descriptor: EmulatorDescriptor, install = BINARY, system = 'snes') {
-  return planSandbox({ descriptor, install, system, romPath: '/payload/game.sfc', home: HOME })
+  return planSandbox({
+    descriptor,
+    install,
+    system,
+    romPath: '/payload/game.sfc',
+    home: HOME,
+    owner: OWNER
+  })
 }
 
 describe('planSandbox', () => {
@@ -110,7 +141,12 @@ describe('planSandbox', () => {
     })
     plan(descriptor, { kind: 'appimage', ref: '/apps/example.AppImage' }, 'nes')
     assert.deepEqual(seen, [
-      { system: 'nes', installKind: 'appimage', folders: sandboxFolders(HOME, 'example') }
+      {
+        system: 'nes',
+        installKind: 'appimage',
+        folders: sandboxFolders(HOME, 'example'),
+        owner: OWNER
+      }
     ])
   })
 
@@ -191,7 +227,8 @@ describe('planSandbox', () => {
           install: BINARY,
           system,
           romPath: '/payload/game',
-          home: HOME
+          home: HOME,
+          owner: OWNER
         })
         if (result.kind === 'skip') {
           assert.equal(result.reason, CANNOT_SANDBOX, descriptor.id)
@@ -208,6 +245,93 @@ describe('planSandbox', () => {
   })
 })
 
+describe("RetroArch's recipe", () => {
+  const retroarch = emulatorById('retroarch')
+  assert.ok(retroarch)
+  const ownerCores = '/home/owner/cores'
+  const owner: SandboxContext['owner'] = {
+    ...OWNER,
+    env: machine({
+      '/home/owner/.config/retroarch/retroarch.cfg': `libretro_directory = "${ownerCores}"\n`
+    })
+  }
+  const install: ResolvedInstall = { kind: 'binary', ref: '/usr/bin/retroarch' }
+
+  function retroPlan(system = 'snes', kind: ResolvedInstall = install) {
+    return planSandbox({
+      descriptor: retroarch!,
+      install: kind,
+      system,
+      romPath: '/payload/game.sfc',
+      home: HOME,
+      owner
+    })
+  }
+
+  /** The appended config as key and value, the way RetroArch reads it. */
+  function appended(files: { path: string; content: string }[]): Record<string, string> {
+    const file = files.find((f) => f.path.endsWith('retroarch-sandbox.cfg'))
+    assert.ok(file)
+    return Object.fromEntries(
+      [...file.content.matchAll(/^(\w+) = "([^"]*)"$/gm)].map(([, key, value]) => [key, value])
+    )
+  }
+
+  test('starts on a config of its own with the sandbox folders appended, before the game', () => {
+    const result = retroPlan()
+    assert.equal(result.kind, 'run')
+    if (result.kind !== 'run') return
+    const root = result.folders.root
+    assert.deepEqual(result.argv.slice(0, 5), [
+      '/usr/bin/retroarch',
+      '--config',
+      join(root, 'config', 'retroarch', 'retroarch.cfg'),
+      '--appendconfig',
+      join(root, 'retroarch-sandbox.cfg')
+    ])
+    assert.deepEqual(result.argv.slice(5, 7), ['-f', '-L'])
+    assert.deepEqual(
+      result.files.map((f) => f.path),
+      [join(root, 'config', 'retroarch', 'retroarch.cfg'), join(root, 'retroarch-sandbox.cfg')]
+    )
+  })
+
+  test('writes saves, states and system files into the sandbox and never saves its config', () => {
+    const result = retroPlan()
+    assert.equal(result.kind, 'run')
+    if (result.kind !== 'run') return
+    const settings = appended(result.files)
+    assert.equal(settings.savefile_directory, result.folders.saves)
+    assert.equal(settings.savestate_directory, result.folders.states)
+    assert.equal(settings.system_directory, result.folders.bios)
+    assert.equal(settings.config_save_on_exit, 'false')
+    for (const key of ['savefiles', 'savestates', 'systemfiles', 'screenshots']) {
+      assert.equal(settings[`${key}_in_content_dir`], 'false', key)
+    }
+  })
+
+  test("loads the owner's cores and names no other folder outside the sandbox", () => {
+    const result = retroPlan()
+    assert.equal(result.kind, 'run')
+    if (result.kind !== 'run') return
+    const { libretro_directory: cores, ...rest } = appended(result.files)
+    assert.equal(cores, ownerCores)
+    for (const [key, value] of Object.entries(rest)) {
+      if (value === 'false') continue
+      assert.ok(value.startsWith(`${result.folders.root}/`), `${key} = ${value}`)
+    }
+  })
+
+  test('is not started for a system with no core, nor as a flatpak', () => {
+    assert.deepEqual(retroPlan('switch'), {
+      kind: 'skip',
+      reason: CANNOT_SANDBOX,
+      detail: 'no-recipe'
+    })
+    assert.equal(retroPlan('snes', { kind: 'flatpak', ref: 'org.libretro.RetroArch' }).kind, 'skip')
+  })
+})
+
 describe('prepareSandbox', () => {
   function ready(home: string, recipe: SandboxRecipe = EMPTY) {
     const result = planSandbox({
@@ -215,7 +339,8 @@ describe('prepareSandbox', () => {
       install: BINARY,
       system: 'snes',
       romPath: '/payload/game.sfc',
-      home
+      home,
+      owner: OWNER
     })
     assert.equal(result.kind, 'run')
     if (result.kind !== 'run') throw new Error('expected a plan')

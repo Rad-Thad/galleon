@@ -1,6 +1,11 @@
 import { mkdirSync, readdirSync, renameSync, statSync, symlinkSync, writeFileSync } from 'node:fs'
 import { isAbsolute, join, relative, resolve } from 'node:path'
-import type { EmulatorDescriptor, ResolvedInstall, SandboxFolders } from '@config/emulators'
+import type {
+  EmulatorDescriptor,
+  ResolvedInstall,
+  SandboxContext,
+  SandboxFolders
+} from '@config/emulators'
 import { execPrefix } from './host.ts'
 
 /**
@@ -40,6 +45,8 @@ export interface SandboxRequest {
   variant?: string
   /** The test home, `GALLEON_HOME`. */
   home: string
+  /** The owner's install, which a recipe may read from. */
+  owner: SandboxContext['owner']
 }
 
 export type SandboxPlan =
@@ -84,13 +91,13 @@ function xdgRoots(folders: SandboxFolders): Record<string, string> {
  * the strength of the XDG roots alone.
  */
 export function planSandbox(request: SandboxRequest): SandboxPlan {
-  const { descriptor, install, system, romPath, variant, home } = request
+  const { descriptor, install, system, romPath, variant, home, owner } = request
   if (install.kind === 'flatpak' || install.kind === 'scripts')
     return skip(`${install.kind}-install`)
   if (descriptor.sandbox === undefined) return skip('no-recipe')
 
   const folders = sandboxFolders(home, descriptor.id)
-  const recipe = descriptor.sandbox({ system, installKind: install.kind, folders })
+  const recipe = descriptor.sandbox({ system, installKind: install.kind, folders, owner })
   if (recipe === null) return skip('no-recipe')
 
   const files = recipe.files.map((file) => ({
