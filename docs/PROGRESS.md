@@ -1783,6 +1783,6 @@ Lines the tooling reads (exact forms):
   - Tests: `src/main/selftestsandbox.test.ts` 28/28 (5 new for DuckStation).
   - `scripts/agent/check.sh` green.
 - Found, not fixed (outside this unit): the descriptor's `dirs` say `~/.local/share/duckstation`, which is right only while `XDG_CONFIG_HOME` is unset; with it set, DuckStation uses `$XDG_CONFIG_HOME/duckstation`. Noted on #155 for the save-sync work.
-- CI wall time: recorded in the next entry (this entry rides the PR).
+- CI: the first two x64 runs failed on this PR's paperwork, not its code: this entry first carried a time later than the run (`features-check`), then the body had no `Feature:` line (`pr-body`). Both fixed; the wall time is recorded in the next entry (this entry rides the PR).
 - Evaluator: see the PR.
 - Device / acceptance: none yet; nothing starts an emulator in the self-test yet. Next: flatpaks (5d), then Eden and shadPS4 (portable `user` folders to rule out first).
