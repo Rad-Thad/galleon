@@ -724,7 +724,15 @@ export interface FakeRommOptions {
    * None by default: the device a client registers is told its id, not listed.
    */
   devices?: RommDevice[]
+  /**
+   * A Game Boy Advance platform with one game: a platform the self-test's
+   * `download.small` picks its game from, which none of the others is.
+   */
+  gba?: boolean
 }
+
+/** The game `FakeRommOptions.gba` adds, by id. */
+export const GBA_ROM = 40
 
 /** The platform `FakeRommOptions.bulk` fills, by id. */
 export const BULK_PLATFORM = 5
@@ -797,6 +805,11 @@ export async function startFakeRomm(options: FakeRommOptions = {}): Promise<Fake
     platforms.push(gamecube, wiiu)
     roms.push(rom(30, 'Cube Homebrew', gamecube, 'cubehomebrew.iso'))
     roms.push(rom(31, 'Wii U Homebrew', wiiu, 'wiiuhomebrew.wua'))
+  }
+  if (options.gba) {
+    const gba = platform(8, 'gba', 'Game Boy Advance')
+    platforms.push(gba)
+    roms.push(rom(GBA_ROM, 'Pocket Homebrew', gba, 'pockethomebrew.gba'))
   }
   if (options.bulk) {
     const nes = { ...platform(BULK_PLATFORM, 'nes', 'Nintendo Entertainment System') }
