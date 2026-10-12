@@ -1880,3 +1880,4 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Evaluator: PASS.
 - Device / acceptance: none; no launch scenario calls `planSandbox` yet.
+- Notes: open the PR with its `Feature:` line and date the entry before the push. CI reads the body from the push that triggered it, and editing the body does not re-run `build`, so a missing line costs a commit.
