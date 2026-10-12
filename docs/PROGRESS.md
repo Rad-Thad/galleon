@@ -1760,7 +1760,7 @@ Lines the tooling reads (exact forms):
 - Evaluator: see the PR.
 - Device / acceptance: none yet; nothing starts an emulator in the self-test yet, and the Nova's RetroArch is a flatpak (G0-7). Next: Dolphin, DuckStation and the XDG-only emulators, then flatpaks.
 
-## 2026-10-12 11:50 UTC session 01JYonW2Y3SeXmqbCVr1BU3J (hourly heartbeat)
+## 2026-10-12 11:30 UTC session 01JYonW2Y3SeXmqbCVr1BU3J (hourly heartbeat)
 
 - Device results: still the minimal harness; nothing flips, no safety failures. The bridge still skips for want of a `nightly` release. Part 5b, PR #170, merged at a0d7c3c; its CI wall time was x64 6:00, arm64 0:52. Recorded with full shas, which `device-results.mjs` needs to count them as read:
   - DEVICE-RESULTS 8e03ec7a52bdc220a193f52dd7fe1a22a040577f complete
