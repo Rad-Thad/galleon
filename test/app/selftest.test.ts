@@ -4,7 +4,7 @@ import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSy
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { after, test } from 'node:test'
-import { SETTLE_TIMEOUT_MS, electronBinary, seed, startApp } from './driver.ts'
+import { SETTLE_TIMEOUT_MS, atHome, electronBinary, seed, startApp } from './driver.ts'
 import { GBA_ROM, startFakeRomm } from './server.ts'
 import { SCROLL_MS } from '../../src/main/selftestscroll.ts'
 import {
@@ -360,6 +360,10 @@ test('while the self-test runs, no screen names the server or the account', asyn
       SETTLE_TIMEOUT_MS
     )
     await named('the top bar on home')
+    // The hero takes the highlight when home's shelves answer, which can be
+    // after the top bar is signed in: a walk along the menu started before
+    // then has its Enter open the hero's game. See `atHome`.
+    await atHome(app)
     for (const route of ['library', 'collections', 'downloads', 'bios', 'emulators', 'settings']) {
       await app.goTo(route)
       await app.waitFor(`document.querySelector('[data-screen="${route}"]')`, `the ${route} screen`)
