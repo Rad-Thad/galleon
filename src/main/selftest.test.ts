@@ -169,6 +169,7 @@ describe('taking the request', () => {
       [{ budgetSeconds: 0 }, 'request-budget'],
       [{ profiles: [1] }, 'request-profiles'],
       [{ payloads: { retroarch: 7 } }, 'request-payloads'],
+      [{ savingPayloads: 'retroarch' }, 'request-saving-payloads'],
       [{ version: 21 }, 'request-version'],
       [{ version: '0.21.0 at owners-server.example' }, 'request-version']
     ] as const) {

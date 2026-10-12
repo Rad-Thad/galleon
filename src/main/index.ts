@@ -177,6 +177,7 @@ if (!app.requestSingleInstanceLock()) {
           ...emulatorScenarios(selfTest.request.checks, {
             home: resolveRoot(),
             payloads: selfTest.request.payloads,
+            savingPayloads: selfTest.request.savingPayloads,
             emulators: () => rommix.ensureEmulators(),
             plan: devicePlan(resolveRoot()),
             cycle: deviceCycle()

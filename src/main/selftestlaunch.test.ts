@@ -45,6 +45,7 @@ interface Fake {
   cleared: string[][]
   windowAsks: number
   ownAsks: number
+  saveAsks: string[]
   clock: () => number
   exit: (e: Exited) => void
 }
@@ -65,6 +66,8 @@ interface FakeOptions {
   /** Galleon's window holds the focus from this time, or never. Default: always. */
   refocusAt?: number | 'never'
   ownFocused?: LaunchDeps['ownFocused']
+  /** The emulator writes a save at this time, or never. */
+  savesAt?: number
   /** Called on every sleep, for a test to act mid-cycle. */
   onSleep?: (t: number) => void
 }
@@ -79,6 +82,7 @@ function fake(options: FakeOptions = {}): Fake {
     cleared: [],
     windowAsks: 0,
     ownAsks: 0,
+    saveAsks: [],
     clock: () => t,
     exit: (e) => resolveExit(e),
     deps: {
@@ -115,6 +119,10 @@ function fake(options: FakeOptions = {}): Fake {
         f.cleared.push([...paths])
         return [...paths]
       },
+      saveFingerprint: (folder) => {
+        f.saveAsks.push(folder)
+        return options.savesAt !== undefined && t >= options.savesAt ? 'saved' : 'empty'
+      },
       now: () => t,
       sleep: async (ms) => {
         t += ms
@@ -132,9 +140,10 @@ function fake(options: FakeOptions = {}): Fake {
 async function cycle(
   f: Fake,
   plan: SandboxPlan = PLAN,
-  signal = new AbortController().signal
+  signal = new AbortController().signal,
+  expectSave = false
 ): Promise<[CheckResult, CheckResult]> {
-  return launchCycle('emu', plan, f.deps, signal)
+  return launchCycle('emu', plan, f.deps, signal, expectSave)
 }
 
 describe('launchCycle', () => {
@@ -278,6 +287,44 @@ describe('launchCycle', () => {
     assert.equal(exit.reason, 'not-refocused')
     assert.equal(exit.metrics.refocusMs, null)
     assert.equal(exit.metrics.code, 0)
+  })
+
+  test('a payload that saves passes exit once the save folder has changed', async () => {
+    const f = fake({ windowAt: 0, savesAt: 1000 })
+    const [, exit] = await cycle(f, PLAN, undefined, true)
+    assert.equal(exit.result, 'pass', exit.reason ?? '')
+    assert.equal(exit.metrics.saveChanged, 1)
+    assert.equal(exit.thresholds.saveChanged, 1)
+    assert.deepEqual(f.saveAsks, ['/home/test/sandbox/emu/saves', '/home/test/sandbox/emu/saves'])
+  })
+
+  test('a payload that saves fails exit as save-unchanged when nothing was written', async () => {
+    const f = fake({ windowAt: 0 })
+    const [launch, exit] = await cycle(f, PLAN, undefined, true)
+    assert.equal(launch.result, 'pass')
+    assert.equal(exit.result, 'fail')
+    assert.equal(exit.reason, 'save-unchanged')
+    assert.equal(exit.metrics.saveChanged, 0)
+  })
+
+  test('a save folder already changed before the start does not count', async () => {
+    const f = fake({ windowAt: 0, savesAt: 0 })
+    const [, exit] = await cycle(f, PLAN, undefined, true)
+    assert.equal(exit.reason, 'save-unchanged')
+  })
+
+  test('a payload that does not save is not held to its save folder', async () => {
+    const f = fake({ windowAt: 0 })
+    const [, exit] = await cycle(f)
+    assert.equal(exit.result, 'pass', exit.reason ?? '')
+    assert.equal(exit.metrics.saveChanged, 0)
+    assert.equal(exit.thresholds.saveChanged, undefined)
+  })
+
+  test('a kill is the reason given before an unchanged save', async () => {
+    const f = fake({ windowAt: 0, onTerm: 'ignore' })
+    const [, exit] = await cycle(f, PLAN, undefined, true)
+    assert.equal(exit.reason, 'killed')
   })
 
   test('a window list that cannot tell or throws is not yet the focus back', async () => {

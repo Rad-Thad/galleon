@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { readFileSync, readdirSync } from 'node:fs'
+import { lstatSync, readFileSync, readdirSync } from 'node:fs'
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { emulatorById, type EmulatorState } from '@config/emulators'
 import { t } from './i18n.ts'
@@ -50,6 +50,8 @@ export interface EmulatorScenarioDeps {
   home: string
   /** The request's `payloads`, by emulator id. */
   payloads: Readonly<Record<string, string>>
+  /** The request's `savingPayloads`: emulators whose payload writes a save. */
+  savingPayloads?: readonly string[]
   /** The probe's view of the installed emulators. */
   emulators: () => Promise<EmulatorState[]>
   /** `planSandbox` for this emulator, system and payload. */
@@ -59,7 +61,8 @@ export interface EmulatorScenarioDeps {
     emulator: string,
     plan: SandboxPlan,
     state: EmulatorState,
-    signal: AbortSignal
+    signal: AbortSignal,
+    expectSave: boolean
   ) => Promise<[CheckResult, CheckResult]>
   /** See `resolveLinks`. */
   realPath?: (path: string) => string | null
@@ -139,7 +142,7 @@ async function runOne(
   if (plan.kind === 'skip') {
     log.info('selftest', 'an emulator cannot be sandboxed', { emulator, detail: plan.detail })
   }
-  return deps.cycle(emulator, plan, state, signal)
+  return deps.cycle(emulator, plan, state, signal, deps.savingPayloads?.includes(emulator) ?? false)
 }
 
 function skipped(id: string, reason: string): CheckResult {
@@ -222,6 +225,39 @@ export function runningInGroup(group: number, procDir = '/proc'): boolean {
   return false
 }
 
+/**
+ * `LaunchDeps.saveFingerprint` on a disk: every file below `folder` with its
+ * size and modification time, links not followed. A folder that is not there,
+ * or a file that cannot be read, is part of the answer rather than an error,
+ * so the cycle never throws over it.
+ */
+export function saveFingerprint(folder: string): string {
+  const lines: string[] = []
+  // Walked by hand: a recursive readdir goes through links to folders.
+  const walk = (dir: string, prefix: string): boolean => {
+    let names: string[]
+    try {
+      names = readdirSync(dir).sort()
+    } catch {
+      return false
+    }
+    for (const name of names) {
+      const rel = prefix + name
+      try {
+        const st = lstatSync(join(dir, name))
+        if (st.isDirectory()) {
+          lines.push(`${rel}/`)
+          walk(join(dir, name), `${rel}/`)
+        } else lines.push(`${rel} ${st.size} ${st.mtimeMs}`)
+      } catch {
+        lines.push(`${rel} ?`)
+      }
+    }
+    return true
+  }
+  return walk(folder, '') ? lines.join('\n') : 'none'
+}
+
 /** `EmulatorScenarioDeps.plan` on the device: the owner's install, read and never written. */
 export function devicePlan(home: string): EmulatorScenarioDeps['plan'] {
   return (state, system, romPath) => {
@@ -272,7 +308,7 @@ export function deviceCycle(
   env: NodeJS.ProcessEnv = process.env,
   open: (env: NodeJS.ProcessEnv) => Promise<X11 | null> = openDisplay
 ): EmulatorScenarioDeps['cycle'] {
-  return async (emulator, plan, state, signal) => {
+  return async (emulator, plan, state, signal, expectSave) => {
     const opened: { display: Promise<X11 | null> | null; finder: WindowFinder | null } = {
       display: null,
       finder: null
@@ -296,9 +332,11 @@ export function deviceCycle(
           findWindow,
           ownFocused: ownFocused(findWindow),
           straysToClear: (p) => straysToClear(p),
-          clearStrays
+          clearStrays,
+          saveFingerprint
         },
-        signal
+        signal,
+        expectSave
       )
     } finally {
       ;(await opened.display)?.close()

@@ -45,6 +45,8 @@ export interface SelfTestRequest {
   checks: string[]
   profiles: string[]
   payloads: Record<string, string>
+  /** Emulators whose payload writes a save; see `launchCycle`'s `expectSave`. */
+  savingPayloads: string[]
   fakeRomm: unknown
   readOnlyServer: true
   privacy: true
@@ -188,6 +190,9 @@ export function parseRequest(raw: unknown): Taken {
   if (!Object.values(payloads).every((p) => typeof p === 'string')) {
     return refuse('request-payloads')
   }
+  if (r.savingPayloads !== undefined && !isStringArray(r.savingPayloads)) {
+    return refuse('request-saving-payloads')
+  }
   return {
     kind: 'request',
     request: {
@@ -200,6 +205,7 @@ export function parseRequest(raw: unknown): Taken {
       checks: r.checks,
       profiles: r.profiles ?? [],
       payloads: payloads as Record<string, string>,
+      savingPayloads: r.savingPayloads ?? [],
       fakeRomm: r.fakeRomm ?? null,
       readOnlyServer: true,
       privacy: true,

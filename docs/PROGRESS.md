@@ -2073,3 +2073,19 @@ Lines the tooling reads (exact forms):
 - CI: the first x64 leg failed the pull-request body check (the body had no `Feature:` line); the body was fixed and this entry's push re-ran it.
 - Evaluator: PASS. Its note (the `deviceCycle` comment left above `ownFocused`) is fixed.
 - Device / acceptance: none until run.sh sends payloads (M0-22's bundle). Watch the first device run for Galleon's own window: under gamescope the self-test's window must be one gamescope will focus again.
+
+## 2026-10-12 23:44 UTC session 01SrH8rmHvjsYBaKiBeFkaih (hourly heartbeat)
+
+- Device results: nothing new since the entry above (newest 2d001c4, complete, the minimal harness); no safety failures, no regressions. Part 9 of M0-21, PR #189, merged at 00e6dea; its CI wall time is on the PR's checks.
+- First unit: Dependabot #1 (Electron), held for a device baseline, which 2d001c4 now is. Branch brought onto `main`; `scripts/agent/check.sh` green and `npm run test:app` 241/241 on it locally; CI x64 6:04, arm64 0:58; evaluator PASS. ELECTRON 44.4.5 -> 44.6.0 merged at 472b1ac, waiting for device.
+- Worked on: M0-21 part 10 (tracking issue #155): `exit.<emulator>` checks the save folder changed when the payload saves.
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - `src/main/selftestlaunch.ts`: `launchCycle` takes `expectSave`; `LaunchDeps.saveFingerprint` is read of the sandbox's `saves` folder before the start and after the stop. `exit` fails `save-unchanged` (after `killed`, `exit-code`, `exited-early` and `not-refocused`) when the payload saves and nothing changed; metric `saveChanged` always, threshold only when a save is expected.
+  - `src/main/selftestemulators.ts`: `saveFingerprint` walks the folder by hand (a recursive readdir follows links to folders, which could reach the owner's files), listing each file's size and modification time and never throwing; `savingPayloads` decides `expectSave` per emulator. `src/main/selftest.ts`: the request's optional `savingPayloads` (a list of emulator ids, else `request-saving-payloads`).
+  - Tests: `src/main/selftestlaunch.test.ts` 31/31 (new: a save written passes with its metric and threshold; none written fails `save-unchanged`; a folder already changed before the start does not count; a payload that does not save is not held to it; a kill is reported before an unchanged save). `src/main/selftestemulators.test.ts` 32/32 (new: only listed emulators expect a save; the fingerprint for a missing folder, a new file, a rewrite and a removal; links to a file and to a folder listed and not followed). `src/main/selftest.test.ts`: the refusal.
+  - `docs/TESTING.md`: the request example and the cycle and payload bullets.
+  - `scripts/agent/check.sh` green; `npm run test:app` 241/241 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root).
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none until run.sh sends payloads (M0-22's bundle), which must list in `savingPayloads` only payloads that write a save into the sandbox's `saves` folder.
+- Next: the payloads and `savingPayloads` in the device bundle; flatpaks (5d, parked).
