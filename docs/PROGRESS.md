@@ -1944,7 +1944,7 @@ Lines the tooling reads (exact forms):
 - Device / acceptance: none; no launch scenario calls `planSandbox` yet.
 - Next: open for M0-21 line 4: flatpaks (5d), the portable `user` folders of Eden and shadPS4; then the synthetic 1,300-game platform.
 
-## 2026-10-12 16:50 UTC session 01CZXRhAceMMinhpATALtvqG (hourly heartbeat)
+## 2026-10-12 16:35 UTC session 01CZXRhAceMMinhpATALtvqG (hourly heartbeat)
 
 - Device results: three new, the minimal harness again; nothing flips, no safety failures. Part 5i of M0-21, PR #181, merged at d142eb3; its CI wall time was x64 6:08, arm64 0:57.
   - DEVICE-RESULTS 7f8e113 complete
