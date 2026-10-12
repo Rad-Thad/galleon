@@ -1689,3 +1689,19 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Evaluator: see the PR.
 - Device / acceptance: none yet; run.sh does not write a request yet. Next: the synthetic platform, the sandbox (line 4), `armada-power status` in `readPowerState`, run.sh's request and handshake.
+
+## 2026-10-12 08:49 UTC session 01LuBxq5s78Luq5JRhhZhgam (hourly heartbeat, second unit)
+
+- Device results: unchanged since the entry above.
+- Worked on: M0-21 part 4h (tracking issue #155): `armada-power status` in the power state the self-test reads, named in M0-21's description and in #155's notes as due before `selftest.complete` is READY-FOR-DEVICE. Part 4g, PR #165, merged at 3e5c672; its CI wall time was x64 6:27, arm64 1:03.
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - `src/main/powerstate.ts`: `readArmadaStatus` runs `armada-power status` (no shell, `STATUS_TIMEOUT_MS`, null on any failure). `parseArmadaStatus` takes the `profile=` line's value when it is a plain word. `readPowerState(root, { status })` lets that name win over `profileInForce`'s inference. The overlay and the problem report still read files only: no process per sample.
+  - `src/main/selftestscroll.ts`: the new `sample` dependency is the read taken mid-scroll. `index.ts` gives the self-test `power` with the status and `sample` without it, so no process starts while frames are timed. The scroll's first sample, and the profile checks before and after it, use `power`. `powerMetrics` leaves a sample that could not tell the profile out of `profileObserved`.
+  - TESTING.md (grid.scroll), DEVICE-FACTS.md (power profiles) and the `PowerState.profile` doc say so.
+  - Tests: `src/main/powerstate.test.ts` 19/19 (4 new: parsing, plain words only, status wins and the clocks stand when it fails, null without `armada-power` on PATH). `src/main/selftestscroll.test.ts` 23/23 (new: `power` never read mid-scroll, and an unknown sample is not "mixed").
+  - `test/app/selftest.test.ts`: 9/9 twice. One earlier full-file run failed the privacy test ("gave up waiting for the library screen"). It passed 4/4 alone, on `main` and on this branch. Filed as #166 (flaky), to root-cause within two units.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none yet. Next: #166, the synthetic platform, the sandbox (line 4), run.sh's request and handshake.

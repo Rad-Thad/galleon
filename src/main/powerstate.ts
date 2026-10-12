@@ -1,5 +1,7 @@
+import { execFile } from 'node:child_process'
 import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { promisify } from 'node:util'
 import type { PowerState } from '@shared/types'
 
 /**
@@ -21,6 +23,12 @@ import type { PowerState } from '@shared/types'
 export type { PowerState }
 
 export const UNKNOWN = 'unknown'
+
+/** Armada's own report, which names the profile in force. See `readArmadaStatus`. */
+const ARMADA_STATUS = ['armada-power', 'status'] as const
+
+/** How long `armada-power status` is given before the answer is unknown. */
+export const STATUS_TIMEOUT_MS = 3_000
 
 /** The prime cluster, the one whose cap Armada's profiles move. */
 const CPU_POLICY = 'sys/devices/system/cpu/cpufreq/policy7'
@@ -137,6 +145,23 @@ export function parsePerfState(text: string | null): string {
   return entries.length > shown.length ? `${shown.join(' ')} …` : shown.join(' ')
 }
 
+/**
+ * The profile `armada-power status` names, or `unknown`.
+ *
+ * Its `key=value` lines come from the daemon that switched the profile, so
+ * when it answers it is the authority `profileInForce` can only infer. Only a
+ * plain word is taken: the value reaches published summaries.
+ */
+export function parseArmadaStatus(text: string | null): string {
+  for (const line of (text ?? '').split('\n')) {
+    const at = line.indexOf('=')
+    if (at < 0 || line.slice(0, at).trim() !== 'profile') continue
+    const value = line.slice(at + 1).trim()
+    return /^[A-Za-z][A-Za-z0-9_-]{0,31}$/.test(value) ? value : UNKNOWN
+  }
+  return UNKNOWN
+}
+
 /** The devfreq device that is the GPU: Adreno's is named after its address and `.gpu`. */
 export function gpuDevice(names: readonly string[]): string | null {
   return names.toSorted().find((name) => /(^|[.-])gpu$/i.test(name)) ?? null
@@ -152,11 +177,14 @@ export interface PowerFiles {
   gpuMax: string | null
   profileConf: string | null
   perfState: string | null
+  /** `armada-power status`'s output, when it was asked. */
+  armadaStatus?: string | null
 }
 
 export function powerState(files: PowerFiles): PowerState {
   const cpuGovernor = parseWord(files.cpuGovernor)
   const cpuMaxKHz = parseNumber(files.cpuMax)
+  const said = parseArmadaStatus(files.armadaStatus ?? null)
   return {
     cpuGovernor,
     cpuCurKHz: parseNumber(files.cpuCur),
@@ -164,7 +192,7 @@ export function powerState(files: PowerFiles): PowerState {
     gpuGovernor: parseWord(files.gpuGovernor),
     gpuCurHz: parseNumber(files.gpuCur),
     gpuMaxHz: parseNumber(files.gpuMax),
-    profile: profileInForce(files.profileConf, cpuGovernor, cpuMaxKHz),
+    profile: said !== UNKNOWN ? said : profileInForce(files.profileConf, cpuGovernor, cpuMaxKHz),
     defaultProfile: parseDefaultProfile(files.profileConf),
     perf: parsePerfState(files.perfState)
   }
@@ -178,8 +206,37 @@ async function readText(path: string): Promise<string | null> {
   }
 }
 
+const execFileAsync = promisify(execFile)
+
+/**
+ * `armada-power status`, or null where there is none or it does not answer.
+ * A read over D-Bus that needs no root (docs/DEVICE-FACTS.md), but a process
+ * all the same, which is why only callers that can afford one ask for it.
+ */
+export async function readArmadaStatus(): Promise<string | null> {
+  const [cmd, ...args] = ARMADA_STATUS
+  try {
+    const { stdout } = await execFileAsync(cmd, args, { timeout: STATUS_TIMEOUT_MS })
+    return stdout
+  } catch {
+    return null
+  }
+}
+
+export interface PowerReadOptions {
+  /**
+   * Armada's own report, to name the profile rather than infer it. Left out
+   * by the overlay, which reads this every few frames and must not start a
+   * process each time.
+   */
+  status?: () => Promise<string | null>
+}
+
 /** The power state as this machine's files show it. `root` is for tests. */
-export async function readPowerState(root = '/'): Promise<PowerState> {
+export async function readPowerState(
+  root = '/',
+  options: PowerReadOptions = {}
+): Promise<PowerState> {
   const cpu = join(root, CPU_POLICY)
   const devices = await readdir(join(root, DEVFREQ)).catch(() => [] as string[])
   const gpu = gpuDevice(devices)
@@ -198,6 +255,7 @@ export async function readPowerState(root = '/'): Promise<PowerState> {
     gpuCur: await gpuFile('cur_freq'),
     gpuMax: await gpuFile('max_freq'),
     profileConf,
-    perfState: await readText(join(root, PERF_STATE))
+    perfState: await readText(join(root, PERF_STATE)),
+    armadaStatus: options.status ? await options.status().catch(() => null) : null
   })
 }

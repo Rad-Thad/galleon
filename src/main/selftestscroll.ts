@@ -4,6 +4,7 @@ import type { WebContents } from 'electron'
 import { jankyThresholdMs, percentile } from '@shared/frames'
 import type { PowerState, RommPlatform } from '@shared/types'
 import { log } from './log.ts'
+import { UNKNOWN } from './powerstate.ts'
 import type { CheckResult, Scenario } from './selftest.ts'
 
 /**
@@ -258,6 +259,12 @@ export interface ScrollScenarioDeps {
   /** The page to scroll in. */
   scroll: (platformId: number, signal: AbortSignal) => Promise<ScrollRun | null>
   power: () => Promise<PowerState>
+  /**
+   * The clocks read while the grid scrolls; `power` when left out. Lighter
+   * than `power` where that starts a process, which would cost frames in the
+   * very measurement it labels.
+   */
+  sample?: () => Promise<PowerState>
   askForProfile: (profile: string, signal: AbortSignal) => Promise<ProfileAnswer>
   displayHz: () => number
   sampleMs?: number
@@ -265,7 +272,10 @@ export interface ScrollScenarioDeps {
 
 /** The power state read during a scroll, summed up for the summary. */
 export function powerMetrics(samples: readonly PowerState[]): CheckResult['metrics'] {
-  const profiles = new Set(samples.map((s) => s.profile.toLowerCase()))
+  // A sample that could not tell is not a different profile.
+  const profiles = new Set(
+    samples.map((s) => s.profile.toLowerCase()).filter((profile) => profile !== UNKNOWN)
+  )
   const governors = new Set(samples.map((s) => s.cpuGovernor))
   const most = (values: (number | null)[]): number | null => {
     const known = values.filter((v): v is number => v !== null)
@@ -324,14 +334,16 @@ async function measure(
   signal: AbortSignal
 ): Promise<CheckResult> {
   const samples: PowerState[] = []
-  const sample = (): void => {
-    void deps.power().then(
+  const sample = (read = deps.sample ?? deps.power): void => {
+    void read().then(
       (state) => samples.push(state),
       () => undefined
     )
   }
-  sample()
-  const sampler = setInterval(sample, deps.sampleMs ?? SAMPLE_MS)
+  // The first with `power`, before anything is timed, so the profile is
+  // named by the best source there is.
+  sample(deps.power)
+  const sampler = setInterval(() => sample(), deps.sampleMs ?? SAMPLE_MS)
   let run: ScrollRun | null
   try {
     run = await deps.scroll(platformId, signal)
