@@ -169,12 +169,6 @@ describe('planSandbox', () => {
     ['an emulator without a recipe', withRecipe(undefined), BINARY, 'no-recipe'],
     ['a recipe that declines the context', withRecipe(() => null), BINARY, 'no-recipe'],
     [
-      'a flatpak install',
-      withRecipe(() => EMPTY),
-      { kind: 'flatpak', ref: 'org.example.Emu' },
-      'flatpak-install'
-    ],
-    [
       'a scripts install',
       withRecipe(() => EMPTY),
       { kind: 'scripts', ref: '/home/owner/Emulation/tools/launchers' },
@@ -204,6 +198,60 @@ describe('planSandbox', () => {
       assert.deepEqual(plan(descriptor, install), { kind: 'skip', reason: CANNOT_SANDBOX, detail })
     })
   }
+
+  describe('a flatpak', () => {
+    const FLATPAK: ResolvedInstall = { kind: 'flatpak', ref: 'org.example.Emu' }
+    const descriptor = withRecipe(
+      () => ({ args: ['--recipe'], env: { FROM_RECIPE: '1' }, files: [] }),
+      {
+        env: { FROM_DESCRIPTOR: '1' }
+      }
+    )
+
+    test('runs through flatpak with the sandbox writable and the game read-only', () => {
+      const result = plan(descriptor, FLATPAK)
+      assert.equal(result.kind, 'run')
+      if (result.kind !== 'run') return
+      const appAt = result.argv.indexOf('org.example.Emu')
+      assert.deepEqual(result.argv.slice(0, 4), [
+        'flatpak',
+        'run',
+        `--filesystem=${result.folders.root}`,
+        '--filesystem=/payload:ro'
+      ])
+      assert.deepEqual(result.argv.slice(appAt + 1), ['--recipe', '/payload/game.sfc'])
+      for (const option of result.argv.slice(2, appAt)) {
+        assert.match(option, /^--(filesystem|env)=/)
+        assert.ok(!option.startsWith('--filesystem=') || !option.includes(OWNER.home), option)
+      }
+    })
+
+    test('passes every variable, XDG roots last, through --env before the app id', () => {
+      const result = plan(descriptor, FLATPAK)
+      assert.equal(result.kind, 'run')
+      if (result.kind !== 'run') return
+      const appAt = result.argv.indexOf('org.example.Emu')
+      const passed = result.argv
+        .slice(0, appAt)
+        .filter((option) => option.startsWith('--env='))
+        .map((option) => option.slice('--env='.length))
+      assert.deepEqual(passed, [
+        'FROM_DESCRIPTOR=1',
+        'FROM_RECIPE=1',
+        `XDG_CONFIG_HOME=${result.folders.config}`,
+        `XDG_DATA_HOME=${result.folders.data}`,
+        `XDG_STATE_HOME=${join(result.folders.root, 'state')}`,
+        `XDG_CACHE_HOME=${join(result.folders.root, 'cache')}`
+      ])
+    })
+
+    test("leaves the flatpak command its own environment, where the owner's installs are", () => {
+      const result = plan(descriptor, FLATPAK)
+      assert.equal(result.kind, 'run')
+      if (result.kind !== 'run') return
+      assert.deepEqual(result.env, {})
+    })
+  })
 
   test('skips a system the emulator cannot run', () => {
     assert.deepEqual(
@@ -323,13 +371,26 @@ describe("RetroArch's recipe", () => {
     }
   })
 
-  test('is not started for a system with no core, nor as a flatpak', () => {
+  test('is not started for a system with no core', () => {
     assert.deepEqual(retroPlan('switch'), {
       kind: 'skip',
       reason: CANNOT_SANDBOX,
       detail: 'no-recipe'
     })
-    assert.equal(retroPlan('snes', { kind: 'flatpak', ref: 'org.libretro.RetroArch' }).kind, 'skip')
+  })
+
+  test('as a flatpak, starts on the same configs, inside flatpak run', () => {
+    const result = retroPlan('snes', { kind: 'flatpak', ref: 'org.libretro.RetroArch' })
+    assert.equal(result.kind, 'run')
+    if (result.kind !== 'run') return
+    const appAt = result.argv.indexOf('org.libretro.RetroArch')
+    assert.deepEqual(result.argv.slice(appAt + 1, appAt + 5), [
+      '--config',
+      join(result.folders.root, 'config', 'retroarch', 'retroarch.cfg'),
+      '--appendconfig',
+      join(result.folders.root, 'retroarch-sandbox.cfg')
+    ])
+    assert.ok(result.argv.includes(`--filesystem=${result.folders.root}`))
   })
 })
 

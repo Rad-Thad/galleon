@@ -1786,3 +1786,24 @@ Lines the tooling reads (exact forms):
 - CI: the first two x64 runs failed on this PR's paperwork, not its code: this entry first carried a time later than the run (`features-check`), then the body had no `Feature:` line (`pr-body`). Both fixed; the wall time is recorded in the next entry (this entry rides the PR).
 - Evaluator: see the PR.
 - Device / acceptance: none yet; nothing starts an emulator in the self-test yet. Next: flatpaks (5d), then Eden and shadPS4 (portable `user` folders to rule out first).
+
+## 2026-10-12 11:52 UTC session 01JYonW2Y3SeXmqbCVr1BU3J (hourly heartbeat, second unit)
+
+- Device results: unchanged since the entry above. Part 5c, PR #171, merged at 2bbc78c; its CI wall time was x64 6:17, arm64 1:03.
+- Worked on: M0-21 part 5d (tracking issue #155): flatpak installs in the sandbox (acceptance line 4, "flatpaks through `flatpak run --env=... --filesystem=<test home>`").
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - `src/main/selftestsandbox.ts`: `planSandbox` no longer skips a flatpak. `flatpakPrefix` builds `flatpak run --filesystem=<sandbox> --filesystem=<game folder>:ro --env=...` and then the app id. The descriptor's env, the recipe's env and then the XDG roots cross only through `--env`.
+  - The plan's own env is empty for a flatpak. The `flatpak` command reads the XDG roots to find per-user installations, and pointing them into the sandbox would hide the owner's.
+  - RetroArch's recipe now plans for its flatpak too (the Nova's install, G0-7): `--config` and `--appendconfig` follow the app id. DuckStation still declines anything but its AppImage.
+  - TESTING.md's sandbox bullet describes the flatpak start.
+  - Tests: `src/main/selftestsandbox.test.ts` 31/31:
+    - flatpak argv: the sandbox is writable, the game folder read-only, and no owner path is exposed;
+    - `--env` order, with the XDG roots last;
+    - the empty spawn env;
+    - RetroArch as a flatpak.
+  - `scripts/agent/check.sh` green.
+- Open for the part that wires the planner into a launch check: a flatpak cannot follow the BIOS links in `bios/` to the owner's folder unless that folder is exposed `:ro`. Planning does not know it, and RetroArch's SNES payload needs no BIOS.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none yet; nothing starts an emulator in the self-test yet.
