@@ -1850,3 +1850,17 @@ Lines the tooling reads (exact forms):
 - Device / acceptance: none.
 - Next: M2-08 part 2b: per-system default emulators in `src/config/` from SYSTEM-CHOICES.md, and the per-system choice in Settings. Issue #110 is closed with this PR.
 - Notes: for M0-21, a device-test sandbox for ARMSX2, Dolphin or Flycast must start from a copy of the owner's settings, never an empty one (ADR 0005, consequences).
+
+## 2026-10-12 13:48 UTC session 01XZpRLRqcufL6c6tgU8X2nk (hourly heartbeat, second unit)
+
+- Device results: unchanged since the entry above. Part 2a, PR #175, merged at 7f8e113; its CI wall time was x64 5:50, arm64 0:33. Issue #110 closed as adopted.
+- Worked on: M2-08 part 2b-1 (tracking issue #111): the default emulator per system follows ADR 0005, for the systems whose chosen emulator Galleon can already drive.
+- Result: PR (this one). M2-08 stays false.
+- Evidence:
+  - `src/config/emulators/index.ts`: `SYSTEM_DEFAULTS` names RetroArch for `snes`, `snesna`, `gba` and `psx` (whose core is already `swanstation` in `systems.ts`). `emulatorsForSystem` lists it first, so `defaultEmulatorFor`, Settings' platform list and the install wizard show it. `resolveEmulator` prefers it, when installed, over the ranking whenever nothing is chosen for the system. A recorded choice still wins, so each system stays changeable in Settings' platform list.
+  - Tests: `src/config/emulators/registry.test.ts` 63/63. New: the default listed first with or without a ranking; the defaults are the ADR's and each emulator runs its system; the default beats the ranking but not a choice; an uninstalled default falls back to the ranking. RomMix's ranking tests now use `nes`, which has no default.
+  - `scripts/agent/check.sh` green; `npm run test:app` 239/239 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root).
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none.
+- Next: PSP, PS2, GameCube, Wii and Dreamcast join `SYSTEM_DEFAULTS` with their descriptors (M1-03 to M1-06, after M0-22). The ARMSX2, Dolphin and Flycast setting changes go with them (ADR 0005, decision 2). Then M2-08 can pass.
