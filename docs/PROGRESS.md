@@ -1865,7 +1865,7 @@ Lines the tooling reads (exact forms):
 - Device / acceptance: none.
 - Next: PSP, PS2, GameCube, Wii and Dreamcast join `SYSTEM_DEFAULTS` with their descriptors (M1-03 to M1-06, after M0-22). The ARMSX2, Dolphin and Flycast setting changes go with them (ADR 0005, decision 2). Then M2-08 can pass.
 
-## 2026-10-12 14:45 UTC session 01LwGckt1Kz8qHK8zoRirWxz (hourly heartbeat)
+## 2026-10-12 14:33 UTC session 01LwGckt1Kz8qHK8zoRirWxz (hourly heartbeat)
 
 - Device results: one new, the minimal harness again; nothing flips, no safety failures. Part 2b-1 of M2-08, PR #176, merged at 47042b9.
   - DEVICE-RESULTS 7f8e113 complete
@@ -1878,5 +1878,5 @@ Lines the tooling reads (exact forms):
   - `docs/TESTING.md`: the sandbox bullet names the unreadable install.
   - `scripts/agent/check.sh` green.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS.
 - Device / acceptance: none; no launch scenario calls `planSandbox` yet.
