@@ -71,7 +71,7 @@ const FOLDER_OVERRIDES = [
  * keeps saves and states out of the game's folder, and turns off saving the
  * config on exit so the sandbox's file stays what was written. Cores are the
  * owner's, read where RetroArch would load them from; without a core for the
- * system there is nothing to start. A folder variable inherited from the
+ * system, or without its file, there is nothing to start. A folder variable inherited from the
  * session would win over the appended config, so none reaches it.
  */
 function sandboxRecipe(ctx: SandboxContext): SandboxRecipe | null {
@@ -108,6 +108,7 @@ function sandboxRecipe(ctx: SandboxContext): SandboxRecipe | null {
     ],
     env: {},
     unset: FOLDER_OVERRIDES,
+    needs: [joinPath(core.dir, core.fileName)],
     files: [
       { path: 'config/retroarch/retroarch.cfg', content: '' },
       { path: SANDBOX_APPEND, content: append }

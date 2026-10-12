@@ -457,6 +457,12 @@ export interface SandboxRecipe {
    * are never removed.
    */
   readonly unset: readonly string[]
+  /**
+   * Files of the owner's the emulator cannot start without, such as
+   * RetroArch's core: a start without one fails for a reason the launch check
+   * did not set out to test, so it is skipped instead.
+   */
+  readonly needs: readonly string[]
   /** Written whole before the start; `path` is relative to `folders.root`. */
   readonly files: readonly { readonly path: string; readonly content: string }[]
 }

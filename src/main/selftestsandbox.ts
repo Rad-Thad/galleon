@@ -68,7 +68,7 @@ export interface SandboxRequest {
   owner: SandboxContext['owner']
   /**
    * A path with every link followed, or null when it cannot be read; see
-   * `resolveLinks`. A parameter so the plan stays checkable without a disk.
+   * `resolveLinks`. Also how the recipe's `needs` are found. A parameter so the plan stays checkable without a disk.
    */
   realPath: (path: string) => string | null
 }
@@ -149,6 +149,8 @@ export function planSandbox(request: SandboxRequest): SandboxPlan {
     content: file.content
   }))
   if (files.some((file) => !inside(folders.root, file.path))) return skip('file-outside-sandbox')
+  if (recipe.needs.some((path) => request.realPath(path) === null))
+    return skip('needed-file-missing')
 
   const argv = descriptor.launch({
     exec: [...execPrefix(install), ...recipe.args],
