@@ -1,0 +1,25 @@
+{
+  "checks": [
+    {
+      "evidence": [
+        "logs/harness.log",
+        "logs/power-facts.txt"
+      ],
+      "id": "harness.run",
+      "metrics": {},
+      "reason": null,
+      "result": "pass",
+      "thresholds": {}
+    }
+  ],
+  "finishedAt": "2026-10-12T03:09:04Z",
+  "notes": [
+    "minimal harness: only harness.run until M0-22"
+  ],
+  "reason": null,
+  "schema": 1,
+  "sha": "ab3b9ffaba6409b4173df85d7ede429a539869b1",
+  "startedAt": "2026-10-12T03:09:04Z",
+  "status": "complete",
+  "version": "0.20.0"
+}
