@@ -1603,10 +1603,10 @@ Lines the tooling reads (exact forms):
   - New `src/main/selfteststartup.ts`:
     - `watchHome` starts as soon as the self-test's window exists. A probe in the page resolves with the time of the first animation frame on which Home is up, has no spinner and holds the highlight (the marks test:app's `atHome` waits on), or null after `HOME_TIMEOUT_MS`. So the time does not depend on where the request lists the check.
     - `startupStart`: from `GALLEON_STARTED_AT_MS` when run.sh sets it (wrapper start, AppImage mount included), else from the process's own start. A value that is not a time before the process started is ignored. `measuredFrom` says which.
-    - `startupScenario`: pass at or under `STARTUP_MS`, else `over-threshold`. Over it on a known profile other than Performance is `skip` / `not-on-performance`, since the threshold is stated for Performance. Home never reached is `home-not-reached`. Metrics: `startupMs`, `measuredFrom`, `profileObserved`, `cpuGovernor`. An abort ends the wait.
+    - `startupScenario`: pass under `STARTUP_MS`, else `over-threshold`. At or over it on a known profile other than Performance is `skip` / `not-on-performance`, since the threshold is stated for Performance. Home never reached is `home-not-reached`. Metrics: `startupMs`, `measuredFrom`, `profileObserved`, `cpuGovernor`. An abort ends the wait. `watchHome` also gives up from the main side after `HOME_TIMEOUT_MS`, so a page that never draws cannot hang the run (evaluator note).
   - `RomMixApp.createWindow` returns the window; `index.ts` registers the scenario.
   - TESTING.md's request section documents `GALLEON_STARTED_AT_MS` and the skip.
-  - Tests: `src/main/selfteststartup.test.ts` 11/11. `test/app/selftest.test.ts` 5/5; new: signed in to the fake RomM, the built app answers `startup.cold` (625 ms on the VM, `measuredFrom: process`) and the run is `complete`. The not-implemented example is now `grid.scroll`.
+  - Tests: `src/main/selfteststartup.test.ts` 12/12. `test/app/selftest.test.ts` 5/5; new: signed in to the fake RomM, the built app answers `startup.cold` (625 ms on the VM, `measuredFrom: process`) and the run is `complete`. The not-implemented example is now `grid.scroll`.
   - `scripts/agent/check.sh` green.
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Evaluator: see the PR.

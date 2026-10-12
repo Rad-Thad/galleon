@@ -85,13 +85,22 @@ export function watchHome(
   contents: Pick<WebContents, 'executeJavaScript'>,
   timeoutMs = HOME_TIMEOUT_MS
 ): Promise<number | null> {
-  return contents.executeJavaScript(homeProbe(timeoutMs), true).then(
+  const probed = contents.executeJavaScript(homeProbe(timeoutMs), true).then(
     (at: unknown) => (typeof at === 'number' && Number.isFinite(at) ? at : null),
     (cause: unknown) => {
       log.warn('selftest', 'watching for home failed', { cause })
       return null
     }
   )
+  // The probe's own timeout runs only while the page draws frames; a window
+  // that never shows, or a renderer that stopped, would leave it waiting, and
+  // the runner checks its budget only between scenarios.
+  let timer: NodeJS.Timeout | undefined
+  const gaveUp = new Promise<null>((resolve) => {
+    timer = setTimeout(() => resolve(null), timeoutMs)
+    timer.unref()
+  })
+  return Promise.race([probed, gaveUp]).finally(() => clearTimeout(timer))
 }
 
 export interface StartupOptions {
@@ -128,7 +137,7 @@ export function startupScenario(options: StartupOptions): Scenario {
     }
     const startupMs = Math.max(0, Math.round(reached - options.start.at))
     metrics.startupMs = startupMs
-    if (startupMs <= STARTUP_MS) return result('pass', null, metrics)
+    if (startupMs < STARTUP_MS) return result('pass', null, metrics)
     // The threshold is stated for Performance. A slow start on a profile known
     // to be another one says nothing about it either way.
     const profile = power?.profile.toLowerCase() ?? 'unknown'

@@ -73,13 +73,13 @@ describe('startupStart', () => {
 })
 
 describe('startupScenario', () => {
-  test('passes at or under the threshold, with the time and what it was measured under', async () => {
-    const check = await run(1_000 + STARTUP_MS)
+  test('passes under the threshold, with the time and what it was measured under', async () => {
+    const check = await run(1_000 + STARTUP_MS - 1)
     assert.equal(check.id, STARTUP_CHECK)
     assert.equal(check.result, 'pass')
     assert.equal(check.reason, null)
     assert.deepEqual(check.metrics, {
-      startupMs: STARTUP_MS,
+      startupMs: STARTUP_MS - 1,
       measuredFrom: 'wrapper',
       profileObserved: 'Performance',
       cpuGovernor: 'schedutil'
@@ -87,9 +87,9 @@ describe('startupScenario', () => {
     assert.deepEqual(check.thresholds, { startupMs: STARTUP_MS })
   })
 
-  test('fails over the threshold on Performance, or when the profile is unknown', async () => {
+  test('fails at or over the threshold on Performance, or when the profile is unknown', async () => {
     for (const profile of ['Performance', 'unknown']) {
-      const check = await run(1_000 + STARTUP_MS + 1, profile)
+      const check = await run(1_000 + STARTUP_MS, profile)
       assert.equal(check.result, 'fail')
       assert.equal(check.reason, 'over-threshold')
     }
@@ -153,6 +153,11 @@ describe('watchHome', () => {
     assert.equal(await watchHome(contents(null) as never), null)
     assert.equal(await watchHome(contents('soon') as never), null)
     assert.equal(scripts[0], homeProbe(HOME_TIMEOUT_MS))
+  })
+
+  test('a page that never draws a frame is Home not reached once the time is up', async () => {
+    const contents = { executeJavaScript: () => new Promise<never>(() => {}) }
+    assert.equal(await watchHome(contents as never, 10), null)
   })
 
   test('a page that went away is Home not reached, not a crash', async () => {
