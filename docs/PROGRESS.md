@@ -1834,3 +1834,19 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Evaluator: FAIL first (the abort button did not stop the download, against rail 3); fixed, then see the PR.
 - Device / acceptance: both of M0-13's device checks now exist as self-test scenarios; they run on the Nova once run.sh starts the app (M0-22). Not READY-FOR-DEVICE until then.
+
+## 2026-10-12 13:32 UTC session 01XZpRLRqcufL6c6tgU8X2nk (hourly heartbeat)
+
+- Device results: none new; bridge last seen 2026-10-12T12:03Z (no new nightly). Part 3b of M0-13, PR #174, merged at 969d0fc; its CI wall time was x64 6:20, arm64 0:58.
+- Worked on: M2-08 part 2a (tracking issue #111): the owner answered decision #110 on 2026-10-12, before its safe default's date.
+- Result: PR (this one). M2-08 stays false: the defaults in settings and the per-system choice in Settings are part 2b.
+- Evidence:
+  - `docs/decisions/0005-emulator-per-system.md`: the owner's answer, all as recommended: SNES `snes9x`, GBA `mgba`, PS1 `swanstation` in RetroArch; PPSSPP; ARMSX2 with a folder card; Dolphin with slot A a GCI folder; Dolphin for Wii; Flycast with one VMU per game.
+  - The same ADR records the owner's rule: where a choice needs an emulator setting, change only that key in the Nova's existing settings file, after a backup; never write a fresh or Galleon-only settings file; leave existing memory cards and RetroArch's `config/SwanStation/` files alone.
+  - `docs/save-sync/SYSTEM-CHOICES.md` records the answer per row (acceptance line 2, docs half).
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none.
+- Next: M2-08 part 2b: per-system default emulators in `src/config/` from SYSTEM-CHOICES.md, and the per-system choice in Settings. Issue #110 is closed with this PR.
+- Notes: for M0-21, a device-test sandbox for ARMSX2, Dolphin or Flycast must start from a copy of the owner's settings, never an empty one (ADR 0005, consequences).
