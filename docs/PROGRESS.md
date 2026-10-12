@@ -1590,6 +1590,6 @@ Lines the tooling reads (exact forms):
   - `test/app/server.ts`: a `gba` option adds a Game Boy Advance platform and one game.
   - Tests: `src/main/selftestdownload.test.ts` 12/12; `test/app/selftest.test.ts` 4/4, `npm run test:app` 234/234 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root). The new app test runs `download.small` in the built app against the fake RomM: pass, progress events counted, the content endpoint asked, only GET and HEAD sent, no file of the game left under the home.
   - `scripts/agent/check.sh` green.
-- CI wall time: recorded in the next entry (this entry rides the PR).
+- CI wall time: recorded in the next entry (this entry rides the PR). The first x64 run failed only `pr-body.mjs`: the PR opened without the template's `Feature:` line. The body was fixed, and this note is the push that re-runs the check, since a re-run reads the original body.
 - Evaluator: see the PR.
 - Device / acceptance: none yet; run.sh does not write a request yet. Next: `startup.cold`, `grid.scroll` per profile, screenshots, privacy mode, abort on input, the sandbox, run.sh's request.
