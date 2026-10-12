@@ -2024,3 +2024,19 @@ Lines the tooling reads (exact forms):
 - Evaluator: FAIL, then PASS. The first pass found this entry missing; its note (a child count past the reply's data would reject) is fixed by capping the count.
 - Device / acceptance: none; nothing calls `openDisplay` yet.
 - Next: part 7b, `findWindow` over it: gamescope's root atoms (focused window, window list) else the X11 tree, matched to the started group through `_NET_WM_PID` and `/proc/<pid>/stat`; then wiring `launch.*` / `exit.*` into the scenario map.
+
+## 2026-10-12 19:58 UTC session 01Y2Gq46ojpEwrMX1FdibYcd (hourly heartbeat, second unit)
+
+- Device results: unchanged since the entry above. Part 7a of M0-21, PR #186, merged at f222e50; its CI wall time was x64 6:04, arm64 1:04.
+- Worked on: M0-21 part 7b (tracking issue #155): `findWindow` for the launch cycle, over the X11 client.
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - `src/main/selftestwindows.ts`: `windowFinder(x11)` interns its atoms once (only those that exist), takes the windows from `_NET_CLIENT_LIST`, else the root's children and theirs (a reparenting manager puts the client a level below its frame), and keeps those whose `_NET_WM_PID` is in the started group (`processGroup`, from `/proc/<pid>/stat`, counted past the last `)` of the command name). Focused: the group's window is, or holds, the one `GAMESCOPE_FOCUSED_WINDOW` names, else `_NET_ACTIVE_WINDOW`, else the keyboard focus. Fullscreen: from that window's `_NET_WM_STATE`, null when it has none.
+  - `src/main/x11.ts`: `inputFocus` (GetInputFocus) for that last fallback.
+  - Tests: `src/main/selftestwindows.test.ts` 14/14 (new): gamescope focus and fullscreen; a group window gamescope does not focus; a desktop's client list and active window; no window manager (the tree a level down, the keyboard focus); focus inside the group's window; no or other focus; no group window; no `_NET_WM_PID`; no fullscreen atom; atoms interned once; `processGroup` with brackets and spaces in the command name, the path, a gone process, garbage, its own process. `src/main/x11.test.ts` 22/22 (new: the input focus, and null on an X error).
+  - `docs/TESTING.md`: the launch bullet says how the window list is read.
+  - `scripts/agent/check.sh` green; `selftestwindows.ts` 100% lines.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: PASS. Notes for the wiring: a finder caches atoms that did not exist yet, so make one per launch cycle; against a display that stops answering one poll can take candidates × `REQUEST_TIMEOUT_MS`; a window under gamescope that states `_NET_WM_STATE` without the fullscreen atom reads `fullscreen: false`, so watch the first device run for false `not-fullscreen`.
+- Device / acceptance: none; no scenario calls `launchCycle` yet.
+- Next: wiring `launch.*` / `exit.*` into the scenario map (the real `start`, `signalGroup`, `groupAlive`, `openDisplay` + `windowFinder`, and each installed emulator's payload from the request).
