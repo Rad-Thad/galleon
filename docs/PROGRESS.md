@@ -1554,3 +1554,22 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Evaluator: see the PR.
 - Device / acceptance: none yet. Next: M0-21 part 4, the real scenarios (start-up, grid scroll per profile, screenshots, heartbeat, small download), privacy mode and abort on input. run.sh must then write the request.
+
+## 2026-10-12 03:52 UTC session 01NaksJzKTFT4F1atU7bphfg (hourly heartbeat)
+
+- Device results: none new since ab3b9ff.
+- Worked on: M0-21 part 4a (tracking issue #155): acceptance line 9, the `server.heartbeat` scenario. Part 3, PR #158, merged at aff285b; its CI wall time was x64 6:00, arm64 2:07.
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - New `src/main/selftestserver.ts`, `heartbeatScenario(client)`:
+    - It calls `client.heartbeat()`, then `client.me()`, and passes when both answer.
+    - Metrics: `serverVersion`, `heartbeatMs`, `meMs`. The version is kept only if it looks like one; otherwise it reads `unrecognised`, since the summary is published. Nothing about the account is kept.
+    - A failure is a code (`heartbeat-unreachable`, `heartbeat-unsupported`, `users-me-http-401`, ...). The error's message goes to the log only.
+  - `index.ts` registers it as the first real scenario.
+  - Tests:
+    - `src/main/selftestserver.test.ts` 5/5.
+    - `test/app/selftest.test.ts` 3/3. New: the built app, signed in to the fake RomM, runs `server.heartbeat`, which passes. `selftest.complete` and `safety.server-readonly` pass and the status is `complete`. The fake server saw `/api/heartbeat` and `/api/users/me` and no method other than GET or HEAD. The summary does not contain the server's host.
+    - `seed` in `test/app/driver.ts` is now exported for that test.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none yet; run.sh does not write a request yet. Next: the remaining part 4 pieces (start-up, grid scroll, screenshots, small download, privacy mode, abort on input, sandbox, run.sh's request).

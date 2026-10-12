@@ -4,7 +4,8 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { after, test } from 'node:test'
-import { electronBinary } from './driver.ts'
+import { electronBinary, seed } from './driver.ts'
+import { startFakeRomm } from './server.ts'
 import {
   REQUEST_FILE,
   RUN_CHECKS,
@@ -29,7 +30,10 @@ after(() => {
   for (const home of homes) rmSync(home, { recursive: true, force: true })
 })
 
-async function runWithRequest(request: Record<string, unknown>): Promise<{
+async function runWithRequest(
+  request: Record<string, unknown>,
+  server?: { baseUrl: string; token: string }
+): Promise<{
   code: number | null
   home: string
   results: string
@@ -37,6 +41,7 @@ async function runWithRequest(request: Record<string, unknown>): Promise<{
   const home = mkdtempSync(join(tmpdir(), 'galleon-selftest-app-'))
   homes.push(home)
   const results = join(home, 'results')
+  if (server) seed(home, { baseUrl: server.baseUrl, token: server.token })
   writeFileSync(join(home, REQUEST_FILE), JSON.stringify({ ...request, resultsDir: results }))
   const child = spawn(electronBinary(), ['.'], {
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -103,4 +108,32 @@ test('a request without privacy is refused with an error summary and exit 1', as
   assert.deepEqual(summaryErrors(summary), [])
   assert.equal(summary.status, 'error')
   assert.equal(summary.reason, 'request-not-private')
+})
+
+test('signed in, server.heartbeat reads the server and nothing but reads reach it', async () => {
+  const server = await startFakeRomm()
+  try {
+    const { code, results } = await runWithRequest(
+      { ...REQUEST, checks: [RUN_CHECKS.complete, 'server.heartbeat'] },
+      server
+    )
+    assert.equal(code, 0)
+    const summary = JSON.parse(readFileSync(join(results, SUMMARY_FILE), 'utf8')) as Summary
+    assert.deepEqual(summaryErrors(summary), [])
+    assert.equal(summary.status, 'complete')
+    const checks = new Map(summary.checks.map((c) => [c.id, c]))
+    assert.equal(checks.get('server.heartbeat')?.result, 'pass')
+    assert.equal(checks.get(RUN_CHECKS.complete)?.result, 'pass')
+    assert.equal(checks.get(RUN_CHECKS.serverReadOnly)?.result, 'pass')
+    const paths = server.asked.map((a) => a.path.split('?')[0])
+    assert.ok(paths.includes('/api/heartbeat'))
+    assert.ok(paths.includes('/api/users/me'))
+    assert.deepEqual(
+      server.asked.filter((a) => a.method !== 'GET' && a.method !== 'HEAD'),
+      []
+    )
+    assert.ok(!JSON.stringify(summary).includes(new URL(server.baseUrl).host))
+  } finally {
+    await server.close()
+  }
 })

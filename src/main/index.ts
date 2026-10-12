@@ -5,6 +5,7 @@ import { log, logSession } from './log.ts'
 import { ensureRoot, profilePath } from './root.ts'
 import { ReadOnlyGuard } from './romm/guard.ts'
 import { reportRefusal, runAndReport, takeRequest } from './selftest.ts'
+import { HEARTBEAT_CHECK, heartbeatScenario } from './selftestserver.ts'
 
 /** RomMix main process bootstrap. */
 
@@ -113,7 +114,7 @@ if (!app.requestSingleInstanceLock()) {
       // harness, not this app, decides what the run may touch.
       const code = await runAndReport({
         request: selfTest.request,
-        scenarios: new Map(),
+        scenarios: new Map([[HEARTBEAT_CHECK, heartbeatScenario(rommix.client)]]),
         guard,
         version: app.getVersion()
       })
