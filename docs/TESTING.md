@@ -146,7 +146,7 @@ Adding a check: add it here, to the self-test or `run.sh`, and to the feature's 
   "readOnlyServer": true,
   "privacy": true,
   "abortOnInput": true,
-  "screenshots": ["home", "library", "game", "downloads", "settings"]
+  "screenshots": ["settings", "bios", "emulators"]
 }
 ```
 
@@ -160,6 +160,7 @@ The app refuses a request without `readOnlyServer: true` and `privacy: true`, an
 - With `abortOnInput`, any controller button held down, or a stick moved from where it first rested, stops the run within a second: running checks end, unrun ones are `skip` / `aborted-by-user`, the summary's status is `aborted-by-user`, and the app exits 0 once it is written. The app watches through the page's Gamepad API, never OS input.
 - `grid.scroll` scrolls the library's largest platform (at least `MIN_GAMES` games; fewer is `skip` / `no-large-platform`) for `SCROLL_MS` per profile, holding Down and turning back at either end, driven in the page through the keyboard path the focus engine answers (never the Gamepad API, which the abort watches). It answers `grid.scroll@<profile>` for each name in `profiles`, or plain `grid.scroll` held to Performance's thresholds when `profiles` is empty. Metrics: `frames`, `p50Ms`, `p95Ms`, `p99Ms`, `droppedPct` (frames over 1.5 display intervals), `displayHz`, `visited`, `platform` (slug), `games`, and from the clocks read during the scroll `profileObserved`, `governor`, `policy7MaxKHz`, `gpuMHz`. See `src/main/selftestscroll.ts`.
 - Profile handshake: to measure a profile not in force, the app writes the profile's name into `handshakeDir/want-profile` (whole, by a rename) and polls `handshakeDir/profile-set`; run.sh switches with `armada-power profile <name>` and writes `profile-set` with the name, or `unchanged:<current>`. The app removes both files once answered or after `PROFILE_WAIT_MS`. A profile still not in force afterwards is `skip` / `profile-not-set`, with `profileObserved` and `profileAnswer`; the numbers are never filed under a profile they were not taken on. Restoring the owner's profile is run.sh's (PLAN.md section 5.3, step 11).
+- `screenshots` names screens by their menu route. After the last check, each is opened from the menu bar, allowed to settle, and captured with `capturePage` into `resultsDir/shots/<screen>.png`; the paths are `selftest.complete`'s evidence, with metrics `screenshots`, `screenshotsMissing` and `screenshotsWithheld`. A screen that is not reached within `SCREEN_TIMEOUT_MS`, fails to capture or is unknown is missing: named in `notes` as `screenshot <screen>:<code>` and `selftest.complete` fails with `screenshots-missing`. Screens that draw the library (`home`, `library`, `collections`, `downloads`, `game`) are never captured, since on the Nova that library is the owner's; they count as withheld, not missing. See `src/main/selftestshots.ts`.
 - `startup.cold` is timed from `GALLEON_STARTED_AT_MS` (milliseconds since the epoch) when run.sh sets it in the app's environment just before starting the AppImage, else from the app process's own start; the check's `measuredFrom` metric says which. The end is the first frame on which Home is interactive. A time at or over the threshold on a profile other than Performance is `skip` with reason `not-on-performance`.
 
 ## `summary.json` (written to `RESULTS_DIR`)

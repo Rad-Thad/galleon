@@ -60,6 +60,7 @@ const ALLOWED: Record<string, string> = {
   'main/root.ts': 'moving the app root',
   'main/selftest.ts': 'the taken self-test request and the summary in the results folder',
   'main/selftestscroll.ts': "the profile handshake files in the request's handshake folder",
+  'main/selftestshots.ts': "the screenshots in the request's results folder",
   'main/store.ts': 'the settings file',
   'main/update.ts': 'the downloaded AppImage',
   'main/zip.ts': 'a staging folder or archive the caller names'
