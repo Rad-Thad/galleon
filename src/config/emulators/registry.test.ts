@@ -10,6 +10,7 @@ import {
   EMULATORS,
   EMUDECK_LAUNCHERS,
   SAVE_CONVENTIONS,
+  SYSTEM_DEFAULTS,
   defaultEmulatorFor,
   emulatorById,
   emulatorsForSystem,
@@ -55,7 +56,8 @@ const FIELD_ORDER = [
   'setupNotes',
   'env',
   'open',
-  'launch'
+  'launch',
+  'sandbox'
 ] as const
 
 /**
@@ -120,9 +122,31 @@ test('emulatorsForSystem narrows to the ones that can run it', () => {
     ['emudeck', 'eden']
   )
   assert.deepEqual(
-    emulatorsForSystem('snes').map((emulator) => emulator.id),
+    emulatorsForSystem('nes').map((emulator) => emulator.id),
     ['retrodeck', 'emudeck', 'retroarch']
   )
+})
+
+test('a system with a default lists that emulator first, then the ranking', () => {
+  assert.deepEqual(
+    emulatorsForSystem('psx').map((emulator) => emulator.id),
+    ['retroarch', 'retrodeck', 'emudeck', 'duckstation']
+  )
+  assert.deepEqual(
+    emulatorsForSystem('psx', ['duckstation', 'retrodeck']).map((emulator) => emulator.id),
+    ['retroarch', 'duckstation', 'retrodeck', 'emudeck']
+  )
+})
+
+test('the defaults are the save choices ADR 0005 records', () => {
+  for (const system of ['snes', 'snesna', 'gba', 'psx']) {
+    assert.equal(defaultEmulatorFor(system), 'retroarch', system)
+    assert.equal(defaultEmulatorFor(system, ['retrodeck', 'emudeck']), 'retroarch', system)
+  }
+  for (const [system, id] of Object.entries(SYSTEM_DEFAULTS)) {
+    const descriptor = emulatorById(id)
+    assert.ok(descriptor && supportsSystem(descriptor, system), `${system} -> ${id}`)
+  }
 })
 
 test('unknown ids resolve to null rather than throwing', () => {
@@ -130,7 +154,7 @@ test('unknown ids resolve to null rather than throwing', () => {
 })
 
 test('defaults follow registry order and do not depend on what is installed', () => {
-  assert.equal(defaultEmulatorFor('snes'), 'retrodeck')
+  assert.equal(defaultEmulatorFor('nes'), 'retrodeck')
   // EmuDeck comes before Eden: it manages a whole setup, so where it covers a
   // system it already encodes how the user wants that system run.
   assert.equal(defaultEmulatorFor('switch'), 'emudeck')
@@ -139,12 +163,23 @@ test('defaults follow registry order and do not depend on what is installed', ()
 
 test('with nothing chosen, the first available emulator for the system wins', () => {
   const states = [state('retrodeck', true), state('retroarch', true)]
-  assert.equal(resolveEmulator(states, 'snes')?.id, 'retrodeck')
+  assert.equal(resolveEmulator(states, 'nes')?.id, 'retrodeck')
+})
+
+test('with nothing chosen, the system default wins over the ranking when installed', () => {
+  const states = [state('retrodeck', true), state('duckstation', true), state('retroarch', true)]
+  assert.equal(resolveEmulator(states, 'psx')?.id, 'retroarch')
+  assert.equal(resolveEmulator(states, 'psx', { psx: 'duckstation' })?.id, 'duckstation')
+})
+
+test('an uninstalled system default degrades to the ranking', () => {
+  const states = [state('retrodeck', false), state('duckstation', true), state('retroarch', false)]
+  assert.equal(resolveEmulator(states, 'psx')?.id, 'duckstation')
 })
 
 test('an uninstalled default degrades to one that is installed', () => {
   const states = [state('retrodeck', false), state('retroarch', true)]
-  assert.equal(resolveEmulator(states, 'snes')?.id, 'retroarch')
+  assert.equal(resolveEmulator(states, 'nes')?.id, 'retroarch')
 })
 
 test('a chosen emulator beats the default', () => {

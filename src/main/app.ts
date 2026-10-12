@@ -15,6 +15,8 @@ import { log } from './log.ts'
 import { contentTypeOf, OfflineCache, rememberInstalledGames } from './offline.ts'
 import { runMigrations } from './migrations.ts'
 import { RommClient } from './romm/index.ts'
+import type { ReadOnlyGuard } from './romm/guard.ts'
+import { Privacy } from './privacy.ts'
 import { SaveSync } from './saves.ts'
 import { rootPaths } from './root.ts'
 import { Store } from './store.ts'
@@ -102,6 +104,8 @@ export class RomMixApp {
   private window: BrowserWindow | null = null
   /** The pass in progress, so a second trigger joins it. See `catchUp`. */
   private catchingUp: Promise<void> | null = null
+  /** Set only by the device self-test. See `readOnly`. */
+  private catchUpHeld = false
 
   constructor() {
     // Before anything can have something to say: the store is the only place
@@ -152,6 +156,35 @@ export class RomMixApp {
     return this.shuttingDown
   }
 
+  /**
+   * Let only reads reach the server from now on. See `ReadOnlyGuard`.
+   *
+   * The catch-up is held back rather than left to the guard: its whole job is
+   * sending saves, play sessions and migrations up, so under the guard each of
+   * those would be refused, counted as a write attempt, and queued again for
+   * the next reconnection.
+   */
+  readOnly(guard: ReadOnlyGuard): void {
+    this.client.readOnly(guard)
+    this.catchUpHeld = true
+  }
+
+  /**
+   * Hide the server and the account from everything the page is given from
+   * now on. See `Privacy`.
+   */
+  hideIdentity(): void {
+    this.privacy = new Privacy(() => this.store.server)
+  }
+
+  /** What the page may be given of a value: all of it, unless `hideIdentity` was called. */
+  shown<T>(value: T): T {
+    return this.privacy ? this.privacy.hide(value) : value
+  }
+
+  /** Set only by the device self-test. See `hideIdentity`. */
+  private privacy: Privacy | null = null
+
   /** The shutdown in progress, so a second exit joins it. See `shutdown`. */
   private shuttingDown: Promise<void> | null = null
 
@@ -164,6 +197,7 @@ export class RomMixApp {
    * first pass is still running joins it rather than starting a second.
    */
   catchUp(): Promise<void> {
+    if (this.catchUpHeld) return Promise.resolve()
     this.catchingUp ??= (async () => {
       // Bracketed, because everything it does is logged by whatever does it and
       // a reader otherwise has to guess which lines belong to the same pass.
@@ -181,6 +215,7 @@ export class RomMixApp {
       )
       await this.rememberServer()
       await this.sendUnsentSaves()
+      await this.launcher.play.send()
       // Last, and after the saves: a queue of games is minutes of bandwidth,
       // and the saves are the part that cannot be fetched again.
       await this.downloads
@@ -490,11 +525,11 @@ export class RomMixApp {
 
   send(channel: string, payload: unknown): void {
     if (this.window && !this.window.isDestroyed()) {
-      this.window.webContents.send(channel, payload)
+      this.window.webContents.send(channel, this.shown(payload))
     }
   }
 
-  createWindow(): void {
+  createWindow(): BrowserWindow {
     const window = new BrowserWindow({
       width: 1280,
       height: 800,
@@ -654,6 +689,7 @@ export class RomMixApp {
     }
 
     this.window = window
+    return window
   }
 
   /**

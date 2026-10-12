@@ -14,6 +14,7 @@ import type {
   RommFirmware,
   RommHeartbeat,
   RommPlaySession,
+  RommPlaySessionEntry,
   RommPlaySessionPayload,
   RommRomUserPayload,
   RommSaveDeletePayload,
@@ -25,16 +26,30 @@ import type {
   RommSave,
   RomUserStatus,
   RommState,
+  RommSyncCompletePayload,
+  RommSyncCompleteResponse,
+  RommSyncNegotiatePayload,
+  RommSyncNegotiateResponse,
+  RommSyncScopedNegotiatePayload,
   RommTokenResponse,
   RommUser,
   RomQuery
 } from '@shared/types'
 import { log } from '../log.ts'
+import { instant } from '../savedecide.ts'
+import { localContentHash } from '../savehash.ts'
 import { t } from '../i18n.ts'
 import type { Store } from '../store.ts'
 import { checksumOf, digestOf, unpackedChecksumOf } from './checksums.ts'
 import { DeviceRegistry } from './devices.ts'
 import { RommError, UnreachableError, UnsupportedServerError } from './errors.ts'
+import type { ReadOnlyGuard } from './guard.ts'
+import {
+  SYNTHETIC_PLATFORM_ID,
+  syntheticPage,
+  syntheticPlatform,
+  syntheticRom
+} from '../selftestlibrary.ts'
 import { atLeast, isComparable, MINIMUM_SERVER_VERSION } from './version.ts'
 import {
   fetchToFile,
@@ -113,6 +128,13 @@ const PLAY_SESSION_PAGE = 50
 const PLAY_SESSION_PAGES = 20
 
 /**
+ * The shortest span reported as play, by either route (`PlayReporter`,
+ * `finishSession`): a launch that fell over at once is not a session, and a
+ * span RomM rounds to nothing is one it refuses outright.
+ */
+export const MIN_PLAY_SECONDS = 5
+
+/**
  * How long any one request that carries an *answer* may take.
  *
  * The runtime's own default is long enough that a server which accepts the
@@ -155,10 +177,13 @@ export function normaliseBaseUrl(input: string): string {
 
 /** How `RommClient.uploadSave` asks RomM to treat the slot it uploads into. */
 export interface UploadSaveOptions {
-  /** Replace whatever the slot holds, even if another device moved it on. */
-  overwrite?: boolean
-  /** Let RomM delete the slot's oldest copies beyond its own limit. */
-  autocleanup?: boolean
+  /**
+   * The player chose this device's save over the server's when resolving a
+   * conflict, so replace what the slot holds even if another device moved it
+   * on. Nothing else may set it, not even an approved push
+   * (docs/save-sync/SPEC.md section 7; `overwrite.allowlist.test.ts`).
+   */
+  keepThisDevice?: boolean
 }
 
 export class RommClient {
@@ -179,8 +204,31 @@ export class RommClient {
    */
   private reachability: ((reachable: boolean, reason?: string) => void) | null = null
 
+  /** Set only by the device self-test. See `readOnly`. */
+  private guard: ReadOnlyGuard | null = null
+
+  /** Set only by the device self-test. See `offerSynthetic`. */
+  private synthetic = false
+
   constructor(private readonly store: Store) {
     this.registry = new DeviceRegistry(store, (path, init) => this.json(path, init))
+  }
+
+  /**
+   * Let only reads reach the server from now on, or every request again with
+   * null. See `ReadOnlyGuard`.
+   */
+  readOnly(guard: ReadOnlyGuard | null): void {
+    this.guard = guard
+  }
+
+  /**
+   * List the self-test's synthetic platform beside the server's and answer for
+   * its games here, without a request. See `selftestlibrary.ts`.
+   */
+  offerSynthetic(): RommPlatform {
+    this.synthetic = true
+    return syntheticPlatform()
   }
 
   /** Watch whether requests are reaching the server. See `reachability`. */
@@ -226,8 +274,12 @@ export class RommClient {
     opts: { baseUrl?: string; retryOn401?: boolean; timeoutMs?: number | null } = {}
   ): Promise<Response> {
     const base = opts.baseUrl ?? this.baseUrl
-    const retryOn401 = opts.retryOn401 ?? true
     const method = init.method ?? 'GET'
+    // Before anything is sent, and before the path is logged, so what the log
+    // records is what was asked. Under the guard a 401 is not followed by a
+    // refresh: refreshing rotates the owner's own refresh token.
+    if (this.guard) path = this.guard.admit(method, path)
+    const retryOn401 = (opts.retryOn401 ?? true) && this.guard === null
     const timeoutMs = opts.timeoutMs === undefined ? REQUEST_TIMEOUT_MS : opts.timeoutMs
     /**
      * The token goes only to the configured server.
@@ -554,8 +606,17 @@ export class RommClient {
     return this.json<RommUser>('/api/users/me')
   }
 
-  platforms(): Promise<RommPlatform[]> {
-    return this.json<RommPlatform[]>('/api/platforms')
+  async platforms(): Promise<RommPlatform[]> {
+    if (!this.synthetic) return this.json<RommPlatform[]>('/api/platforms')
+    // The scroll that asked for it is measuring the grid, not the server, so
+    // a server that does not answer still leaves it something to scroll.
+    const held = await this.json<RommPlatform[]>('/api/platforms').catch((cause: unknown) => {
+      log.info('romm', 'only the synthetic platform is listed', {
+        reason: cause instanceof Error ? cause.message : String(cause)
+      })
+      return []
+    })
+    return [...held, syntheticPlatform()]
   }
 
   collections(): Promise<RommCollection[]> {
@@ -718,6 +779,8 @@ export class RommClient {
   }
 
   roms(query: RomQuery = {}): Promise<RommRomPage> {
+    const synthetic = this.synthetic ? syntheticPage(query) : null
+    if (synthetic) return Promise.resolve(synthetic)
     const params = new URLSearchParams()
     if (query.search_term) params.set('search_term', query.search_term)
     for (const id of query.platform_ids ?? []) params.append('platform_ids', String(id))
@@ -753,6 +816,15 @@ export class RommClient {
   async romCounts(platformIds: number[], searchTerm: string): Promise<Record<number, number>> {
     const queue = [...platformIds]
     const counts: Record<number, number> = {}
+    if (this.synthetic && queue.includes(SYNTHETIC_PLATFORM_ID)) {
+      queue.splice(queue.indexOf(SYNTHETIC_PLATFORM_ID), 1)
+      const page = syntheticPage({
+        platform_ids: [SYNTHETIC_PLATFORM_ID],
+        search_term: searchTerm,
+        limit: 1
+      })
+      if (page?.total != null) counts[SYNTHETIC_PLATFORM_ID] = page.total
+    }
     const ask = async (): Promise<void> => {
       for (let id = queue.shift(); id !== undefined; id = queue.shift()) {
         // Grouped, because the grid this number is a promise about is grouped:
@@ -784,6 +856,8 @@ export class RommClient {
   }
 
   rom(id: number): Promise<RommRom> {
+    const synthetic = this.synthetic ? syntheticRom(id) : null
+    if (synthetic) return Promise.resolve(synthetic)
     return this.json<RommRom>(`/api/roms/${id}`)
   }
 
@@ -1080,11 +1154,25 @@ export class RommClient {
 
   /** The id RomM knows this machine by, or null. See `DeviceRegistry.id`. */
   deviceId(): Promise<string | null> {
+    // Under the guard this machine has no device: finding one could register
+    // it, and naming one makes RomM record what that device has fetched.
+    if (this.guard) return Promise.resolve(null)
     return this.registry.id()
   }
 
   saves(romId: number): Promise<RommSave[]> {
     return this.json<RommSave[]>(`/api/saves?rom_id=${romId}`)
+  }
+
+  /**
+   * One game's saves with each one's sync records, the caller's first.
+   *
+   * A read: naming the device only fills in `device_syncs`, so this is the
+   * pre-launch question that writes nothing (see `savedecide.ts`).
+   */
+  savesForDevice(romId: number, deviceId: string): Promise<RommSave[]> {
+    const params = new URLSearchParams({ rom_id: String(romId), device_id: deviceId })
+    return this.json<RommSave[]>(`/api/saves?${params.toString()}`)
   }
 
   states(romId: number): Promise<RommState[]> {
@@ -1120,12 +1208,75 @@ export class RommClient {
     log.info('romm', 'states deleted on the server', { ids })
   }
 
+  /**
+   * POST /api/sync/negotiate — RomM's own decision for each save it is told of.
+   *
+   * Not a read: the server cancels this device's open sync sessions and opens
+   * a new one, which is why the answer carries a session to complete. What to
+   * send and which operations to act on is `negotiateForGame`'s business.
+   */
+  negotiate(
+    payload: RommSyncNegotiatePayload | RommSyncScopedNegotiatePayload
+  ): Promise<RommSyncNegotiateResponse> {
+    return this.json<RommSyncNegotiateResponse>('/api/sync/negotiate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+  }
+
+  /** POST /api/sync/sessions/{id}/complete — close a negotiate's session. */
+  async completeSyncSession(
+    sessionId: number,
+    payload: RommSyncCompletePayload
+  ): Promise<RommSyncCompleteResponse> {
+    const res = await this.request(`/api/sync/sessions/${sessionId}/complete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    if (!res.ok) throw await this.toError(res)
+    return (await res.json()) as RommSyncCompleteResponse
+  }
+
+  /**
+   * GET /api/saves/{id}/content — the bytes, and nothing recorded yet.
+   *
+   * Under this device and `optimistic=false`: by default RomM records the
+   * device as holding the save the moment the GET starts, which a download
+   * that breaks off or fails its check would leave standing, and the next
+   * negotiate would then trust a save this device does not have
+   * (docs/save-sync/SPEC.md section 6). The record is made by
+   * `confirmSaveDownloaded`, once the save is in place.
+   */
   async downloadSave(
     id: number,
     destination: string,
     onProgress?: (progress: DownloadProgress) => void
   ): Promise<void> {
-    await streamToFile(this.transport, `/api/saves/${id}/content`, destination, onProgress)
+    const deviceId = await this.deviceId()
+    const query = deviceId
+      ? `?${new URLSearchParams({ device_id: deviceId, optimistic: 'false' }).toString()}`
+      : ''
+    await streamToFile(this.transport, `/api/saves/${id}/content${query}`, destination, onProgress)
+  }
+
+  /**
+   * POST /api/saves/{id}/downloaded — tell RomM this device now holds the save.
+   *
+   * Only once the bytes are written where the emulator reads them: it is what
+   * RomM's next decision for this device starts from. Without a device id
+   * there is nothing to record against, so nothing is sent.
+   */
+  async confirmSaveDownloaded(id: number): Promise<void> {
+    const deviceId = await this.deviceId()
+    if (!deviceId) return
+    const res = await this.request(`/api/saves/${id}/downloaded`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device_id: deviceId })
+    })
+    if (!res.ok) throw await this.toError(res)
   }
 
   async downloadState(
@@ -1146,19 +1297,20 @@ export class RommClient {
    * so nothing here has to ask what version it is talking to.
    *
    * A slot is a history and not a file: RomM files each upload into it as a new
-   * copy under a name it stamps with the time, and `overwrite` does not apply
-   * within one. So the cleanup goes with the slot — without it a push after
-   * every session would leave a copy on the server after every session, for
-   * every game, with nothing ever taking one away. How many it keeps is the
-   * server's own default, deliberately not named here: retention belongs to the
-   * machine holding the files, and either way it is more than the single
-   * overwritten copy a slotless upload leaves.
+   * copy under a name it stamps with the time. `autocleanup` is never sent: it
+   * has RomM delete the slot's oldest copies, which is the server deleting
+   * saves because of an upload nobody chose (docs/save-sync/SPEC.md section 8).
+   * An unchanged save adds no copy; RomM returns the one it already holds.
    *
-   * `options` sets both flags apart from that: `overwrite: false` lets RomM
-   * refuse an upload into a slot another device moved on (a 409, see
-   * `RommError.status`), and `autocleanup: false` keeps every copy in the slot.
-   * That is the upload docs/save-sync/SPEC.md (sections 7 and 8) asks for, and
-   * what `npm run test:saves` holds the server to.
+   * `overwrite` is always spelled out, `false` unless `keepThisDevice`: RomM
+   * then refuses an upload into a slot another device moved on (a 409, see
+   * `RommError.status`), which is what lets that device's newer save become a
+   * question rather than a loss. That is the upload docs/save-sync/SPEC.md
+   * (sections 3 and 7) asks for, and what `npm run test:saves` holds the
+   * server to.
+   *
+   * RomM only recognises identical bytes when `overwrite` is false, so the
+   * player's choice is held to the same rule here: see `keptAlready`.
    */
   async uploadSave(
     romId: number,
@@ -1166,14 +1318,18 @@ export class RommClient {
     fileName: string,
     emulator: string | null,
     slot: string | null,
-    { overwrite = true, autocleanup = slot !== null }: UploadSaveOptions = {}
+    { keepThisDevice = false }: UploadSaveOptions = {}
   ): Promise<RommSave> {
-    const params = new URLSearchParams({ rom_id: String(romId), overwrite: String(overwrite) })
-    if (emulator) params.set('emulator', emulator)
-    if (slot) {
-      params.set('slot', slot)
-      if (autocleanup) params.set('autocleanup', 'true')
+    if (keepThisDevice && slot) {
+      const kept = await this.keptAlready(romId, slot, filePath)
+      if (kept) return kept
     }
+    const params = new URLSearchParams({
+      rom_id: String(romId),
+      overwrite: String(keepThisDevice)
+    })
+    if (emulator) params.set('emulator', emulator)
+    if (slot) params.set('slot', slot)
     const deviceId = await this.deviceId()
     if (deviceId) params.set('device_id', deviceId)
 
@@ -1187,6 +1343,7 @@ export class RommClient {
       emulator,
       slot,
       deviceId,
+      keepThisDevice,
       bytes: payload.length,
       from: filePath
     })
@@ -1200,6 +1357,43 @@ export class RommClient {
     const saved = (await res.json()) as RommSave
     log.info('romm', 'save uploaded', { romId, saveId: saved.id, fileName })
     return saved
+  }
+
+  /**
+   * The slot's newest save when it already holds `filePath`'s bytes, after
+   * telling RomM this device has it; null when the upload has to be made.
+   *
+   * An overwriting upload is filed as a new copy however alike it is, so the
+   * player's choice retried after a lost reply would grow the slot by a
+   * duplicate each time, and become the copy every device pairs against. The
+   * newest copy is the one that matters: identical bytes further back in the
+   * slot's history are not what the slot holds now, and keeping this device's
+   * save means making it that. The confirmation records this device as
+   * holding the copy, which is true, so its next ordinary upload into the slot
+   * is not refused for a save it already has.
+   */
+  private async keptAlready(
+    romId: number,
+    slot: string,
+    filePath: string
+  ): Promise<RommSave | null> {
+    const hash = await localContentHash(filePath)
+    if (!hash) return null
+    const newest = (await this.saves(romId))
+      .filter((save) => save.slot === slot)
+      .reduce<RommSave | null>(
+        (best, save) =>
+          !best || instant(save.updated_at) > instant(best.updated_at) ? save : best,
+        null
+      )
+    if (newest?.content_hash !== hash) return null
+    await this.confirmSaveDownloaded(newest.id)
+    log.info('romm', 'the slot already holds this save, so nothing was uploaded', {
+      romId,
+      slot,
+      saveId: newest.id
+    })
+    return newest
   }
 
   /** POST /api/states — multipart upload of a save state. */
@@ -1287,50 +1481,25 @@ export class RommClient {
   }
 
   /**
-   * POST /api/play-sessions — report time played so RomM's stats stay honest.
+   * POST /api/play-sessions — hand RomM spans somebody played, under this device.
    *
    * The window and the time played are both sent because RomM requires both and
    * derives neither from the other: the span is what the history is ordered by,
    * the duration is what the totals are added up from. An entry missing either
-   * is refused whole.
+   * is refused whole. Thrown on any failure, so the caller keeps the spans for
+   * the next attempt (see `PlayReporter`).
    */
-  async reportPlaySession(romId: number, startedAt: Date, seconds: number): Promise<void> {
-    if (seconds < 5) {
-      log.debug('romm', 'play session too short to report', { romId, seconds })
-      return
-    }
+  async sendPlaySessions(sessions: readonly RommPlaySessionEntry[]): Promise<void> {
     const deviceId = await this.deviceId()
-    log.info('romm', 'reporting a play session', {
-      romId,
-      deviceId,
-      startedAt: startedAt.toISOString(),
-      seconds
+    log.info('romm', 'reporting play sessions', { deviceId, sessions: sessions.length })
+    const res = await this.request('/api/play-sessions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        device_id: deviceId,
+        sessions: [...sessions]
+      } satisfies RommPlaySessionPayload)
     })
-    try {
-      const res = await this.request('/api/play-sessions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          device_id: deviceId,
-          sessions: [
-            {
-              rom_id: romId,
-              start_time: startedAt.toISOString(),
-              end_time: new Date(startedAt.getTime() + seconds * 1000).toISOString(),
-              duration_ms: seconds * 1000
-            }
-          ]
-        } satisfies RommPlaySessionPayload)
-      })
-      // Checked, unlike the reply to a fire-and-forget: a refused report is the
-      // one thing that can go wrong here, and unread it goes wrong in silence.
-      if (!res.ok) throw await this.toError(res)
-    } catch (cause) {
-      // Play-time reporting is best-effort; never fail a launch over it.
-      log.warn('romm', 'could not report the play session', {
-        romId,
-        reason: (cause as Error).message
-      })
-    }
+    if (!res.ok) throw await this.toError(res)
   }
 }

@@ -362,7 +362,30 @@ export const example: EmulatorDescriptor = {
     if (system === 'nes') return [...exec, '--nes', romPath]
     if (system === 'snes') return [...exec, romPath]
     return null
-  }
+  },
+  /**
+   * How the device self-test keeps this emulator out of the owner's folders.
+   * Undefined, or null for a context, and the self-test never starts it: the
+   * launch check is skipped as `cannot-sandbox` instead.
+   *
+   * The XDG roots already point into `ctx.folders`, so an emulator that keeps
+   * everything under them needs no arguments. Name what it reads from anywhere
+   * else — a user folder option, or a config file given on the command line,
+   * written into the sandbox through `files`:
+   *
+   * ```ts
+   * sandbox: ({ folders }) => ({
+   *   args: ['--user-dir', folders.data],
+   *   env: {},
+   *   unset: [],
+   *   needs: [],
+   *   strays: [],
+   *   bios: null,
+   *   files: [{ path: 'example.cfg', content: `bios = "${folders.bios}"\n` }]
+   * })
+   * ```
+   */
+  sandbox: undefined
 }
 
 /**

@@ -13,16 +13,25 @@
  * refusal, a screen that has to tell a refusal from a bad hash.
  */
 
-export { RommClient, REQUIRED_SCOPES, normaliseBaseUrl } from './client.ts'
+export { MIN_PLAY_SECONDS, RommClient, REQUIRED_SCOPES, normaliseBaseUrl } from './client.ts'
+export type { UploadSaveOptions } from './client.ts'
 export {
   CorruptDownloadError,
+  ReadOnlyError,
   RommError,
   UnreachableError,
   UnsupportedServerError,
   answered,
   refusedUs
 } from './errors.ts'
+export { ReadOnlyGuard, withoutDeviceId } from './guard.ts'
 export { checkDeferredToUnpacking, checksumOf, digestOf } from './checksums.ts'
-export { atLeast, isComparable, MINIMUM_SERVER_VERSION } from './version.ts'
+export {
+  atLeast,
+  isComparable,
+  MINIMUM_SERVER_VERSION,
+  negotiatesByGame,
+  SCOPED_NEGOTIATE_SINCE
+} from './version.ts'
 export { partialPathOf, verify } from './transfer.ts'
 export type { DownloadProgress, TransferOptions } from './transfer.ts'

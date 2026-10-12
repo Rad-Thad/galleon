@@ -39,7 +39,16 @@ import { log } from './log.ts'
  *                        files
  *   migrations.json      the one-off steps this folder has already been through
  *   unsent_saves.json    games played away from the server, with saves still here
+ *   unsent_play.json     play RomM has not been told of yet
  */
+
+/** One span somebody played a game for, as `unsent_play.json` keeps it. */
+export interface UnsentPlay {
+  romId: number
+  /** ISO 8601, as RomM is sent it. */
+  startedAt: string
+  endedAt: string
+}
 
 interface StoredCredentials {
   accessToken: string | null
@@ -243,6 +252,11 @@ function readRecords<T extends { romId: number }>(
   )
 }
 
+/** RomM's own identity for a span: one per device, game and start. */
+function samePlay(a: UnsentPlay, b: UnsentPlay): boolean {
+  return a.romId === b.romId && a.startedAt === b.startedAt
+}
+
 export class Store {
   private readonly dir: string
   private readonly settingsPath: string
@@ -251,6 +265,7 @@ export class Store {
   private readonly pendingPath: string
   private readonly migrationsPath: string
   private readonly unsentPath: string
+  private readonly playPath: string
 
   private settingsCache: Settings
   private serverCache: ServerConfig | null
@@ -270,6 +285,7 @@ export class Store {
     this.pendingPath = join(this.dir, 'pending_downloads.json')
     this.migrationsPath = join(this.dir, 'migrations.json')
     this.unsentPath = join(this.dir, 'unsent_saves.json')
+    this.playPath = join(this.dir, 'unsent_play.json')
 
     const raw = readJson<{ settings?: unknown; server?: unknown }>(this.settingsPath, {})
     const taken = acceptSettings(raw.settings, defaultSettings())
@@ -641,6 +657,35 @@ export class Store {
   clearUnsentSaves(romId: number): void {
     const kept = this.unsentSaves.filter((row) => row.romId !== romId)
     writeJsonAtomic(this.unsentPath, { games: kept })
+  }
+
+  // -- play this device owes the server -------------------------------------
+
+  /**
+   * Play not yet taken by RomM, oldest first.
+   *
+   * On disk rather than in memory because a session played out of range is
+   * reported at the next catch-up, and that may be after a restart.
+   */
+  get unsentPlay(): UnsentPlay[] {
+    return readRecords<UnsentPlay>(
+      this.playPath,
+      'sessions',
+      (entry) => typeof entry.startedAt === 'string' && typeof entry.endedAt === 'string'
+    )
+  }
+
+  /** Keep a span until RomM takes it; the same span twice is kept once. */
+  notePlay(entry: UnsentPlay): void {
+    const held = this.unsentPlay
+    if (held.some((row) => samePlay(row, entry))) return
+    writeJsonAtomic(this.playPath, { sessions: [...held, entry] })
+  }
+
+  /** Forget the spans RomM has answered for. */
+  forgetPlay(sent: readonly UnsentPlay[]): void {
+    const kept = this.unsentPlay.filter((row) => !sent.some((one) => samePlay(one, row)))
+    writeJsonAtomic(this.playPath, { sessions: kept })
   }
 
   // -- one-off steps this folder has been through ---------------------------

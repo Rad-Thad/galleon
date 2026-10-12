@@ -61,3 +61,24 @@ function counted(piece: string): number | null {
   const number = Number.parseInt(piece, 10)
   return Number.isFinite(number) ? number : null
 }
+
+/** The first RomM whose `/api/sync/negotiate` reads `rom_ids`. See `negotiatesByGame`. */
+export const SCOPED_NEGOTIATE_SINCE = '5.3.0'
+
+/**
+ * May a pre-launch negotiate name the one game it is about (`rom_ids`)?
+ *
+ * Asked of the heartbeat's version. Before `SCOPED_NEGOTIATE_SINCE` the field
+ * is ignored rather than refused, so a server that cannot scope answers for the
+ * whole library: the check then has to send the full local inventory, or every
+ * save it left out comes back as a download, and drop each operation for
+ * another game itself (ADR 0002).
+ *
+ * A version that cannot be compared — `development`, or none — gets the
+ * unscoped answer. That path is correct on every RomM, scoped or not; the
+ * scoped one is only correct where the server honours the scope.
+ */
+export function negotiatesByGame(version: string | null | undefined): boolean {
+  if (!version || !isComparable(version)) return false
+  return atLeast(version, SCOPED_NEGOTIATE_SINCE)
+}

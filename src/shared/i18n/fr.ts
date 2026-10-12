@@ -571,6 +571,19 @@ export const fr: Catalog = {
     'Des sauvegardes n’ont pas été envoyées à RomM car elles sont en conflit avec des sauvegardes existantes.',
   'saves.waitingConfirm':
     'Des sauvegardes n’ont pas été envoyées à RomM car « Demander avant d’envoyer des sauvegardes à RomM » est activé.',
+  'saves.settle': 'Régler les conflits',
+  'conflict.title': 'Quelle sauvegarde garder ? {position} sur {total}',
+  'conflict.thisDevice': 'Cet appareil',
+  'conflict.romm': 'RomM',
+  'conflict.body':
+    "Garder celle de cet appareil remplace la copie de RomM. Garder celle de RomM met d'abord de côté la copie de cet appareil. Passer ne change rien.",
+  'conflict.keepDevice': 'Garder celle de cet appareil',
+  'conflict.keepRomm': 'Garder celle de RomM',
+  'conflict.skip': 'Passer',
+  'conflict.keptDevice': '{file} de cet appareil est désormais celle de RomM',
+  'conflict.keptRomm': '{file} de RomM est désormais celle de cet appareil',
+  'conflict.notKept': "{file} n'a pas pu être réglée. Les deux copies sont restées telles quelles.",
+  'conflict.none': 'Plus aucun conflit pour ce jeu.',
   'saves.sentAutomatically_one': 'Sauvegardes de {count} jeu envoyées à RomM',
   'saves.sentAutomatically_other': 'Sauvegardes de {count} jeux envoyées à RomM',
   'saves.sentAutomaticallyOne': 'Sauvegardes envoyées à RomM',
@@ -582,6 +595,9 @@ export const fr: Catalog = {
   'saves.otherEmulator': 'Incompatible',
   'saves.otherEmulatorHint':
     'Écrite par un autre émulateur. Récupérer les sauvegardes ne la rapatriera pas.',
+  'saves.stateNotSynced': 'Non synchronisé',
+  'saves.stateNotSyncedHint':
+    'Les états de cet émulateur ne se chargent que dans le même cœur : ils restent sur l’appareil qui les a créés.',
   'saves.fromDevice': 'depuis {device}',
   'saves.scopeLocal': 'de cet appareil',
   'saves.scopeRemote': 'de RomM',
@@ -740,7 +756,8 @@ export const fr: Catalog = {
   'perf.measuring': 'Mesure en cours…',
   'perf.cpu': 'CPU {governor} {cur}/{max} MHz',
   'perf.gpu': 'GPU {governor} {cur}/{max} MHz',
-  'perf.defaultProfile': 'Armada démarre en : {profile}',
+  'perf.profile': 'Profil Armada : {profile} (démarre en {start})',
+  'perf.armadaPerf': 'Perf Armada : {state}',
   'perf.unknown': 'inconnu',
   'settings.scaleHint': 'Auto suit l’écran : deux fois plus grand sur un téléviseur 4K.',
   'settings.language': 'Langue',
@@ -1048,6 +1065,8 @@ export const fr: Catalog = {
   'error.serverAddressEmpty': 'L’adresse du serveur est vide',
   'error.noServerConfigured': 'Aucun serveur RomM configuré',
   'error.cannotReach': 'Impossible de joindre {url} : {reason}',
+  'error.readOnly':
+    "L'autotest ne fait que lire le serveur : cette requête {method} n'a pas été envoyée.",
   'error.savesNotFetched_one': '{count} sauvegarde n’a pas pu être récupérée depuis RomM.',
   'error.savesNotFetched_other': '{count} sauvegardes n’ont pas pu être récupérées depuis RomM.',
   'error.savesNotSent_one': '{count} sauvegarde n’a pas pu être envoyée à RomM.',
@@ -1075,6 +1094,12 @@ export const fr: Catalog = {
     "Le téléchargement s'est interrompu avant la fin du fichier. Il reprendra où il s'est arrêté.",
   'error.saveEndedEarly':
     "Seule une partie de {name} est arrivée depuis RomM ; le fichier n'a pas été touché.",
+  'error.saveBadTime':
+    'L’heure d’une sauvegarde est illisible ({value}) : elle n’a pas été comparée.',
+  'error.saveNotBackedUp':
+    "{name} n'a pas pu être copié de côté au préalable, il a donc été laissé tel quel.",
+  'error.saveIsFolder':
+    "{name} est un dossier sur cet appareil ; aucun fichier n'a été écrit par-dessus.",
   'error.saveTreeTooLarge':
     'Ce dossier de sauvegarde est trop volumineux pour être envoyé en une archive.',
   'error.emptyAssetBody': 'Corps de fichier vide',

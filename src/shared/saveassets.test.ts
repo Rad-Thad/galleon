@@ -11,7 +11,7 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import type { PendingSave } from './types/index.ts'
-import { mayBeSentUnasked } from './saveassets.ts'
+import { conflictsIn, mayBeSentUnasked } from './saveassets.ts'
 
 function pending(replaces: PendingSave['replaces']): PendingSave {
   return {
@@ -29,6 +29,7 @@ function pending(replaces: PendingSave['replaces']): PendingSave {
 
 function serverCopy(fields: Partial<NonNullable<PendingSave['replaces']>>) {
   return {
+    id: 7,
     sizeBytes: 8192,
     updatedAt: '2026-08-01T12:00:00.000Z',
     emulator: 'retroarch',
@@ -64,5 +65,20 @@ describe('sending a save nobody was asked about', () => {
       mayBeSentUnasked(pending(serverCopy({ fromThisDevice: true, isNewer: true }))),
       false
     )
+  })
+})
+
+describe('which files are a conflict for the player', () => {
+  test('the files sending would write over, and none with nothing up there', () => {
+    const fresh = pending(null)
+    const continued = pending(serverCopy({ fromThisDevice: true }))
+    const theirs = pending(serverCopy({ fromThisDevice: false }))
+    const movedOn = pending(serverCopy({ fromThisDevice: true, isNewer: true }))
+    const unknown = pending(serverCopy({ fromThisDevice: null }))
+    assert.deepEqual(conflictsIn([fresh, continued, theirs, movedOn, unknown]), [
+      theirs,
+      movedOn,
+      unknown
+    ])
   })
 })

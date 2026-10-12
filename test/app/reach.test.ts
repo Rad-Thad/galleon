@@ -85,6 +85,12 @@ async function walkEvery(app: App, screen: string): Promise<string[]> {
 
 /** Every tab of a screen, in order, by the shoulder buttons. */
 async function eachTab(app: App, screen: string, visit: (tab: string) => Promise<void>) {
+  // A screen is drawn before what it shows has loaded — the game page before
+  // its ROM — and its tabs only with that.
+  await app.waitFor(
+    `document.querySelector('[data-screen="${screen}"] [data-tab]')`,
+    `the tabs of ${screen}`
+  )
   const tabs = await app.read<string[]>(
     `[...document.querySelectorAll('[data-screen="${screen}"] [data-tab]')].map((tab) => tab.dataset.tab)`
   )
@@ -117,6 +123,10 @@ for (const screen of ['library', 'collections', 'downloads', 'bios', 'emulators'
       await app.waitFor(`document.querySelector('[data-rom]')`, 'the library to fill')
     if (screen === 'collections')
       await app.waitFor(`document.querySelector('[data-collection]')`, 'the collections to fill')
+    // Until its report arrives this screen draws only a spinner, so a walk
+    // that starts first fails for having nothing to walk to.
+    if (screen === 'bios')
+      await app.waitFor(`document.querySelector('[data-bios-platform]')`, 'the BIOS report')
     await walkEvery(app, screen)
   })
 

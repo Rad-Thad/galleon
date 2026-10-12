@@ -272,6 +272,10 @@ describe('the transcription', () => {
     assert.deepEqual(
       all.filter((one) => one.sends).map((one) => one.name),
       [
+        'RommSyncSave',
+        'RommSyncNegotiatePayload',
+        'RommSyncCompletePayload',
+        'RommSyncPlaySessionEntry',
         'RommDeviceAuthInitPayload',
         'RommDeviceAuthTokenPayload',
         'RommDeviceCreatePayload',

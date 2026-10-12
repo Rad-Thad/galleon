@@ -1,10 +1,10 @@
 import { EventEmitter } from 'node:events'
 import { mkdir, rm, stat } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import { archiveIsTheRom, chooseLaunchFile } from '@shared/gamefiles'
+import { archiveIsTheRom, chooseLaunchFile, isServerPlaylist, pathInGame } from '@shared/gamefiles'
 import { isStopped, type DownloadItem, type RommRom } from '@shared/types'
 import { fits, spaceOf } from './disk.ts'
-import { unpack, type InstallResult } from './install.ts'
+import { unpack, writePlaylist, type InstallResult } from './install.ts'
 import { hashOf } from './integrity.ts'
 import { i18n, t } from './i18n.ts'
 import { log } from './log.ts'
@@ -84,6 +84,14 @@ async function pathsHeld(holding: Holding): Promise<string[]> {
     })
   )
   return held.flat()
+}
+
+/**
+ * The files a multi-file game is fetched as: everything RomM holds for it but a
+ * playlist of its own, which Galleon writes instead. See `isServerPlaylist`.
+ */
+function filesToFetch(rom: RommRom): RommRom['files'] {
+  return rom.files.filter((file) => !isServerPlaylist(file.file_name))
 }
 
 async function bytesHeld(holding: Holding): Promise<number> {
@@ -713,7 +721,7 @@ export class DownloadManager extends EventEmitter {
       holding = perFile.available
         ? {
             targetPath: asDirectory ? path : dir,
-            files: rom.files.map((file) => file.file_name),
+            files: filesToFetch(rom).map((file) => pathInGame(rom, file)),
             ownsFolder: asDirectory
           }
         : { targetPath: asDirectory ? `${path}.zip` : path, files: [], ownsFolder: false }
@@ -966,27 +974,30 @@ export class DownloadManager extends EventEmitter {
     where: { dir: string; system: string; asDirectory: boolean },
     transfer: { resume: boolean; resumable: boolean; controller: AbortController }
   ): Promise<InstallResult> {
-    item.totalBytes = rom.files.reduce((sum, file) => sum + file.file_size_bytes, 0)
+    const files = filesToFetch(rom)
+    item.totalBytes = files.reduce((sum, file) => sum + file.file_size_bytes, 0)
     let done = 0
     const sized: { name: string; sizeBytes: number }[] = []
 
-    for (const file of rom.files) {
+    for (const file of files) {
+      const name = pathInGame(rom, file)
       // The name is the server's, and it is what decides where this file is
       // written — a multi-file game is the one download that writes under names
       // RomM chose one by one. A name that climbs out of the game's folder is
       // refused here rather than followed, which is also what keeps the list
       // recorded against the game safe to walk when it is deleted again.
-      const destination = await safeJoin(where.dir, file.file_name)
+      const destination = await safeJoin(where.dir, name)
       if (!destination) {
         log.error('download', 'refused a file name that leaves the game folder', undefined, {
           romId: rom.id,
-          fileName: file.file_name,
+          fileName: name,
           dir: where.dir
         })
-        throw new RommError(t('error.unsafeName', { name: file.file_name }))
+        throw new RommError(t('error.unsafeName', { name }))
       }
       await mkdir(dirname(destination), { recursive: true })
       item.currentFile = file.file_name
+      item.state = 'downloading'
       this.emitUpdate()
 
       const already = (await stat(destination).catch(() => null))?.size ?? 0
@@ -1004,27 +1015,58 @@ export class DownloadManager extends EventEmitter {
           fileName: file.file_name
         })
       } else {
-        await this.client.downloadRomFile(
-          file,
-          destination,
-          (progress) => {
-            item.receivedBytes = done + progress.received
-            this.throttledUpdate()
-          },
-          transfer.controller.signal,
-          {
-            resume: transfer.resume,
-            resumable: transfer.resumable,
-            // Hashing a track of a large game is minutes of work; without this
-            // the row goes on saying "Downloading" throughout it.
-            onChecking: () => this.sayChecking(item)
-          }
-        )
+        const fetchOne = (resume: boolean): Promise<void> => {
+          // Back from whichever hash check came before: the last file's, the
+          // one that found this file on disk and wrong, or this file's own
+          // refused copy. A row left saying "Checking" over a transfer is also
+          // one `pause` will not stop.
+          item.state = 'downloading'
+          this.emitUpdate()
+          return this.client.downloadRomFile(
+            file,
+            destination,
+            (progress) => {
+              item.receivedBytes = done + progress.received
+              this.throttledUpdate()
+            },
+            transfer.controller.signal,
+            {
+              resume,
+              resumable: transfer.resumable,
+              // Hashing a track of a large game is minutes of work; without
+              // this the row goes on saying "Downloading" throughout it.
+              onChecking: () => this.sayChecking(item)
+            }
+          )
+        }
+        try {
+          await fetchOne(transfer.resume)
+        } catch (cause) {
+          /**
+           * A file refused for its hash is fetched once more, from nothing.
+           *
+           * `verify` has already thrown its bytes away, so there is nothing to
+           * resume onto, and the files on either side of it are whole and stay
+           * as they are. What arrived wrong is most often a resumed part-file
+           * whose first half came from a copy the server has since replaced,
+           * which a clean fetch settles. A second refusal is not the wire: it
+           * is the server holding a file that disagrees with its own record,
+           * and asking a third time would only refuse it again, so that one
+           * stops the game with its reason.
+           */
+          if (!(cause instanceof CorruptDownloadError)) throw cause
+          log.warn('download', 'a file was refused for its hash, fetching it again', {
+            romId: rom.id,
+            fileName: file.file_name
+          })
+          item.receivedBytes = done
+          await fetchOne(false)
+        }
       }
 
       const size = (await stat(destination).catch(() => null))?.size ?? file.file_size_bytes
       done += size
-      sized.push({ name: file.file_name, sizeBytes: size })
+      sized.push({ name, sizeBytes: size })
       item.receivedBytes = done
       this.emitUpdate()
     }
@@ -1032,8 +1074,16 @@ export class DownloadManager extends EventEmitter {
     // Nothing is arriving any more, so the row stops naming a file.
     item.currentFile = undefined
 
-    const chosen = chooseLaunchFile(sized, where.system) ?? sized[0]?.name
+    const playlist = where.asDirectory
+      ? await writePlaylist(
+          where.dir,
+          sized.map((file) => file.name),
+          where.system
+        )
+      : null
+    const chosen = playlist ?? chooseLaunchFile(sized, where.system) ?? sized[0]?.name
     const launchPath = chosen ? join(where.dir, chosen) : where.dir
+    if (playlist) sized.push({ name: playlist, sizeBytes: 0 })
     return where.asDirectory
       ? {
           path: where.dir,

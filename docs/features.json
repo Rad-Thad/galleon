@@ -188,7 +188,7 @@
     ],
     "verification": "agent-screenshot",
     "depends_on": ["M0-09"],
-    "passes": false
+    "passes": true
   },
   {
     "id": "M0-11",
@@ -969,7 +969,7 @@
     ],
     "verification": "ci",
     "depends_on": ["M2-03"],
-    "passes": false
+    "passes": true
   },
   {
     "id": "M2-05",
@@ -985,7 +985,7 @@
     ],
     "verification": "ci",
     "depends_on": ["M2-04"],
-    "passes": false
+    "passes": true
   },
   {
     "id": "M2-06",
@@ -1001,7 +1001,7 @@
     ],
     "verification": "ci",
     "depends_on": ["M2-05"],
-    "passes": false
+    "passes": true
   },
   {
     "id": "M2-07",
@@ -1016,7 +1016,7 @@
     ],
     "verification": "ci",
     "depends_on": ["M2-04"],
-    "passes": false
+    "passes": true
   },
   {
     "id": "M2-08",
@@ -1138,7 +1138,7 @@
     ],
     "verification": "ci",
     "depends_on": ["M2-06"],
-    "passes": false
+    "passes": true
   },
   {
     "id": "M2-16",
@@ -1153,7 +1153,7 @@
     ],
     "verification": "agent-screenshot",
     "depends_on": ["M2-06"],
-    "passes": false
+    "passes": true
   },
   {
     "id": "M2-17",
@@ -1183,7 +1183,7 @@
     ],
     "verification": "ci",
     "depends_on": ["M2-06"],
-    "passes": false
+    "passes": true
   },
   {
     "id": "M2-19",
@@ -1964,7 +1964,7 @@
     ],
     "verification": "ci",
     "depends_on": ["M0-07"],
-    "passes": false
+    "passes": true
   },
   {
     "id": "M6-05",
@@ -1978,7 +1978,7 @@
     ],
     "verification": "ci",
     "depends_on": ["M0-08"],
-    "passes": false
+    "passes": true
   },
   {
     "id": "M6-06",
@@ -2537,7 +2537,7 @@
     ],
     "verification": "ci",
     "depends_on": ["M0-19"],
-    "passes": false
+    "passes": true
   },
   {
     "id": "M8-07",

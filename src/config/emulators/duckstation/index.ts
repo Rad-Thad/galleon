@@ -1,5 +1,63 @@
-import { perRom } from '../savepaths.ts'
-import type { EmulatorDescriptor } from '../types.ts'
+import { dirName, joinPath, perRom } from '../savepaths.ts'
+import type { EmulatorDescriptor, SandboxContext, SandboxRecipe } from '../types.ts'
+
+/**
+ * Files that switch DuckStation to a portable layout, rooted beside the
+ * program instead of in the XDG folders.
+ */
+const PORTABLE_MARKERS = ['portable.txt', 'settings.ini']
+
+/**
+ * DuckStation started in its sandbox, on a settings file written there.
+ *
+ * With `XDG_CONFIG_HOME` set, DuckStation keeps everything under
+ * `$XDG_CONFIG_HOME/duckstation`, which the self-test points into the sandbox.
+ * The settings file then names the BIOS, memory card and save state folders
+ * the sandbox holds, and answers the two first-run questions DuckStation would
+ * otherwise ask in a window of its own: the setup wizard and the launcher
+ * shortcut.
+ *
+ * A portable marker beside the AppImage would root DuckStation there, in the
+ * owner's folder, whatever the environment says, so its presence declines the
+ * sandbox. DuckStation looks for the marker beside the AppImage file a link
+ * leads to; a marker beside the link declines too, so the sandbox never rests
+ * on which of the two a build reads. Only the AppImage is started: a binary
+ * install is a distro's or a build's, whose layout the recipe has not been
+ * checked against.
+ */
+function sandboxRecipe(ctx: SandboxContext): SandboxRecipe | null {
+  if (ctx.installKind !== 'appimage') return null
+  const beside = [dirName(ctx.installRef), dirName(ctx.installTarget)]
+  const marked = beside.some((dir) =>
+    PORTABLE_MARKERS.some((name) => ctx.owner.env.exists(joinPath(dir, name)))
+  )
+  if (marked) return null
+  const { folders } = ctx
+  const settings = [
+    '[Main]',
+    'SetupWizardIncomplete = false',
+    'NoDesktopFile = true',
+    '',
+    '[BIOS]',
+    `SearchDirectory = ${folders.bios}`,
+    '',
+    '[MemoryCards]',
+    `Directory = ${folders.saves}`,
+    '',
+    '[Folders]',
+    `SaveStates = ${folders.states}`,
+    ''
+  ].join('\n')
+  return {
+    args: [],
+    env: {},
+    unset: [],
+    needs: [],
+    strays: [],
+    bios: null,
+    files: [{ path: 'config/duckstation/settings.ini', content: settings }]
+  }
+}
 
 /**
  * DuckStation — a PlayStation emulator, and what armadaOS's catalog installs
@@ -84,5 +142,6 @@ export const duckstation: EmulatorDescriptor = {
    * RomMix knows the game is over. `--` ends the options, so a ROM whose name
    * begins with a dash is still read as the file to boot.
    */
-  launch: ({ exec, romPath }) => [...exec, '-batch', '-fullscreen', '-nogui', '--', romPath]
+  launch: ({ exec, romPath }) => [...exec, '-batch', '-fullscreen', '-nogui', '--', romPath],
+  sandbox: sandboxRecipe
 }

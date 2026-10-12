@@ -566,6 +566,19 @@ export const es: Catalog = {
     'Algunas partidas guardadas no se enviaron a RomM porque hay conflictos con las que ya están allí.',
   'saves.waitingConfirm':
     'Algunas partidas guardadas no se enviaron a RomM porque «Preguntar antes de enviar partidas a RomM» está activado.',
+  'saves.settle': 'Resolver conflictos',
+  'conflict.title': '¿Qué partida guardada conservar? {position} de {total}',
+  'conflict.thisDevice': 'Este dispositivo',
+  'conflict.romm': 'RomM',
+  'conflict.body':
+    'Conservar la de este dispositivo reemplaza la copia de RomM. Conservar la de RomM aparta antes la copia de este dispositivo. Omitir no cambia nada.',
+  'conflict.keepDevice': 'Conservar la de este dispositivo',
+  'conflict.keepRomm': 'Conservar la de RomM',
+  'conflict.skip': 'Omitir',
+  'conflict.keptDevice': '{file} de este dispositivo es ahora la de RomM',
+  'conflict.keptRomm': '{file} de RomM es ahora la de este dispositivo',
+  'conflict.notKept': 'No se pudo resolver {file}. Las dos copias siguen como estaban.',
+  'conflict.none': 'No quedan conflictos para este juego.',
   'saves.sentAutomatically_one': 'Partidas guardadas de {count} juego subidas a RomM',
   'saves.sentAutomatically_other': 'Partidas guardadas de {count} juegos subidas a RomM',
   'saves.sentAutomaticallyOne': 'Partidas guardadas subidas a RomM',
@@ -575,6 +588,9 @@ export const es: Catalog = {
   'saves.remoteOnlyHint': 'Solo en RomM. Traer las partidas la bajará.',
   'saves.otherEmulator': 'Incompatible',
   'saves.otherEmulatorHint': 'Escrita por otro emulador. Traer las partidas no la bajará.',
+  'saves.stateNotSynced': 'Sin sincronizar',
+  'saves.stateNotSyncedHint':
+    'Los estados de este emulador solo cargan en el mismo núcleo, así que se quedan en el dispositivo que los creó.',
   'saves.fromDevice': 'desde {device}',
   'saves.scopeLocal': 'de este dispositivo',
   'saves.scopeRemote': 'de RomM',
@@ -734,7 +750,8 @@ export const es: Catalog = {
   'perf.measuring': 'Midiendo…',
   'perf.cpu': 'CPU {governor} {cur}/{max} MHz',
   'perf.gpu': 'GPU {governor} {cur}/{max} MHz',
-  'perf.defaultProfile': 'Armada arranca en: {profile}',
+  'perf.profile': 'Perfil de Armada: {profile} (arranca en {start})',
+  'perf.armadaPerf': 'Perf de Armada: {state}',
   'perf.unknown': 'desconocido',
   'settings.scaleHint': 'Auto sigue a la pantalla: el doble de grande en un televisor 4K.',
   'settings.language': 'Idioma',
@@ -1036,6 +1053,7 @@ export const es: Catalog = {
   'error.serverAddressEmpty': 'La dirección del servidor está vacía',
   'error.noServerConfigured': 'No hay ningún servidor RomM configurado',
   'error.cannotReach': 'No se puede llegar a {url}: {reason}',
+  'error.readOnly': 'La autoprueba solo lee del servidor, así que no envió esta petición {method}.',
   'error.savesNotFetched_one': '{count} partida guardada no se ha podido obtener de RomM.',
   'error.savesNotFetched_other': '{count} partidas guardadas no se han podido obtener de RomM.',
   'error.savesNotSent_one': '{count} partida guardada no se ha podido enviar a RomM.',
@@ -1062,6 +1080,12 @@ export const es: Catalog = {
   'error.transferEndedEarly':
     'La descarga terminó antes de que llegara el archivo completo. Se reanudará donde se quedó.',
   'error.saveEndedEarly': 'Solo llegó parte de {name} desde RomM, así que no se tocó el archivo.',
+  'error.saveBadTime':
+    'No se pudo leer la hora de una partida guardada ({value}), así que no se comparó.',
+  'error.saveNotBackedUp':
+    'No se pudo hacer antes una copia de {name}, así que se dejó como estaba.',
+  'error.saveIsFolder':
+    '{name} es una carpeta en este dispositivo, así que no se escribió ningún archivo encima.',
   'error.saveTreeTooLarge':
     'Esta carpeta de partidas es demasiado grande para enviarse como un solo archivo.',
   'error.emptyAssetBody': 'Cuerpo de archivo vacío',

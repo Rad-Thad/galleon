@@ -68,6 +68,12 @@ export interface FakeRomm {
     content: string
     /** The slot RomM pairs it under. Omitted, it is a save that pairs with none. */
     slot?: string
+    /**
+     * A device holding a record of this save older than the save itself: one
+     * that took an earlier copy and has not seen this one, which is what has
+     * RomM refuse that device's upload under the same name.
+     */
+    staleFor?: string
   }) => void
   /**
    * Put time already played on the server, as another device would have.
@@ -76,6 +82,13 @@ export interface FakeRomm {
    * these on one game is the thing worth being able to set up.
    */
   holdPlaySession: (session: { romId: number; seconds: number }) => void
+  /**
+   * Answer every listing of saves this much later, for a scenario that needs
+   * the app caught between asking and hearing back. Zero answers at once.
+   */
+  slowSaveListings: (ms: number) => void
+  /** The same for every listing of games, which is what home's shelves wait on. */
+  slowRomListings: (ms: number) => void
   /** The same for a save state, which RomM keeps at its own endpoint. */
   holdState: (state: { romId: number; fileName: string; emulator: string; content: string }) => void
   /** Saves and states this server was sent, in order. */
@@ -85,6 +98,8 @@ export interface FakeRomm {
     emulator: string | null
     slot: string | null
     deviceId: string | null
+    /** Whether the upload asked RomM to replace a slot another device moved on. */
+    overwrite: boolean
     body: string
   }[]
   /** Every request, in order. */
@@ -144,6 +159,12 @@ export interface FakeRomm {
     /** Back to running to the end at its own pace, which is how it starts. */
     flow: () => void
   }
+  /**
+   * Answer nothing for this game's content until the returned function is
+   * called: a transfer that stays in flight for as long as a test needs the
+   * app busy with it.
+   */
+  holdContent: (romId: number) => () => void
   close: () => Promise<void>
 }
 
@@ -704,7 +725,20 @@ export interface FakeRommOptions {
    * so every platform on screen falls back.
    */
   iconless?: boolean
+  /**
+   * Other devices RomM lists, which is where a save's origin gets its name.
+   * None by default: the device a client registers is told its id, not listed.
+   */
+  devices?: RommDevice[]
+  /**
+   * A Game Boy Advance platform with one game: a platform the self-test's
+   * `download.small` picks its game from, which none of the others is.
+   */
+  gba?: boolean
 }
+
+/** The game `FakeRommOptions.gba` adds, by id. */
+export const GBA_ROM = 40
 
 /** The platform `FakeRommOptions.bulk` fills, by id. */
 export const BULK_PLATFORM = 5
@@ -712,10 +746,30 @@ export const BULK_PLATFORM = 5
 /** Start it on a port the operating system picks, so tests can run at once. */
 export async function startFakeRomm(options: FakeRommOptions = {}): Promise<FakeRomm> {
   const asked: Asked[] = []
+  /** Games whose content waits. See `FakeRomm.holdContent`. */
+  const contentHeld = new Map<number, Promise<void>>()
   const held: { save: RommSave; content: string }[] = []
   /** States this server holds, seeded by `holdState` or left by a push. */
   const heldStates: { state: RommState; content: string }[] = []
   const uploaded: FakeRomm['uploaded'] = []
+  /**
+   * Each device's record of each save, as RomM keeps it: save id, then device
+   * id, then when that device last took or sent it.
+   *
+   * What the 409 is decided from (docs/save-sync/SPEC.md section 7), and what
+   * a listing that names a device reads back as `device_syncs`.
+   */
+  const deviceSyncs = new Map<number, Map<string, string>>()
+  const recordSync = (saveId: number, deviceId: string): void => {
+    const records = deviceSyncs.get(saveId) ?? new Map<string, string>()
+    records.set(deviceId, new Date().toISOString())
+    deviceSyncs.set(saveId, records)
+  }
+  /** Whether this device's record of a save is missing or older than the save. */
+  const behind = (save: RommSave, deviceId: string): boolean => {
+    const record = deviceSyncs.get(save.id)?.get(deviceId)
+    return !record || Date.parse(record) < Date.parse(save.updated_at)
+  }
   const megadrive = platform(1, 'genesis', 'Sega Mega Drive', 'genesis')
   const gameboy = platform(2, 'gb', 'Game Boy')
   // A Switch game because Eden is the emulator a launch can be tested with:
@@ -759,6 +813,11 @@ export async function startFakeRomm(options: FakeRommOptions = {}): Promise<Fake
     platforms.push(gamecube, wiiu)
     roms.push(rom(30, 'Cube Homebrew', gamecube, 'cubehomebrew.iso'))
     roms.push(rom(31, 'Wii U Homebrew', wiiu, 'wiiuhomebrew.wua'))
+  }
+  if (options.gba) {
+    const gba = platform(8, 'gba', 'Game Boy Advance')
+    platforms.push(gba)
+    roms.push(rom(GBA_ROM, 'Pocket Homebrew', gba, 'pockethomebrew.gba'))
   }
   if (options.bulk) {
     const nes = { ...platform(BULK_PLATFORM, 'nes', 'Nintendo Entertainment System') }
@@ -844,6 +903,8 @@ export async function startFakeRomm(options: FakeRommOptions = {}): Promise<Fake
    */
   let pairing: { userCode: string; deviceCode: string; approved: boolean } | null = null
 
+  let saveListingDelay = 0
+  let romListingDelay = 0
   const server: Server = createServer((req, res) => {
     const chunks: Buffer[] = []
     req.on('data', (chunk: Buffer) => chunks.push(chunk))
@@ -1082,7 +1143,7 @@ export async function startFakeRomm(options: FakeRommOptions = {}): Promise<Fake
         if (req.method === 'POST') {
           return json({ device_id: 'a-registered-device' } satisfies RommDeviceCreated)
         }
-        return json([] as RommDevice[])
+        return json(options.devices ?? ([] as RommDevice[]))
       }
       if (url.pathname === '/api/firmware') {
         const wanted = url.searchParams.get('platform_id')
@@ -1105,6 +1166,18 @@ export async function startFakeRomm(options: FakeRommOptions = {}): Promise<Fake
         if (!found) return json({ detail: 'No such save' }, 404)
         return serveBytes(req, res, Buffer.from(found.content))
       }
+      // RomM's record that a device holds a save; this server keeps none, so
+      // the request itself is what a test reads.
+      const saveDownloaded = /^\/api\/saves\/(\d+)\/downloaded$/.exec(url.pathname)
+      if (saveDownloaded && req.method === 'POST') {
+        const found = held.find((one) => one.save.id === Number(saveDownloaded[1]))
+        if (!found) return json({ detail: 'No such save' }, 404)
+        const { device_id: deviceId } = JSON.parse(Buffer.concat(chunks).toString() || '{}') as {
+          device_id?: string
+        }
+        if (deviceId) recordSync(found.save.id, deviceId)
+        return json(found.save)
+      }
 
       // The same for a state, on its own path: RomM keeps the two kinds apart
       // all the way down, and a pull that asked for a state where saves live
@@ -1121,34 +1194,109 @@ export async function startFakeRomm(options: FakeRommOptions = {}): Promise<Fake
         // a multipart POST here, and answering it is what lets the push be
         // asserted rather than merely not crashing.
         if (req.method === 'POST') {
+          const romId = Number(url.searchParams.get('rom_id') ?? 0)
+          const slot = url.searchParams.get('slot')
+          const deviceId = url.searchParams.get('device_id')
+          const overwrite = url.searchParams.get('overwrite') === 'true'
+          const body = Buffer.concat(chunks).toString()
+          const fileName = /filename="([^"]*)"/.exec(body)?.[1] ?? 'uploaded'
+          const content = /\r\n\r\n([\s\S]*?)\r\n--/.exec(body)?.[1] ?? ''
+
+          /**
+           * RomM 5.2.0's refusal, before anything is written: the newest save in
+           * the slot is one this device has no record of, or an older record
+           * than the save itself (docs/save-sync/SPEC.md section 7). Without a
+           * slot only an existing, older record refuses. Never with `overwrite`.
+           */
+          const mine = held.filter((one) => one.save.rom_id === romId)
+          const newest = (
+            slot
+              ? mine.filter((one) => one.save.slot === slot)
+              : mine.filter((one) => one.save.file_name === fileName)
+          ).sort((a, b) => b.save.updated_at.localeCompare(a.save.updated_at))[0]
+          if (!overwrite && deviceId && newest) {
+            const refused = slot
+              ? behind(newest.save, deviceId)
+              : deviceSyncs.get(newest.save.id)?.has(deviceId) === true &&
+                behind(newest.save, deviceId)
+            if (refused) return json({ detail: 'Save conflict: another device moved it on' }, 409)
+          }
+
           uploaded.push({
             kind: 'save',
-            romId: Number(url.searchParams.get('rom_id') ?? 0),
+            romId,
             emulator: url.searchParams.get('emulator'),
-            slot: url.searchParams.get('slot'),
-            deviceId: url.searchParams.get('device_id'),
-            body: Buffer.concat(chunks).toString()
+            slot,
+            deviceId,
+            overwrite,
+            body
           })
           const saved: RommSave = {
             id: 900 + asked.length,
-            rom_id: Number(url.searchParams.get('rom_id') ?? 0),
+            rom_id: romId,
             user_id: user.id,
-            file_name: 'uploaded',
-            file_name_no_ext: 'uploaded',
-            file_extension: '',
-            file_size_bytes: 0,
-            download_path: 'uploaded',
+            file_name: overwrite ? fileName : 'uploaded',
+            file_name_no_ext: overwrite ? fileName.replace(/\.[^.]+$/, '') : 'uploaded',
+            file_extension: overwrite ? (fileName.split('.').pop() ?? '') : '',
+            file_size_bytes: overwrite ? Buffer.byteLength(content) : 0,
+            download_path: overwrite ? fileName : 'uploaded',
             emulator: url.searchParams.get('emulator'),
-            slot: url.searchParams.get('slot'),
-            content_hash: createHash('md5').update(Buffer.concat(chunks)).digest('hex'),
-            origin_device_id: url.searchParams.get('device_id'),
-            created_at: '2026-01-01T00:00:00Z',
-            updated_at: '2026-01-01T00:00:00Z'
+            slot,
+            content_hash: createHash('md5').update(content).digest('hex'),
+            origin_device_id: deviceId,
+            created_at: overwrite ? new Date().toISOString() : '2026-01-01T00:00:00Z',
+            updated_at: overwrite ? new Date().toISOString() : '2026-01-01T00:00:00Z'
+          }
+          /**
+           * Only a chosen overwrite is kept, as RomM keeps it, so the conflict
+           * it settled stays settled: a slot is a history and takes a new copy,
+           * and a save under no slot is one file that a same-named upload
+           * replaces in place.
+           *
+           * Every other upload is answered and not listed back. Kept, it would
+           * carry the moment it arrived as its time, and a scenario that writes
+           * the save again a moment later would find the two within the sync
+           * tolerance and read them as the same copy.
+           */
+          if (overwrite && !slot && newest) {
+            Object.assign(newest.save, { ...saved, id: newest.save.id })
+            newest.content = content
+            if (deviceId) recordSync(newest.save.id, deviceId)
+            return json(newest.save)
+          }
+          if (overwrite) {
+            held.push({ save: saved, content })
+            if (deviceId) recordSync(saved.id, deviceId)
           }
           return json(saved)
         }
         const romId = Number(url.searchParams.get('rom_id') ?? 0)
-        return json(held.filter((one) => one.save.rom_id === romId).map((one) => one.save))
+        const asking = url.searchParams.get('device_id')
+        const listing = (body: unknown): void => {
+          if (saveListingDelay > 0) setTimeout(() => json(body), saveListingDelay)
+          else json(body)
+        }
+        return listing(
+          held
+            .filter((one) => one.save.rom_id === romId)
+            .map((one) =>
+              asking
+                ? {
+                    ...one.save,
+                    device_syncs: [
+                      {
+                        device_id: asking,
+                        device_name: null,
+                        last_synced_at:
+                          deviceSyncs.get(one.save.id)?.get(asking) ?? one.save.updated_at,
+                        is_untracked: false,
+                        is_current: !behind(one.save, asking)
+                      }
+                    ]
+                  }
+                : one.save
+            )
+        )
       }
       /**
        * States, which are the other half of what a session leaves behind.
@@ -1172,6 +1320,7 @@ export async function startFakeRomm(options: FakeRommOptions = {}): Promise<Fake
           // States carry none: RomM keeps no slot for them.
           slot: null,
           deviceId: url.searchParams.get('device_id'),
+          overwrite: false,
           body: Buffer.concat(chunks).toString()
         })
         const kept: RommState = {
@@ -1252,13 +1401,20 @@ export async function startFakeRomm(options: FakeRommOptions = {}): Promise<Fake
           limit,
           offset
         }
-        return json(page)
+        if (romListingDelay > 0) setTimeout(() => json(page), romListingDelay)
+        else json(page)
+        return
       }
 
       const content = /^\/api\/roms\/(\d+)\/content\//.exec(url.pathname)
       if (content) {
         const found = roms.find((one) => one.id === Number(content[1]))
         if (!found) return json({ detail: 'No such ROM' }, 404)
+        const waiting = contentHeld.get(found.id)
+        if (waiting) {
+          void waiting.then(() => serveBytes(req, res, ROM_BYTES))
+          return
+        }
         if (found.id !== 5) return serveBytes(req, res, ROM_BYTES)
         // The probe that asks whether this can be resumed wants one byte rather
         // than two megabytes of it, and is answered at once. Everything else is
@@ -1318,10 +1474,22 @@ export async function startFakeRomm(options: FakeRommOptions = {}): Promise<Fake
     asked,
     platforms,
     uploaded,
+    slowSaveListings: (ms) => {
+      saveListingDelay = ms
+    },
+    slowRomListings: (ms) => {
+      romListingDelay = ms
+    },
     holdPlaySession: ({ romId, seconds }) => {
       PLAY_SESSIONS.set(romId, [...(PLAY_SESSIONS.get(romId) ?? []), seconds * 1000])
     },
-    holdSave: ({ romId, fileName, emulator, content, slot }) => {
+    holdSave: ({ romId, fileName, emulator, content, slot, staleFor }) => {
+      if (staleFor) {
+        deviceSyncs.set(
+          500 + held.length,
+          new Map([[staleFor, new Date(Date.now() - 3_600_000).toISOString()]])
+        )
+      }
       held.push({
         content,
         save: {
@@ -1379,6 +1547,19 @@ export async function startFakeRomm(options: FakeRommOptions = {}): Promise<Fake
       flow: () => {
         slowAllowance = Infinity
       }
+    },
+    holdContent: (romId) => {
+      let release = (): void => undefined
+      contentHeld.set(
+        romId,
+        new Promise<void>((resolve) => {
+          release = () => {
+            contentHeld.delete(romId)
+            resolve()
+          }
+        })
+      )
+      return () => release()
     },
     approvePairing: () => {
       if (pairing) pairing.approved = true

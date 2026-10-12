@@ -17,6 +17,7 @@ import type {
   PowerAction,
   RomQuery,
   RomUserStatus,
+  ConflictChoice,
   SaveDeleteScope,
   SavesWaiting,
   Settings,
@@ -87,6 +88,8 @@ const bridge: RomMixBridge = {
     pushPreview: (romId: number) => ipcRenderer.invoke('saves:pushPreview', romId),
     pushSelected: (romId: number, paths: string[]) =>
       ipcRenderer.invoke('saves:pushSelected', romId, paths),
+    resolve: (romId: number, choice: ConflictChoice) =>
+      ipcRenderer.invoke('saves:resolve', romId, choice),
     remove: (
       romId: number,
       kind: 'save' | 'state',

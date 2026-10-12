@@ -104,7 +104,7 @@ function clearLastRunsShots(): void {
  * reading anything else here would make this the one part of the project that
  * will not run on the machine it was written on.
  */
-function electronBinary(): string {
+export function electronBinary(): string {
   const declared = process.env.ELECTRON_EXEC_PATH?.trim()
   if (declared) return declared
   return join(process.cwd(), 'node_modules', 'electron', 'dist', 'electron')
@@ -360,6 +360,11 @@ export interface StartOptions {
    * mounted, so a runner without FUSE runs it too.
    */
   executable?: string
+  /**
+   * Files to put in the home after it is seeded, by path relative to it: a
+   * self-test request, which the application takes at start-up.
+   */
+  files?: Record<string, string>
 }
 
 /** How long the stand-in emulator stays up. See `standInEmulator`. */
@@ -498,7 +503,7 @@ export function standInEmulator(options: { stubborn?: boolean } = {}): {
  */
 const SEEN = [THEMES_NOTICE]
 
-function seed(home: string, options: StartOptions): void {
+export function seed(home: string, options: StartOptions): void {
   const config = join(home, 'config')
   mkdirSync(config, { recursive: true })
 
@@ -594,6 +599,9 @@ export async function startApp(options: StartOptions): Promise<App> {
     mkdirSync(home, { recursive: true })
   }
   seed(home, options)
+  for (const [path, text] of Object.entries(options.files ?? {})) {
+    writeFileSync(join(home, path), text)
+  }
 
   // Once for the run rather than once per application: several scenarios start
   // a second RomMix of their own, and clearing on each of those threw away the
@@ -1187,6 +1195,14 @@ export async function startApp(options: StartOptions): Promise<App> {
    * row whose order the page will simply state, and a walk that pressed Right
    * until something looked right would leave the bar the moment it ran off the
    * end of it.
+   *
+   * Home is waited for until it has settled, for the reason `atHome` gives: its
+   * hero takes the highlight when the shelves answer, and a walk to the next
+   * section started before then has its last press land on the hero's game.
+   * The hero is only drawn when a shelf has something, so a library with
+   * nothing in it has settled once the shelves have answered. Choosing home
+   * from home redraws nothing, so the highlight stays in the bar and there is
+   * nothing to wait for.
    */
   const goTo = async (route: string): Promise<void> => {
     const item = `.topbar__nav [data-route="${route}"]`
@@ -1230,7 +1246,24 @@ export async function startApp(options: StartOptions): Promise<App> {
         if (!(await inBar())) break
         await press(distance > 0 ? 'Right' : 'Left')
       }
-      if (await arrived()) return press('Enter')
+      if (await arrived()) {
+        const homeSettled = `(() => {
+          const screen = document.querySelector('[data-screen="home"]')
+          return Boolean(screen) && !screen.querySelector('.spinner')
+        })()`
+        const settledAlready = route === 'home' && (await read<boolean>(homeSettled))
+        await press('Enter')
+        if (route === 'home' && !settledAlready) {
+          await waitFor(
+            `${homeSettled} && (() => {
+               const hero = document.querySelector('[data-screen="home"] .hero')
+               return !hero || hero.dataset.focused === 'true'
+             })()`,
+            'the home screen to settle'
+          )
+        }
+        return
+      }
     }
 
     throw new Error(

@@ -577,6 +577,19 @@ export const de: Catalog = {
     'Einige Spielstände wurden nicht an RomM gesendet, weil sie mit vorhandenen Spielständen kollidieren.',
   'saves.waitingConfirm':
     'Einige Spielstände wurden nicht an RomM gesendet, weil „Vor dem Senden von Spielständen an RomM fragen“ aktiv ist.',
+  'saves.settle': 'Konflikte lösen',
+  'conflict.title': 'Welchen Spielstand behalten? {position} von {total}',
+  'conflict.thisDevice': 'Dieses Gerät',
+  'conflict.romm': 'RomM',
+  'conflict.body':
+    'Den dieses Geräts behalten ersetzt die Kopie auf RomM. Den von RomM behalten legt die Kopie dieses Geräts vorher beiseite. Überspringen ändert nichts.',
+  'conflict.keepDevice': 'Den dieses Geräts behalten',
+  'conflict.keepRomm': 'Den von RomM behalten',
+  'conflict.skip': 'Überspringen',
+  'conflict.keptDevice': '{file} dieses Geräts ist jetzt die Kopie auf RomM',
+  'conflict.keptRomm': '{file} von RomM ist jetzt die Kopie auf diesem Gerät',
+  'conflict.notKept': '{file} konnte nicht gelöst werden. Beide Kopien sind unverändert.',
+  'conflict.none': 'Keine Konflikte mehr für dieses Spiel.',
   'saves.sentAutomatically_one': 'Spielstände von {count} Spiel an RomM gesendet',
   'saves.sentAutomatically_other': 'Spielstände von {count} Spielen an RomM gesendet',
   'saves.sentAutomaticallyOne': 'Spielstände an RomM gesendet',
@@ -587,6 +600,9 @@ export const de: Catalog = {
   'saves.otherEmulator': 'Inkompatibel',
   'saves.otherEmulatorHint':
     'Von einem anderen Emulator geschrieben. Spielstände holen lädt ihn nicht herunter.',
+  'saves.stateNotSynced': 'Nicht abgeglichen',
+  'saves.stateNotSyncedHint':
+    'Savestates dieses Emulators laden nur im selben Core und bleiben daher auf dem Gerät, das sie erstellt hat.',
   'saves.fromDevice': 'von {device}',
   'saves.scopeLocal': 'von diesem Gerät',
   'saves.scopeRemote': 'von RomM',
@@ -748,7 +764,8 @@ export const de: Catalog = {
   'perf.measuring': 'Wird gemessen…',
   'perf.cpu': 'CPU {governor} {cur}/{max} MHz',
   'perf.gpu': 'GPU {governor} {cur}/{max} MHz',
-  'perf.defaultProfile': 'Armada startet in: {profile}',
+  'perf.profile': 'Armada-Profil: {profile} (startet in {start})',
+  'perf.armadaPerf': 'Armada-Perf: {state}',
   'perf.unknown': 'unbekannt',
   'settings.scaleHint':
     'Auto richtet sich nach dem Bildschirm: doppelt so groß auf einem 4K-Fernseher.',
@@ -1058,6 +1075,8 @@ export const de: Catalog = {
   'error.serverAddressEmpty': 'Die Serveradresse ist leer',
   'error.noServerConfigured': 'Kein RomM-Server eingerichtet',
   'error.cannotReach': '{url} ist nicht erreichbar: {reason}',
+  'error.readOnly':
+    'Der Selbsttest liest nur vom Server, daher wurde diese {method}-Anfrage nicht gesendet.',
   'error.savesNotFetched_one': '{count} Spielstand konnte nicht von RomM geladen werden.',
   'error.savesNotFetched_other': '{count} Spielstände konnten nicht von RomM geladen werden.',
   'error.savesNotSent_one': '{count} Spielstand konnte nicht an RomM gesendet werden.',
@@ -1085,6 +1104,12 @@ export const de: Catalog = {
     'Der Download endete, bevor die ganze Datei angekommen war. Er wird fortgesetzt.',
   'error.saveEndedEarly':
     'Von {name} kam nur ein Teil von RomM an, daher blieb die Datei unberührt.',
+  'error.saveBadTime':
+    'Die Zeitangabe eines Spielstands ist unlesbar ({value}), daher wurde er nicht verglichen.',
+  'error.saveNotBackedUp':
+    '{name} konnte vorher nicht gesichert werden und wurde deshalb nicht verändert.',
+  'error.saveIsFolder':
+    '{name} ist auf diesem Gerät ein Ordner, daher wurde keine Datei darüber geschrieben.',
   'error.saveTreeTooLarge':
     'Dieser Spielstand-Ordner ist zu groß, um als ein Archiv gesendet zu werden.',
   'error.emptyAssetBody': 'Leerer Dateiinhalt',

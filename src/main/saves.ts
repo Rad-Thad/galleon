@@ -1,12 +1,13 @@
-import { mkdir, rename, rm, stat } from 'node:fs/promises'
+import { stat } from 'node:fs/promises'
 import { basename, extname, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import type { SaveProgress } from '@shared/api'
 import { localize } from '@shared/i18n'
 import { changedAt, mayBeSentUnasked, AUTOSAVE_SLOT } from '@shared/saveassets'
-import { SAVE_CONVENTIONS, emulatorById } from '@config/emulators'
+import { SAVE_CONVENTIONS, emulatorById, statesSync } from '@config/emulators'
 import type { SaveContext, SaveLocation, SavePaths } from '@config/emulators'
 import type {
+  ConflictChoice,
   EmulatorState,
   PendingSave,
   RommDevice,
@@ -19,9 +20,9 @@ import type {
   SaveSyncResult,
   SaveSyncState
 } from '@shared/types'
-import { partialPathOf, refusedUs, verify } from './romm/index.ts'
+import { refusedUs, verify } from './romm/index.ts'
 import { safeJoin } from './safepath.ts'
-import type { RommClient } from './romm/index.ts'
+import type { RommClient, UploadSaveOptions } from './romm/index.ts'
 import type { Store } from './store.ts'
 import { i18n, t } from './i18n.ts'
 import { realHome } from './xdg.ts'
@@ -29,7 +30,6 @@ import { log } from './log.ts'
 import { fileSystemEnvironment } from './saveenv.ts'
 import {
   acceptsTag,
-  keepBackup,
   localTag,
   primarySave,
   romStemOf,
@@ -53,7 +53,8 @@ import {
   slotToSend
 } from './savepairing.ts'
 import { progressRun, type SaveRun } from './saveprogress.ts'
-import { extractZip, zipDirectory } from './zip.ts'
+import { zipDirectory } from './zip.ts'
+import { discardStaged, removeSave, replaceSave, stageBeside, unpackSave } from './savewriter.ts'
 
 /**
  * Two-way save and save-state sync between RomM and the local emulator tree.
@@ -286,6 +287,28 @@ export class SaveSync {
   private locationFor(paths: SavePaths, kind: 'save' | 'state'): SaveLocation | null {
     const location = kind === 'save' ? paths.saves : paths.states
     return location && location.match !== 'shared' ? location : null
+  }
+
+  /**
+   * Where this kind goes to and comes from RomM, or null where it stays here.
+   *
+   * `locationFor` with the one rule a sync adds: a state travels only for the
+   * (system, tag) pairs `statesSync` lists. Every pull and push asks this; the
+   * Saves tab asks `locationFor`, because a state that stays on this device is
+   * still a file on it, and the row is how anybody learns it is not synced.
+   */
+  private syncLocationFor(
+    paths: SavePaths,
+    target: SaveTarget,
+    kind: 'save' | 'state'
+  ): SaveLocation | null {
+    if (kind === 'state' && !this.statesTravel(paths, target)) return null
+    return this.locationFor(paths, kind)
+  }
+
+  /** Do this game's states sync under the emulator it runs in? See `statesSync`. */
+  private statesTravel(paths: SavePaths, target: SaveTarget): boolean {
+    return statesSync(target.system, this.tagFor(paths, target))
   }
 
   /**
@@ -549,9 +572,17 @@ export class SaveSync {
      * `unsyncableReason` is already giving.
      */
     const byTag = { save: false, state: false }
+    /**
+     * Whether this game's states stay on this device — see `syncLocationFor`.
+     *
+     * False where the game is not downloaded: with no emulator to ask about,
+     * nothing here is going anywhere either way.
+     */
+    let statesStay = false
     if (local) {
       const paths = this.locate(local)
       tag = this.tagFor(paths, local)
+      statesStay = !this.statesTravel(paths, local)
       alsoAccepts = paths.alsoAccepts ?? []
       for (const kind of ['save', 'state'] as const) {
         const location = this.locationFor(paths, kind)
@@ -636,6 +667,7 @@ export class SaveSync {
         emulator: item.emulator,
         forAnotherEmulator:
           byTag[kind] && tag !== null && !acceptsTag(tag, item.emulator, alsoAccepts),
+        staysOnDevice: kind === 'state' && statesStay,
         localPath: localFile?.path ?? null,
         localModifiedAt: localFile ? new Date(localFile.mtimeMs).toISOString() : null,
         fromThisDevice,
@@ -665,6 +697,7 @@ export class SaveSync {
         emulator: tag,
         // This device's own file, so there is no other emulator's claim on it.
         forAnotherEmulator: false,
+        staysOnDevice: key.startsWith('state:') && statesStay,
         localPath: file.path,
         localModifiedAt: new Date(file.mtimeMs).toISOString(),
         fromThisDevice: null,
@@ -818,7 +851,7 @@ export class SaveSync {
     let inSync = 0
 
     for (const kind of ['save', 'state'] as const) {
-      const location = this.locationFor(paths, kind)
+      const location = this.syncLocationFor(paths, target, kind)
       if (!location) continue
 
       // Unfiltered, then narrowed — see `uploadKind`, which the list here has
@@ -872,6 +905,7 @@ export class SaveSync {
           isDirectory: asset.isDirectory === true,
           replaces: existing
             ? {
+                id: existing.id,
                 sizeBytes: existing.file_size_bytes,
                 updatedAt: existing.updated_at,
                 emulator: existing.emulator,
@@ -944,7 +978,8 @@ export class SaveSync {
 
       const result = await this.sendChosen(
         target,
-        unasked.map((file) => file.path)
+        unasked.map((file) => file.path),
+        { keepThisDevice: false }
       )
       const sent = result.saves + result.states
       /**
@@ -986,7 +1021,11 @@ export class SaveSync {
     chosen: readonly string[],
     onProgress?: (progress: SaveProgress) => void
   ): Promise<SaveSyncResult> {
-    return this.oneAtATime(target.rom.id, () => this.sendChosen(target, chosen, onProgress))
+    // Approving a push is not choosing this device's save over another's: a
+    // copy the server moved on still comes back as a refusal to settle.
+    return this.oneAtATime(target.rom.id, () =>
+      this.sendChosen(target, chosen, { keepThisDevice: false }, onProgress)
+    )
   }
 
   /**
@@ -998,6 +1037,7 @@ export class SaveSync {
   private async sendChosen(
     target: SaveTarget,
     chosen: readonly string[],
+    options: UploadSaveOptions,
     onProgress?: (progress: SaveProgress) => void
   ): Promise<SaveSyncResult> {
     const paths = this.locate(target)
@@ -1008,7 +1048,7 @@ export class SaveSync {
     const batches: UploadBatch[] = []
 
     for (const kind of ['save', 'state'] as const) {
-      const location = this.locationFor(paths, kind)
+      const location = this.syncLocationFor(paths, target, kind)
       if (!location) continue
 
       const local = await this.findLocal(location, target.rom, target.romPath, kind, 0)
@@ -1019,7 +1059,7 @@ export class SaveSync {
       batches.push({ kind, assets: selected, tag, primary: this.primaryOf(kind, local, target) })
     }
 
-    const moved = await this.sendBatches(target, batches, onProgress)
+    const moved = await this.sendBatches(target, batches, options, onProgress)
 
     // A file the dialog offered that the scan no longer finds is how an
     // approved save silently fails to arrive, and nothing else would say so.
@@ -1035,6 +1075,54 @@ export class SaveSync {
     const result = { ...moved, skippedReason: this.reasonFor(paths, moved.saves + moved.states) }
     log.info('saves', 'pushed the approved files', { romId: target.rom.id, ...result })
     return result
+  }
+
+  /**
+   * Settle a conflict the way the player just said to.
+   *
+   * The one caller allowed to keep this device's save over the server's
+   * (docs/save-sync/SPEC.md section 7): an approved push is not that choice, and
+   * neither is anything automatic. RomM's copy is pulled by id past the
+   * newer-wins rule, which is what lets the player take an older save back.
+   */
+  async resolve(
+    target: SaveTarget,
+    choice: ConflictChoice,
+    onProgress?: (progress: SaveProgress) => void
+  ): Promise<SaveSyncResult> {
+    return this.oneAtATime(target.rom.id, async () => {
+      if (choice.keep === 'device') {
+        const result = await this.sendChosen(
+          target,
+          [choice.path],
+          { keepThisDevice: true },
+          onProgress
+        )
+        log.info('saves', "kept this device's copy over RomM's", {
+          romId: target.rom.id,
+          path: choice.path,
+          ...result
+        })
+        return result
+      }
+
+      const paths = this.locate(target)
+      const run = progressRun(target.rom.id, 'pull', null, onProgress)
+      const pulled = await this.pullKind(target, paths, choice.kind, run, choice.id)
+      const result = {
+        saves: choice.kind === 'save' ? pulled.written : 0,
+        states: choice.kind === 'state' ? pulled.written : 0,
+        failed: pulled.failed,
+        skippedReason: pulled.failed > 0 ? null : this.reasonFor(paths, pulled.written)
+      }
+      log.info('saves', "kept RomM's copy over this device's", {
+        romId: target.rom.id,
+        kind: choice.kind,
+        id: choice.id,
+        ...result
+      })
+      return result
+    })
   }
 
   /**
@@ -1095,7 +1183,7 @@ export class SaveSync {
 
     if (scope === 'local') {
       if (!asset.localPath) throw new Error(t('error.assetNotLocal', { file: fileName }))
-      await rm(asset.localPath, { force: true, recursive: true })
+      await removeSave(asset.localPath, this.backupDir(romId))
       return
     }
 
@@ -1158,13 +1246,21 @@ export class SaveSync {
     return wanted
   }
 
+  /**
+   * `chosen` is the id of the one copy a player picked when resolving a
+   * conflict: only that copy is pulled, and it comes down whichever end is
+   * newer, since being older is the very thing the player has just overruled.
+   * Everything else stays — the tag rule, the same-bytes check and the copy
+   * `keepBackup` puts aside.
+   */
   private async pullKind(
     target: SaveTarget,
     paths: SavePaths,
     kind: 'save' | 'state',
-    run?: SaveRun
+    run?: SaveRun,
+    chosen?: number
   ): Promise<PullCount> {
-    const location = this.locationFor(paths, kind)
+    const location = this.syncLocationFor(paths, target, kind)
     if (!location) return { written: 0, offered: 0, failed: 0 }
 
     const remote =
@@ -1219,7 +1315,19 @@ export class SaveSync {
       })
     }
 
-    const wanted = this.toPull(kind, usable)
+    const picked = chosen === undefined ? usable : usable.filter((item) => item.id === chosen)
+    const wanted = this.toPull(kind, picked)
+    // A copy the player chose and this pass will not bring down — gone from
+    // the server, a state another core wrote, or a save in another client's
+    // slot, which `toPull` pairs with no file here — is a choice that did not
+    // happen, and counted as one so the screen does not report it as done.
+    if (chosen !== undefined && wanted.length === 0) {
+      log.warn('saves', `the chosen ${kind} is not one this game can take`, {
+        romId: target.rom.id,
+        id: chosen
+      })
+      return { written: 0, offered: remote.length, failed: 1 }
+    }
     if (wanted.length === 0) return { written: 0, offered: remote.length, failed: 0 }
 
     /**
@@ -1346,7 +1454,13 @@ export class SaveSync {
       const landed = archive
         ? this.env.newest(location.dir) || undefined
         : (match?.mtimeMs ?? (await stat(destination).catch(() => null))?.mtimeMs)
-      if (landed !== undefined && landed >= remoteTime - SYNC_TOLERANCE_MS) continue
+      if (
+        chosen === undefined &&
+        landed !== undefined &&
+        landed >= remoteTime - SYNC_TOLERANCE_MS
+      ) {
+        continue
+      }
 
       /**
        * The clocks say fetch it. The bytes get the last word.
@@ -1401,6 +1515,8 @@ export class SaveSync {
             item.file_size_bytes
           )
         }
+        // States carry no device records on RomM, so only a save is confirmed.
+        if (kind === 'save') await this.confirmPulled(target.rom.id, item)
         written += 1
         log.info('saves', `${kind} pulled`, {
           romId: target.rom.id,
@@ -1433,6 +1549,28 @@ export class SaveSync {
   }
 
   /**
+   * Tell RomM this device holds a save that has just been written in place.
+   *
+   * Reached only after the write: a download that broke off, failed its check
+   * or could not be put in place throws before it, so the server never records
+   * this device as current with a save it does not have. A confirmation that
+   * fails costs only a repeat of the same download later, so it is logged and
+   * the save still counts as pulled.
+   */
+  private async confirmPulled(romId: number, item: RommSave | RommState): Promise<void> {
+    try {
+      await this.client.confirmSaveDownloaded(item.id)
+    } catch (cause) {
+      log.warn('saves', 'could not tell RomM a save arrived', {
+        romId,
+        id: item.id,
+        fileName: item.file_name,
+        reason: (cause as Error).message
+      })
+    }
+  }
+
+  /**
    * Write one pulled file into the location the emulator reads.
    *
    * The path is decided by the caller, which is where the file that is already
@@ -1450,8 +1588,6 @@ export class SaveSync {
     contentHash: string | null,
     expectedBytes: number
   ): Promise<void> {
-    await mkdir(join(destination, '..'), { recursive: true })
-
     /**
      * Beside the save rather than onto it, and only renamed once it is whole.
      *
@@ -1466,7 +1602,7 @@ export class SaveSync {
      * md5 on the asset; where it states none the length is all there is, which
      * is what `verify` was already doing for firmware.
      */
-    const partial = partialPathOf(destination)
+    const partial = await stageBeside(destination)
     try {
       await download(partial)
       if (contentHash) {
@@ -1498,11 +1634,9 @@ export class SaveSync {
       // that matched on a prefix, or by a client that names its ROMs otherwise
       // — and the download lands on that file whether or not anything matched
       // it.
-      if (await stat(destination).catch(() => null)) await keepBackup(destination, backups)
-      await rename(partial, destination)
-      await stampMtime(destination, remoteTime)
+      await replaceSave(destination, partial, backups, remoteTime)
     } finally {
-      await rm(partial, { force: true }).catch(() => undefined)
+      await discardStaged(partial)
     }
   }
 
@@ -1523,9 +1657,7 @@ export class SaveSync {
     const staging = join(tmpdir(), `rommix-save-${Date.now()}.zip`)
     try {
       await download(staging)
-      await mkdir(dir, { recursive: true })
-      await keepBackup(dir, backups, true)
-      const extracted = await extractZip(staging, dir)
+      const extracted = await unpackSave(dir, staging, backups)
       /**
        * Only what came out of the archive.
        *
@@ -1539,7 +1671,7 @@ export class SaveSync {
        */
       for (const file of extracted) await stampMtime(file, remoteTime)
     } finally {
-      await rm(staging, { force: true })
+      await discardStaged(staging)
     }
   }
 
@@ -1577,7 +1709,7 @@ export class SaveSync {
       await this.pendingUploads(target, paths, 'save', since),
       await this.pendingUploads(target, paths, 'state', since)
     ]
-    return this.sendBatches(target, batches, onProgress)
+    return this.sendBatches(target, batches, { keepThisDevice: false }, onProgress)
   }
 
   /**
@@ -1594,7 +1726,7 @@ export class SaveSync {
     kind: 'save' | 'state',
     since: number
   ): Promise<UploadBatch> {
-    const location = this.locationFor(paths, kind)
+    const location = this.syncLocationFor(paths, target, kind)
     if (!location) return { kind, assets: [], tag: '', primary: null }
 
     const all = await this.findLocal(location, target.rom, target.romPath, kind)
@@ -1610,6 +1742,7 @@ export class SaveSync {
   private async sendBatches(
     target: SaveTarget,
     batches: readonly UploadBatch[],
+    options: UploadSaveOptions,
     onProgress?: (progress: SaveProgress) => void
   ): Promise<{ saves: number; states: number; failed: number }> {
     const total = batches.reduce((count, batch) => count + batch.assets.length, 0)
@@ -1624,6 +1757,7 @@ export class SaveSync {
         batch.assets,
         batch.tag,
         batch.primary,
+        options,
         run
       )
       if (batch.kind === 'save') moved.saves += count.sent
@@ -1646,6 +1780,7 @@ export class SaveSync {
     assets: readonly LocalAsset[],
     tag: string,
     primary: string | null,
+    options: UploadSaveOptions,
     run?: SaveRun
   ): Promise<{ sent: number; failed: number }> {
     let uploaded = 0
@@ -1681,7 +1816,14 @@ export class SaveSync {
         const slot = slotToSend(asset.fileName, primary)
         const sent =
           kind === 'save'
-            ? await this.client.uploadSave(target.rom.id, payload, asset.fileName, tag, slot)
+            ? await this.client.uploadSave(
+                target.rom.id,
+                payload,
+                asset.fileName,
+                tag,
+                slot,
+                options
+              )
             : await this.client.uploadState(target.rom.id, payload, asset.fileName, tag)
         uploaded += 1
         await this.stampUploaded(asset, Date.parse(sent.updated_at))
@@ -1700,7 +1842,7 @@ export class SaveSync {
         })
         failed += 1
       } finally {
-        if (staged) await rm(staged, { force: true }).catch(() => undefined)
+        if (staged) await discardStaged(staged)
         run?.moved()
       }
     }

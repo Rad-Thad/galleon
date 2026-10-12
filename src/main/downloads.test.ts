@@ -8,19 +8,20 @@
  */
 
 import assert from 'node:assert/strict'
-import { afterEach, describe, test } from 'node:test'
+import { afterEach, describe, mock, test } from 'node:test'
 import {
   existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
   rmSync,
+  statSync,
   truncateSync,
   writeFileSync
 } from 'node:fs'
 import { readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, relative, sep } from 'node:path'
 import type { EmulatorState } from '@config/emulators'
 import { SHARED_LIBRARY, type DownloadItem, type RommRom } from '@shared/types'
 import { spaceOf } from './disk.ts'
@@ -78,6 +79,7 @@ const wires: (() => void)[] = []
  */
 afterEach(async () => {
   for (const release of wires.splice(0)) release()
+  mock.restoreAll()
   for (const downloads of queues.splice(0)) await downloads.whenIdle()
   log.close()
   if (realHome === undefined) delete process.env.GALLEON_HOME
@@ -112,6 +114,17 @@ function heldWire(): { held: Promise<void>; release: () => void } {
   })
   wires.push(release)
   return { held, release }
+}
+
+/** The data of every warning logged with this message from now on. */
+function watchLog(message: string): () => Record<string, unknown>[] {
+  const seen: Record<string, unknown>[] = []
+  const warn = log.warn.bind(log)
+  mock.method(log, 'warn', (area: string, said: string, data?: Record<string, unknown>) => {
+    if (said === message) seen.push(data ?? {})
+    warn(area, said, data)
+  })
+  return () => seen
 }
 
 /**
@@ -194,12 +207,14 @@ function fakeClient(
     /** Whether the server can serve the game's files one at a time. */
     perFile?: boolean
     /**
-     * The file, counted from one, that fails its hash check.
+     * The per-file fetches, counted from one, that fail their hash check.
      *
      * What `RommClient.verify` does: the part-file is deleted and the transfer
      * throws, leaving whatever landed before it in place.
      */
-    corruptFile?: number
+    corruptFile?: number | number[]
+    /** Each per-file fetch says it is checking its hash, as one with a digest does. */
+    checks?: boolean
     /**
      * Answer with a real archive holding these files, rather than loose bytes.
      *
@@ -227,10 +242,11 @@ function fakeClient(
       destination: string,
       onProgress: (progress: { received: number; total: number }) => void,
       _signal: AbortSignal,
-      opts: { resume?: boolean } = {}
+      opts: { resume?: boolean; onChecking?: () => void } = {}
     ) {
       resumed.push(opts.resume === true)
-      if (options.corruptFile === resumed.length) {
+      if (options.checks) opts.onChecking?.()
+      if ([options.corruptFile].flat().includes(resumed.length)) {
         await rm(`${destination}.part`, { force: true })
         throw new CorruptDownloadError('what arrived is not what RomM holds')
       }
@@ -328,7 +344,8 @@ function manager(
     breakAfter?: number
     ranges?: boolean
     perFile?: boolean
-    corruptFile?: number
+    corruptFile?: number | number[]
+    checks?: boolean
     zip?: Record<string, string>
     roms?: Record<number, RommRom>
     breakReason?: typeof RommError
@@ -1511,20 +1528,51 @@ describe('a game fetched one file at a time', () => {
     )
   })
 
-  test('a file refused for its hash pauses the game, and the row says so', async () => {
+  test('a file refused for its hash is fetched again on its own', async () => {
     /**
-     * The rest of the game is real and worth keeping, so this pauses rather
-     * than failing — and pausing silently would be the one way for bytes to be
-     * thrown away without the screen ever mentioning it. Resuming re-fetches
-     * the refused file, whose part-file `verify` took with it.
+     * The files either side of it are whole, so only the refused one crosses
+     * the network a second time, and from its first byte: `verify` took its
+     * part-file, and there is nothing to resume onto.
      */
-    const { downloads, store, root } = manager({ perFile: true, corruptFile: 2 })
+    const { downloads, root, resumed } = manager({ perFile: true, corruptFile: 2 })
+    const warned = watchLog('a file was refused for its hash, fetching it again')
+
+    await downloads.enqueue(multi())
+    const item = await settled(downloads, 2)
+
+    assert.equal(item.state, 'done')
+    assert.equal(item.error, null)
+    // Track 1, track 2 refused, track 2 again from nothing, then the cue.
+    assert.deepEqual(resumed, [false, false, false, false])
+    const dir = join(root, 'roms', 'psx', 'Castlevania - Symphony of the Night (Europe)')
+    assert.deepEqual((await readdir(dir)).sort(), [
+      'disc (Track 1).bin',
+      'disc (Track 2).bin',
+      'disc.cue'
+    ])
+    assert.equal(readFileSync(join(dir, 'disc (Track 2).bin'), 'utf8'), '0'.repeat(32))
+    assert.deepEqual(warned(), [{ romId: 2, fileName: 'disc (Track 2).bin' }])
+  })
+
+  test('a file refused twice pauses the game, and the row says so once', async () => {
+    /**
+     * A second refusal is the server's copy disagreeing with its own record,
+     * which a third fetch would only repeat. The rest of the game is real and
+     * worth keeping, so this pauses rather than failing — and pausing silently
+     * would be the one way for bytes to be thrown away without the screen ever
+     * mentioning it.
+     */
+    const { downloads, store, root, resumed } = manager({ perFile: true, corruptFile: [2, 3] })
+    const warned = watchLog('a file was refused for its hash, fetching it again')
 
     await downloads.enqueue(multi())
     const item = await settled(downloads, 2)
 
     assert.equal(item.state, 'paused')
     assert.ok(item.error, 'the row has to carry the reason, not just say "paused"')
+    // Fetched twice and no more; the cue behind it was never asked for.
+    assert.equal(resumed.length, 3)
+    assert.equal(warned().length, 1)
     // The first file arrived and is kept; the refused one is gone.
     const dir = join(root, 'roms', 'psx', 'Castlevania - Symphony of the Night (Europe)')
     assert.deepEqual(await readdir(dir), ['disc (Track 1).bin'])
@@ -1564,6 +1612,32 @@ describe('a game fetched one file at a time', () => {
       seen
     )
     assert.equal(seen.at(-1), 104)
+  })
+
+  test('the row is downloading again once the file before was checked', async () => {
+    /**
+     * Each file is hashed as it lands, and the row says so. Left saying it for
+     * the next file, the row reads "Checking" over a transfer, and Pause, which
+     * only stops a row that is downloading, does nothing for the rest of the
+     * game.
+     */
+    const { downloads } = manager({ perFile: true, checks: true })
+    const states = new Map<string, string>()
+    downloads.on('update', (items: DownloadItem[]) => {
+      const row = items.find((item) => item.romId === 2)
+      if (row?.currentFile && !states.has(row.currentFile)) {
+        states.set(row.currentFile, row.state)
+      }
+    })
+
+    await downloads.enqueue(multi())
+    await settled(downloads, 2)
+
+    assert.deepEqual(Object.fromEntries(states), {
+      'disc (Track 1).bin': 'downloading',
+      'disc (Track 2).bin': 'downloading',
+      'disc.cue': 'downloading'
+    })
   })
 
   test('the row names the file that is arriving, and stops when none is', async () => {
@@ -1901,5 +1975,153 @@ describe('the room on the drive', () => {
     await downloads.enqueue(rom({ fs_size_bytes: total }))
 
     assert.equal((await settled(downloads, 1)).state, 'done')
+  })
+})
+
+describe('a game of several discs', () => {
+  /**
+   * A multi-file game as RomM describes one: each file named by its leaf, with
+   * the folder it was found in beside it. The shapes are the synthetic
+   * library's (test/romm/make-library.mjs), which are the owner's.
+   */
+  function discSet(
+    platform: string,
+    folder: string,
+    files: { path: string; bytes: number }[],
+    id = 7
+  ): RommRom {
+    return rom({
+      id,
+      name: folder,
+      fs_name: folder,
+      fs_name_no_ext: folder,
+      fs_extension: '',
+      fs_path: `roms/${platform}`,
+      has_multiple_files: true,
+      // RomM's slug for the system, beside the owner's folder name for it.
+      platform_slug: platform === 'ps1' ? 'psx' : platform,
+      platform_fs_slug: platform,
+      files: files.map(({ path, bytes }, at) => {
+        const cut = path.lastIndexOf('/')
+        const below = cut === -1 ? '' : `/${path.slice(0, cut)}`
+        return {
+          id: at + 1,
+          rom_id: id,
+          file_name: path.slice(cut + 1),
+          file_path: `roms/${platform}/${folder}${below}`,
+          file_size_bytes: bytes
+        }
+      }) as RommRom['files']
+    })
+  }
+
+  test("a PS1 folder of discs is launched by Galleon's own playlist, in disc order", async () => {
+    const { downloads, store, root } = manager({ perFile: true })
+    const saga = 'Galleon Test Saga (USA)'
+    await downloads.enqueue(
+      discSet('ps1', saga, [
+        { path: `${saga} (Disc 2).chd`, bytes: 20 },
+        { path: `${saga} (Disc 10).chd`, bytes: 30 },
+        { path: `${saga} (Disc 1).chd`, bytes: 10 }
+      ])
+    )
+    assert.equal((await settled(downloads, 7)).state, 'done')
+
+    const dir = join(root, 'roms', 'psx', saga)
+    const installed = store.getInstalled(7)
+    assert.equal(installed?.launchPath, join(dir, `${saga}.m3u`))
+    assert.equal(
+      readFileSync(join(dir, `${saga}.m3u`), 'utf8'),
+      `${saga} (Disc 1).chd\n${saga} (Disc 2).chd\n${saga} (Disc 10).chd\n`
+    )
+    assert.ok(installed?.files.includes(`${saga}.m3u`))
+  })
+
+  test('a GameCube folder of two discs gets the same, and a server playlist is never fetched', async () => {
+    const { downloads, store, root } = manager({ perFile: true })
+    const cube = 'Galleon Test Two Discs (USA)'
+    await downloads.enqueue(
+      discSet('ngc', cube, [
+        { path: `${cube} (Disc 1).iso`, bytes: 10 },
+        { path: `${cube} (Disc 2).iso`, bytes: 20 },
+        // Written for a layout that is not this one, so it is not followed.
+        { path: `${cube}.m3u`, bytes: 99 }
+      ])
+    )
+    assert.equal((await settled(downloads, 7)).state, 'done')
+
+    const dir = join(root, 'roms', 'gc', cube)
+    assert.equal(
+      readFileSync(join(dir, `${cube}.m3u`), 'utf8'),
+      `${cube} (Disc 1).iso\n${cube} (Disc 2).iso\n`
+    )
+    const installed = store.getInstalled(7)
+    assert.equal(installed?.launchPath, join(dir, `${cube}.m3u`))
+    // Only the discs' bytes arrived: the server's playlist was never asked for.
+    assert.equal(installed?.sizeBytes, 30)
+  })
+
+  test('generic track names in a folder per disc keep to their own disc', async () => {
+    const { downloads, store, root } = manager({ perFile: true })
+    const dream = 'Galleon Test Dream Set (USA)'
+    const disc = (n: number, size: number): { path: string; bytes: number }[] => [
+      { path: `Disc ${n}/disc.gdi`, bytes: 8 },
+      { path: `Disc ${n}/track01.bin`, bytes: size },
+      { path: `Disc ${n}/track02.raw`, bytes: size + 1 },
+      { path: `Disc ${n}/track03.bin`, bytes: size + 2 }
+    ]
+    await downloads.enqueue(discSet('dc', dream, [...disc(1, 10), ...disc(2, 40)]))
+    assert.equal((await settled(downloads, 7)).state, 'done')
+
+    const dir = join(root, 'roms', 'dreamcast', dream)
+    // Each disc's tracks are its own bytes, not the other disc's written over them.
+    assert.equal(statSync(join(dir, 'Disc 1', 'track01.bin')).size, 10)
+    assert.equal(statSync(join(dir, 'Disc 2', 'track01.bin')).size, 40)
+    assert.equal(statSync(join(dir, 'Disc 2', 'track03.bin')).size, 42)
+    assert.equal(
+      readFileSync(join(dir, `${dream}.m3u`), 'utf8'),
+      'Disc 1/disc.gdi\nDisc 2/disc.gdi\n'
+    )
+    const installed = store.getInstalled(7)
+    assert.equal(installed?.launchPath, join(dir, `${dream}.m3u`))
+    assert.equal(installed?.files.filter((name) => name.endsWith('track01.bin')).length, 2)
+  })
+
+  test('the playlist path never has .m3u in a folder name', async () => {
+    const { downloads, store, root } = manager({ perFile: true })
+    // RomM holds this set in a folder named like a playlist, as some libraries do.
+    const named = 'Galleon Test Saga (USA).m3u'
+    await downloads.enqueue(
+      discSet('ps1', named, [
+        { path: 'Galleon Test Saga (USA) (Disc 1).chd', bytes: 10 },
+        { path: 'Galleon Test Saga (USA) (Disc 2).chd', bytes: 20 }
+      ])
+    )
+    assert.equal((await settled(downloads, 7)).state, 'done')
+
+    const playlist = store.getInstalled(7)?.launchPath ?? ''
+    assert.ok(playlist.endsWith('.m3u'), playlist)
+    const folders = relative(root, playlist).split(sep).slice(0, -1)
+    assert.deepEqual(
+      folders.filter((folder) => folder.toLowerCase().includes('.m3u')),
+      []
+    )
+    assert.ok(existsSync(playlist))
+  })
+
+  test('a game of one disc writes none and launches its descriptor', async () => {
+    const { downloads, store, root } = manager({ perFile: true })
+    const single = 'Galleon Test Single Track (USA)'
+    await downloads.enqueue(
+      discSet('ps1', single, [
+        { path: `${single}.cue`, bytes: 8 },
+        { path: `${single} (Track 1).bin`, bytes: 64 },
+        { path: `${single} (Track 2).bin`, bytes: 32 }
+      ])
+    )
+    assert.equal((await settled(downloads, 7)).state, 'done')
+    const dir = join(root, 'roms', 'psx', single)
+    assert.equal(store.getInstalled(7)?.launchPath, join(dir, `${single}.cue`))
+    assert.equal(existsSync(join(dir, `${single}.m3u`)), false)
   })
 })

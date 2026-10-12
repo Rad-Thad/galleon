@@ -12,7 +12,8 @@ const here = dirname(fileURLToPath(import.meta.url))
 /** One entry per compose profile; the ports match compose.yml. */
 export const PROFILES = {
   v520: { baseUrl: 'http://127.0.0.1:18520', version: '5.2.0' },
-  v531: { baseUrl: 'http://127.0.0.1:18531', version: '5.3.1' }
+  v531: { baseUrl: 'http://127.0.0.1:18531', version: '5.3.1' },
+  v540: { baseUrl: 'http://127.0.0.1:18540', version: '5.4.0' }
 }
 
 export const ADMIN = { username: 'galleon-test', password: 'galleon-test-password' }

@@ -8,19 +8,25 @@ import fs, {
   rmSync,
   writeFileSync
 } from 'node:fs'
+import { createHash } from 'node:crypto'
 import { hostname, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { app } from 'electron'
 import type { RommDevice, RommFirmware, RommRom, RommRomFile } from '@shared/types'
 import {
+  ReadOnlyError,
+  ReadOnlyGuard,
   RommClient,
   RommError,
+  withoutDeviceId,
   REQUIRED_SCOPES,
   UnsupportedServerError,
   atLeast,
   isComparable,
-  MINIMUM_SERVER_VERSION
+  MINIMUM_SERVER_VERSION,
+  negotiatesByGame
 } from './romm/index.ts'
+import { SYNTHETIC_GAMES, SYNTHETIC_PLATFORM_ID } from './selftestlibrary.ts'
 import type { Store } from './store.ts'
 
 /**
@@ -1245,44 +1251,34 @@ describe('what is being played', () => {
 })
 
 describe('reporting play time', () => {
-  test('a session too short to mean anything is not reported', async () => {
-    const { store } = fakeStore()
-    const sent = serve(() => json({}))
+  const entry = {
+    rom_id: 5,
+    start_time: '2026-08-01T20:00:00.000Z',
+    end_time: '2026-08-01T20:10:00.000Z',
+    duration_ms: 600000
+  }
 
-    await new RommClient(store).reportPlaySession(5, new Date(), 2)
-
-    assert.equal(sent.length, 0)
-  })
-
-  test('a session that counts is sent with the device that played it', async () => {
+  test('sessions are sent with the device that played them', async () => {
     const { store } = fakeStore({ deviceId: 'romm-device-9' })
     const sent = serve(() => json({}))
-    const startedAt = new Date('2026-08-01T20:00:00.000Z')
 
-    await new RommClient(store).reportPlaySession(5, startedAt, 600)
+    await new RommClient(store).sendPlaySessions([entry])
 
-    const body = JSON.parse(sent[0].body ?? '{}') as {
-      device_id: string
-      sessions: { rom_id: number; start_time: string; end_time: string; duration_ms: number }[]
-    }
-    assert.equal(body.device_id, 'romm-device-9')
+    assert.equal(new URL(sent[0].url).pathname, '/api/play-sessions')
+    assert.equal(sent[0].method, 'POST')
     // The duration as well as the window: RomM refuses an entry without it, and
     // refuses it with a 422 nobody sees.
-    assert.deepEqual(body.sessions, [
-      {
-        rom_id: 5,
-        start_time: '2026-08-01T20:00:00.000Z',
-        end_time: '2026-08-01T20:10:00.000Z',
-        duration_ms: 600000
-      }
-    ])
+    assert.deepEqual(JSON.parse(sent[0].body ?? '{}'), {
+      device_id: 'romm-device-9',
+      sessions: [entry]
+    })
   })
 
-  test('a server that will not take it never fails the launch it belongs to', async () => {
+  test('a server that will not take them says so, for the caller to keep them', async () => {
     const { store } = fakeStore()
     serve(() => json({ detail: 'no' }, 500))
 
-    await new RommClient(store).reportPlaySession(5, new Date(), 600)
+    await assert.rejects(new RommClient(store).sendPlaySessions([entry]), { status: 500 })
   })
 })
 
@@ -1557,7 +1553,7 @@ describe('firmware, saves and states', () => {
   })
 
   test('saves and states are listed and fetched per game', async () => {
-    const { store } = fakeStore()
+    const { store } = fakeStore({ deviceId: 'romm-device-9' })
     const dir = scratch()
     const sent = serve((request) =>
       request.url.includes('/content') ? new Response('save bytes') : json([])
@@ -1571,9 +1567,46 @@ describe('firmware, saves and states', () => {
 
     assert.equal(sent[0].url, 'https://romm.example/api/saves?rom_id=5')
     assert.equal(sent[1].url, 'https://romm.example/api/states?rom_id=5')
-    assert.equal(sent[2].url, 'https://romm.example/api/saves/11/content')
+    assert.equal(
+      sent[2].url,
+      'https://romm.example/api/saves/11/content?device_id=romm-device-9&optimistic=false'
+    )
     assert.equal(sent[3].url, 'https://romm.example/api/states/12/content')
     assert.equal(readFileSync(join(dir, 'a.srm'), 'utf8'), 'save bytes')
+  })
+
+  test('a save is downloaded under this device with nothing recorded yet', async () => {
+    const { store } = fakeStore({ deviceId: 'romm-device-9' })
+    const sent = serve(() => new Response('save bytes'))
+    const to = join(scratch(), 'a.srm')
+
+    await new RommClient(store).downloadSave(11, to)
+
+    const url = new URL(sent[0].url)
+    assert.equal(url.pathname, '/api/saves/11/content')
+    assert.equal(url.searchParams.get('device_id'), 'romm-device-9')
+    // RomM's default records the device as holding the save when the GET
+    // starts, before a byte has been checked or written.
+    assert.equal(url.searchParams.get('optimistic'), 'false')
+    assert.equal(readFileSync(to, 'utf8'), 'save bytes')
+  })
+
+  test('a save that arrived is confirmed under this device', async () => {
+    const { store } = fakeStore({ deviceId: 'romm-device-9' })
+    const sent = serve(() => json({}))
+
+    await new RommClient(store).confirmSaveDownloaded(11)
+
+    assert.equal(sent[0].method, 'POST')
+    assert.equal(sent[0].url, 'https://romm.example/api/saves/11/downloaded')
+    assert.deepEqual(JSON.parse(String(sent[0].body)), { device_id: 'romm-device-9' })
+  })
+
+  test('a confirmation RomM refuses is an error the caller sees', async () => {
+    const { store } = fakeStore({ deviceId: 'romm-device-9' })
+    serve(() => json({ detail: 'nope' }, 404))
+
+    await assert.rejects(new RommClient(store).confirmSaveDownloaded(11), RommError)
   })
 
   test('a save is uploaded with the device and emulator that produced it', async () => {
@@ -1590,50 +1623,171 @@ describe('firmware, saves and states', () => {
     assert.equal(url.searchParams.get('rom_id'), '5')
     assert.equal(url.searchParams.get('emulator'), 'retroarch')
     assert.equal(url.searchParams.get('device_id'), 'romm-device-9')
-    // Overwriting is the point: the copy on the server is meant to be replaced
-    // by the one the emulator just wrote.
-    assert.equal(url.searchParams.get('overwrite'), 'true')
-    // No slot, so nothing to keep bounded — the upload replaces a copy rather
-    // than joining a history.
+    // Spelled out rather than left off: RomM's own default could change, and a
+    // refusal is what lets another device's newer save become a question.
+    assert.equal(url.searchParams.get('overwrite'), 'false')
     assert.equal(url.searchParams.get('slot'), null)
     assert.equal(url.searchParams.get('autocleanup'), null)
   })
 
-  test('a save sent under a slot asks for that slot to be kept bounded', async () => {
+  test('a save sent under a slot never asks RomM to delete older copies', async () => {
     const { store } = fakeStore({ deviceId: 'romm-device-9' })
     const file = join(scratch(), 'sonic.srm')
     writeFileSync(file, 'save bytes')
     const sent = serve(() => json({ id: 21 }))
 
-    await new RommClient(store).uploadSave(5, file, 'sonic.srm', 'retroarch', 'autosave')
+    await new RommClient(store).uploadSave(5, file, 'sonic.srm', 'snes9x', 'autosave')
 
     const url = new URL(sent[0].url)
     assert.equal(url.searchParams.get('slot'), 'autosave')
-    // RomM files every upload into a slot as another copy and `overwrite` does
-    // not apply within one, so a push after each session would otherwise leave
-    // a copy after each session with nothing ever taking one away. How many
-    // survive is the server's own default, which is why no limit is sent.
-    assert.equal(url.searchParams.get('autocleanup'), 'true')
+    assert.equal(url.searchParams.get('overwrite'), 'false')
+    // Cleanup is RomM deleting saves because of an upload nobody chose.
+    assert.equal(url.searchParams.get('autocleanup'), null)
     assert.equal(url.searchParams.get('autocleanup_limit'), null)
   })
 
-  test('a save sent without overwrite or cleanup says both, slot and all', async () => {
+  test("keeping this device's save is the one upload that overwrites", async () => {
     const { store } = fakeStore({ deviceId: 'romm-device-9' })
     const file = join(scratch(), 'sonic.srm')
     writeFileSync(file, 'save bytes')
-    const sent = serve(() => json({ id: 21 }))
+    const sent = serve((request) => json(request.method === 'GET' ? [] : { id: 21 }))
 
     await new RommClient(store).uploadSave(5, file, 'sonic.srm', 'snes9x', 'autosave', {
-      overwrite: false,
-      autocleanup: false
+      keepThisDevice: true
     })
 
-    const url = new URL(sent[0].url)
-    assert.equal(url.searchParams.get('slot'), 'autosave')
-    // Spelled out rather than left off: RomM's own default could change, and
-    // a refusal is what lets another device's newer save become a question.
-    assert.equal(url.searchParams.get('overwrite'), 'false')
+    const upload = sent.find((request) => request.method === 'POST')!
+    const url = new URL(upload.url)
+    assert.equal(url.searchParams.get('overwrite'), 'true')
     assert.equal(url.searchParams.get('autocleanup'), null)
+  })
+
+  /**
+   * RomM files every overwriting upload as a new copy, identical or not, so
+   * a retry of the player's choice after a lost reply is the client's to
+   * recognise (`test/saves/transfer.real.ts` holds the server to that).
+   */
+  describe("keeping this device's save when the slot already holds it", () => {
+    // md5 of 'save bytes', which is RomM's content_hash for a file that is not a zip.
+    const hash = createHash('md5').update('save bytes').digest('hex')
+    const row = (
+      id: number,
+      slot: string | null,
+      contentHash: string | null,
+      updatedAt: string
+    ) => ({
+      id,
+      rom_id: 5,
+      slot,
+      content_hash: contentHash,
+      updated_at: updatedAt
+    })
+
+    function setUp(rows: unknown[]): { client: RommClient; file: string; sent: Sent[] } {
+      const { store } = fakeStore({ deviceId: 'romm-device-9' })
+      const file = join(scratch(), 'sonic.srm')
+      writeFileSync(file, 'save bytes')
+      const sent = serve((request) =>
+        json(
+          request.method === 'GET' ? rows : request.url.includes('/downloaded') ? {} : { id: 99 }
+        )
+      )
+      return { client: new RommClient(store), file, sent }
+    }
+
+    test('the newest copy with these bytes is returned, and this device recorded as holding it', async () => {
+      const { client, file, sent } = setUp([
+        row(30, 'autosave', 'other', '2026-10-01T10:00:00+00:00'),
+        row(31, 'autosave', hash, '2026-10-01T10:00:05.000001+00:00'),
+        row(32, 'other-slot', 'other', '2026-10-02T10:00:00+00:00')
+      ])
+
+      const kept = await client.uploadSave(5, file, 'sonic.srm', 'snes9x', 'autosave', {
+        keepThisDevice: true
+      })
+
+      assert.equal(kept.id, 31)
+      assert.deepEqual(
+        sent.map((request) => `${request.method} ${new URL(request.url).pathname}`),
+        ['GET /api/saves', 'POST /api/saves/31/downloaded']
+      )
+      assert.deepEqual(JSON.parse(sent[1].body!), { device_id: 'romm-device-9' })
+    })
+
+    test('the same bytes further back in the slot are not what it holds, so the upload is made', async () => {
+      const { client, file, sent } = setUp([
+        row(30, 'autosave', hash, '2026-10-01T10:00:00+00:00'),
+        row(31, 'autosave', 'newer', '2026-10-01T10:00:00.000001+00:00')
+      ])
+
+      const kept = await client.uploadSave(5, file, 'sonic.srm', 'snes9x', 'autosave', {
+        keepThisDevice: true
+      })
+
+      assert.equal(kept.id, 99)
+      const upload = sent.filter((request) => request.method === 'POST')
+      assert.equal(upload.length, 1)
+      assert.equal(new URL(upload[0].url).searchParams.get('overwrite'), 'true')
+    })
+
+    test('an ordinary upload leaves recognising identical bytes to RomM', async () => {
+      const { client, file, sent } = setUp([row(31, 'autosave', hash, '2026-10-01T10:00:05+00:00')])
+
+      await client.uploadSave(5, file, 'sonic.srm', 'snes9x', 'autosave')
+
+      assert.deepEqual(
+        sent.map((request) => request.method),
+        ['POST']
+      )
+    })
+
+    test('a copy RomM stored no hash for is not taken for this save', async () => {
+      const { client, file, sent } = setUp([row(31, 'autosave', null, '2026-10-01T10:00:05+00:00')])
+
+      const kept = await client.uploadSave(5, file, 'sonic.srm', 'snes9x', 'autosave', {
+        keepThisDevice: true
+      })
+
+      assert.equal(kept.id, 99)
+      assert.deepEqual(
+        sent.map((request) => request.method),
+        ['GET', 'POST']
+      )
+    })
+
+    test('a save the client cannot hash is uploaded rather than guessed at', async () => {
+      const { client, file, sent } = setUp([row(31, 'autosave', hash, '2026-10-01T10:00:05+00:00')])
+      // Ends in a zip's end record whose central directory is not there, which
+      // RomM would store no hash for either.
+      const end = Buffer.alloc(22)
+      end.writeUInt32LE(0x06054b50, 0)
+      end.writeUInt16LE(1, 8)
+      end.writeUInt16LE(1, 10)
+      end.writeUInt32LE(46, 12)
+      end.writeUInt32LE(9999, 16)
+      writeFileSync(file, Buffer.concat([Buffer.from('PK\x03\x04'), Buffer.alloc(60), end]))
+
+      const kept = await client.uploadSave(5, file, 'sonic.srm', 'snes9x', 'autosave', {
+        keepThisDevice: true
+      })
+
+      assert.equal(kept.id, 99)
+      assert.deepEqual(
+        sent.map((request) => request.method),
+        ['POST']
+      )
+    })
+
+    test('a save outside any slot is replaced by name, so it is uploaded as it is', async () => {
+      const { client, file, sent } = setUp([row(31, null, hash, '2026-10-01T10:00:05+00:00')])
+
+      await client.uploadSave(5, file, 'sonic.srm', 'snes9x', null, { keepThisDevice: true })
+
+      assert.deepEqual(
+        sent.map((request) => request.method),
+        ['POST']
+      )
+    })
   })
 
   test('a save from no particular emulator says so by leaving it out', async () => {
@@ -1961,7 +2115,9 @@ const CALLED: readonly { method: string; path: RegExp }[] = [
   { method: 'get', path: /^\/api\/play-sessions$/ },
   { method: 'post', path: /^\/api\/play-sessions$/ },
   { method: 'get', path: /^\/api\/devices$/ },
-  { method: 'post', path: /^\/api\/devices$/ }
+  { method: 'post', path: /^\/api\/devices$/ },
+  { method: 'post', path: /^\/api\/sync\/negotiate$/ },
+  { method: 'post', path: /^\/api\/sync\/sessions\/\{[^}]+\}\/complete$/ }
 ]
 
 /**
@@ -1983,6 +2139,40 @@ describe('the oldest server this build can read', () => {
       .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))[0]
 
     assert.equal(MINIMUM_SERVER_VERSION, oldest)
+  })
+
+  test('a pre-launch negotiate names its game only on a RomM that reads the name', () => {
+    assert.equal(negotiatesByGame('5.0'), false)
+    assert.equal(negotiatesByGame('5.0.0'), false)
+    assert.equal(negotiatesByGame('5.2.0'), false)
+    assert.equal(negotiatesByGame('5.3.0'), true)
+    assert.equal(negotiatesByGame('5.3.1'), true)
+    assert.equal(negotiatesByGame('5.4.0'), true)
+    // No number to weigh: the unscoped path, which is right on every server.
+    assert.equal(negotiatesByGame('development'), false)
+    assert.equal(negotiatesByGame(null), false)
+    assert.equal(negotiatesByGame(undefined), false)
+  })
+
+  test('the first version that scopes is the first schema/ document with rom_ids', () => {
+    // Read from RomM's own documents rather than trusted to the changelog: a
+    // server that ignores the field answers for the whole library.
+    const versions = readdirSync(new URL('../../schema/', import.meta.url))
+      .filter((name) => name.startsWith('romm-') && name.endsWith('.json'))
+      .map((name) => name.replace(/^romm-|\.json$/g, ''))
+    for (const version of versions) {
+      const document = JSON.parse(
+        readFileSync(new URL(`../../schema/romm-${version}.json`, import.meta.url), 'utf8')
+      ) as {
+        components: { schemas: Record<string, { properties?: Record<string, unknown> }> }
+      }
+      const payload = document.components.schemas.SyncNegotiatePayload?.properties ?? {}
+      assert.equal(
+        'rom_ids' in payload,
+        negotiatesByGame(version),
+        `${version}: rom_ids ${'rom_ids' in payload ? 'is' : 'is not'} in its negotiate payload`
+      )
+    }
   })
 
   test('every scope an endpoint RomMix calls requires is one RomMix asks for', () => {
@@ -2214,6 +2404,206 @@ describe('platform icons', () => {
     assert.deepEqual(
       sent.map((request) => request.url),
       [`https://romm.example${ICON}`, `https://other.example${ICON}`]
+    )
+  })
+})
+
+describe('save-sync negotiation', () => {
+  test('a negotiate posts the payload as JSON and returns the answer', async () => {
+    const { store } = fakeStore({ deviceId: 'romm-device-9' })
+    const answer = {
+      session_id: 3,
+      operations: [],
+      total_upload: 0,
+      total_download: 0,
+      total_conflict: 0,
+      total_no_op: 0
+    }
+    const sent = serve(() => json(answer))
+    const payload = { device_id: 'romm-device-9', saves: [], rom_ids: [5] }
+
+    assert.deepEqual(await new RommClient(store).negotiate(payload), answer)
+    assert.equal(new URL(sent[0].url).pathname, '/api/sync/negotiate')
+    assert.equal(sent[0].method, 'POST')
+    assert.equal(sent[0].headers.get('content-type'), 'application/json')
+    assert.deepEqual(JSON.parse(sent[0].body ?? ''), payload)
+  })
+
+  test('a session is completed with its counts, and a refusal keeps its status', async () => {
+    const { store } = fakeStore({ deviceId: 'romm-device-9' })
+    const sent = serve((_, index) =>
+      index === 0 ? json({ session: {} }) : json({ detail: 'Session is already cancelled' }, 400)
+    )
+    const client = new RommClient(store)
+    const counts = { operations_completed: 1, operations_failed: 0 }
+
+    assert.deepEqual(await client.completeSyncSession(3, counts), { session: {} })
+    assert.equal(new URL(sent[0].url).pathname, '/api/sync/sessions/3/complete')
+    assert.equal(sent[0].method, 'POST')
+    assert.deepEqual(JSON.parse(sent[0].body ?? ''), counts)
+
+    await assert.rejects(client.completeSyncSession(3, counts), { status: 400 })
+  })
+})
+
+describe('the read-only guard', () => {
+  // Pairing names the version it pairs from; see the registration suite above.
+  const refuses = app.getVersion
+  before(() => {
+    app.getVersion = () => '0.13.0-test'
+  })
+  after(() => {
+    app.getVersion = refuses
+  })
+
+  /** A server that answers every read with an empty list and records the rest. */
+  function guarded(credentials: Partial<FakeCredentials> = {}) {
+    const sent = serve(() => Response.json([]))
+    const { store, cleared } = fakeStore({ accessToken: 'owner', ...credentials })
+    const client = new RommClient(store)
+    const guard = new ReadOnlyGuard()
+    client.readOnly(guard)
+    return { client, guard, sent, cleared }
+  }
+
+  test('every call that could write is refused before it is sent, and counted', async () => {
+    const { client, guard, sent } = guarded()
+    const file = join(scratch(), 'save.srm')
+    writeFileSync(file, 'save')
+    const writes: [string, () => Promise<unknown>][] = [
+      ['loginWithPassword', () => client.loginWithPassword('owner', 'secret')],
+      ['startDevicePairing', () => client.startDevicePairing()],
+      ['pollDevicePairing', () => client.pollDevicePairing('code')],
+      ['setFavourite', () => client.setFavourite(1, true)],
+      ['setStatus', () => client.setStatus(1, null)],
+      ['setCollectionMembership add', () => client.setCollectionMembership(2, 1, true)],
+      ['setCollectionMembership remove', () => client.setCollectionMembership(2, 1, false)],
+      ['deleteSaves', () => client.deleteSaves([1])],
+      ['deleteStates', () => client.deleteStates([1])],
+      ['negotiate', () => client.negotiate({} as Parameters<RommClient['negotiate']>[0])],
+      ['completeSyncSession', () => client.completeSyncSession(1, {} as never)],
+      ['uploadSave', () => client.uploadSave(1, file, 'save.srm', null, null)],
+      ['uploadState', () => client.uploadState(1, file, 'save.state', null)],
+      ['refreshAchievements', () => client.refreshAchievements(1)],
+      ['sendPlaySessions', () => client.sendPlaySessions([{} as never])]
+    ]
+    for (const [name, call] of writes) {
+      await assert.rejects(call, ReadOnlyError, name)
+    }
+    assert.equal(guard.serverWritesAttempted, writes.length)
+    assert.deepEqual(
+      sent.filter((one) => one.method !== 'GET' && one.method !== 'HEAD'),
+      [],
+      'nothing but reads reached the server'
+    )
+  })
+
+  test('now playing is refused too, though it never fails the caller', async () => {
+    const { client, guard, sent } = guarded()
+    await client.setNowPlaying(1, true)
+    assert.equal(guard.serverWritesAttempted, 1)
+    assert.deepEqual(sent, [])
+  })
+
+  test('no device is registered or named, so a confirmation has nothing to send', async () => {
+    const { client, guard, sent } = guarded({ deviceId: 'owners-device' })
+    assert.equal(await client.deviceId(), null)
+    await client.confirmSaveDownloaded(1)
+    assert.equal(guard.serverWritesAttempted, 0)
+    assert.deepEqual(sent, [], 'not even the device list is asked for')
+  })
+
+  test('a read that names a device is sent without it', async () => {
+    const { client, guard, sent } = guarded()
+    await client.savesForDevice(7, 'owners-device')
+    assert.equal(guard.deviceIdsRemoved, 1)
+    assert.equal(sent.length, 1)
+    assert.equal(new URL(sent[0].url).pathname, '/api/saves')
+    assert.equal(new URL(sent[0].url).searchParams.get('rom_id'), '7')
+    assert.ok(!sent[0].url.includes('device_id'), sent[0].url)
+  })
+
+  test('a 401 is not followed by a token refresh, and the sign-in is kept', async () => {
+    const sent = serve(() => new Response('', { status: 401 }))
+    const { store, cleared } = fakeStore({ accessToken: 'owner', refreshToken: 'owners-refresh' })
+    const client = new RommClient(store)
+    const guard = new ReadOnlyGuard()
+    client.readOnly(guard)
+    // The server's own 401, not a refusal of the refresh: an expired token is
+    // not a write the self-test should report.
+    await assert.rejects(() => client.me(), { name: 'RommError', status: 401 })
+    assert.equal(guard.serverWritesAttempted, 0)
+    assert.deepEqual(
+      sent.map((one) => new URL(one.url).pathname),
+      ['/api/users/me']
+    )
+    assert.equal(cleared(), false)
+  })
+
+  test('reads still go out, and lifting the guard lets writes out again', async () => {
+    const { client, guard, sent } = guarded()
+    await client.platforms()
+    assert.equal(sent.length, 1)
+    client.readOnly(null)
+    await client.setStatus(1, null)
+    assert.equal(sent.at(-1)?.method, 'PUT')
+    assert.equal(guard.serverWritesAttempted, 0)
+  })
+
+  test('device_id is taken out of a query, whatever else it holds', () => {
+    assert.equal(withoutDeviceId('/api/saves?rom_id=1&device_id=x'), '/api/saves?rom_id=1')
+    assert.equal(withoutDeviceId('/api/saves/1/content?device_id=x'), '/api/saves/1/content')
+    assert.equal(withoutDeviceId('/api/roms?limit=5'), '/api/roms?limit=5')
+    assert.equal(withoutDeviceId('/api/roms'), '/api/roms')
+    const guard = new ReadOnlyGuard()
+    assert.equal(guard.admit('head', '/api/x?device_id=y'), '/api/x')
+    assert.throws(() => guard.admit('patch', '/api/x'), ReadOnlyError)
+    assert.equal(guard.serverWritesAttempted, 1)
+  })
+})
+
+describe('the self-test synthetic platform', () => {
+  const platformRow = { id: 4, slug: 'nes', rom_count: 12 }
+
+  test('nothing synthetic until the self-test offers it', async () => {
+    const { store } = fakeStore()
+    const sent = serve(() => json([platformRow]))
+    const client = new RommClient(store)
+    assert.deepEqual(
+      (await client.platforms()).map((p) => p.id),
+      [4]
+    )
+    await client.roms({ platform_ids: [SYNTHETIC_PLATFORM_ID] })
+    assert.equal(sent.length, 2)
+  })
+
+  test("listed beside the server's, and its games answered without a request", async () => {
+    const { store } = fakeStore()
+    const sent = serve(() => json([platformRow]))
+    const client = new RommClient(store)
+    assert.equal(client.offerSynthetic().id, SYNTHETIC_PLATFORM_ID)
+    assert.deepEqual(
+      (await client.platforms()).map((p) => p.id),
+      [4, SYNTHETIC_PLATFORM_ID]
+    )
+    assert.equal(sent.length, 1)
+    const page = await client.roms({ platform_ids: [SYNTHETIC_PLATFORM_ID], limit: 5 })
+    assert.equal(page.items.length, 5)
+    assert.equal(page.total, SYNTHETIC_GAMES)
+    assert.equal((await client.rom(page.items[2].id)).name, page.items[2].name)
+    const counts = await client.romCounts([SYNTHETIC_PLATFORM_ID], '0001')
+    assert.deepEqual(counts, { [SYNTHETIC_PLATFORM_ID]: 1 })
+    assert.equal(sent.length, 1)
+  })
+
+  test('the only platform listed while the server does not answer', async () => {
+    const { store } = fakeStore()
+    globalThis.fetch = (() => Promise.reject(new Error('ECONNREFUSED'))) as typeof globalThis.fetch
+    const client = new RommClient(store)
+    client.offerSynthetic()
+    assert.deepEqual(
+      (await client.platforms()).map((p) => p.id),
+      [SYNTHETIC_PLATFORM_ID]
     )
   })
 })

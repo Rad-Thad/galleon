@@ -41,3 +41,48 @@ provisions it, and runs `roundtrip.real.ts` against it. For every fixture:
 Each scenario empties its game's slot first, which is why the suite runs only
 against the disposable servers in `test/romm/compose.yml`. CI runs it on both
 architectures when save, client or fixture code changes (the `changes` step).
+
+## content_hash
+
+`hashcases.mjs` builds the saves where a hash computed differently from RomM's
+would disagree with the server (SPEC.md section 4): zips in another entry
+order, with directory entries, with bytes before or after them or a comment, a
+repeated name, a code page 437 name, names whose order differs by code point
+and by UTF-16, an empty zip, a damaged entry, a raw save that holds an end
+record by chance, and one that only starts like a zip. `src/main/savehash.test.ts`
+holds the app's `localContentHash` to what each means; `hash.real.ts` uploads
+each, and every fixture, to Docker RomM 5.2.0 and requires the hash the server
+stores to be the app's.
+
+## Negotiate
+
+`negotiate.real.ts` holds the pre-launch engine (`src/main/savenegotiate.ts`)
+to what a real negotiate answers: another game's operations are dropped, and a
+session a later negotiate cancelled is finished, not an error. RomM 5.4 no
+longer cancels a device's open sessions at its next negotiate, so there the
+earlier session completes, and its play history no longer names the session
+that carried a span; the file holds each version to its own answer
+(`negotiateEndsOpenSessions`).
+
+`decide.real.ts` is the equivalence test for the read-only decision
+(`src/main/savedecide.ts`), which takes negotiate's decision for one game from
+`GET /api/saves?rom_id&device_id` without opening a session. One game gets a
+slot per rule of `compare_save_state` and of negotiate's pairing (no server
+save, no slot, equal hashes, either side newer, a tie with and without a
+hash, a record the client or the server or both moved past, untracked saves,
+a save the device deleted, a superseded row), and the local decision must
+answer every slot with the server's action, save and reason. CI runs it on
+5.2.0 with the rest of the suite; on 5.3.1 and 5.4.0, run the file alone with
+`ROMM_PROFILE=v531` or `v540` once that profile is provisioned, since `hash.real.ts`
+does not pass there yet (one raw save holding a zip end record).
+
+## Transfers
+
+`transfer.real.ts` holds a retried upload to what it leaves in the slot (M2-06):
+the same bytes sent again by the same device, in a later second, must come
+back as the copy the server already holds, with no new row. RomM recognises
+identical bytes itself only for an upload with `overwrite=false`; the player's
+"keep this device's save" (`overwrite=true`) is filed as a new copy however
+alike it is, so `RommClient.uploadSave` checks the slot's newest copy first
+and the test covers both. A changed save after a retry is the slot's second
+row. It passes on 5.2.0, 5.3.1 and 5.4.0 (run it alone there, as above).

@@ -1,7 +1,7 @@
 import { type JSX, useEffect, useRef, useState } from 'react'
 import type { PerfState } from '@shared/types'
 import { useI18n } from '../state'
-import { type FrameStats, FrameWindow } from './frames'
+import { type FrameStats, FrameWindow } from '@shared/frames'
 
 /**
  * The performance overlay: frame times for the screen on display and the
@@ -149,7 +149,13 @@ export function PerfOverlay({ screen }: { screen: string }): JSX.Element {
               max: mhz(power.gpuMaxHz, 1_000_000)
             })}
           </div>
-          <div>{t('perf.defaultProfile', { profile: word(power.defaultProfile) })}</div>
+          <div>
+            {t('perf.profile', {
+              profile: word(power.profile),
+              start: word(power.defaultProfile)
+            })}
+          </div>
+          <div>{t('perf.armadaPerf', { state: word(power.perf) })}</div>
         </>
       )}
     </aside>

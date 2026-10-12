@@ -2,7 +2,7 @@ import { EventEmitter } from 'node:events'
 import { existsSync } from 'node:fs'
 import { rm, stat } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
-import { chooseLaunchFile, isLaunchable, type GameFile } from '@shared/gamefiles'
+import { chooseLaunchFile, gameFolderName, isLaunchable, type GameFile } from '@shared/gamefiles'
 import { emulatorById, emulatorsForSystem } from '@config/emulators'
 import { resolveSystem } from '@config/systems'
 import { hasMorePages, SHARED_LIBRARY } from '@shared/types'
@@ -189,7 +189,10 @@ export class Library extends EventEmitter {
     // The name is the server's, and it is what decides where this lands. One
     // that climbs out of the system folder is refused: the whole point of the
     // layout is that an emulator finds the game by the folder it is in.
-    const path = await safeJoin(dir, asDirectory ? rom.fs_name_no_ext : installName(rom))
+    const path = await safeJoin(
+      dir,
+      asDirectory ? gameFolderName(rom.fs_name_no_ext) : installName(rom)
+    )
     if (!path) {
       throw new RommError(t('error.unsafeName', { name: rom.fs_name }))
     }
@@ -394,7 +397,7 @@ export class Library extends EventEmitter {
       // then deleted by `uninstall`, which removes what the index points at.
       const asFile = await safeJoin(target.dir, installName(rom))
       const asNamedOnServer = await safeJoin(target.dir, rom.fs_name)
-      const asDirectory = await safeJoin(target.dir, rom.fs_name_no_ext)
+      const asDirectory = await safeJoin(target.dir, gameFolderName(rom.fs_name_no_ext))
       if (!asFile || !asNamedOnServer || !asDirectory) continue
 
       const fileInfo = await stat(asFile).catch(() => null)

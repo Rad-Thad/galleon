@@ -101,7 +101,7 @@ jobs:
           fi
           if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
             saves=true
-            profiles='v520 v531'
+            profiles='v520 v531 v540'
           elif [ "$ARCH" = x64 ] && [ "$romm" = true ]; then
             profiles=v520
           else

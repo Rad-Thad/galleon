@@ -8,6 +8,7 @@ Read deeper docs only when the task needs them:
 - `docs/features.json`: what to build and how each item is accepted. `docs/PROGRESS.md`: what happened before you.
 - `docs/TESTING.md`: verification types, the device check catalogue, `summary.json`, the acceptance session.
 - `docs/decisions/`: settled questions. Don't re-litigate them; write a new ADR to change one.
+- `docs/MAINTENANCE.md`: the routine chores as steps (upstream ports, RomM versions, Electron and other updates, scheduled workflows).
 - `tools/device-bridge/README.md`: the bridge program on the Nova.
 - `docs/DEVICE-FACTS.md`, `docs/REQUIREMENTS-FROM-TESTER.md`: ground truth.
 - `docs/research/README.md`: why. `docs/research/argosy-fork-design-spec.md` is the UI spec.

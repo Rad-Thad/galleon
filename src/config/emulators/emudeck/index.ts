@@ -403,5 +403,6 @@ export const emudeck: EmulatorDescriptor = {
       `${installRef}/${chosen.script}`,
       ...chosen.args.map((arg) => arg.replace(ROM_PLACEHOLDER, romPath))
     ]
-  }
+  },
+  sandbox: undefined
 }

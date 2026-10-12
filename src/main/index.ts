@@ -1,8 +1,21 @@
-import { BrowserWindow, app, protocol } from 'electron'
+import { BrowserWindow, app, protocol, screen } from 'electron'
 import { IMAGE_SCHEME, RomMixApp } from './app.ts'
 import { registerIpc } from './ipc/index.ts'
 import { log, logSession } from './log.ts'
-import { ensureRoot, profilePath } from './root.ts'
+import { readArmadaStatus, readPowerState } from './powerstate.ts'
+import { ensureRoot, profilePath, resolveRoot } from './root.ts'
+import { ReadOnlyGuard } from './romm/guard.ts'
+import { reportRefusal, runAndReport, takeRequest } from './selftest.ts'
+import { DOWNLOAD_CHECK, downloadScenario } from './selftestdownload.ts'
+import { deviceCycle, devicePlan, emulatorScenarios } from './selftestemulators.ts'
+import { IDENTITY_CHECK, identityScenario } from './selftestidentity.ts'
+import { HEARTBEAT_CHECK, heartbeatScenario } from './selftestserver.ts'
+import { watchInput } from './selftestinput.ts'
+import { takeScreenshots } from './selftestshots.ts'
+import { GRID_CHECK, askForProfile, runScroll, scrollScenario } from './selftestscroll.ts'
+import { STARTUP_CHECK, startupScenario, startupStart, watchHome } from './selfteststartup.ts'
+import { UPDATE_CHECK, updateScenario } from './selftestupdate.ts'
+import { buildStamp } from './update.ts'
 
 /** RomMix main process bootstrap. */
 
@@ -52,7 +65,8 @@ function applyDisplayFlags(): void {
 applyDisplayFlags()
 
 // Before the lock, which lives in the profile: a profile shared with stock
-// RomMix would let only one of the two run at a time. See `profilePath`.
+// RomMix, or between two Galleon homes, would let only one of them run at a
+// time. See `profilePath`.
 app.setPath('userData', profilePath())
 
 // Only one instance may own the ROM tree and the download queue.
@@ -66,7 +80,8 @@ if (!app.requestSingleInstanceLock()) {
   // The root has to exist before the Store reads from it. Electron's own
   // userData stays outside it, in the profile above: it holds Chromium's
   // caches, cookies, GPU state and singleton locks, none of which belong in a
-  // folder meant to hold the handful of files RomMix itself writes.
+  // folder meant to hold the handful of files RomMix itself writes. A root
+  // named by GALLEON_HOME is the exception, where everything stays inside it.
   ensureRoot()
 
   logSession({
@@ -76,11 +91,25 @@ if (!app.requestSingleInstanceLock()) {
     node: process.versions.node
   })
 
+  // Before the app exists, so not one request goes out ahead of the guard.
+  const selfTest = takeRequest()
+  if (selfTest?.kind === 'refused') reportRefusal(selfTest, app.getVersion())
+  const guard = selfTest?.kind === 'request' ? new ReadOnlyGuard() : null
+
   const rommix = new RomMixApp()
+  if (guard) {
+    rommix.readOnly(guard)
+    // Before the window, so not one frame names the server or the account.
+    rommix.hideIdentity()
+  }
   /** Set by the first quit, so the second one is let through. See below. */
   let quitting = false
 
   void app.whenReady().then(async () => {
+    if (selfTest?.kind === 'refused') {
+      app.exit(1)
+      return
+    }
     const took = log.since()
     rommix.registerImageProtocol()
     const pruned = rommix.store.pruneInstalled()
@@ -92,7 +121,83 @@ if (!app.requestSingleInstanceLock()) {
     await rommix.offline.sweep(rommix.store.installed)
     await rommix.refreshEmulators()
     registerIpc(rommix)
-    rommix.createWindow()
+    const window = rommix.createWindow()
+    if (selfTest?.kind === 'request' && guard) {
+      // Before anything else is run, so the time is Home's first arrival.
+      const reached = watchHome(window.webContents)
+      const stop = new AbortController()
+      if (selfTest.request.abortOnInput) void watchInput(window.webContents, () => stop.abort())
+      // None of what follows a normal start: an update check, the launcher
+      // beside the image and the catch-up all write somewhere, and the
+      // harness, not this app, decides what the run may touch.
+      const code = await runAndReport({
+        request: selfTest.request,
+        scenarios: new Map([
+          [
+            STARTUP_CHECK,
+            startupScenario({
+              reached,
+              start: startupStart(process.env, performance.timeOrigin),
+              power: () => readPowerState('/', { status: readArmadaStatus })
+            })
+          ],
+          [IDENTITY_CHECK, identityScenario({ version: app.getVersion(), commit: buildStamp() })],
+          [HEARTBEAT_CHECK, heartbeatScenario(rommix.client)],
+          [
+            UPDATE_CHECK,
+            updateScenario({
+              rehearse: (dir, signal) => rommix.updates.rehearse(dir, signal),
+              home: resolveRoot(),
+              installed: process.env.APPIMAGE ?? null
+            })
+          ],
+          [
+            GRID_CHECK,
+            scrollScenario({
+              client: rommix.client,
+              synthetic: () => rommix.client.offerSynthetic(),
+              scroll: (platformId, signal) => runScroll(window.webContents, platformId, signal),
+              power: () => readPowerState('/', { status: readArmadaStatus }),
+              sample: () => readPowerState(),
+              askForProfile: (profile, signal) =>
+                askForProfile(selfTest.request.handshakeDir, profile, signal),
+              displayHz: () => screen.getPrimaryDisplay().displayFrequency || 60
+            })
+          ],
+          [
+            DOWNLOAD_CHECK,
+            downloadScenario({
+              client: rommix.client,
+              downloads: rommix.downloads,
+              library: rommix.library,
+              store: rommix.store,
+              home: resolveRoot()
+            })
+          ],
+          ...emulatorScenarios(selfTest.request.checks, {
+            home: resolveRoot(),
+            payloads: selfTest.request.payloads,
+            emulators: () => rommix.ensureEmulators(),
+            plan: devicePlan(resolveRoot()),
+            cycle: deviceCycle()
+          })
+        ]),
+        guard,
+        signal: stop.signal,
+        screenshots: (screens, signal) =>
+          takeScreenshots({
+            contents: window.webContents,
+            resultsDir: selfTest.request.resultsDir,
+            screens,
+            signal
+          }),
+        version: app.getVersion()
+      })
+      quitting = true
+      await rommix.shutdown()
+      app.exit(code)
+      return
+    }
     // After the window, which is what the first result is announced to. The
     // check itself is delayed — see `Updater.schedule`.
     rommix.updates.schedule()

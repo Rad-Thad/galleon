@@ -1,10 +1,11 @@
 # Docker RomM
 
 Disposable RomM servers for the real-server suites: 5.2.0 and 5.3.1, the
-versions the owner's server has run. Nothing persists between runs.
+versions the owner's server has run, and 5.4.0, the newest stable release
+(`docs/MAINTENANCE.md`, "RomM versions"). Nothing persists between runs.
 
 ```sh
-npm run test:romm                       # all of the below, on 5.2.0 then 5.3.1
+npm run test:romm                       # all of the below, on 5.2.0, 5.3.1, then 5.4.0
 npm run test:romm -- --profile v531     # one version
 npm run test:saves                      # test/saves/*.real.ts, on 5.2.0
 ```
@@ -41,6 +42,8 @@ docker compose -f test/romm/compose.yml --profile v520 down
   paged listing, downloads broken mid-body and resumed by range, the per-file
   endpoint); `pairing.real.ts` walks device pairing end to end;
   `library.real.ts` checks the scanned platforms and the multi-file flags;
+  `downloads.real.ts` runs the app's download queue on a multi-file game
+  paused mid-file and resumed, and on a file refused for its hash;
   `icons.real.ts` walks every platform's icon candidates twice and holds each
   404 to one request;
   `sync.real.ts` holds the calls that write (device registration, save and

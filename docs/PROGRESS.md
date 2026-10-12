@@ -1119,3 +1119,957 @@ Lines the tooling reads (exact forms):
 - Evaluator: see the PR.
 - Device / acceptance: none.
 - Next: M2-04 (`content_hash` exactly as RomM computes it), then M2-07.
+
+## 2026-10-10 02:52 UTC session 2ca8171f (routine run, second unit)
+
+- Device results: none new.
+- Worked on: M2-04 (tracking issue #116). M2-03's part 2, PR #115, merged at 5f37d5b; its CI wall time was x64 6:14, arm64 2:10 (both legs ran `Save round trips`, 33/33). PASSES M2-03 (ci); #113 closed.
+- Result: PR (this one). PASSES M2-04 (ci).
+- Evidence:
+  - `src/main/savehash.ts` `localContentHash`, written from RomM 5.2.0's `compute_content_hash` and Python 3.13's `zipfile` as the Docker image runs them: a zip is what `is_zipfile` finds an end record for (not a leading `PK`), hashed as the sorted `name:md5` lines with directories left out, names decoded as Python does (UTF-8 flag or code page 437, then an Info-ZIP Unicode Path field whose checksum matches, cut at NUL) and sorted by code point; a repeated name hashes its last entry; bytes before the zip, after it, or a comment change nothing; a damaged, encrypted or unreadable zip gives null, as RomM stores none. Entries are read with yauzl (already a dependency) through a reader that shifts past any prefix the way Python does.
+  - Line 1: `savehash.test.ts` "whose entries come in another order hashes the same", "ignores directory entries", and 20 more; `test/saves/hashcases.mjs` builds the 17 edge cases. Before writing the tests, each case was hashed by the RomM container's own Python: all 17 agreed with the app. The evaluator's first verdict was FAIL: names carried in a Unicode Path field (0x7075, as WinRAR writes them) were not read. Fixed, with three cases for it.
+  - Line 2: `test/saves/hash.real.ts` uploads every edge case and every golden fixture to Docker 5.2.0 and requires the stored `content_hash` to equal `localContentHash`'s: `npm run test:saves` 35/35 (with the round trips).
+  - Line 3: files are streamed in `READ_CHUNK_BYTES` reads; the end-record search reads at most 64 KiB and 22 bytes. "a large plain save is read in chunks, never more than 8 MB at once" (24 MB) and "so is a zip holding a large entry" (20 MB) record every read.
+  - `sameContent` (the app's local-against-server comparison) now uses `localContentHash`, so a zip save compares by what is inside it; `savefiles.test.ts` "a zip save is the same as RomM's when what is inside it is, in any order".
+  - `scripts/agent/check.sh` green: coverage 96.36 / 93.91 / 96.14.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none.
+- Next: M2-07 (one safe writer), then M2-05 (decision engine), which must allow for RomM keeping times to the second.
+- Notes: `restoreFile` in `src/main/saves.ts` still checks a pulled save's plain md5 against `content_hash`, which fails for any zip save; the safe writer (M2-07) or transfers (M2-06) should check with `localContentHash` instead. (The evaluator's note; outside this diff.)
+
+## 2026-10-10 03:26 UTC session 65247cc3 (routine run)
+
+- Device results: none new. The bridge last checked in at 20:06 UTC (no nightly published yet).
+- Worked on: M2-07 (tracking issue #118). M2-04's PR #117 merged at 3e4ae04.
+- Result: PR (this one). PASSES M2-07 (ci).
+- Evidence:
+  - `src/main/savewriter.ts` is the one module that changes anything in an emulator's save tree: `replaceSave` (staged beside the save by `stageBeside`, refused when a folder is at the destination, copy kept with `keepBackup`, fsync, rename, fsync of the folder), `unpackSave` (a folder save's archive is unpacked into a staging folder beside it; every entry is checked before anything moves, so an entry that would land on a folder refuses the whole archive), `removeSave` (the Saves tab's delete-here now keeps a copy first), `discardStaged` (only `.part` names or the temp folder). Every write is serialised per resolved path by `exclusive`. The backup chain moved from `savefiles.ts` unchanged except `BACKUP_COPIES`, now 5. `saves.ts` imports no writing call from `node:fs` and no `extractZip`.
+  - Line 1: `savewriter.allowlist.test.ts` (in `npm test`, so in CI's build job): every module importing a writing call from `node:fs` must be on an allow-list naming where it writes; no save module but the writer is on it; no save module unpacks an archive itself; the list has no stale entries; the scan sees named, renamed and whole-module imports.
+  - Line 2: `savewriter.test.ts` "a folder at the destination is refused, logged, and left as it was" (a Dolphin GCI card folder), "a normal overwrite still works, and keeps a copy of what it replaced", "a create still works, into a folder that did not exist yet", "two writers to one save are serialised, each backing up the one before", "work on one path waits for the work before it, even work that failed", "an entry that would land on a folder refuses the whole archive first".
+  - Line 3: backups go to `<root>/saves/<romId>/` (`SaveSync.backupDir`, root `~/galleon`), "per game, under the saves folder of the app root, the last five by default"; the existing rotation tests now run against five.
+  - New string `error.saveIsFolder` in all four catalogues (translated).
+  - `scripts/agent/check.sh` green; `npm run test:saves` 35/35 on Docker 5.2.0.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none.
+- Next: M2-05 (decision engine; RomM keeps times to the second). Still open from M2-04: `restoreFile` checks a pulled zip save's plain md5 against `content_hash`; M2-06 should check with `localContentHash`.
+
+## 2026-10-10 03:50 UTC session 65247cc3 (routine run, second unit)
+
+- Device results: none new.
+- Worked on: M2-05 part 1 (tracking issue #120): capability gating, acceptance line 1. M2-07's PR #119 merged at fb5b858; its CI wall time was x64 7:02, arm64 2:27. PASSES M2-07 (ci); #118 closed. (The evaluator's first verdict was FAIL because features.json had not been flipped; it PASSED once the flip was committed.)
+- Result: PR (this one). M2-05 stays false until lines 2 to 4 (the engine, its equivalence test on Docker 5.2.0 and 5.3.1, per-game safety, session completion).
+- Evidence:
+  - `src/main/romm/version.ts` `negotiatesByGame(version)`: `atLeast(version, SCOPED_NEGOTIATE_SINCE)` with `SCOPED_NEGOTIATE_SINCE = '5.3.0'`, false for a version that cannot be compared (`development`, none), since the unscoped path is correct on every server.
+  - `romm.test.ts` "a pre-launch negotiate names its game only on a RomM that reads the name": 5.0, 5.0.0, 5.2.0 false; 5.3.0, 5.3.1, 5.4.0 true; `development`, null and undefined false. "the first version that scopes is the first schema/ document with rom_ids": every committed RomM document (5.0.0, 5.1.0, 5.2.0, 5.3.1) has `rom_ids` in `SyncNegotiatePayload` exactly when the gate says so.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none.
+- Next: M2-05 part 2, the engine: negotiate with the full local inventory on 5.2.0 (or `rom_ids` on 5.3+), drop other games' operations, complete sessions with counts, and the equivalence test on Docker 5.2.0 and 5.3.1.
+- Notes: under `git commit -a` the pre-commit hook's tests write into the caller's temporary index (`error: invalid object ... for 'docs/PROGRESS.md'`), as `agent.test.ts` warns; commit with `git add` and no `-a` until the test that leaks is found.
+
+## 2026-10-10 04:37 UTC session b6e76d7a (routine run)
+
+- Device results: none new. The bridge last checked in at 20:06 UTC; the first nightly was published at 03:59 UTC, after its last visit.
+- Worked on: M2-05 part 2 (tracking issue #120): acceptance lines 3 and 4. Part 1's PR #121 merged at 1009026; its CI wall time was x64 6:50, arm64 2:10.
+- Result: PR (this one). M2-05 stays false until line 2 (the equivalence test).
+- Evidence:
+  - Written from RomM's own `endpoints/sync.py` and `handler/sync/comparison.py`, read out of the pinned 5.2.0 and 5.3.1 images. 5.3.1 widens a `rom_ids` scope with the games of the saves sent and still answers per save; 5.2.0 answers for the whole library. A second negotiate cancels the device's open sessions, and completing a cancelled or completed session is a 400 ("Session is already ...").
+  - `RommClient.negotiate` and `completeSyncSession`; types `RommSyncSave`, `RommSyncNegotiatePayload`, `RommSyncOperation`, `RommSyncNegotiateResponse`, `RommSyncCompletePayload` checked against every committed schema document. `rom_ids` lives on the alias `RommSyncScopedNegotiatePayload`, held to `schema/` by the existing `negotiatesByGame` test.
+  - `src/main/savenegotiate.ts` `negotiateForGame`: on 5.2.0 the whole inventory and no `rom_ids`; on 5.3+ this game's saves and `rom_ids: [romId]`; every operation for another game dropped and counted; null without a device id. `finishSession`: completes with `operations_completed`/`operations_failed`; a 400 or 404 is `superseded`; an outage, a 5xx or a refusal is thrown.
+  - Line 3: `savenegotiate.test.ts` "a pre-launch check never acts on another game's save, though 5.2.0 answers for the library"; `test/saves/negotiate.real.ts` "a pre-launch negotiate never acts on another game's save" (another device's save for a second game is in 5.2.0's answer and is dropped).
+  - Line 4: "a session a newer negotiate cancelled is finished, not an error" (unit) and "a session a newer negotiate superseded is finished, not an error" (real: two negotiates, the first completes as `superseded`, the second as `completed`, then `superseded`).
+  - `npm run test:saves` 37/37 on Docker 5.2.0. Both new real tests also pass on 5.3.1 (`node test/romm/run.mjs --suite saves --profile v531`); `romm.test.ts` 121/121; `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none.
+- Next: M2-05 line 2: a local decider written from `compare_save_state` and the endpoint's pairing rules, and an equivalence test feeding the same scenarios to it and to the real negotiate on Docker 5.2.0 and 5.3.1 (CI's `test:saves` runs only v520 today).
+- Found on the way: the first CI run failed both legs in `Save round trips`: node runs the real test files side by side against one server, and the new test's slotted save on the SNES game showed up in the round trips' negotiates (and every `client()` there is one RomM device, so the "other device" was not other). The test now uploads with no device, for a game no golden fixture uses (`Galleon Test Plain`), and deletes it afterwards. The evaluator's first verdict was FAIL on the same two points, and on a race: every `client()` is one RomM device, so a round trip's negotiate could cancel the line-4 test's session before it completed. Both tests now negotiate as a device registered for them alone. `npm run test:saves` 37/37 three times in a row, the first on a fresh server; both tests pass on 5.3.1.
+- Notes: on 5.3.1, `hash.real.ts` fails one edge case: `endInRawSave` (a raw save holding a zip end record) gets a content hash where 5.2.0 stores none. CI runs 5.2.0 only, so it is not red; the owner's server is 5.2.0 (DEVICE-FACTS), but M2-04's hash must follow 5.3.1 too before line 2 runs there.
+
+## 2026-10-10 05:26 UTC session 014QRqgn (routine run)
+
+- Device results: none new. The bridge last checked in at 20:06 UTC (9.4 h ago); its last skip was "no 'nightly' release published yet".
+- Worked on: M2-05 part 3 (tracking issue #120): acceptance line 2. Part 2's PR #122 merged at 8cf5b8d.
+- Result: PR (this one). PASSES M2-05 (ci).
+- Evidence:
+  - `src/main/savedecide.ts` `decideForGame`: negotiate's decision for one game taken from `GET /api/saves?rom_id&device_id` (a read; new `RommClient.savesForDevice`), so a pre-launch check can decide without opening a session. Written step for step from `endpoints/sync.py` and `handler/sync/comparison.py`, read out of the pinned 5.2.0 and 5.3.1 images, which decide identically (only 5.3.1's `rom_ids` scope differs). `recordOf` tells RomM's stand-in entry (not current, stamped with the save's own time) from a real record; `instant` compares to the microsecond and reads an unzoned time as UTC, as `to_utc` does.
+  - `savedecide.test.ts`: every branch of `compare_save_state`, newest-row pairing, null slots, untracked saves both ways, a save the device deleted, the stand-in, another device's record, another game.
+  - Line 2: `test/saves/decide.real.ts` "the local decision answers every rule of negotiate the way the server does": 17 slots on one game (no server save, no slot, equal hashes, either side newer, a tie with and without a hash, records the client, the server or both moved past, untracked, deleted, superseded row), the same local saves to `negotiateForGame` and to `decideForGame`; identical action, save id and reason for every slot, and each slot's action as written out. `npm run test:saves` 38/38 on Docker 5.2.0; on 5.3.1 (`ROMM_PROFILE=v531`, provisioned) `decide.real.ts` and `negotiate.real.ts` 3/3, twice.
+  - New string `error.saveBadTime` in all four catalogues (translated).
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none.
+- Next: M2-06 (transfers). Wiring `negotiateForGame` / `decideForGame` into the pre-launch flow in `saves.ts` goes with it.
+- Found on the way: RomM tags an uploaded name with the second it arrived, and an upload whose tagged name matches an existing row takes over that row, slot and all; and an upload's reply carries microseconds RomM 5.2.0 does not store, so a time taken from it is later than the stored one. The test gives each upload its own name and makes ties against the listed time.
+- Notes: CI's `test:saves` runs 5.2.0 only; `hash.real.ts` still fails one case on 5.3.1 (`endInRawSave`), which keeps 5.3.1 out of CI's saves suite.
+
+## 2026-10-10 06:27 UTC session 01RtDaof2sqMLZnGpXpjGrUh (routine run)
+
+- Device results: none new. The bridge last checked in at 20:06 UTC (10.4 h ago); its last skip was "no 'nightly' release published yet".
+- Worked on: M2-06 part 1 (tracking issue #124): acceptance line 1. M2-05's PR #123 merged at ce8f116.
+- Result: PR (this one). M2-06 stays false until lines 2 to 4.
+- Evidence:
+  - `RommClient.uploadSave` sends `overwrite=false` unless `UploadSaveOptions.keepThisDevice`, and never sends `autocleanup` (SPEC.md section 8: it has RomM delete a slot's older saves because of an upload nobody chose, a rail 2 breach the inherited client made on every slotted upload). The old `overwrite` and `autocleanup` options are gone.
+  - No production caller sets `keepThisDevice` yet: `push`, `pushNow`, `drain` and `pushSelected` (the routine "ask before sending" dialog) all send false. The choice belongs to the conflict view (a 409's three choices), which does not exist yet; `roundtrip.real.ts` exercises it against Docker RomM.
+  - Line 1: `savesync.test.ts` "no push keeps this device's save over the server's, approved or not". `overwrite.allowlist.test.ts` reads every source file: no module sets `keepThisDevice` to anything but `false` or names `overwrite=true`, and the client's only `overwrite` is `String(keepThisDevice)`. `romm.test.ts`: the default is `overwrite=false` with or without a slot and no `autocleanup`; keepThisDevice sends `true`.
+  - `scripts/agent/check.sh` green; `npm run test:saves` 38/38 and `npm run test:romm` 21/21 on Docker 5.2.0.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR. The first verdict was FAIL: `pushSelected` had been made the keep-this-device choice, so every confirmed push would have overwritten; it now sends false.
+- Device / acceptance: none.
+- Next: M2-06 part 2 (line 2): downloads with `device_id` and `optimistic=false` through the safe writer, then `POST /api/saves/{id}/downloaded`, with fault injection. Part 3: lines 3 and 4, and a 409 shown to the player as a conflict (today a refused upload is counted as failed and logged).
+
+## 2026-10-10 06:52 UTC session 01RtDaof2sqMLZnGpXpjGrUh (routine run, second unit)
+
+- Device results: none new.
+- Worked on: M2-06 part 2 (tracking issue #124): acceptance line 2; and a rail 2 bug in M2-07's writer found on the way. Part 1's PR #125 merged at 00f9641; its CI wall time was x64 6:50, arm64 2:08.
+- Result: PR (this one). M2-06 stays false until lines 3 and 4.
+- Evidence:
+  - `RommClient.downloadSave` asks for `/api/saves/{id}/content?device_id&optimistic=false` when this device has an id, so the GET records nothing; new `confirmSaveDownloaded` posts `{device_id}` to `/api/saves/{id}/downloaded`. `SaveSync.pullKind` confirms a save only after `restoreFile`/`restoreArchive` returned; states are never confirmed (RomM keeps no records for them); a refused confirmation is logged and the save still counts as pulled.
+  - Line 2: `savesync.test.ts` "telling RomM a save arrived": confirmed once by id after a write; never after a download that breaks off, a download whose md5 is not RomM's, or a save the writer could not put in place (backups folder blocked); never for a state; a refused confirmation leaves the save pulled. `romm.test.ts`: the download URL carries `device_id` and `optimistic=false`; the confirmation's method, path and body; a refusal throws.
+  - Bug (separate commit, `fix(saves)`): `keepBackup` swallowed a failed copy, so `replaceSave`, `unpackSave` and `removeSave` overwrote or deleted a save with no backup (the log said "could not be copied aside" and the pull went on). It now checks the first slot holds the save's own bytes and throws `SaveNotBackedUp`; nothing is written. `savewriter.test.ts` "a save that cannot be copied aside is left as it was" (pull, folder unpack, delete). New string `error.saveNotBackedUp` in all four catalogues (translated).
+  - `scripts/agent/check.sh` green; `npm run test:saves` 38/38 and `npm run test:romm` 21/21 on Docker 5.2.0; `npm run test:app` 224/224 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root). `games.test.ts` "the server's copy is brought down before the game starts" now also asserts `optimistic=false` and the `/downloaded` POST, which `test/app/server.ts` answers.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none.
+- Next: M2-06 part 3: line 3 (an identical retry adds no slot row, test:saves on 5.2.0 and 5.3.1), line 4 (`play_sessions` with the session's completion), and a 409 shown to the player as a conflict.
+- Found on the way: the first CI run failed x64 `test:app`, whose check matched the content path exactly and so missed the new query; it was not run before the push because only main-process code changed. A change to what goes over the wire to RomM needs `test:app` too.
+- Notes: a confirmation that fails is not retried yet (Argosy retries before the next sync); a save whose bytes already match is stamped without a download and so never confirmed. Both leave RomM offering the same download again, which costs a transfer, not a save.
+
+## 2026-10-10 07:26 UTC session 01VHu3ou65VGVzAjuWse2yrQ (routine run)
+
+- Device results: none new. The bridge last checked in at 20:06 UTC (11.4 h ago); its last skip was "no 'nightly' release published yet". The scheduled nightly (`23 3 * * *`) has not run once yet; only the hand-started run of 2026-10-09 exists, and release.yml publishes `nightly` after every merge anyway.
+- Worked on: M2-06 part 3a (tracking issue #124): acceptance line 3. Part 2's PR #126 merged at 94ce36e; its CI wall time was x64 5:46, arm64 2:16.
+- Result: PR (this one). M2-06 stays false until line 4.
+- Evidence:
+  - Found first, by the new real test: RomM recognises identical bytes in a slot only when `overwrite=false` (`endpoints/saves.py` `add_save`, `get_save_by_content_hash` under `not overwrite`, same in 5.2.0 and 5.3.1). The player's "keep this device's save" (`overwrite=true`) retried after a lost reply was filed as a new row each time (the test failed on 5.2.0: `4 !== 3`).
+  - `RommClient.uploadSave` with `keepThisDevice` and a slot now asks `keptAlready` first: when the slot's newest copy (by `updated_at`, to the microsecond via `savedecide.instant`) has this file's `localContentHash`, that copy is returned and this device confirmed as holding it (`POST /api/saves/{id}/downloaded`); nothing is uploaded. Identical bytes further back in the slot's history do not count. An ordinary upload is unchanged (RomM dedupes it).
+  - Line 3: `test/saves/transfer.real.ts` "an upload retried with identical bytes adds no row to the slot", "the player's 'keep this device's save' retried with identical bytes adds no row to the slot", "a changed save after a retried one is the slot's second row, not a third": 3/3 on Docker 5.2.0 and 3/3 on 5.3.1 (`ROMM_PROFILE=v531`, provisioned).
+  - `romm.test.ts` "keeping this device's save when the slot already holds it": the newest identical copy is returned and confirmed, an older identical copy still uploads, an ordinary upload and an unslotted one never list the slot; a copy with no stored hash and a file the client cannot hash both upload. 130/130.
+  - `scripts/agent/check.sh` green; `npm run test:saves` 41/41 and `npm run test:romm` 21/21 on Docker 5.2.0. `test:app` not run: no production caller sets `keepThisDevice`, so nothing the app sends changes.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none.
+- Next: M2-06 part 3b: line 4 (`play_sessions` with the session's completion), and a 409 shown to the player as a conflict.
+
+## 2026-10-10 08:27 UTC session 01CsS75gbjkD2bHYi3wXLkK1 (routine run)
+
+- Device results: none new. The bridge last checked in at 20:06 UTC (12.4 h ago); its last skip was still "no 'nightly' release published yet".
+- Worked on: M2-06 part 3b (tracking issue #124): acceptance line 4. Part 3a's PR #127 merged at d9c9ab7; its CI wall time was x64 6:54, arm64 2:16.
+- Result: PR (this one). PASSES M2-06 (all four lines; verification `ci`).
+- Evidence:
+  - `finishSession(client, id, counts, played)` sends the play recorded while the session was open as the completion's `play_sessions` (RomM's `SyncPlaySessionEntry`, read out of the 5.2.0 image: `endpoints/sync.py` `complete_sync_session` ingests them under the session's device and stamps `sync_session_id`). Spans shorter than the new `MIN_PLAY_SECONDS` (shared with `reportPlaySession`) are left out: RomM refuses the whole completion (422) over an entry whose end is not after its start once the fraction is dropped, and the session would never close. A span RomM answers `error` for is logged, not thrown; a superseded session took none of its play, which the doc comment hands to `POST /api/play-sessions`.
+  - `completeSyncSession` now returns the reply; new types `RommSyncPlaySessionEntry`, `RommSyncCompleteResponse`, `RommPlaySessionIngest`, `RommPlaySessionIngestResult`, held to schema/ 5.0.0 to 5.3.1 by `romm.test.ts` in shared/types.
+  - Line 4: `test/saves/negotiate.real.ts` "play recorded during a session is sent with the session's completion": the span appears in `GET /api/play-sessions?rom_id&device_id` once, with this session's `sync_session_id`, start and duration; sent again with the next session it is still one row. `npm run test:saves` 42/42 on Docker 5.2.0. 5.3.1 not run (image not on this VM); its `SyncCompletePayload` and `SyncPlaySessionEntry` are identical in schema/romm-5.3.1.json.
+  - `savenegotiate.test.ts`: the payload as sent, short and backwards spans dropped (no list at all when none is left), an `error` result does not fail the completion, a superseded session.
+  - `scripts/agent/check.sh` green. `test:app` not run: nothing in the app calls `finishSession` yet.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none.
+- Found on the way: the PR body was opened without its `Feature:` line, which `scripts/agent/pr-body.mjs` fails on; a re-run reads the body from the original event, so a corrected body needs the next push to be checked.
+- Next: the launch flow still decides with RomMix's own comparison and reports play through `POST /api/play-sessions`; wiring negotiate and its completion around a launch is M2-17 (with M2-18 for play time). A 409 shown to the player as a conflict is M2-16.
+
+## 2026-10-10 08:55 UTC session 01CsS75gbjkD2bHYi3wXLkK1 (routine run, second unit)
+
+- Device results: none new.
+- Worked on: M2-18 (tracking issue #129). M2-06 part 3b, PR #128, merged at b62355e; its CI wall time was x64 6:45, arm64 2:14. M2-06 passes; issue #124 closed.
+- Result: PR (this one). PASSES M2-18 (verification `ci`).
+- Evidence:
+  - New `PlayReporter` (`src/main/playtime.ts`): every session the launcher ends is written to `unsent_play.json` (Store `notePlay`/`unsentPlay`/`forgetPlay`) before it is sent, and forgotten only after RomM answers 2xx. Sent through `POST /api/play-sessions` in batches of `PLAY_BATCH` (RomM's own `MAX_BATCH_SIZE` in `endpoints/play_sessions.py`), oldest first; the first batch that fails keeps itself and everything after it. The catch-up (`App.catchUp`, at start-up and whenever RomM comes back) sends what is left. Resending is safe: RomM keeps one span per device, game and start. The completion route for play is `finishSession` (M2-06), used once negotiate wraps a launch (M2-17).
+  - `RommClient.reportPlaySession` (best effort, a refusal swallowed and the session lost) is replaced by `sendPlaySessions`, which throws so the caller keeps the spans. `MIN_PLAY_SECONDS` is the one threshold for both routes.
+  - Line 1: `playtime.test.ts` (9): short, zero and backwards spans dropped and never kept; an offline session kept and sent when the server is back; kept across a restart; a refusal keeps it; a 201-span backlog goes up as 100, 100, 1, oldest first; a failing second batch keeps itself and the rest; a span kept twice is one; two sends at once are one pass.
+  - Line 2: `test/romm/sync.real.ts` "play sessions are accepted, listed and counted in the play time": a session recorded while unreachable (and a 3 s one, dropped) is sent by the next `send()`, appears once in `GET /api/play-sessions?rom_id=` with its start and duration, and `playTime` grows by it. `npm run test:romm` 21/21 on Docker 5.2.0.
+  - `scripts/agent/check.sh` green; `npm run test:app` 224/224 (games.test.ts "the session is accounted for" still sees the POST).
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none.
+- Next: Steam games (M1-14, M5) are not launched by the app yet; their launch calls `launcher.play.record` the same way when they are. Then `next.mjs`: M2-15 (states only where they can load).
+- Notes: `unsent_play.json` is new state under the config folder; nothing in the self-test guard (M0-21, not built yet) stops play being sent, which that feature's acceptance already requires.
+
+## 2026-10-10 09:49 UTC session 01WdAZSXo1in3HtxtSzd186z (routine run)
+
+- Device results: none new. The bridge last checked in at 20:06 UTC (13.4 h ago); its last skip was still "no 'nightly' release published yet".
+- Worked on: M2-15 (tracking issue #131). M2-18's PR #130 merged at 714b4a0; its CI wall time was x64 6:13, arm64 2:07.
+- Result: PR (this one). PASSES M2-15 (both lines; verification `ci`).
+- Evidence:
+  - Line 1: new `src/config/emulators/states.ts`, `STATE_SYNC` (system, tag) rows and `statesSync`: states travel only where this device runs the libretro core SPEC.md section 10 found Argosy running for that system (SNES family `snes9x`, GBA `mgba`, PS1 `pcsx_rearmed`/`swanstation`/`mednafen_psx`); every standalone and every other system keeps its states. `states.test.ts` (3): rules name known systems once; RetroArch's own core for each listed system syncs; standalones, Genesis, a cross-system core and the bare `retroarch` tag do not.
+  - `SaveSync.syncLocationFor` is the one gate: `pullKind`, `previewPush`, `sendChosen` and `pendingUploads` ask it, so no pull, push, drain or chosen push moves a state that stays. `STATE_PULL_LIMIT` is untouched and its test ("only the newest few states are pulled") now runs on a syncing system. `savesync.test.ts` "states only where they can load" (5): never pulled; not in the preview, not sent by `pushNow` or `pushSelected` while the save still goes; the same state goes up on PS1; the Saves tab marks local and remote states and no save; nothing marked where states sync or the game is not on this device. Each fails with `statesSync` forced true. Seven older state tests take `system: 'psx'` (their assertions unchanged).
+  - Line 2: `SaveAsset.staysOnDevice`; the Saves tab draws a grey "Not synced" badge with a hint (`saves.stateNotSynced`, `saves.stateNotSyncedHint`, translated in all four catalogues). New shot `game-saves-states` in `shots:nova` (Cave Story under RetroArch, a local and a RomM state beside a save): both states read "Not synced", the save "Not on this device"; checked the PNG at 1280x960, no overlap, toasts gone.
+  - `test:app`: three Cave Story steps in `games.test.ts` moved state transfers on Genesis, whose states now stay. Their save half is unchanged; their state half now asserts the rule end to end: no `/api/states/` download, no file in the states folder, the row `staysOnDevice` with the badge; the push dialog lists only the save; neither the dialog nor a push of everything sends the state. 224/224. State transfer itself is covered by the unit tests on PS1.
+  - `scripts/agent/check.sh` green; `npm run shots:nova` 20/20.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none. Which systems sync states is worth a look in the acceptance session once #110's choices land (M2-08): a system moved to a standalone keeps its states local by this table.
+- Next: `next.mjs`: M2-16 (conflicts decided by the player), M6-04, M6-05.
+
+## 2026-10-10 10:26 UTC session 01WJLMHgmSaGbgp24PVLDoTf (routine run)
+
+- Device results: none new. The bridge last checked in at 20:06 UTC (14.4 h ago); its last skip was still "no 'nightly' release published yet" (the Nightly workflow itself ran green at 09:59 UTC).
+- Worked on: M2-16 part 1 of 2 (tracking issue #133). M2-15's PR #132 merged at 139a09a. M0-10, M0-13 and M2-08 wait on the device, M0-21 or #110's date.
+- Result: PR (this one). M2-16 stays false: its three acceptance lines are the dialog, test:app and the shot, all part 2.
+- Evidence:
+  - New `ConflictChoice` (shared/types/saves.ts) and `SaveSync.resolve`, the one caller of `keepThisDevice: true`: "keep this device's" sends that one path through `sendChosen` (intersected with a fresh scan, as an approved push is); "keep RomM's" pulls that one copy by id through `pullKind(…, chosen)`, past the newer-wins check only. The tag rule, the same-bytes check, `keepBackup` and the download confirmation still apply. A chosen copy that is gone, not loadable here, or in another client's named slot (which pairs with no file here) is counted `failed`. Skip is renderer-only. IPC `saves:resolve` rechecks the game's unsent saves afterwards, as `saves:pushSelected` does.
+  - `overwrite.allowlist.test.ts` now names `main/saves.ts` (`SaveSync.resolve`) as the only module allowed to ask for an overwrite.
+  - `savesync.test.ts` "settling a conflict the way the player said to" (6): keep-device uploads only that file with `keepThisDevice`; an invented path uploads nothing; keep-RomM writes RomM's bytes over a newer local save that `pullNow` leaves alone, with the backup and `/downloaded` confirmation; it moves no other copy and uploads nothing; a vanished id fails and leaves the local save untouched; so does a copy in another client's slot (found by the evaluator).
+  - `scripts/agent/check.sh` green; `npm run test:saves` 42/42 on Docker 5.2.0 (the client's overwrite and download-confirm calls `resolve` uses are the ones `roundtrip.real.ts` and `transfer.real.ts` hold to RomM); `npm run test:app` 224/224.
+  - Flaky (#134): `test/app/reach.test.ts` walked the BIOS screen and the game page before their data loaded (2 failures in 13 isolated runs on main). It now waits for `[data-bios-platform]` and the first `[data-tab]`; 15/15 isolated runs after.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none.
+- Found on the way: the VM image ships a stale `/var/run/docker.pid`, so `dockerd` refuses to start until it is removed.
+- Next: M2-16 part 2: the conflict dialog (two columns, three choices, focus held on its choice), `test/app/server.ts` 409 and device_syncs, test:app per choice, and the `shots:nova` shot.
+
+## 2026-10-10 11:55 UTC session 01GArgoSV73fZG156nCcACVa (routine run)
+
+- Device results: none new. The bridge last checked in at 20:06 UTC (15.8 h ago); its last skip was still "no 'nightly' release published yet".
+- Worked on: M2-16 part 2 of 2 (tracking issue #133). Part 1, PR #135, merged at 9e7aa30 (CI x64 6:00, arm64 2:23).
+- Result: PR (this one). PASSES M2-16 (verification `agent-screenshot`; all three lines).
+- Evidence:
+  - New `ConflictDialog` (screens/Game): the pair side by side, this device (its RomM name, local time, size) and RomM (`originName` from `origin_device_id`, or "another device"; time; size), and three answers: keep this device's (`saves:resolve` `{keep:'device', path}`, the one overwrite), keep RomM's (`{keep:'romm', kind, id}`: by id, backup, `/downloaded`), Skip (focused on arrival, moves nothing). B closes it and moves nothing. Opened after a push with refused files when any pair is a conflict, and from a "Settle conflicts" button on the waiting notice. `useGameSaves.answerConflict` is the only renderer caller of `saves.resolve`; a keep counts as done only when something moved (keep-device's `failed 0, saves 0` reads as not settled). The pairs are `conflictsIn` (shared/saveassets.ts), the drain's own rule; `PendingSave.replaces` now carries RomM's `id`. 13 new strings, translated in all four catalogues.
+  - Line 1: `test/app/server.ts` answers like SPEC.md section 7: a 409 for a slot upload this device has no current record for, or a same-named one it holds an older record of; `device_syncs` on a listing that names a device; `/downloaded` records the device; `overwrite=true` uploads are kept (a slot takes a new copy, a slot-less save is replaced in place); `holdSave({ staleFor })` and `devices` options. Ordinary uploads are still answered and not listed back (kept, their arrival time put a re-written save within the sync tolerance and broke three push tests in `games.test.ts`). `test/app/conflicts.test.ts` (5): a push refused twice opens the dialog with both columns and Skip focused; moving the highlight over the answers sends nothing; keep RomM's fetches that id's content and posts `/downloaded`, sends nothing, writes RomM's bytes; keep this device's sends exactly that file with `overwrite=true`; Skip sends nothing and leaves the file.
+  - Line 2: the dialog's buttons stay mounted and enabled between conflicts (a disabled button drops the highlight to a neighbour); `conflicts.test.ts` asserts `conflict-keep-romm` is still focused after the list moves from "1 of 2" to "2 of 2".
+  - Line 3: `shots:nova` 21/21 with the new `game-conflict`; looked at it at 1280x960: two equal columns, names, times and sizes legible, three buttons on one row, accent only on the focused Skip, nothing clipped.
+  - `scripts/agent/check.sh` green; `npm run test:app` 229/229 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root).
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none. How the dialog reads from the sofa belongs in the acceptance session's look-and-feel pass.
+- Next: `next.mjs`: M6-04, M6-05 (M0-10, M0-13 and M2-08 wait on the device, M0-21 or #110's date).
+
+## 2026-10-10 12:38 UTC session 012udxzCZk5g1tJicTEicpMr (routine run)
+
+- Device results: none new. The bridge last checked in at 20:06 UTC (16.3 h ago); its last skip was still "no 'nightly' release published yet".
+- Worked on: M6-04 (tracking issue #137). M2-16 part 2, PR #136, merged at 73c7193.
+- Result: PR (this one). PASSES M6-04 (verification `ci`; both lines).
+- Evidence:
+  - A multi-file game fetched file by file wrote each file under its leaf name, so a folder-per-disc set (every Dreamcast disc has a `track01.bin`) had disc 2 overwrite disc 1. New `pathInGame` (shared/gamefiles.ts): the file's path below the game's folder, from `file_path` minus the ROM's `fs_path` and folder; the leaf where they do not line up. `fetchFileByFile` and the pending record use it; `safeJoin` still refuses a name that climbs out.
+  - A server `.m3u` is never fetched (`filesToFetch`) or launched. `discsOf` reads the discs from the game's own files (each folder's `.cue`/`.gdi`, else its whole images, number order); `playlistFor` writes one only for 2+ discs on `PLAYLIST_SYSTEMS` (src/config/romfiles.ts, beside the new `DISC_IMAGE_EXTENSIONS`). `writePlaylist` (install.ts) puts `<folder>.m3u` at the top of the game folder and it becomes the launch path, on the per-file and the archive path alike. `gameFolderName` strips `.m3u` from the folder Galleon makes (plan, adopt, staging).
+  - Line 1: `downloads.test.ts` "a game of several discs" (5): the synthetic library's PS1 Saga folder (discs 1, 2, 10 in order) and GameCube Two Discs folder (a server `.m3u` beside them is not fetched: 30 bytes arrive, not 129) each launch Galleon's playlist; a two-disc GDI set with generic track names keeps each disc's own bytes; a one-disc cue/bin writes none. `install.test.ts`: an archive with RomM's `.m3u` and folder-per-disc GDIs launches Galleon's. `gamefiles.test.ts` (4). `library.real.ts`: on Docker RomM 5.2.0 the PS1 and GameCube folders' files sit where `pathInGame` says and get a playlist; the PSP folder keeps `PSP/GAME/GTST00001/DLC.EDAT`.
+  - Line 2: "the playlist path never has .m3u in a folder name" (a RomM folder named `… (USA).m3u`), plus `gameFolderName` units.
+  - 4 of the 5 download tests and the install test fail on 73c7193 (checked by the evaluator).
+  - `scripts/agent/check.sh` green; `npm run test:romm` 22/22; `npm run test:app` 229/229.
+  - Flaky (#139): the PR's x64 leg failed `test/app/conflicts.test.ts` (keep this device's never closed the dialog). A real bug from M2-16: `answerConflict` held its `answering` guard through the Saves-tab `reload()` after the next conflict was on screen, so a press in that window was dropped. New `FakeRomm.slowSaveListings` makes the scenario press in that window: fails every time before, 3/3 after the guard is released before the refresh.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none.
+- Next: `next.mjs`: M6-05 (resumable per-file downloads).
+- Notes: a game already installed under a folder named with `.m3u` is no longer adopted at that path (none are installed yet). A multi-disc game on a flat-library emulator (only Eden, Switch) could leave empty subfolders on cancel; not a shape that exists today.
+
+## 2026-10-10 13:26 UTC session 01S7cup9hCmp6nFZBBCJKAWa (routine run)
+
+- Device results: none new. The bridge last checked in at 20:06 UTC (17.3 h ago); its last skip was still "no 'nightly' release published yet".
+- Worked on: M6-05 (tracking issue #140). M6-04's PR #138 merged at 5a54955 (CI x64 6:28, arm64 2:12).
+- Result: PR (this one). PASSES M6-05 (verification `ci`; both lines).
+- Evidence:
+  - Per-file fetching, each file held to its own `md5_hash`/`sha1_hash` and resumed on its own, was already in place (`fetchFileByFile`, `downloadRomFile`, `fileAlreadyHere`); the archive is only for a game of one file or a server that cannot serve files singly. Two gaps closed:
+  - A bug found by the new suite: after a file's hash check the row stayed `checking` for the rest of the game, so the screen read "Checking" over every later file and Pause (which only stops a row that is downloading) did nothing. The row is `downloading` again as each file starts. `downloads.test.ts` "the row is downloading again once the file before was checked" fails without the fix.
+  - Line 2: a file refused for its hash is fetched once more, alone and from its first byte, with one warning naming it; a second refusal pauses the game with the reason on the row, once. `downloads.test.ts` "a file refused for its hash is fetched again on its own" and "a file refused twice pauses the game, and the row says so once" (both fail on 5a54955); the old "refused … pauses" test became the second.
+  - Line 1: new `test/romm/downloads.real.ts`, the app's own queue, library and store over a scratch `GALLEON_HOME` against Docker RomM: "a multi-file game paused mid-file resumes that file by range and refetches none it finished" (half of disc 2 on disk, Pause, resume: disc 1 fetched once, disc 2 `[null, bytes=<half>-]`, every file matches its md5, playlist written) and "a file whose bytes do not match its hash is fetched again alone, and said once" (disc 2's first copy has a flipped byte: fetched `[null, null]`, disc 1 once, one warning, md5s match).
+  - `scripts/agent/check.sh` green; `npm run test:romm` 24/24 on 5.2.0 and 5.3.1.
+  - Flaky (#141): 5.3.1's provisioning was refused once on a cold start ("Invalid session", socket.io polling across four RomM workers) and passed when run again. Not a test assertion; root cause to fix within two units.
+- CI wall time: recorded in the next entry (this entry rides the PR). The first x64 run failed only `pr-body.mjs`: the PR was opened without the template's `Feature:` line; the body was fixed and this note is the push that re-runs it.
+- Evaluator: PASS (quoted in the PR).
+- Device / acceptance: none.
+- Next: #141 (test:romm provisioning on 5.3.1), then `next.mjs`: M8-06.
+
+## 2026-10-10 13:55 UTC session 01S7cup9hCmp6nFZBBCJKAWa (routine run, unit 2)
+
+- Worked on: flaky #141 (test:romm provisioning on RomM 5.3.1 refused with "Invalid session"). M6-05's PR #142 merged at eb58893 (CI x64 7:06, arm64 2:08; the first x64 run failed only the PR-body check, see the entry above).
+- Result: PR (this one). Feature: none (CI flake, #141).
+- Evidence:
+  - Root cause: RomM 5.3.1's image starts four web workers (`--workers "${WEB_SERVER_CONCURRENCY:-4}"` in its `/init`; 5.2.0's defaults to 1). A socket.io polling session lives in the process that opened it, and `provision.mjs` starts the scan over that transport, so a request on a new connection that lands on another worker is refused. Node's fetch usually reuses one keep-alive connection, which is why it failed only now and then on a cold start.
+  - Reproduced with a scratch script opening a polling session and sending the connect packet on fresh connections: 3 of 30 refused on 5.3.1, 0 of 30 on 5.2.0. With `WEB_SERVER_CONCURRENCY: '1'` in `compose.yml`'s shared RomM environment: 0 of 100 on 5.3.1.
+  - `test/romm/lib.test.ts` "every Docker RomM runs one web worker, which the scan handshake needs" fails without the setting.
+  - `npm run test:romm -- --profile v531` from a removed volume: 24/24, 69 s.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none.
+- Next: `next.mjs`: M8-06.
+
+## 2026-10-10 14:38 UTC session 01D4wbSbJU6yiTdNuXuVCU33 (routine run)
+
+- Device results: none new. The bridge last checked in at 20:06 UTC (18.4 h ago); its last skip was still "no 'nightly' release published yet".
+- Worked on: M8-06, part 1 (tracking issue #144). #143 (flaky #141) merged at 915a833 before this run.
+- Result: PR (this one). M8-06 line 1 met; `passes` stays false until line 2 can be proved.
+- Evidence:
+  - Line 1: new `docs/MAINTENANCE.md`, numbered steps for upstream ports (M0-19's weekly issue), adding a RomM version to the matrix, Electron updates gated on the next nightly's device run (revert first thing on a newly failing check), other Dependabot updates and pinned actions/digests, and scheduled workflows. Linked from CLAUDE.md's list of deeper docs.
+  - Automation: `upstream.yml` gains "Keep scheduled workflows enabled" (`actions: write`): every workflow with a `schedule:` that is `active` or `disabled_inactivity` is re-enabled weekly, which resets GitHub's 60-day inactivity clock; one a person disabled is left alone. Proved by a `workflow_dispatch` run of the branch (link in the PR).
+  - Line 2 cannot be proved today: Docker Hub's newest stable RomM is 5.3.1 (2026-09-23), already in the matrix; 5.4.0 is at beta.1 (2026-10-09). The procedure was rehearsed against `rommapp/romm:5.4.0-beta.1@sha256:8823a21f…` following steps 2 to 7 and then reverted (nothing committed): the index has `linux/amd64` and `linux/arm64`; provisioning passed (8 platforms, 52 s); `schema:fetch` wrote 329 schemas and `romm.test.ts` passed 251/251 with it; `test:romm-real` 24/24; `test:saves` 39/42. The rehearsal added step 7's "compare with the previous profile" after `hash.real.ts` failed on both 5.3.1 and the beta.
+  - What 5.4 will need, from that rehearsal: `sync.real.ts`-style session tests in `test/saves/` fail on the beta: "a session a newer negotiate superseded is finished, not an error" (the older session reads `completed`, not `superseded`) and "play recorded during a session is sent with the session's completion" (the play session is not there: `undefined` where 97 was expected). Both touch save sync (rail 2); investigate when 5.4.0 is stable, with its own golden tests.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none.
+- Next: M8-06 line 2 once RomM 5.4.0 (or a newer stable) is published: follow `docs/MAINTENANCE.md` "RomM versions". Otherwise `next.mjs` has nothing eligible (M0-10, M0-13 and M2-08 wait on the device or #110's date).
+- Notes: init.sh stops before `npm ci` when Docker's daemon is down; start `dockerd` and run it again.
+
+## 2026-10-10 14:47 UTC session 01D4wbSbJU6yiTdNuXuVCU33 (routine run, stop)
+
+- Stopped: nothing eligible. M8-06 part 1 merged in #145 at bbc4182 (CI x64 5:35, arm64 0:53); its line 2 waits for a stable RomM 5.4.0 (#144 stays open). M0-10 and M0-13 wait on the device (bridge last seen 18.7 h ago), M2-08 on #110's safe default (2026-10-13 01:00 UTC), M4 on Gate 1, Dependabot #1 on a device baseline.
+
+## 2026-10-10 15:27 UTC session 01128vAgxbdPsR2MHe8eY3Gw (routine run)
+
+- Device results: none new. The bridge last checked in at 20:06 UTC (19.4 h ago); its last skip was still "no 'nightly' release published yet".
+- Worked on: red required check on `main` (flaky #147). `build (ubuntu-24.04, x64)` failed at 34ba1b9, a docs-only commit, in `test/app/perf.test.ts` "a 30 s scroll down the grid logs its summary": "gave up waiting for the chips", with the screenshot showing the Cave Story MD game page.
+- Result: PR (this one). Feature: none (CI flake, #147).
+- Evidence:
+  - Root cause: `goTo('home')` returned as soon as it pressed Enter, while home still showed its spinner. The next `goTo('library')` walked the bar, and the hero's `autoFocus` took the highlight between the "arrived" check and the Enter, which then opened the hero's game. This is the race `atHome` describes at startup, but on a later visit to home. `interface.test.ts` (search "and leaving the screen forgets it") and the emulators scenario have the same `goTo('home')`/`goTo(...)` pair.
+  - Fix: `goTo('home')` waits until home has settled: its shelves have answered, and the hero holds the highlight if there is one. It skips the wait when home was already settled before the press (choosing home from home redraws nothing; `reach.test.ts` found that case in the first version of the fix).
+  - New `FakeRomm.slowRomListings`. `interface.test.ts` "going home waits for it to settle, so the next walk is not taken from under it" fails on 34ba1b9 (the hero does not hold the highlight when `goTo` returns) and passes with the fix.
+  - `scripts/agent/check.sh` green; `npm run test:app` 230/230 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root).
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none.
+- Next: the bridge's "no 'nightly' release published yet" while a `nightly` prerelease exists (published 2026-10-09 11:40 UTC); otherwise nothing eligible (see the 14:47 stop entry).
+- Notes: a stale `/var/run/docker.pid` stopped `dockerd` from starting on this VM; remove it if the pid it names is not running.
+
+## 2026-10-10 15:53 UTC session 01128vAgxbdPsR2MHe8eY3Gw (routine run, stop)
+
+- Stopped: nothing eligible. Flaky #147 (`main` red at 34ba1b9) fixed in #148, merged at 0f6807c (CI x64 5:43, arm64 0:48; evaluator PASS). Everything else is as in the 14:47 stop entry: M8-06 line 2 waits for a stable RomM 5.4.0, M0-10 and M0-13 wait on the device (the bridge was last seen 19.8 h ago), M2-08 waits for #110's safe default (2026-10-13 01:00 UTC), M4 waits for Gate 1, and Dependabot #1 waits for a device baseline.
+
+## 2026-10-10 16:26 UTC session 01TYyFtCNVzURkA21XSQxo3a (routine run, stop)
+
+- Stopped: nothing eligible, as in the 15:53 stop entry. The bridge's "no 'nightly' release published yet" is not a bridge bug: it comes from `bridge/status.json`, which the bridge writes only when it skips (see the DEVICE-RESULTS note after 9390ac8), and that file is still the one from 2026-10-08. The bridge tested a nightly every hour on 2026-10-09 up to d4c2d35 (20:06 UTC) and has been silent since, while `nightly` is current (assets from 8a5c0f9, 16:05 UTC). That silence is on the device side; the 7-day `needs-human` note is not due before 2026-10-16.
+
+## 2026-10-10 17:44 UTC session 011jEpBMC6dNybVMQkJqnRiR (routine run)
+
+- Device results: none new. The bridge last checked in at 20:06 UTC (21.4 h ago), as in the 16:26 stop entry.
+- Worked on: M8-06 line 2 (tracking issue #144). RomM 5.4.0 went stable on Docker Hub at 15:19 UTC today.
+- Result: PR (this one). PASSES M8-06 (verification `ci`; line 1 met in #145).
+- Evidence (followed `docs/MAINTENANCE.md` "RomM versions", steps 1 to 9):
+  - Pinned `rommapp/romm:5.4.0@sha256:03295f95a6290e752641f9553ac4198b0e5b71b879d57f7b2371b98f608feb54` (index lists `linux/amd64` and `linux/arm64`); profile `v540` on `127.0.0.1:18540` in `compose.yml`, `lib.mjs` and `lib.test.ts`.
+  - Provisioning: 8 platforms, 43 s. `schema:fetch` wrote `schema/romm-5.4.0.json` (329 schemas). Against 5.3.1 no path is removed; `PlaySessionSchema.sync_session_id` and `PermissionGroupSchema.is_system` are removed (the client reads neither); the newly required fields are ones the client does not send. The heartbeat reports no `SAVE_SYNC`, so ADR 0002's snapshot warning does not apply to 5.4.0.
+  - `romm.test.ts` 251/251; `test:romm-real` 24/24 on v540 and on v531.
+  - Saves on v540 first: 39/42. `hash.real.ts` fails on v531 too (the known raw save holding a zip end record). The other two are 5.4's: negotiate no longer cancels a device's open sessions (the endpoint no longer calls `cancel_active_sessions`), so an earlier session completes instead of being refused; and a play row no longer carries `sync_session_id`. `finishSession` handles both answers unchanged (it returns `completed` and the play is taken; a span sent twice is still one row). `negotiate.real.ts` now holds each version to its own answer (`negotiateEndsOpenSessions`): 5.2.0 and 5.3.1 keep every assertion they had, 5.4.0 must answer `completed`, must not report the field, and the row must be this device's. No client change; the comments in `savenegotiate.ts` and `savedecide.ts` now say which versions supersede (the evaluator found the second).
+  - After the change: saves v540 41/42, v531 41/42 (both only `hash.real.ts`), v520 42/42.
+  - Step 8: `nightly.yml` and `release.yml`'s `workflow_dispatch` profiles, `test/romm/README.md`, `run.mjs`, `test/saves/README.md`, PLAN.md's matrix lines. Pull requests still test only 5.2.0.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none. The owner's server stays on 5.2.0 (step 10).
+- Next: nothing eligible unless the device reports; see the 15:53 stop entry.
+
+## 2026-10-10 18:04 UTC session 011jEpBMC6dNybVMQkJqnRiR (routine run, stop)
+
+- Stopped: the run's time is up. M8-06 is done: #151 merged at 75e5bc2 (CI x64 7:37, arm64 2:16; evaluator PASS); `passes` true, #144 closed. The first x64 run failed only features-check, because the PROGRESS entry carried a time later than the run; fixed by re-dating it. Otherwise nothing eligible, as in the 15:53 stop entry: M0-10 and M0-13 wait on the device (bridge last seen 22 h ago), M2-08 on #110's safe default (2026-10-13 01:00 UTC), M4 on Gate 1, Dependabot #1 on a device baseline.
+- Notes: on this VM, `git commit -a` with the pre-commit hook failed with "Error building trees"; `git add` then `git commit` works.
+
+## 2026-10-12 01:20 UTC session 01EHqpGGic98WcbWMnSMyxnP (owner asked to push work forward now the Nova is reachable)
+
+- Device results: DEVICE-RESULTS d729a7a1f85a595212377c87bb1e0324693d78de complete. The bridge is back (first result since 2026-10-09 20:06 UTC). As before, it was only the minimal harness: `harness.run` passed, no `safety.*` check ran, nothing flips.
+- Worked on: M0-10 line 4 (tracking issue #66). The device runs only the minimal harness until M0-22, and M0-22 needs M0-21, which needs M0-10. M0-10 waits only on the real format of `/run/armada/perf-state.json`, and the minimal harness was the only thing that could read it. Without that file, nothing could move.
+- Result: PR (this one). M0-10 stays false.
+- Evidence:
+  - `test/device/run.sh` now also writes `logs/power-facts.txt` and lists it in `harness.run`'s evidence. The file holds `/run/armada/perf-state.json`, both `power-profiles.conf` files, policy7's governor and current and max frequency, each devfreq device's governor and frequencies, and the output of `armada-power profile` and `armada-power status`. Each file is capped and each command has a timeout. It is read-only: it calls `profile` without an argument, which only asks, and writes nothing outside `RESULTS_DIR`. The bridge's existing sanitiser publishes `.txt`. No bridge change is needed.
+  - `scripts/device-bundle.test.ts` 10/10. New: "run.sh copies the power state the device shows, and only reads it" (fake root and a fake `armada-power` that records its arguments: exactly `profile` then `status`) and "run.sh still passes where none of the power files or armada-power exist".
+  - `shellcheck test/device/run.sh`: clean apart from the existing SC1007 on `CDPATH= cd`.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: the next nightly after the merge publishes `power-facts.txt`. From it: parse perf-state.json in `src/main/powerstate.ts` with fixture tests, which finishes M0-10, and correct DEVICE-FACTS.md's _(assumed)_ power lines. Then M0-21 and M0-22.
+
+## 2026-10-12 02:10 UTC session 01EHqpGGic98WcbWMnSMyxnP (owner asked to push work forward)
+
+- Device results: DEVICE-RESULTS e6bb3bd6f790c76c7863647971bfc260570acd29 complete. Still the minimal harness (`harness.run` passed, nothing flips), now with `logs/power-facts.txt`. The sanitiser withheld and dropped nothing.
+- Worked on: M0-10 line 4 (tracking issue #66). #153 merged at e6bb3bd; its CI wall time was x64 5:46, arm64 0:51.
+- Result: PR (this one). PASSES M0-10 (verification `agent-screenshot`). Lines 1 to 3 were met in #69 and #71. Line 5 is informational and comes from M0-21's device checks.
+- Evidence:
+  - The device's files are now fixtures (`src/main/fixtures/armada/`). `perf-state.json` is `{"global": {"gamescopeNice": -20}}`. `power-profiles.conf` is INI, with `[profile.*]` and per-SoC `[underclock.*]` sections. Neither names the profile in force (DEVICE-FACTS.md, "Confirmed on the Nova").
+  - `src/main/powerstate.ts`:
+    - `parseIni` reads the conf's sections.
+    - `profileInForce` names the profile whose governor matches the prime cluster's and whose underclock level's policy7 cap is the cluster's current maximum. For a profile with no underclock, it names it when no level's cap is the current maximum. It names a profile only when exactly one fits; otherwise it returns `unknown`.
+    - `parsePerfState` lists every scalar as `layer.key=value`, without picking any by name, and cuts the list short for the corner. It returns `unknown` when the file is missing, malformed or empty.
+    - `PowerState` gains `profile` and `perf`.
+  - The overlay shows "Armada profile: {profile} (starts in {start})" and "Armada perf: {state}", in all four catalogues, translated.
+  - `src/main/powerstate.test.ts` 15/15. Against the device's files: Performance (2956800), Balanced (2092800, the Phase 0 cap), Eco (1843200), and another SoC's medium cap. `unknown` for a cap set by hand, two profiles that fit, an unknown governor, and missing inputs. The perf contract is checked for layers, truncation, malformed and empty input.
+  - `npm run test:app` 230/230. `npm run shots:nova` 21 screens. I opened `perf-overlay.png`: the two new lines are in the bottom-left corner below the CPU and GPU lines, inside the overlay's box, and the library layout is unchanged. On the VM they read "unknown", which is correct there.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none for M0-10. Next: M0-21 (self-test mode), now unblocked. `next.mjs` should list it.
+
+## 2026-10-12 02:45 UTC session 01EHqpGGic98WcbWMnSMyxnP (owner asked to push work forward)
+
+- Device results: none new since e6bb3bd.
+- Worked on: M0-21 part 1 (tracking issue #155): acceptance line 1. M0-10's PR #154 merged at 048efc2; its CI wall time was x64 5:40, arm64 0:57. #66 closed.
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - `profilePath()` (`src/main/root.ts`) is `$GALLEON_HOME/profile` when `GALLEON_HOME` is set, so Electron's userData moves inside the test home. Chromium's profile, its caches and the single-instance lock all live in userData. Without the variable, nothing changes. `index.ts` already sets userData from `profilePath()` before taking the lock. Moving the root (`system:setRoot`) was already refused under `GALLEON_HOME`.
+  - `src/main/root.test.ts` 16/16. New:
+    - "with GALLEON_HOME the profile, its caches and its lock live inside that home".
+    - "a GALLEON_HOME reads and writes nothing of the default home, its pointer or RomMix". On a fake home with stock RomMix's files and a default Galleon pointer, a spy on `readFileSync` shows that nothing outside the test home is read, the pointer included. `ensureRoot` and a lock written into the profile add nothing outside the test home and change nothing else. A mutation that reads the pointer before the `GALLEON_HOME` check fails the test.
+  - `npm run test:app` 230/230 (the driver already sets `GALLEON_HOME`). `scripts/agent/check.sh` green.
+  - Not proven here: files Chromium itself might write outside userData. The device's `safety.owner-state` (M0-22) covers that on the Nova.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none yet. Next: M0-21 part 2, the read-only server guard (line 2).
+
+## 2026-10-12 03:05 UTC session 01EHqpGGic98WcbWMnSMyxnP (owner asked to push work forward)
+
+- Device results: none new.
+- Worked on: M0-21 part 2 (tracking issue #155): acceptance line 2, the read-only server guard. Part 1, PR #156, merged at ab3b9ff; its CI wall time was x64 5:40, arm64 0:53.
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - New `src/main/romm/guard.ts`, `ReadOnlyGuard`. `admit(method, path)` lets only GET and HEAD through. Any other method throws `ReadOnlyError` (new in `errors.ts`, with no status: nothing was sent, so it is neither an outage nor a refusal) and adds one to `serverWritesAttempted`. Every path that passes loses any `device_id` in its query (`withoutDeviceId`).
+  - `RommClient.readOnly(guard)` switches it on. `request()` admits each request before it is logged or sent. Every client call goes through `request()`, and `devices.ts` reaches the server only through the client's `json`, so call sites added later are covered too. Under the guard:
+    - a 401 is not followed by a token refresh;
+    - `deviceId()` answers null without asking the registry, so no device is looked up or registered and none is named in a save, state or play-session request.
+  - Nothing switches the guard on yet. The self-test runner (part 3) will.
+  - New string `error.readOnly` in all four catalogues, translated.
+  - `src/main/romm.test.ts` 136/136. New suite "the read-only guard":
+    - every write call site (login, pairing start and poll, favourite, status, now playing, collection add and remove, save and state deletes, negotiate, sync completion, save and state uploads, RetroAchievements refresh, play sessions) is refused with nothing but reads sent, and the count equals the number of calls;
+    - `deviceId()` sends nothing even with a stored device id;
+    - `savesForDevice` goes out without `device_id`;
+    - a 401 is not refreshed and the sign-in is kept;
+    - lifting the guard lets writes out again;
+    - `withoutDeviceId` unit cases.
+  - Removing the guard line from `request()` fails 3 of these tests.
+  - `scripts/agent/check.sh` green; `npm run test:romm` 24/24 on v520, v531 and v540.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none yet. Next: M0-21 part 3, the self-test request, runner and summary.json, which switches the guard on.
+
+## 2026-10-12 03:38 UTC session 01NaksJzKTFT4F1atU7bphfg (hourly heartbeat)
+
+- Device results: DEVICE-RESULTS ab3b9ffaba6409b4173df85d7ede429a539869b1 complete. Still the minimal harness; nothing flips.
+- Worked on: M0-21 part 3 (tracking issue #155): acceptance line 6 and the request half of the description. Part 2, PR #157, merged at 74af71f; its CI wall time was x64 6:34, arm64 2:14.
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - New `src/main/selftest.ts`:
+    - `takeRequest` looks only in a `GALLEON_HOME`. It renames `self-test-request.json` to `self-test-request.taken.json` before reading it, so a restart is a normal start.
+    - `parseRequest` refuses, with a reason code, a request without `readOnlyServer: true` or `privacy: true`, and a malformed one. `reportRefusal` writes an `error` summary when the results folder is usable, and the app exits 1.
+    - `runSelfTest` runs each requested check's scenario. A thrown scenario is that check's `error` and the run goes on as `partial`; the error's message stays in the log only. A check with no scenario yet is `skip` / `not-implemented`, and the run is `partial`. The budget skips the rest as `partial`, and an abort signal gives `aborted-by-user`.
+    - `safety.server-readonly` is in every summary and fails on any refused write. `selftest.complete` fails when any requested check did not run.
+    - `runAndReport` writes `summary.json` atomically and returns 0, or writes an error summary and returns 1. `summaryErrors` checks the TESTING.md schema.
+  - `ReadOnlyGuard` counts the `device_id`s it removes (`deviceIdsRemoved`, a metric of `safety.server-readonly`).
+  - `index.ts`: the request is taken before `RomMixApp` exists, and `rommix.readOnly(guard)` is switched on before any request. A self-test start skips the update check, the Steam launcher refresh, the connection watch and the catch-up. `RomMixApp.readOnly` holds the catch-up, so refused saves and play sessions are not re-queued on every reconnect (the evaluator's note from part 2). No scenarios are registered yet.
+  - TESTING.md's request section now states the taken file name, the exit codes, `not-implemented`, and that `safety.server-readonly` is always present.
+  - Tests:
+    - `src/main/selftest.test.ts` 19/19. The schema test parses the `summary.json` and request examples straight out of TESTING.md. The rest cover the refusals, the rename, throw, budget, abort, a refused write, and a runner fault that still leaves an error summary.
+    - `src/main/app.test.ts`: the held catch-up.
+    - `test/app/selftest.test.ts` 2/2: the built app takes a request, writes a valid summary, exits 0. A request without privacy exits 1 with an error summary.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none yet. Next: M0-21 part 4, the real scenarios (start-up, grid scroll per profile, screenshots, heartbeat, small download), privacy mode and abort on input. run.sh must then write the request.
+
+## 2026-10-12 03:52 UTC session 01NaksJzKTFT4F1atU7bphfg (hourly heartbeat)
+
+- Device results: none new since ab3b9ff.
+- Worked on: M0-21 part 4a (tracking issue #155): acceptance line 9, the `server.heartbeat` scenario. Part 3, PR #158, merged at aff285b; its CI wall time was x64 6:00, arm64 2:07.
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - New `src/main/selftestserver.ts`, `heartbeatScenario(client)`:
+    - It calls `client.heartbeat()`, then `client.me()`, and passes when both answer.
+    - Metrics: `serverVersion`, `heartbeatMs`, `meMs`. The version is kept only if it looks like one; otherwise it reads `unrecognised`, since the summary is published. Nothing about the account is kept.
+    - A failure is a code (`heartbeat-unreachable`, `heartbeat-unsupported`, `users-me-http-401`, ...). The error's message goes to the log only.
+  - `index.ts` registers it as the first real scenario.
+  - Tests:
+    - `src/main/selftestserver.test.ts` 5/5.
+    - `test/app/selftest.test.ts` 3/3. New: the built app, signed in to the fake RomM, runs `server.heartbeat`, which passes. `selftest.complete` and `safety.server-readonly` pass and the status is `complete`. The fake server saw `/api/heartbeat` and `/api/users/me` and no method other than GET or HEAD. The summary does not contain the server's host.
+    - `seed` in `test/app/driver.ts` is now exported for that test.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none yet; run.sh does not write a request yet. Next: the remaining part 4 pieces (start-up, grid scroll, screenshots, small download, privacy mode, abort on input, sandbox, run.sh's request).
+
+## 2026-10-12 04:26 UTC session 01RGSMShKzBQaeNLAXc7CMRy (hourly heartbeat)
+
+- Device results: DEVICE-RESULTS aff285b5c2de4b6b4e0b59769cdb68d9a0e17098 complete. Still the minimal harness; nothing flips.
+- Worked on: M0-21 part 4b (tracking issue #155): acceptance line 10, the `download.small` scenario. Part 4a, PR #159, merged at c864cba; its CI wall time was x64 5:52, arm64 0:58.
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - New `src/main/selftestdownload.ts`, `downloadScenario`:
+    - It picks the smallest game on the SNES and GBA platforms (every page) that RomM publishes a digest for. None is a `skip` (`no-hashed-snes-or-gba-title`); a game already installed is a `skip` and is left alone.
+    - The real download queue fetches it into the test home. The scenario counts the queue's updates that carry bytes (the 0-byte announcement every transfer starts with does not count, which the evaluator caught), then hashes the kept file itself against RomM's digest.
+    - Failures are codes: `download-<state>`, `outside-test-home`, `installed-as-folder`, `no-progress-events`, `hash-mismatch`, `not-deleted`.
+    - Whatever the outcome, the game is uninstalled; a transfer that did not finish is cancelled so no part-file stays. An abort cancels the transfer; a run already aborted fetches nothing (`skip`, `aborted`). `safety.romsDownloadedBytes` and `safety.romsLeft` are filled in.
+    - Metrics: platform slug, bytes, `downloadMs`, `progressEvents`, hash algorithm. No game name.
+  - `index.ts` registers it beside `server.heartbeat`.
+  - `test/app/server.ts`: a `gba` option adds a Game Boy Advance platform and one game.
+  - Tests: `src/main/selftestdownload.test.ts` 12/12; `test/app/selftest.test.ts` 4/4, `npm run test:app` 234/234 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root). The new app test runs `download.small` in the built app against the fake RomM: pass, progress events counted, the content endpoint asked, only GET and HEAD sent, no file of the game left under the home.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR). The first x64 run failed only `pr-body.mjs`: the PR opened without the template's `Feature:` line. The body was fixed, and this note is the push that re-runs the check, since a re-run reads the original body.
+- Evaluator: see the PR.
+- Device / acceptance: none yet; run.sh does not write a request yet. Next: `startup.cold`, `grid.scroll` per profile, screenshots, privacy mode, abort on input, the sandbox, run.sh's request.
+
+## 2026-10-12 05:32 UTC session 01QNMBBfGA8UpKNKTXremHYM (hourly heartbeat)
+
+- Device results: DEVICE-RESULTS 8e03ec7f complete. Still the minimal harness; nothing flips.
+- Worked on: M0-21 part 4c (tracking issue #155): the `startup.cold` scenario, one of the three `selftest.complete` needs (acceptance line 7). Part 4b, PR #160, merged at 8e03ec7.
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - New `src/main/selfteststartup.ts`:
+    - `watchHome` starts as soon as the self-test's window exists. A probe in the page resolves with the time of the first animation frame on which Home is up, has no spinner and holds the highlight (the marks test:app's `atHome` waits on), or null after `HOME_TIMEOUT_MS`. So the time does not depend on where the request lists the check.
+    - `startupStart`: from `GALLEON_STARTED_AT_MS` when run.sh sets it (wrapper start, AppImage mount included), else from the process's own start. A value that is not a time before the process started is ignored. `measuredFrom` says which.
+    - `startupScenario`: pass under `STARTUP_MS`, else `over-threshold`. At or over it on a known profile other than Performance is `skip` / `not-on-performance`, since the threshold is stated for Performance. Home never reached is `home-not-reached`. Metrics: `startupMs`, `measuredFrom`, `profileObserved`, `cpuGovernor`. An abort ends the wait. `watchHome` also gives up from the main side after `HOME_TIMEOUT_MS`, so a page that never draws cannot hang the run (evaluator note).
+  - `RomMixApp.createWindow` returns the window; `index.ts` registers the scenario.
+  - TESTING.md's request section documents `GALLEON_STARTED_AT_MS` and the skip.
+  - Tests: `src/main/selfteststartup.test.ts` 12/12. `test/app/selftest.test.ts` 5/5; new: signed in to the fake RomM, the built app answers `startup.cold` (625 ms on the VM, `measuredFrom: process`) and the run is `complete`. The not-implemented example is now `grid.scroll`.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none yet; run.sh does not write a request yet. Next: `grid.scroll` per profile, screenshots, privacy mode, abort on input, the sandbox, run.sh's request (which should set `GALLEON_STARTED_AT_MS`).
+
+## 2026-10-12 05:53 UTC session 01QNMBBfGA8UpKNKTXremHYM (hourly heartbeat, unit 2)
+
+- Device results: none new since 8e03ec7.
+- Worked on: M0-21 part 4d (tracking issue #155): acceptance line 5, abort on input. Part 4c, PR #161, merged at 0999c29; its CI wall time was x64 5:41, arm64 0:54. The evaluator's two notes on it (a page that never draws could hang the wait for Home; "under" the threshold) were fixed in the PR before merging.
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - New `src/main/selftestinput.ts`:
+    - `watchInput` runs a probe in the page through the Gamepad API the interface reads (never OS input). It polls every `INPUT_POLL_MS`. Any button down counts, even at the first look: Chromium reveals a pad only once a button is pressed, and a button held as the run starts is still a person. A stick counts when it moves more than `AXIS_MOVED` from its first reading, so drift and triggers resting at one end do not.
+    - On input it aborts the run's signal. The runner already ends running checks and writes `aborted-by-user`. A page that goes away is not input.
+  - `index.ts` watches only when the request's `abortOnInput` is set.
+  - `test/app/driver.ts`: `StartOptions.files` writes files into the home after seeding (the request).
+  - TESTING.md's request section describes the abort.
+  - Tests:
+    - `src/main/selftestinput.test.ts` 8/8: the probe run under `node:vm` against a scripted `navigator`.
+    - `test/app/selftest.test.ts` 6/6. New: signed out, so `startup.cold` is still waiting. A simulated pad presses A, and the summary is on disk within a second, with status `aborted-by-user` and `startup.cold` `skip` / `aborted-by-user`. The first version ignored a button already down at the probe's first look. The app test caught that: the probe started after the press. It was the wrong rule anyway.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none yet; run.sh does not write a request yet. Next: `grid.scroll` per profile, screenshots, privacy mode, the sandbox, run.sh's request.
+
+## 2026-10-12 06:47 UTC session 01KMyqfmFiWMjLUMxcgqYAnk (hourly heartbeat)
+
+- Device results: DEVICE-RESULTS 8e03ec7 complete; DEVICE-RESULTS 0999c29 complete. Still the minimal harness; nothing flips, no safety failures.
+- Worked on: M0-21 part 4e (tracking issue #155): acceptance line 3, privacy mode. Part 4d, PR #162, merged at d9804bc; its CI wall time was x64 5:41, arm64 0:55.
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - New `src/main/privacy.ts`, `Privacy`. It masks values on their way to the page, not in each screen, so a screen added later, or an error message that quotes the address, is covered too. It hides:
+    - the stored server's address, host and hostname, and the stored account name;
+    - any value met in a `username`, `email`, `ra_username`, `user_code`, `device_code` or `verification_path(_complete)` field, wherever the same value appears again;
+    - the account picture (`avatar_path` emptied).
+  - Secrets shorter than three characters are masked only as whole values.
+  - `RomMixApp.hideIdentity` turns it on. `index.ts` calls it right after `readOnly(guard)`, before the window exists. `RomMixApp.send` and the IPC `handler` (answers and error messages) pass everything through `RomMixApp.shown`.
+  - `test/app/server.ts`: `FakeRomm.holdContent` holds a game's content until released.
+  - TESTING.md's request section describes privacy.
+  - Tests:
+    - `src/main/privacy.test.ts` 9/9.
+    - `test/app/selftest.test.ts` 7/7. The new test holds the GBA download so the `download.small` run stays up. It then visits Home, Library, Collections, Downloads, BIOS, Emulators, Settings and a game screen, searching the markup, the field values and the title for the address, the host and the account name. With `hideIdentity()` disabled it fails ("the top bar on home names 127.0.0.1:…").
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none yet; run.sh does not write a request yet. Next: `grid.scroll` per profile, screenshots (now safe to take under privacy), the sandbox, run.sh's request.
+
+## 2026-10-12 07:43 UTC session 016eMKUxtJxpe8K1xqKKvkXV (hourly heartbeat)
+
+- Device results: DEVICE-RESULTS 730da98 complete. Still the minimal harness; nothing flips, no safety failures. The bridge still skips for want of a `nightly` release.
+- Worked on: M0-21 part 4f (tracking issue #155): `grid.scroll` per profile, one of the three `selftest.complete` needs (acceptance line 7). Part 4e, PR #163, merged at 730da98; its CI wall time was x64 5:47, arm64 1:07.
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - `src/renderer/src/perf/frames.ts` (and its test) moved to `src/shared/frames.ts`, so the self-test computes p95 and dropped frames with the overlay's own arithmetic.
+  - New `src/main/selftestscroll.ts`:
+    - `largestPlatform`: the platform with the most games, at least `MIN_GAMES`; none is `skip` / `no-large-platform` (the synthetic platform without a server is still to come).
+    - `scrollProbe` / `runScroll`: in the page, the library menu and the platform chip are clicked (their own `onSelect`), a pointer move puts the highlight on the first game, then ArrowDown keydowns at the pad's repeat rate for `SCROLL_MS`, turning back when the highlight has stood still for `TURN_MS`. Frame intervals from `requestAnimationFrame`. Never the Gamepad API, which `watchInput` watches. A page that stops drawing or an abort ends the wait from the main side.
+    - `askForProfile`: the `want-profile` / `profile-set` handshake with run.sh (PLAN.md 5.3 step 8), files written whole and removed once answered.
+    - `scrollScenario`: `grid.scroll@<profile>` per requested profile, switching only when needed; a profile still not in force is `skip` / `profile-not-set`. Clocks are sampled every `SAMPLE_MS` (`profileObserved`, `governor`, `policy7MaxKHz`, `gpuMHz`). Thresholds per the catalogue; no profiles means plain `grid.scroll` held to Performance's.
+  - `index.ts` registers it; TESTING.md's request section documents the scenario and the handshake. The save-writer allow-list names the handshake files.
+  - Tests: `src/main/selftestscroll.test.ts` 21/21. `test/app/selftest.test.ts` 8/8; new: signed in to a fake RomM with a 1,300-game platform, the built app scrolls it (VM: 1571 frames, 167 games visited, p95 33.4 ms at 60 Hz under Xvfb) and the run is `complete`. The not-implemented example is now `power.read`. `test/app/perf.test.ts` 2/2 after the move.
+  - CI x64 failed once on 29ffac1: the abort test saw no press (60 s, not about 1 s). Cause: `startApp` returns once a page target exists, so the test could plant its pad in a document the app's own page then replaced. Under CPU load on the VM the press arrives while `index.html` is still `loading` with nothing mounted. Fix: the test waits for `[data-screen]` before `plugInPad`. Passes 3/3 under load and 8/8 for the file.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none yet; run.sh does not write a request or answer the handshake yet. Next: screenshots, the synthetic platform, the sandbox (line 4), run.sh's request and handshake.
+
+## 2026-10-12 08:26 UTC session 01LuBxq5s78Luq5JRhhZhgam (hourly heartbeat)
+
+- Device results: none new since 730da98 (ingested last session). Nothing flips, no safety failures. The bridge still skips for want of a `nightly` release.
+- Worked on: M0-21 part 4g (tracking issue #155): the screenshot scenario, the last of the three `selftest.complete` needs (acceptance line 7). Part 4f, PR #164, merged at 9ea2d67; its CI wall time was x64 6:03, arm64 1:02.
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - New `src/main/selftestshots.ts`, `takeScreenshots`: after the last check, each requested screen is opened from the menu bar (its own `onSelect`, as `scrollProbe` does), allowed to settle (finite animations finished, then two frames), captured with `capturePage` and written whole to `resultsDir/shots/<screen>.png`. Only screens in `SCREENS` are opened, so a request's name never reaches the page or a file name unchecked.
+  - Screens that draw the library (`LIBRARY_SCREENS`: home, library, collections, downloads, game) are never captured: on the Nova that library is the owner's, and nothing published may carry its titles. They count as withheld, not missing. The synthetic platform, when it lands, may lift this for runs without a server.
+  - `runSelfTest` takes the shots after the checks (not when aborted or over budget). The paths are `selftest.complete`'s evidence; metrics `screenshots`, `screenshotsMissing`, `screenshotsWithheld`. A missing screen is named in `notes` and fails `selftest.complete` with `screenshots-missing`; screens this build cannot take, or a capture that throws, leave the run `partial`.
+  - TESTING.md's request example now asks for settings, bios and emulators, and the request section documents the scenario.
+  - Tests: `src/main/selftestshots.test.ts` 8/8; `src/main/selftest.test.ts` 23/23 (4 new); `test/app/selftest.test.ts` 9/9 (new: signed in, settings, bios and emulators captured, home withheld). I opened the three PNGs: privacy masks the address and account on Settings; the first BIOS shot caught the menu mark mid-slide, which is why the probe waits for animations; after that fix the mark sits under the screen's own item and the platform badges are drawn.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none yet; run.sh does not write a request yet. Next: the synthetic platform, the sandbox (line 4), `armada-power status` in `readPowerState`, run.sh's request and handshake.
+
+## 2026-10-12 08:49 UTC session 01LuBxq5s78Luq5JRhhZhgam (hourly heartbeat, second unit)
+
+- Device results: unchanged since the entry above.
+- Worked on: M0-21 part 4h (tracking issue #155): `armada-power status` in the power state the self-test reads, named in M0-21's description and in #155's notes as due before `selftest.complete` is READY-FOR-DEVICE. Part 4g, PR #165, merged at 3e5c672; its CI wall time was x64 6:27, arm64 1:03.
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - `src/main/powerstate.ts`: `readArmadaStatus` runs `armada-power status` (no shell, `STATUS_TIMEOUT_MS`, null on any failure). `parseArmadaStatus` takes the `profile=` line's value when it is a plain word. `readPowerState(root, { status })` lets that name win over `profileInForce`'s inference. The overlay and the problem report still read files only: no process per sample.
+  - `src/main/selftestscroll.ts`: the new `sample` dependency is the read taken mid-scroll. `index.ts` gives the self-test `power` with the status and `sample` without it, so no process starts while frames are timed. The scroll's first sample, and the profile checks before and after it, use `power`. `powerMetrics` leaves a sample that could not tell the profile out of `profileObserved`.
+  - TESTING.md (grid.scroll), DEVICE-FACTS.md (power profiles) and the `PowerState.profile` doc say so.
+  - Tests: `src/main/powerstate.test.ts` 19/19 (4 new: parsing, plain words only, status wins and the clocks stand when it fails, null without `armada-power` on PATH). `src/main/selftestscroll.test.ts` 23/23 (new: `power` never read mid-scroll, and an unknown sample is not "mixed").
+  - `test/app/selftest.test.ts`: 9/9 twice. One earlier full-file run failed the privacy test ("gave up waiting for the library screen"). It passed 4/4 alone, on `main` and on this branch. Filed as #166 (flaky), to root-cause within two units.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none yet. Next: #166, the synthetic platform, the sandbox (line 4), run.sh's request and handshake.
+
+## 2026-10-12 09:42 UTC session 01TWYP54GLiRNuHy52ig2n2g (hourly heartbeat)
+
+- Device results: DEVICE-RESULTS b049a23 complete. Still the minimal harness; nothing flips, no safety failures. The bridge still skips for want of a `nightly` release. Part 4h, PR #167, merged at b049a23.
+- Worked on: flaky #166, the self-test privacy app test that once gave up waiting for the library screen.
+- Result: PR (this one).
+- Evidence:
+  - Root cause: the test began walking the menu once the top bar was signed in, without `atHome`. Home's hero takes the highlight when the shelves answer, and that can come after the top bar. A press of Enter meant for the Library item then opens the hero's game, and the library screen never comes. `driver.ts` documents this race at `atHome`, and every other signed-in scenario waits there first.
+  - Shown on the VM: in 1 of 3 instrumented runs the hero was not yet drawn when the top bar was signed in, so the walk started inside that window. The failure itself did not reproduce in 10 runs alone under CPU load, 4 full-file runs under load, or 18 runs with `slowRomListings` swept from 50 to 700 ms: the window between `goTo`'s last check and its Enter is a few milliseconds.
+  - Fix: `test/app/selftest.test.ts` waits `atHome` after the signed-in top bar check, before the first `goTo`. Nothing is retried or skipped.
+  - After the fix: the test passes 6/6 under CPU load, and the file passes 9/9. `scripts/agent/check.sh` is green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none.
+- Next: M0-21 continues (the synthetic platform, the sandbox, run.sh's request and handshake). #110's safe default applies 2026-10-13 01:00 UTC.
+
+## 2026-10-12 10:35 UTC session 019YTjCVcH4zVLC76deCJNbC (hourly heartbeat)
+
+- Device results: DEVICE-RESULTS 094b317 complete. Still the minimal harness; nothing flips, no safety failures. The bridge still skips for want of a `nightly` release. Flaky #166's fix, PR #168, merged at 094b317; its CI wall time was x64 6:04, arm64 0:51.
+- Worked on: M0-21 part 5a (tracking issue #155): the emulator sandbox's descriptor hook and planner, the first step of acceptance line 4.
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - `src/config/emulators/types.ts`: a required `sandbox` field, `((ctx: SandboxContext) => SandboxRecipe | null) | undefined`. A recipe names arguments placed right after the program, environment, and config files written into the sandbox. Every descriptor spells it `undefined` for now; `example/index.ts` documents it.
+  - New `src/main/selftestsandbox.ts`:
+    - `sandboxFolders`: `$GALLEON_HOME/sandbox/<emulator>/` with config, data, saves, states and bios.
+    - `planSandbox`: the XDG config, data, state and cache roots point inside the sandbox and are set last, so no recipe or descriptor env can point one back out. Never starts an emulator without a recipe, a recipe that declines the context, a flatpak or `scripts` install, or a recipe file outside the sandbox: `skip` / `cannot-sandbox` with a detail.
+    - `prepareSandbox`: makes the folders, writes the recipe's files whole, links the owner's BIOS files (nested, bounded depth, never copied, idempotent).
+  - TESTING.md's request section documents the sandbox. The save-writer allow-list names the new module.
+  - Tests: `src/main/selftestsandbox.test.ts` 19/19, including every registered emulator either planning inside its sandbox or skipping as `cannot-sandbox`. `registry.test.ts` knows the new field.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none yet; nothing starts an emulator in the self-test yet. Next: RetroArch's recipe (`--config` plus an appended config), then Dolphin, DuckStation and the XDG-only emulators, then flatpaks.
+
+## 2026-10-12 10:52 UTC session 019YTjCVcH4zVLC76deCJNbC (hourly heartbeat, second unit)
+
+- Device results: unchanged since the entry above. Part 5a, PR #169, merged at f49339c; its CI wall time was x64 6:32, arm64 0:59.
+- Worked on: M0-21 part 5b (tracking issue #155): RetroArch's sandbox recipe (acceptance line 4, "RetroArch `--config` plus an appended config naming the sandbox's folders").
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - `SandboxContext` gains `owner` (home, config root, file reader), which a recipe reads and never writes. `planSandbox` takes it from its caller.
+  - `src/config/emulators/retroarch/index.ts`:
+    - `requiredCore` is the old `core` body, shared by `core` and the recipe.
+    - `sandboxRecipe`: `--config <sandbox>/config/retroarch/retroarch.cfg --appendconfig <sandbox>/retroarch-sandbox.cfg`, placed right after the program. The appended config:
+      - names the save, state, system, core-options, history, playlist, screenshot, cache and log folders, all inside the sandbox;
+      - keeps saves, states, system files and screenshots out of the game's folder;
+      - sets `config_save_on_exit = "false"`;
+      - loads cores from the owner's `libretro_directory`.
+    - A system with no core is null, so it is `cannot-sandbox`. A flatpak RetroArch is still skipped until the flatpak part.
+  - Tests: `src/main/selftestsandbox.test.ts` 23/23 (4 new for RetroArch). Every folder in the appended config except the owner's cores is checked to be inside the sandbox.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none yet; nothing starts an emulator in the self-test yet, and the Nova's RetroArch is a flatpak (G0-7). Next: Dolphin, DuckStation and the XDG-only emulators, then flatpaks.
+
+## 2026-10-12 11:30 UTC session 01JYonW2Y3SeXmqbCVr1BU3J (hourly heartbeat)
+
+- Device results: still the minimal harness; nothing flips, no safety failures. The bridge still skips for want of a `nightly` release. Part 5b, PR #170, merged at a0d7c3c; its CI wall time was x64 6:00, arm64 0:52. Recorded with full shas, which `device-results.mjs` needs to count them as read:
+  - DEVICE-RESULTS 8e03ec7a52bdc220a193f52dd7fe1a22a040577f complete
+  - DEVICE-RESULTS 0999c2927558ea5bf85742971754ab0b3bb1ec8f complete
+  - DEVICE-RESULTS 730da98825f828dfb68d7a1eafd93c68c792efda complete
+  - DEVICE-RESULTS b049a238cc395ad1bfa7c2f388e1fec9a1a128a4 complete
+  - DEVICE-RESULTS 094b31768c6b16b65325101ac61aa6bd98dc4e5e complete
+  - DEVICE-RESULTS f49339ccc8955c8e012ffe2b109b696368619ae8 complete
+- Worked on: M0-21 part 5c (tracking issue #155): DuckStation's sandbox recipe (acceptance line 4).
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - Read from DuckStation's source at the pinned commit `df805975` (`core.cpp` `SetDataRoot`, `settings.cpp` `EmuFolders::LoadConfig`, `qthost.cpp`):
+    - With `XDG_CONFIG_HOME` set, the data root is `$XDG_CONFIG_HOME/duckstation`, so the sandbox's XDG roots already hold it.
+    - A `portable.txt` or `settings.ini` beside the AppImage roots it there instead, whatever the environment says.
+    - A fresh settings file opens the setup wizard, and an AppImage asks once about a launcher shortcut.
+  - `SandboxContext` gains `installRef`, the install's path.
+  - `src/config/emulators/duckstation/index.ts` `sandboxRecipe`:
+    - writes `config/duckstation/settings.ini` naming the sandbox's BIOS, memory card and save state folders, with `SetupWizardIncomplete = false` and `NoDesktopFile = true`;
+    - declines (`cannot-sandbox`) when a portable marker sits beside the AppImage, and for a binary install, where DuckStation looks beside the resolved link.
+  - Tests: `src/main/selftestsandbox.test.ts` 28/28 (5 new for DuckStation).
+  - `scripts/agent/check.sh` green.
+- Found, not fixed (outside this unit): the descriptor's `dirs` say `~/.local/share/duckstation`, which is right only while `XDG_CONFIG_HOME` is unset; with it set, DuckStation uses `$XDG_CONFIG_HOME/duckstation`. Noted on #155 for the save-sync work.
+- CI: the first two x64 runs failed on this PR's paperwork, not its code: this entry first carried a time later than the run (`features-check`), then the body had no `Feature:` line (`pr-body`). Both fixed; the wall time is recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none yet; nothing starts an emulator in the self-test yet. Next: flatpaks (5d), then Eden and shadPS4 (portable `user` folders to rule out first).
+
+## 2026-10-12 11:52 UTC session 01JYonW2Y3SeXmqbCVr1BU3J (hourly heartbeat, second unit)
+
+- Device results: unchanged since the entry above. Part 5c, PR #171, merged at 2bbc78c; its CI wall time was x64 6:17, arm64 1:03.
+- Worked on: M0-21 part 5d (tracking issue #155): flatpak installs in the sandbox.
+- Result: parked. No code lands; this PR carries only this entry. M0-21 stays false, and flatpaks are still skipped as `cannot-sandbox`.
+- What was tried: `flatpak run --filesystem=<sandbox> --filesystem=<game folder>:ro --env=<XDG roots>…`, with the spawn env left alone. Tests and `check.sh` were green.
+- Evaluator: FAIL, on three blocking points, all confirmed against flatpak's source (`common/flatpak-run.c`, `common/flatpak-context.c`):
+  - `--env` is applied before `flatpak_context_apply_env_appid`, which then overwrites `XDG_{DATA,CONFIG,CACHE,STATE}_HOME` with `~/.var/app/<id>/…`. The sandbox's XDG roots never reach the app.
+  - `--filesystem` only adds access. Flathub's RetroArch has `--filesystem=host`, so the app can still reach the owner's home.
+  - `flatpak run` always mounts, and creates folders in, the owner's `~/.var/app/<id>/`.
+- Next (exact steps on #155):
+  - start the `flatpak` process with `HOME=<sandbox>`, keeping the owner's `XDG_DATA_HOME` so per-user installs are still found;
+  - pass `--nofilesystem=host` and `--nofilesystem=home`, and drop the other host grants;
+  - expose the owner's cores, BIOS folder and payload folder `:ro`;
+  - test the argv for all of the above.
+- Process note: on this VM, `git commit -a` under the husky pre-commit hook fails with "invalid object … Error building trees". `git add` then `git commit` works.
+
+## 2026-10-12 12:32 UTC session 01SEPBgzYPhDLgKBBmqwLbFn (hourly heartbeat)
+
+- Device results: one new, the minimal harness again; nothing flips, no safety failures. Part 5d (PR #172) merged at c704135.
+  - DEVICE-RESULTS 2bbc78cc280d3edd2027b4baaf424adb8ee17baf complete
+- Worked on: M0-13 part 3a (tracking issue #57): the `build.identity` self-test scenario (acceptance line 4).
+- Result: PR (this one). M0-13 stays false.
+- Evidence:
+  - The request gains an optional `version`, copied by run.sh from `build-info.json` beside `sha`. A version that is not a plain version string refuses the request (`request-version`), since it is published in the summary.
+  - `src/main/selftestidentity.ts`: `build.identity` passes when the build's stamped commit (`buildStamp`, now exported from `update.ts`) equals the request's `sha` whole and `app.getVersion()` equals its `version`. Fails `commit-unstamped`, `commit-mismatch` (a `-dirty` build included) or `version-mismatch`; no `version` is `skip` / `no-build-version`. Wired into `index.ts` beside the other scenarios.
+  - Tests: `src/main/selftestidentity.test.ts` 7/7; `src/main/selftest.test.ts` gains the `version` parse and two refusals.
+  - `docs/TESTING.md`: the request schema shows `version`; a bullet says how `build.identity` judges.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none yet; run.sh does not start the app until M0-22, which will write `version` into the request. Next: `update.verify` (part 3b).
+
+## 2026-10-12 12:43 UTC session 01SEPBgzYPhDLgKBBmqwLbFn (hourly heartbeat, second unit)
+
+- Device results: unchanged since the entry above. Part 3a, PR #173, merged at 763ea72; its CI wall time was x64 6:23, arm64 0:59.
+- Worked on: M0-13 part 3b (tracking issue #57): the `update.verify` self-test scenario (acceptance line 5).
+- Result: PR (this one). M0-13 stays false.
+- Evidence:
+  - `Updater.rehearse(dir)` (`src/main/update.ts`): reads the `canary` release, picks this machine's image, takes its digest from `SHA256SUMS` through `publishedDigest`, fetches it into `dir` and verifies it as `download` does; then a copy with its middle byte flipped must be refused by the same verification. Nothing is made executable or renamed; both files are removed. The release's asset parsing moved into `assetsOf` and `imageOf`, shared with `check`.
+  - `src/main/selftestupdate.ts`: `update.verify` runs the rehearsal in `$GALLEON_HOME/update-verify/`, removes the folder, and fails `installed-image-changed` when `APPIMAGE`'s size, change time or inode differ afterwards. Other reasons: `no-image`, `no-checksums`, `no-digest`, `matching-refused`, `corrupted-accepted`, `channel-unreadable` (the error's words stay in the log). The run's abort signal reaches every request and the transfer, so a button press ends it as `skip` / `aborted` with the folder removed.
+  - Tests: `src/main/updater.test.ts` 5 new (canary read, sums fetched, folder empty, running image untouched; a mismatch reported; no line in the sums file is `no-digest` and fetches no image; an abort mid-run leaves the folder empty; no image or no sums named); `src/main/selftestupdate.test.ts` 7/7 (abort during and before the rehearsal included). `savewriter.allowlist.test.ts` lists the new writer.
+  - `docs/TESTING.md`: how `update.verify` judges.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: FAIL first (the abort button did not stop the download, against rail 3); fixed, then see the PR.
+- Device / acceptance: both of M0-13's device checks now exist as self-test scenarios; they run on the Nova once run.sh starts the app (M0-22). Not READY-FOR-DEVICE until then.
+
+## 2026-10-12 13:32 UTC session 01XZpRLRqcufL6c6tgU8X2nk (hourly heartbeat)
+
+- Device results: none new; bridge last seen 2026-10-12T12:03Z (no new nightly). Part 3b of M0-13, PR #174, merged at 969d0fc; its CI wall time was x64 6:20, arm64 0:58.
+- Worked on: M2-08 part 2a (tracking issue #111): the owner answered decision #110 on 2026-10-12, before its safe default's date.
+- Result: PR (this one). M2-08 stays false: the defaults in settings and the per-system choice in Settings are part 2b.
+- Evidence:
+  - `docs/decisions/0005-emulator-per-system.md`: the owner's answer, all as recommended: SNES `snes9x`, GBA `mgba`, PS1 `swanstation` in RetroArch; PPSSPP; ARMSX2 with a folder card; Dolphin with slot A a GCI folder; Dolphin for Wii; Flycast with one VMU per game.
+  - The same ADR records the owner's rule: where a choice needs an emulator setting, change only that key in the Nova's existing settings file, after a backup; never write a fresh or Galleon-only settings file; leave existing memory cards and RetroArch's `config/SwanStation/` files alone.
+  - `docs/save-sync/SYSTEM-CHOICES.md` records the answer per row (acceptance line 2, docs half).
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none.
+- Next: M2-08 part 2b: per-system default emulators in `src/config/` from SYSTEM-CHOICES.md, and the per-system choice in Settings. Issue #110 is closed with this PR.
+- Notes: for M0-21, a device-test sandbox for ARMSX2, Dolphin or Flycast must start from a copy of the owner's settings, never an empty one (ADR 0005, consequences).
+
+## 2026-10-12 13:48 UTC session 01XZpRLRqcufL6c6tgU8X2nk (hourly heartbeat, second unit)
+
+- Device results: unchanged since the entry above. Part 2a, PR #175, merged at 7f8e113; its CI wall time was x64 5:50, arm64 0:33. Issue #110 closed as adopted.
+- Worked on: M2-08 part 2b-1 (tracking issue #111): the default emulator per system follows ADR 0005, for the systems whose chosen emulator Galleon can already drive.
+- Result: PR (this one). M2-08 stays false.
+- Evidence:
+  - `src/config/emulators/index.ts`: `SYSTEM_DEFAULTS` names RetroArch for `snes`, `snesna`, `gba` and `psx` (whose core is already `swanstation` in `systems.ts`). `emulatorsForSystem` lists it first, so `defaultEmulatorFor`, Settings' platform list and the install wizard show it. `resolveEmulator` prefers it, when installed, over the ranking whenever nothing is chosen for the system. A recorded choice still wins, so each system stays changeable in Settings' platform list.
+  - Tests: `src/config/emulators/registry.test.ts` 63/63. New: the default listed first with or without a ranking; the defaults are the ADR's and each emulator runs its system; the default beats the ranking but not a choice; an uninstalled default falls back to the ranking. RomMix's ranking tests now use `nes`, which has no default.
+  - `scripts/agent/check.sh` green; `npm run test:app` 239/239 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root).
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none.
+- Next: PSP, PS2, GameCube, Wii and Dreamcast join `SYSTEM_DEFAULTS` with their descriptors (M1-03 to M1-06, after M0-22). The ARMSX2, Dolphin and Flycast setting changes go with them (ADR 0005, decision 2). Then M2-08 can pass.
+
+## 2026-10-12 14:33 UTC session 01LwGckt1Kz8qHK8zoRirWxz (hourly heartbeat)
+
+- Device results: one new, the minimal harness again; nothing flips, no safety failures. Part 2b-1 of M2-08, PR #176, merged at 47042b9.
+  - DEVICE-RESULTS 7f8e113 complete
+- Worked on: M0-21 part 5e (tracking issue #155): DuckStation's portable-marker check when the AppImage is reached through a link (open note from part 5c).
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - `SandboxContext` gains `installTarget`, the install's path with every link followed. `planSandbox` takes it from a `realPath` parameter (`resolveLinks`, `realpathSync` that answers null, for a real start) and skips an install it cannot resolve as `cannot-sandbox` / `install-unreadable`.
+  - DuckStation's recipe declines when a portable marker sits beside the link or beside the AppImage it leads to.
+  - Tests: `src/main/selftestsandbox.test.ts` 34/34; new: a marker beside the link's target, a marker beside the link, a link with neither runs through the link, an unreadable install, and `resolveLinks` on a link chain, a dangling link and a missing file.
+  - `docs/TESTING.md`: the sandbox bullet names the unreadable install.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: PASS.
+- Device / acceptance: none; no launch scenario calls `planSandbox` yet.
+- Notes: open the PR with its `Feature:` line and date the entry before the push. CI reads the body from the push that triggered it, and editing the body does not re-run `build`, so a missing line costs a commit.
+
+## 2026-10-12 14:52 UTC session 01LwGckt1Kz8qHK8zoRirWxz (hourly heartbeat, second unit)
+
+- Device results: unchanged since the entry above. Part 5e, PR #177, merged at 9f95aca; its CI wall time was x64 6:23, arm64 1:02.
+- Worked on: M0-21 part 5f (tracking issue #155): the evaluator's note from part 5b, that RetroArch must not inherit `LIBRETRO_DIRECTORY`.
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - RetroArch's `configuration.c` reads eight `LIBRETRO_*_DIRECTORY` variables after its config and lets each replace a folder the config named; `LIBRETRO_SYSTEM_DIRECTORY` would put system files in the owner's folder whatever the appended config says.
+  - `SandboxRecipe.unset`: variables removed from the inherited environment (never an XDG root). RetroArch's recipe lists the eight. `planSandbox` carries them in the plan and drops them from the descriptor's own env; `sandboxEnvironment(plan, parentEnv)` builds the child's environment (`childEnvironment`, minus `unset`, plus the plan's env) for the launch check that will start emulators.
+  - Tests: `src/main/selftestsandbox.test.ts` 36/36; new: unset variables leave the plan and the inherited environment but XDG roots stay; RetroArch inherits no `LIBRETRO_*` variable from a session that sets all eight.
+  - `docs/TESTING.md`: the sandbox bullet names the removed variables.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none; no launch scenario calls `planSandbox` yet.
+
+## 2026-10-12 15:30 UTC session 01GHqwaL39bhoXCitQmtPQfJ (hourly heartbeat)
+
+- Device results: two new, the minimal harness again; nothing flips, no safety failures. Part 5f of M0-21, PR #178, merged at 75021a9; its CI wall time was x64 6:27, arm64 0:59.
+  - DEVICE-RESULTS 9f95aca complete
+- Worked on: M0-21 part 5g (tracking issue #155): the BIOS files in a sandbox are no longer symlinks to the owner's (evaluator note on acceptance line 4).
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - `prepareSandbox` gives `bios/` the sandbox's own copy of each of the owner's BIOS files: a copy-on-write clone (`COPYFILE_FICLONE_FORCE`, free on the Nova's btrfs) or, where the filesystem cannot clone, a plain copy within `BIOS_COPY_BUDGET`. Past the budget it answers `cannot-sandbox` / `bios-too-large`. A symlink left by an earlier build is replaced; a copy the emulator wrote to is kept.
+  - Why: emulators keep NVRAM and flash beside their BIOS (PCSX2-family `.nvm`, Flycast `dc_nvmem.bin`), and a write through a symlink lands in the owner's file.
+  - Tests: `src/main/selftestsandbox.test.ts` 40/40; new: a write to the sandbox's copy leaves the owner's file alone, a clone costs no budget, copies past the budget skip the launch, a second start keeps a written copy, an old link is replaced by a copy.
+  - `docs/TESTING.md` and `docs/PLAN.md` describe copies instead of links.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: PASS.
+- Notes: the first push failed `pr-body.mjs`: `Feature:` must start its own line in the PR body.
+- Device / acceptance: none; no launch scenario calls `prepareSandbox` yet.
+
+## 2026-10-12 15:44 UTC session 01GHqwaL39bhoXCitQmtPQfJ (hourly heartbeat, second unit)
+
+- Device results: unchanged since the entry above. Part 5g of M0-21, PR #179, merged; its CI wall time was x64 6:24, arm64 1:03.
+- Worked on: M0-21 part 5h (tracking issue #155): RetroArch is not started when the owner's core file is missing (evaluator note from part 5b).
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - `SandboxRecipe.needs`: files of the owner's an emulator cannot start without. `planSandbox` looks each up through `realPath` and skips as `cannot-sandbox` / `needed-file-missing` when one cannot be read. RetroArch's recipe needs `<libretro_directory>/<core>_libretro.so`.
+  - Tests: `src/main/selftestsandbox.test.ts` 42/42; new: a recipe's missing needed file skips the start and a readable one does not; RetroArch is skipped when the owner's core file is missing.
+  - `docs/TESTING.md`: the sandbox bullet names the missing needed file.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none; no launch scenario calls `planSandbox` yet.
+
+## 2026-10-12 15:53 UTC session 01GHqwaL39bhoXCitQmtPQfJ (hourly heartbeat, third unit)
+
+- Device results: unchanged since the entry above. Part 5h of M0-21, PR #180, merged at dffeebe; its CI wall time was x64 6:37, arm64 1:00.
+- Worked on: M0-21 part 5i (tracking issue #155): RetroArch makes `/tmp/retroarch-tmp` on every start (evaluator note from part 5b).
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - RetroArch's `frontend/drivers/platform_unix.c` (read as specification) makes `/tmp/retroarch-tmp` for its default cache folder before any config is read, so neither `cache_directory` nor a variable can move it.
+  - `SandboxRecipe.strays`: folders outside the sandbox an emulator makes whatever it is told. The plan carries the absolute ones; `straysToClear` (read just before the start) keeps only those not there yet; `clearStrays` (after exit) removes each one that is still empty and answers what it removed. A non-empty folder stays for the owner-state manifest to report.
+  - Tests: `src/main/selftestsandbox.test.ts` 46/46; new: only absolute strays are planned, one already there is never the run's, only an empty one is removed, and RetroArch's plan names `/tmp/retroarch-tmp`.
+  - `docs/TESTING.md`: the sandbox bullet names the stray folders.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none; no launch scenario calls `planSandbox` yet.
+- Next: open for M0-21 line 4: flatpaks (5d), the portable `user` folders of Eden and shadPS4; then the synthetic 1,300-game platform.
+
+## 2026-10-12 16:35 UTC session 01CZXRhAceMMinhpATALtvqG (hourly heartbeat)
+
+- Device results: three new, the minimal harness again; nothing flips, no safety failures. Part 5i of M0-21, PR #181, merged at d142eb3; its CI wall time was x64 6:08, arm64 0:57.
+  - DEVICE-RESULTS 7f8e113 complete
+  - DEVICE-RESULTS 9f95aca complete
+  - DEVICE-RESULTS dffeebe complete
+- Worked on: M0-21 part 5j (tracking issue #155): a sandbox recipe for Eden.
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - Eden's `src/common/fs/path_util.cpp` (read as specification): on Linux a `user` folder in the **working folder** is the whole portable layout; otherwise `$XDG_DATA_HOME/eden`, `$XDG_CONFIG_HOME/eden` and `$XDG_CACHE_HOME/eden`. So every sandbox plan now carries `cwd`, the sandbox's root, for the launch check to start in.
+  - `SandboxRecipe.bios`: the sandbox folder the owner's BIOS copies go to, for an emulator that reads them from a fixed place (null for `folders.bios`). A folder outside the sandbox skips the start as `cannot-sandbox` / `bios-outside-sandbox`. `SandboxContext.owner` gains `dataDir`.
+  - Eden's recipe: AppImage only; needs the owner's `<data>/eden/keys/prod.keys`, because Eden opens a warning at start-up without it (`OnCheckFirmwareDecryption`); keys are copied to the sandbox's `data/eden/keys`; `config/eden/qt-config.ini` sets `[UI] confirmStop=2` (Ask_Never, so a SIGTERM closes it without a question) and `check_for_updates=false` (the update dialog).
+  - Tests: `src/main/selftestsandbox.test.ts` 56/56; new: the start folder is the sandbox root; the BIOS folder is the default, the recipe's, or refused outside the sandbox; `prepareSandbox` copies into the recipe's folder; Eden's plan, keys folder, settings file, and skips without `prod.keys` or as a binary or flatpak.
+  - `docs/TESTING.md`: the sandbox bullet names the start folder and the recipe's BIOS folder.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: PASS. Notes for the launch check: pass the emulator's own `paths.bios` as `ownerBios`; Eden's "Wayland detected" box (`OnCheckGraphicsBackend`) would wait for a person under native Wayland, which Game Mode is not (DEVICE-FACTS: X11 on `:1`).
+- Device / acceptance: none; no launch scenario calls `planSandbox` yet.
+- Next: shadPS4's recipe (rule out its portable `user` folder first), then the launch scenario itself.
+
+## 2026-10-12 16:51 UTC session 01CZXRhAceMMinhpATALtvqG (hourly heartbeat, second unit)
+
+- Device results: unchanged since the entry above. Part 5j of M0-21, PR #182, merged at 471fdcf; its CI wall time was x64 6:35, arm64 0:58.
+- Worked on: M0-21 part 5k (tracking issue #155): a sandbox recipe for shadPS4.
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - shadPS4's `src/common/path_util.cpp` (read as specification): a `user` folder in the working folder is its whole layout, otherwise `$XDG_DATA_HOME/shadPS4` holds settings, saves, logs and caches. `src/main.cpp`: its only message box is for a start with no arguments. So the recipe is empty: the plan's `cwd` (the sandbox root) and the XDG roots keep it inside. AppImage only.
+  - Tests: `src/main/selftestsandbox.test.ts` 58/58; new: shadPS4 starts in the sandbox root with its data below the sandbox's `XDG_DATA_HOME`, writes no files, and is skipped as a binary or flatpak.
+  - `docs/TESTING.md`: the sandbox bullet names shadPS4 beside Eden.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: PASS.
+- Device / acceptance: none; no launch scenario calls `planSandbox` yet.
+- Next: open for M0-21 line 4: flatpaks (5d, parked); then the synthetic 1,300-game platform and the launch scenario.
+
+## 2026-10-12 17:27 UTC session 01UJtxTd83kpAeiL5yGyn5ve (hourly heartbeat)
+
+- Device results: one more since the entry above, the minimal harness again; nothing flips, no safety failures. Part 5k of M0-21, PR #183, merged at 791c314; its CI wall time was x64 6:20, arm64 0:55.
+  - DEVICE-RESULTS 791c314 complete
+- Worked on: M0-21 part 6a (tracking issue #155): the built-in synthetic 1,300-game platform for `grid.scroll`.
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - `src/main/selftestlibrary.ts`: a platform of `SYNTHETIC_GAMES` games with negative ids (RomM's are never below zero), no artwork, answered by page, search, order, count and id. `RommClient.offerSynthetic` lists it beside the server's platforms (alone when the server does not list them) and answers its pages, counts and games without a request. Only the self-test's `grid.scroll` calls it, and only when no real platform reaches `MIN_GAMES` or the platform list fails.
+  - Tests: `src/main/selftestlibrary.test.ts` 7/7 (new); `src/main/selftestscroll.test.ts` 26/26 (new: the synthetic platform is scrolled only when no real one qualifies or the list fails); `src/main/romm.test.ts` 139/139 (new: nothing synthetic until offered; its games answered with no request; the only platform when the server is away).
+  - `test/app/selftest.test.ts`: new case, a library with no large platform; the built app scrolls `galleon-synthetic` (1,300 games, 188 visited on the VM) and no synthetic id reaches the fake RomM.
+  - `docs/TESTING.md`: the `grid.scroll` bullet names the synthetic platform.
+  - `scripts/agent/check.sh` green; `npm run test:app` 240/240 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root).
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: PASS. Note: once offered, the synthetic platform hides a failing platform list for the rest of the run, so `download.small` would then skip rather than error (a skip never passes; `server.heartbeat` still fails).
+- Device / acceptance: none until run.sh starts the app (M0-22).
+- Next: the launch scenario (M0-21 line 4 and the description's launch and graceful exit); flatpaks stay parked (5d).
+
+## 2026-10-12 18:26 UTC session 014G8BN9326ZrLUk8Ay2Rwkt (hourly heartbeat)
+
+- Device results: nothing new since the entry above (newest 791c314, complete, the minimal harness); no safety failures, no regressions. Part 6a of M0-21, PR #184, merged at 58d29a5; its CI wall time was x64 8:06, arm64 2:10.
+- Worked on: M0-21 part 6b (tracking issue #155): the launch-and-exit cycle behind `launch.<emulator>` and `exit.<emulator>`.
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - `src/main/selftestlaunch.ts`: `launchCycle` prepares the sandbox, starts the plan as a new process group, polls the window list for a window of that group until one is focused (`WINDOW_TIMEOUT_MS`), lets it settle (`SETTLE_MS`), sends SIGTERM to the group and waits up to `EXIT_GRACE_MS` for the group (not just its leader) to empty, killing it past that. A leader that exits by itself with its group still alive gets the group stopped the same way. The group is always emptied and the recipe's strays cleared, whatever happened after the start; an abort is answered in poll steps. The process, window list, signals and clock are injected.
+  - Tests: `src/main/selftestlaunch.test.ts` 21/21 (new): both pass on a focused window and a clean exit; settle before the stop; `no-window`, `not-focused`, `not-fullscreen` (only when known), `exited-early` unsignalled, `exit-code` (including death by the signal), `killed` after the grace, a group that survives SIGKILL does not hold the run; a leader gone early with helpers left gets them stopped; a clean leader exit with the group left running is killed and fails; `prepare-failed`; abort mid-launch and mid-settle; nothing started for an abort, a skip plan, a skip preparation; `spawn-failed` still clears strays.
+  - `docs/TESTING.md`: a bullet for the cycle, its failure reasons and metrics.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: FAIL, then PASS. The first pass found the group left running when its leader exits (fixed: `groupAlive`). Notes for the wiring: an abort waits for the stop (up to two graces), so check the run-level one-second abort line; `exit.<emulator>`'s focus return and save-folder change are still to come.
+- Device / acceptance: none; no scenario calls `launchCycle` yet.
+- Next: the real window list (gamescope's focus and window-list atoms, else the X11 list, matched to the group), then wiring `launch.*` / `exit.*` into the scenario map with each installed emulator's payload from the request.
+
+## 2026-10-12 19:45 UTC session 01Y2Gq46ojpEwrMX1FdibYcd (hourly heartbeat)
+
+- Device results: nothing new since the entry above (newest 791c314, complete, the minimal harness); no safety failures, no regressions. Part 6b of M0-21, PR #185, merged at f1b536d; its CI wall time was x64 6:57, arm64 0:51.
+- Worked on: M0-21 part 7a (tracking issue #155): a small X11 client for the window list behind `launch.<emulator>`.
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - `src/main/x11.ts`: opens the unix socket `DISPLAY` names (local displays only) with the MIT-MAGIC-COOKIE-1 from `XAUTHORITY` or `~/.Xauthority` (none when there is no entry, as gamescope's XWayland may need), reads the first screen's root, and offers `internAtom`, `getProperty` (any type, in its own format) and `queryTree`. The Nova has no `xprop` or `xdotool`, and four requests do not justify a dependency. Nothing throws: an unreachable or refusing display opens as null; an X error, an unanswered request (`REQUEST_TIMEOUT_MS`) or a closed connection answers null. Events and GenericEvents between replies are passed over.
+  - Tests: `src/main/x11.test.ts` 21/21 (new), against a fake display on a unix socket that parses each request and builds each reply as the protocol lays them out: the setup with and without a cookie, refused, unanswered and with no server; the setup reply split across reads; atoms existing or made; 32- and 8-bit properties and a missing one; children, including a count past the reply's data; an X error then a working request; events between replies; a request timeout; requests after close and when the server goes away; Xauthority parsing (host and display match, wildcard family, empty display number, no match, truncated file); the `DISPLAY` forms taken and refused.
+  - `scripts/agent/check.sh` green; `x11.ts` 100% lines.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: FAIL, then PASS. The first pass found this entry missing; its note (a child count past the reply's data would reject) is fixed by capping the count.
+- Device / acceptance: none; nothing calls `openDisplay` yet.
+- Next: part 7b, `findWindow` over it: gamescope's root atoms (focused window, window list) else the X11 tree, matched to the started group through `_NET_WM_PID` and `/proc/<pid>/stat`; then wiring `launch.*` / `exit.*` into the scenario map.
+
+## 2026-10-12 19:58 UTC session 01Y2Gq46ojpEwrMX1FdibYcd (hourly heartbeat, second unit)
+
+- Device results: unchanged since the entry above. Part 7a of M0-21, PR #186, merged at f222e50; its CI wall time was x64 6:04, arm64 1:04.
+- Worked on: M0-21 part 7b (tracking issue #155): `findWindow` for the launch cycle, over the X11 client.
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - `src/main/selftestwindows.ts`: `windowFinder(x11)` interns its atoms once (only those that exist), takes the windows from `_NET_CLIENT_LIST`, else the root's children and theirs (a reparenting manager puts the client a level below its frame), and keeps those whose `_NET_WM_PID` is in the started group (`processGroup`, from `/proc/<pid>/stat`, counted past the last `)` of the command name). Focused: the group's window is, or holds, the one `GAMESCOPE_FOCUSED_WINDOW` names, else `_NET_ACTIVE_WINDOW`, else the keyboard focus. Fullscreen: from that window's `_NET_WM_STATE`, null when it has none.
+  - `src/main/x11.ts`: `inputFocus` (GetInputFocus) for that last fallback.
+  - Tests: `src/main/selftestwindows.test.ts` 14/14 (new): gamescope focus and fullscreen; a group window gamescope does not focus; a desktop's client list and active window; no window manager (the tree a level down, the keyboard focus); focus inside the group's window; no or other focus; no group window; no `_NET_WM_PID`; no fullscreen atom; atoms interned once; `processGroup` with brackets and spaces in the command name, the path, a gone process, garbage, its own process. `src/main/x11.test.ts` 22/22 (new: the input focus, and null on an X error).
+  - `docs/TESTING.md`: the launch bullet says how the window list is read.
+  - `scripts/agent/check.sh` green; `selftestwindows.ts` 100% lines.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: PASS. Notes for the wiring: a finder caches atoms that did not exist yet, so make one per launch cycle; against a display that stops answering one poll can take candidates × `REQUEST_TIMEOUT_MS`; a window under gamescope that states `_NET_WM_STATE` without the fullscreen atom reads `fullscreen: false`, so watch the first device run for false `not-fullscreen`.
+- Device / acceptance: none; no scenario calls `launchCycle` yet.
+- Next: wiring `launch.*` / `exit.*` into the scenario map (the real `start`, `signalGroup`, `groupAlive`, `openDisplay` + `windowFinder`, and each installed emulator's payload from the request).
+
+## 2026-10-12 20:46 UTC session 01XznMz2FrKLgWuAxXwnGzb2 (hourly heartbeat)
+
+- Device results: nothing new since the entry above (newest 791c314, complete, the minimal harness); no safety failures, no regressions. Part 7b of M0-21, PR #187, merged at 2d001c4; its CI wall time was x64 6:56, arm64 1:10.
+- Worked on: M0-21 part 8 (tracking issue #155): `launch.<emulator>` and `exit.<emulator>` wired into the self-test.
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - `src/main/selftestemulators.ts`: `emulatorScenarios` gives every launch or exit id in the request a scenario; both ids of an emulator share one cycle, run when the first is reached. `payloadFor` resolves `payloads[<emulator>]` against `$GALLEON_HOME`, refuses one outside it by name or where its links lead, and takes the system from the payload's folder. Skips: `no-payload`, `payload-outside-home`, `payload-missing`, `not-installed`. The device parts: `devicePlan` (planSandbox over the probe's install with the owner's folders read-only), `startPlan` (spawned detached, so its own group, with `sandboxEnvironment`, in the sandbox root, no stdio), `signalGroup` and `groupAlive` (only the recorded group; ESRCH is gone; a zombie member, killed but not yet reaped by whatever adopted it, does not count as running, from `/proc/<pid>/stat`), and `deviceCycle` (the display opened on the first look and closed after, one `windowFinder` per cycle, BIOS from the probe's `paths.bios`).
+  - `src/main/index.ts`: the scenarios join the self-test's map.
+  - Tests: `src/main/selftestemulators.test.ts` 25/25 (new), including a payload linking out of the home and real child processes: started in its folder with its environment as its own group; a missing program throws; a group alive until SIGTERM empties it; a skip plan opens no display; a cycle opens the display once and closes it. `test/app/selftest.test.ts`: new case, the built app answers `launch.retroarch` / `exit.retroarch` with `payload-outside-home` and `launch.duckstation` with `no-payload`, status complete, no sandbox made.
+  - `docs/TESTING.md`: a bullet for the emulator and payload choice and its skip reasons.
+  - `scripts/agent/check.sh` green; `npm run test:app` 241/241 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root).
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- The first check.sh after the PR opened failed the new SIGTERM test once under the full suite's load: the group still read as alive a second after the signal. Not reproduced alone; the cause taken is a killed member left a zombie until reaped, which `kill(-group, 0)` still counts, and which would read as `killed` on the device too. Fixed in `groupAlive`, with the test's wait for the group lengthened alongside.
+- Evaluator: PASS. Its note (a link inside the home could lead to the owner's files) is fixed: containment is checked again on the path with links followed.
+- Device / acceptance: none until run.sh sends payloads (M0-22's bundle).
+- Next: `exit.<emulator>`'s remaining lines (Galleon focused again within 6 s, the save folder changed when the payload saves), then the payloads in the device bundle.
+
+## 2026-10-12 22:27 UTC session 01CwtmZJVwJK3bmESpPhT6CX (hourly heartbeat)
+
+- Device results: DEVICE-RESULTS 2d001c4 complete (the minimal harness); no safety failures, no regressions, nothing newly passing. Part 8 of M0-21, PR #188, merged at 2a3dd91; its CI wall time is recorded on the PR's checks (median over the last ten PRs: x64 6:36, arm64 0:59).
+- Worked on: M0-21 part 9 (tracking issue #155): `exit.<emulator>` checks that Galleon holds the focus again after the emulator is gone.
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - `src/main/selftestlaunch.ts`: once a launch that saw its window has its group stopped without a kill, `watchForRefocus` polls `LaunchDeps.ownFocused` until it says true or `REFOCUS_MS` passes; a list that cannot tell, or throws, is not yet. `exit` fails `not-refocused` after `killed` and `exit-code`; metric `refocusMs`, threshold `REFOCUS_MS`. An abort while waiting skips both, as elsewhere in the cycle.
+  - `src/main/selftestemulators.ts`: `ownFocused` asks the cycle's window finder about Galleon's own process group (the emulator never shares it: `startPlan` makes it a group leader); wired into `deviceCycle`.
+  - Tests: `src/main/selftestlaunch.test.ts` 26/26 (new: refocus within the limit with its time, never refocused, a list that cannot tell or throws, not looked for after a kill / early exit / no window, abort while waiting). `src/main/selftestemulators.test.ts` 28/28 (new: `ownFocused` asks Galleon's group, cannot tell without a window or a group, defaults to this process).
+  - `docs/TESTING.md`: the cycle's bullet names `not-refocused` and `refocusMs`.
+  - `scripts/agent/check.sh` green; `npm run test:app` 241/241 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root).
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- CI: the first x64 leg failed the pull-request body check (the body had no `Feature:` line); the body was fixed and this entry's push re-ran it.
+- Evaluator: PASS. Its note (the `deviceCycle` comment left above `ownFocused`) is fixed.
+- Device / acceptance: none until run.sh sends payloads (M0-22's bundle). Watch the first device run for Galleon's own window: under gamescope the self-test's window must be one gamescope will focus again.

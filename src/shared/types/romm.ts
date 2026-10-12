@@ -460,6 +460,118 @@ export interface RommSave {
   origin_device_id?: string | null
   created_at: string
   updated_at: string
+  /** Filled only when the listing named a device; see `RommClient.savesForDevice`. */
+  device_syncs?: RommDeviceSync[]
+}
+
+/**
+ * One device's record of a save (`DeviceSyncSchema`).
+ *
+ * When the device asked has no record, RomM still lists one for it, stamped
+ * with the save's own `updated_at` and not current; `savedecide.ts` tells the
+ * two apart.
+ */
+export interface RommDeviceSync {
+  device_id: string
+  device_name: string | null
+  last_synced_at: string
+  is_untracked: boolean
+  is_current: boolean
+}
+
+/** One local save in the POST /api/sync/negotiate body (`ClientSaveState`). */
+export interface RommSyncSave {
+  rom_id: number
+  file_name: string
+  /** What RomM pairs on, beside `rom_id`. A null slot never pairs: always `upload`. */
+  slot: string | null
+  emulator: string | null
+  content_hash: string | null
+  updated_at: string
+  file_size_bytes: number
+}
+
+/** POST /api/sync/negotiate body (`SyncNegotiatePayload`). */
+export interface RommSyncNegotiatePayload {
+  device_id: string
+  saves: RommSyncSave[]
+}
+
+/**
+ * The same, scoped to some games, which only a server `negotiatesByGame` reads.
+ *
+ * A type alias rather than an interface so the per-version body check leaves
+ * it alone: older RomMs have no `rom_ids`, and which ones do is held to
+ * `schema/` by the test of `negotiatesByGame` instead.
+ */
+export type RommSyncScopedNegotiatePayload = RommSyncNegotiatePayload & { rom_ids: number[] }
+
+export type RommSyncAction = 'upload' | 'download' | 'conflict' | 'no_op'
+
+/** One decision in a negotiate's answer (`SyncOperationSchema`). */
+export interface RommSyncOperation {
+  action: RommSyncAction
+  rom_id: number
+  /** Null for an upload, which has no server save yet. */
+  save_id: number | null
+  file_name: string
+  slot: string | null
+  emulator: string | null
+  reason: string
+  server_updated_at?: string | null
+  server_content_hash?: string | null
+}
+
+/** The answer to POST /api/sync/negotiate (`SyncNegotiateResponse`). */
+export interface RommSyncNegotiateResponse {
+  session_id: number
+  operations: RommSyncOperation[]
+  total_upload: number
+  total_download: number
+  total_conflict: number
+  total_no_op: number
+}
+
+/** POST /api/sync/sessions/{id}/complete body (`SyncCompletePayload`). */
+export interface RommSyncCompletePayload {
+  operations_completed: number
+  operations_failed: number
+  /** Ingested under the session's device; see `finishSession`. */
+  play_sessions?: RommSyncPlaySessionEntry[]
+}
+
+/** One session inside that body (`SyncPlaySessionEntry`). */
+export interface RommSyncPlaySessionEntry {
+  rom_id: number
+  start_time: string
+  end_time: string
+  duration_ms: number
+}
+
+/**
+ * The answer to POST /api/sync/sessions/{id}/complete (`SyncCompleteResponse`).
+ *
+ * Only what became of the play sessions is read: the session itself is
+ * finished either way, and nothing here acts on its stored counts.
+ */
+export interface RommSyncCompleteResponse {
+  /** Null when the completion carried no play sessions. */
+  play_session_ingest?: RommPlaySessionIngest | null
+}
+
+/** What RomM made of the play sessions it was sent (`PlaySessionIngestResponse`). */
+export interface RommPlaySessionIngest {
+  results: RommPlaySessionIngestResult[]
+  created_count: number
+  skipped_count: number
+}
+
+/** One entry's fate, by its place in the list sent (`PlaySessionIngestResult`). */
+export interface RommPlaySessionIngestResult {
+  index: number
+  /** `duplicate` for a span RomM already holds for this device and game. */
+  status: 'created' | 'duplicate' | 'error'
+  detail?: string | null
 }
 
 /** GET /api/states (`StateSchema`). */

@@ -1,4 +1,5 @@
 import type {
+  ConflictChoice,
   BiosPlatform,
   BiosReport,
   BiosSyncResult,
@@ -269,6 +270,11 @@ export interface RomMixBridge {
      * launch result carries the session's files instead of uploading them.
      */
     pushSelected(romId: number, paths: string[]): Promise<SaveSyncResult>
+    /**
+     * Settle one conflict: keep this device's file over RomM's, or RomM's copy
+     * over this device's. Skipping is not a call. See `ConflictChoice`.
+     */
+    resolve(romId: number, choice: ConflictChoice): Promise<SaveSyncResult>
     /**
      * Delete one asset from one end of the sync — this device, or RomM.
      *

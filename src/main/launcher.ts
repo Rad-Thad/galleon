@@ -14,6 +14,7 @@ import {
 } from './host.ts'
 import { realHome } from './xdg.ts'
 import { log } from './log.ts'
+import { PlayReporter } from './playtime.ts'
 import type { RommClient } from './romm/index.ts'
 import type { SaveSync } from './saves.ts'
 import { SYNC_TOLERANCE_MS } from './savefiles.ts'
@@ -218,7 +219,9 @@ export class Launcher {
   constructor(
     private readonly store: Store,
     private readonly client: RommClient,
-    private readonly saveSync: SaveSync
+    private readonly saveSync: SaveSync,
+    /** Play time, kept until RomM takes it; the catch-up sends what is left. */
+    readonly play: PlayReporter = new PlayReporter(store, client)
   ) {}
 
   /** Build the argv for an emulator, or null when it cannot run this system. */
@@ -476,7 +479,7 @@ export class Launcher {
       // the play history is noise about something that did not happen.
       if (!exit.startupError) {
         await this.tellRomm('play session', () =>
-          this.client.reportPlaySession(rom.id, startedAt, playSeconds)
+          this.play.record(rom.id, startedAt, new Date(startedAt.getTime() + playSeconds * 1000))
         )
       }
 

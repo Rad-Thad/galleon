@@ -86,7 +86,7 @@ jobs:
 
       # Every RomM version the client is held to — see test/romm/README.md.
       - name: Docker RomM
-        run: npm run test:romm -- --profile v520 --profile v531
+        run: npm run test:romm -- --profile v520 --profile v531 --profile v540
 
       - run: npm run build
 

@@ -1,6 +1,21 @@
 import { baseName, dirName, joinPath } from '../savepaths.ts'
-import type { EmulatorDescriptor } from '../types.ts'
+import type { EmulatorDescriptor, SandboxContext, SandboxRecipe } from '../types.ts'
 import { shadPs4SavePaths } from './saves.ts'
+
+/**
+ * shadPS4 started in its sandbox, which needs nothing of its own.
+ *
+ * With no `user` folder in the folder it starts in, shadPS4 keeps its
+ * settings, saves, logs and caches under `$XDG_DATA_HOME/shadPS4`, which the
+ * self-test points into the sandbox; the sandbox's root, where every start
+ * begins, holds none. Given a game, it opens no window that waits for a
+ * person. Only the AppImage is started, as the project publishes it; a binary
+ * install is a build whose layout the recipe has not been checked against.
+ */
+function sandboxRecipe(ctx: SandboxContext): SandboxRecipe | null {
+  if (ctx.installKind !== 'appimage') return null
+  return { args: [], env: {}, unset: [], needs: [], strays: [], bios: null, files: [] }
+}
 
 /**
  * shadPS4 — a PlayStation 4 emulator.
@@ -106,5 +121,6 @@ export const shadps4: EmulatorDescriptor = {
     // Worth knowing if a future release changes it — a value where none is
     // expected becomes a second positional argument, and the launch fails.
     return [...exec, '-f', 'true', game]
-  }
+  },
+  sandbox: sandboxRecipe
 }

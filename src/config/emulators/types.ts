@@ -392,6 +392,95 @@ export interface RequiredCore {
   readonly buildbotUrl: string | null
 }
 
+/**
+ * The folders a self-test sandbox gives one emulator, all below the test home.
+ *
+ * On the device the self-test starts real emulators beside the owner's own
+ * setup, so everything an emulator would write — its settings, its data, its
+ * saves and states — has to land here rather than in the owner's folders.
+ * `bios` holds the sandbox's own copies of the owner's BIOS files, so a write
+ * beside them never reaches the owner's.
+ */
+export interface SandboxFolders {
+  readonly root: string
+  readonly config: string
+  readonly data: string
+  readonly saves: string
+  readonly states: string
+  readonly bios: string
+}
+
+/** What a descriptor is told when asked how to keep one launch inside a sandbox. */
+export interface SandboxContext {
+  /** ES-DE system of the game about to start. */
+  readonly system: string
+  /** How the emulator was installed; a recipe can differ by kind. */
+  readonly installKind: ResolvedInstall['kind']
+  /**
+   * The install's own path. An emulator that switches to a portable layout
+   * when a marker file sits beside its program would leave the sandbox, so its
+   * recipe looks there first.
+   */
+  readonly installRef: string
+  /**
+   * `installRef` with every link followed, and the same when it is no link.
+   * A program usually finds the files beside it through this path, so a
+   * recipe looks for a marker beside both.
+   */
+  readonly installTarget: string
+  readonly folders: SandboxFolders
+  /**
+   * The owner's own install, to read from and never to write: where a recipe
+   * finds what the sandbox borrows rather than holds, such as RetroArch's
+   * cores. `dataDir` is the owner's data root for this install, as the probe
+   * found it.
+   */
+  readonly owner: Omit<CoreContext, 'system'> & { readonly dataDir: string | null }
+}
+
+/**
+ * How to start an emulator so that it reads and writes only its sandbox.
+ *
+ * `XDG_CONFIG_HOME`, `XDG_DATA_HOME` and the other XDG roots are always pointed
+ * into the sandbox by the self-test, so a recipe names only what an emulator
+ * reads from somewhere else: a command-line option such as Dolphin's user
+ * folder, or a config file it is given on the command line, which goes in
+ * `files` and is written before the start.
+ */
+export interface SandboxRecipe {
+  /** Placed right after the program, before the game's own arguments. */
+  readonly args: readonly string[]
+  /** Merged over the XDG roots and the descriptor's own `env`. */
+  readonly env: Readonly<Record<string, string>>
+  /**
+   * Variables removed from the environment the emulator inherits, for an
+   * emulator that lets one override a folder its config names. The XDG roots
+   * are never removed.
+   */
+  readonly unset: readonly string[]
+  /**
+   * Files of the owner's the emulator cannot start without, such as
+   * RetroArch's core: a start without one fails for a reason the launch check
+   * did not set out to test, so it is skipped instead.
+   */
+  readonly needs: readonly string[]
+  /**
+   * Folders outside the sandbox the emulator makes on every start, whatever
+   * its config and environment say, such as RetroArch's temporary folder. The
+   * self-test removes each one afterwards if it was not there before and is
+   * still empty; see `clearStrays`.
+   */
+  readonly strays: readonly string[]
+  /**
+   * Where in the sandbox the copies of the owner's BIOS files go, for an
+   * emulator that reads them from a folder of its own it cannot be told about,
+   * such as Eden's keys. Null for `folders.bios`.
+   */
+  readonly bios: string | null
+  /** Written whole before the start; `path` is relative to `folders.root`. */
+  readonly files: readonly { readonly path: string; readonly content: string }[]
+}
+
 interface EmulatorFields {
   // -- identity ------------------------------------------------------------------
 
@@ -571,6 +660,16 @@ interface EmulatorFields {
     ((ctx: { exec: readonly string[]; installRef: string; home: string }) => string[]) | undefined
   /** argv to start this game, or null when the emulator cannot run the system. */
   launch(ctx: LaunchContext): string[] | null
+  /**
+   * How the self-test keeps this emulator inside a sandbox — see
+   * `SandboxRecipe`.
+   *
+   * Undefined, or null for one context, means the emulator cannot be kept out
+   * of the owner's folders, and the self-test does not start it at all: a
+   * launch check that is skipped costs a result, one that ran against the
+   * owner's settings and saves costs the owner's trust.
+   */
+  readonly sandbox: ((ctx: SandboxContext) => SandboxRecipe | null) | undefined
 }
 
 /**

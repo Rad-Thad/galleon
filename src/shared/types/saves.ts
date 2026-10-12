@@ -92,6 +92,17 @@ export interface SaveAsset {
    * the row says "another emulator" rather than anything about being unusable.
    */
   forAnotherEmulator: boolean
+  /**
+   * A state of a game whose states do not sync under the emulator it runs in,
+   * so no pull or push will move this row in either direction.
+   *
+   * Only ever true of a state: a snapshot loads only in the core that wrote
+   * it, and the main process keeps states local wherever the other devices
+   * may not run that core (`statesSync` in `src/config/`). Like
+   * `forAnotherEmulator`, it follows the emulator this game is set to run
+   * under.
+   */
+  staysOnDevice: boolean
   /** The file in the emulator's save tree, when this device has one. */
   localPath: string | null
   /** Its modification time on this device, ISO. Null when only RomM has it. */
@@ -213,6 +224,8 @@ export interface PendingSave {
    * where confirming is worth the interruption.
    */
   replaces: {
+    /** RomM's id for that copy: what "keep RomM's" names when it is a conflict. */
+    id: number
     sizeBytes: number
     updatedAt: string
     emulator: string | null
@@ -249,3 +262,24 @@ export interface SavePushPreview {
   /** The device name RomM will record against the upload. */
   deviceName: string
 }
+
+/**
+ * The player's answer to a conflict, where the answer moves a file.
+ *
+ * Skipping is the third answer and moves nothing, so it never reaches the main
+ * process. Each choice names one copy, never "this game's saves": a conflict
+ * is about one pair, and an answer that swept up the rest of the game would be
+ * deciding questions nobody was shown.
+ */
+export type ConflictChoice =
+  /**
+   * This device's file replaces what RomM holds, even where another device
+   * moved it on since. Named by path, which the main process intersects with
+   * its own scan, as it does for an approved push.
+   */
+  | { keep: 'device'; path: string }
+  /**
+   * RomM's copy, by its id, comes down over this device's file whichever is
+   * newer — after the local file is copied aside, as every pull does.
+   */
+  | { keep: 'romm'; kind: 'save' | 'state'; id: number }
