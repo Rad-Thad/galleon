@@ -2,9 +2,10 @@ import { BrowserWindow, app, protocol } from 'electron'
 import { IMAGE_SCHEME, RomMixApp } from './app.ts'
 import { registerIpc } from './ipc/index.ts'
 import { log, logSession } from './log.ts'
-import { ensureRoot, profilePath } from './root.ts'
+import { ensureRoot, profilePath, resolveRoot } from './root.ts'
 import { ReadOnlyGuard } from './romm/guard.ts'
 import { reportRefusal, runAndReport, takeRequest } from './selftest.ts'
+import { DOWNLOAD_CHECK, downloadScenario } from './selftestdownload.ts'
 import { HEARTBEAT_CHECK, heartbeatScenario } from './selftestserver.ts'
 
 /** RomMix main process bootstrap. */
@@ -114,7 +115,19 @@ if (!app.requestSingleInstanceLock()) {
       // harness, not this app, decides what the run may touch.
       const code = await runAndReport({
         request: selfTest.request,
-        scenarios: new Map([[HEARTBEAT_CHECK, heartbeatScenario(rommix.client)]]),
+        scenarios: new Map([
+          [HEARTBEAT_CHECK, heartbeatScenario(rommix.client)],
+          [
+            DOWNLOAD_CHECK,
+            downloadScenario({
+              client: rommix.client,
+              downloads: rommix.downloads,
+              library: rommix.library,
+              store: rommix.store,
+              home: resolveRoot()
+            })
+          ]
+        ]),
         guard,
         version: app.getVersion()
       })

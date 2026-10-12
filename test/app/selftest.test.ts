@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { after, test } from 'node:test'
 import { electronBinary, seed } from './driver.ts'
-import { startFakeRomm } from './server.ts'
+import { GBA_ROM, startFakeRomm } from './server.ts'
 import {
   REQUEST_FILE,
   RUN_CHECKS,
@@ -137,3 +137,38 @@ test('signed in, server.heartbeat reads the server and nothing but reads reach i
     await server.close()
   }
 })
+
+test('download.small fetches the GBA game into the test home, verifies it and removes it', async () => {
+  const server = await startFakeRomm({ gba: true })
+  try {
+    const { code, home, results } = await runWithRequest(
+      { ...REQUEST, checks: [RUN_CHECKS.complete, 'download.small'] },
+      server
+    )
+    assert.equal(code, 0)
+    const summary = JSON.parse(readFileSync(join(results, SUMMARY_FILE), 'utf8')) as Summary
+    assert.deepEqual(summaryErrors(summary), [])
+    const check = summary.checks.find((c) => c.id === 'download.small')
+    assert.equal(check?.result, 'pass', String(check?.reason))
+    assert.ok((check?.metrics.progressEvents as number) > 0)
+    assert.equal(summary.status, 'complete')
+    assert.ok(summary.safety.romsDownloadedBytes > 0)
+    assert.equal(summary.safety.romsLeft, 0)
+    const paths = server.asked.map((a) => a.path.split('?')[0])
+    assert.ok(paths.some((path) => path.startsWith(`/api/roms/${GBA_ROM}/content`)))
+    assert.deepEqual(
+      server.asked.filter((a) => a.method !== 'GET' && a.method !== 'HEAD'),
+      []
+    )
+    assert.deepEqual(gamesUnder(home), [])
+  } finally {
+    await server.close()
+  }
+})
+
+/** Every file under the home with the downloaded game's name. */
+function gamesUnder(dir: string): string[] {
+  return readdirSync(dir, { recursive: true, encoding: 'utf8' }).filter((name) =>
+    name.includes('pockethomebrew')
+  )
+}
