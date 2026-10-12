@@ -1075,6 +1075,8 @@ export const de: Catalog = {
   'error.serverAddressEmpty': 'Die Serveradresse ist leer',
   'error.noServerConfigured': 'Kein RomM-Server eingerichtet',
   'error.cannotReach': '{url} ist nicht erreichbar: {reason}',
+  'error.readOnly':
+    'Der Selbsttest liest nur vom Server, daher wurde diese {method}-Anfrage nicht gesendet.',
   'error.savesNotFetched_one': '{count} Spielstand konnte nicht von RomM geladen werden.',
   'error.savesNotFetched_other': '{count} Spielstände konnten nicht von RomM geladen werden.',
   'error.savesNotSent_one': '{count} Spielstand konnte nicht an RomM gesendet werden.',

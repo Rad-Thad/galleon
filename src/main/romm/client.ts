@@ -43,6 +43,7 @@ import type { Store } from '../store.ts'
 import { checksumOf, digestOf, unpackedChecksumOf } from './checksums.ts'
 import { DeviceRegistry } from './devices.ts'
 import { RommError, UnreachableError, UnsupportedServerError } from './errors.ts'
+import type { ReadOnlyGuard } from './guard.ts'
 import { atLeast, isComparable, MINIMUM_SERVER_VERSION } from './version.ts'
 import {
   fetchToFile,
@@ -197,11 +198,22 @@ export class RommClient {
    */
   private reachability: ((reachable: boolean, reason?: string) => void) | null = null
 
+  /** Set only by the device self-test. See `readOnly`. */
+  private guard: ReadOnlyGuard | null = null
+
   constructor(private readonly store: Store) {
     this.registry = new DeviceRegistry(store, (path, init) => this.json(path, init))
   }
 
   /** Watch whether requests are reaching the server. See `reachability`. */
+  /**
+   * Let only reads reach the server from now on, or every request again with
+   * null. See `ReadOnlyGuard`.
+   */
+  readOnly(guard: ReadOnlyGuard | null): void {
+    this.guard = guard
+  }
+
   observeReachability(listener: (reachable: boolean, reason?: string) => void): void {
     this.reachability = listener
   }
@@ -244,8 +256,12 @@ export class RommClient {
     opts: { baseUrl?: string; retryOn401?: boolean; timeoutMs?: number | null } = {}
   ): Promise<Response> {
     const base = opts.baseUrl ?? this.baseUrl
-    const retryOn401 = opts.retryOn401 ?? true
     const method = init.method ?? 'GET'
+    // Before anything is sent, and before the path is logged, so what the log
+    // records is what was asked. Under the guard a 401 is not followed by a
+    // refresh: refreshing rotates the owner's own refresh token.
+    if (this.guard) path = this.guard.admit(method, path)
+    const retryOn401 = (opts.retryOn401 ?? true) && this.guard === null
     const timeoutMs = opts.timeoutMs === undefined ? REQUEST_TIMEOUT_MS : opts.timeoutMs
     /**
      * The token goes only to the configured server.
@@ -1098,6 +1114,9 @@ export class RommClient {
 
   /** The id RomM knows this machine by, or null. See `DeviceRegistry.id`. */
   deviceId(): Promise<string | null> {
+    // Under the guard this machine has no device: finding one could register
+    // it, and naming one makes RomM record what that device has fetched.
+    if (this.guard) return Promise.resolve(null)
     return this.registry.id()
   }
 

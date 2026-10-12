@@ -1053,6 +1053,7 @@ export const es: Catalog = {
   'error.serverAddressEmpty': 'La dirección del servidor está vacía',
   'error.noServerConfigured': 'No hay ningún servidor RomM configurado',
   'error.cannotReach': 'No se puede llegar a {url}: {reason}',
+  'error.readOnly': 'La autoprueba solo lee del servidor, así que no envió esta petición {method}.',
   'error.savesNotFetched_one': '{count} partida guardada no se ha podido obtener de RomM.',
   'error.savesNotFetched_other': '{count} partidas guardadas no se han podido obtener de RomM.',
   'error.savesNotSent_one': '{count} partida guardada no se ha podido enviar a RomM.',

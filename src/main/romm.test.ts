@@ -14,8 +14,11 @@ import { join } from 'node:path'
 import { app } from 'electron'
 import type { RommDevice, RommFirmware, RommRom, RommRomFile } from '@shared/types'
 import {
+  ReadOnlyError,
+  ReadOnlyGuard,
   RommClient,
   RommError,
+  withoutDeviceId,
   REQUIRED_SCOPES,
   UnsupportedServerError,
   atLeast,
@@ -2439,5 +2442,116 @@ describe('save-sync negotiation', () => {
     assert.deepEqual(JSON.parse(sent[0].body ?? ''), counts)
 
     await assert.rejects(client.completeSyncSession(3, counts), { status: 400 })
+  })
+})
+
+describe('the read-only guard', () => {
+  // Pairing names the version it pairs from; see the registration suite above.
+  const refuses = app.getVersion
+  before(() => {
+    app.getVersion = () => '0.13.0-test'
+  })
+  after(() => {
+    app.getVersion = refuses
+  })
+
+  /** A server that answers every read with an empty list and records the rest. */
+  function guarded(credentials: Partial<FakeCredentials> = {}) {
+    const sent = serve(() => Response.json([]))
+    const { store, cleared } = fakeStore({ accessToken: 'owner', ...credentials })
+    const client = new RommClient(store)
+    const guard = new ReadOnlyGuard()
+    client.readOnly(guard)
+    return { client, guard, sent, cleared }
+  }
+
+  test('every call that could write is refused before it is sent, and counted', async () => {
+    const { client, guard, sent } = guarded()
+    const file = join(scratch(), 'save.srm')
+    writeFileSync(file, 'save')
+    const writes: [string, () => Promise<unknown>][] = [
+      ['loginWithPassword', () => client.loginWithPassword('owner', 'secret')],
+      ['startDevicePairing', () => client.startDevicePairing()],
+      ['pollDevicePairing', () => client.pollDevicePairing('code')],
+      ['setFavourite', () => client.setFavourite(1, true)],
+      ['setStatus', () => client.setStatus(1, null)],
+      ['setCollectionMembership add', () => client.setCollectionMembership(2, 1, true)],
+      ['setCollectionMembership remove', () => client.setCollectionMembership(2, 1, false)],
+      ['deleteSaves', () => client.deleteSaves([1])],
+      ['deleteStates', () => client.deleteStates([1])],
+      ['negotiate', () => client.negotiate({} as Parameters<RommClient['negotiate']>[0])],
+      ['completeSyncSession', () => client.completeSyncSession(1, {} as never)],
+      ['uploadSave', () => client.uploadSave(1, file, 'save.srm', null, null)],
+      ['uploadState', () => client.uploadState(1, file, 'save.state', null)],
+      ['refreshAchievements', () => client.refreshAchievements(1)],
+      ['sendPlaySessions', () => client.sendPlaySessions([{} as never])]
+    ]
+    for (const [name, call] of writes) {
+      await assert.rejects(call, ReadOnlyError, name)
+    }
+    assert.equal(guard.serverWritesAttempted, writes.length)
+    assert.deepEqual(
+      sent.filter((one) => one.method !== 'GET' && one.method !== 'HEAD'),
+      [],
+      'nothing but reads reached the server'
+    )
+  })
+
+  test('now playing is refused too, though it never fails the caller', async () => {
+    const { client, guard, sent } = guarded()
+    await client.setNowPlaying(1, true)
+    assert.equal(guard.serverWritesAttempted, 1)
+    assert.deepEqual(sent, [])
+  })
+
+  test('no device is registered or named, so a confirmation has nothing to send', async () => {
+    const { client, guard, sent } = guarded({ deviceId: 'owners-device' })
+    assert.equal(await client.deviceId(), null)
+    await client.confirmSaveDownloaded(1)
+    assert.equal(guard.serverWritesAttempted, 0)
+    assert.deepEqual(sent, [], 'not even the device list is asked for')
+  })
+
+  test('a read that names a device is sent without it', async () => {
+    const { client, sent } = guarded()
+    await client.savesForDevice(7, 'owners-device')
+    assert.equal(sent.length, 1)
+    assert.equal(new URL(sent[0].url).pathname, '/api/saves')
+    assert.equal(new URL(sent[0].url).searchParams.get('rom_id'), '7')
+    assert.ok(!sent[0].url.includes('device_id'), sent[0].url)
+  })
+
+  test('a 401 is not followed by a token refresh, and the sign-in is kept', async () => {
+    const sent = serve(() => new Response('', { status: 401 }))
+    const { store, cleared } = fakeStore({ accessToken: 'owner', refreshToken: 'owners-refresh' })
+    const client = new RommClient(store)
+    client.readOnly(new ReadOnlyGuard())
+    await assert.rejects(() => client.me(), RommError)
+    assert.deepEqual(
+      sent.map((one) => new URL(one.url).pathname),
+      ['/api/users/me']
+    )
+    assert.equal(cleared(), false)
+  })
+
+  test('reads still go out, and lifting the guard lets writes out again', async () => {
+    const { client, guard, sent } = guarded()
+    await client.platforms()
+    assert.equal(sent.length, 1)
+    client.readOnly(null)
+    await client.setStatus(1, null)
+    assert.equal(sent.at(-1)?.method, 'PUT')
+    assert.equal(guard.serverWritesAttempted, 0)
+  })
+
+  test('device_id is taken out of a query, whatever else it holds', () => {
+    assert.equal(withoutDeviceId('/api/saves?rom_id=1&device_id=x'), '/api/saves?rom_id=1')
+    assert.equal(withoutDeviceId('/api/saves/1/content?device_id=x'), '/api/saves/1/content')
+    assert.equal(withoutDeviceId('/api/roms?limit=5'), '/api/roms?limit=5')
+    assert.equal(withoutDeviceId('/api/roms'), '/api/roms')
+    const guard = new ReadOnlyGuard()
+    assert.equal(guard.admit('head', '/api/x?device_id=y'), '/api/x')
+    assert.throws(() => guard.admit('patch', '/api/x'), ReadOnlyError)
+    assert.equal(guard.serverWritesAttempted, 1)
   })
 })

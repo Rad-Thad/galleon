@@ -17,12 +17,14 @@ export { MIN_PLAY_SECONDS, RommClient, REQUIRED_SCOPES, normaliseBaseUrl } from 
 export type { UploadSaveOptions } from './client.ts'
 export {
   CorruptDownloadError,
+  ReadOnlyError,
   RommError,
   UnreachableError,
   UnsupportedServerError,
   answered,
   refusedUs
 } from './errors.ts'
+export { ReadOnlyGuard, withoutDeviceId } from './guard.ts'
 export { checkDeferredToUnpacking, checksumOf, digestOf } from './checksums.ts'
 export {
   atLeast,

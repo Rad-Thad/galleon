@@ -1065,6 +1065,8 @@ export const fr: Catalog = {
   'error.serverAddressEmpty': 'L’adresse du serveur est vide',
   'error.noServerConfigured': 'Aucun serveur RomM configuré',
   'error.cannotReach': 'Impossible de joindre {url} : {reason}',
+  'error.readOnly':
+    "L'autotest ne fait que lire le serveur : cette requête {method} n'a pas été envoyée.",
   'error.savesNotFetched_one': '{count} sauvegarde n’a pas pu être récupérée depuis RomM.',
   'error.savesNotFetched_other': '{count} sauvegardes n’ont pas pu être récupérées depuis RomM.',
   'error.savesNotSent_one': '{count} sauvegarde n’a pas pu être envoyée à RomM.',
