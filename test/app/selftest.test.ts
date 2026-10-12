@@ -74,7 +74,7 @@ const REQUEST = {
   sha: 'b'.repeat(40),
   budgetSeconds: 600,
   handshakeDir: null,
-  checks: [RUN_CHECKS.complete, 'startup.cold'],
+  checks: [RUN_CHECKS.complete, 'grid.scroll'],
   profiles: ['performance'],
   payloads: {},
   fakeRomm: null,
@@ -92,13 +92,36 @@ test('a self-test request is taken, answered in summary.json, and the app quits 
   const summary = JSON.parse(readFileSync(join(results, SUMMARY_FILE), 'utf8')) as Summary
   assert.deepEqual(summaryErrors(summary), [])
   assert.equal(summary.sha, REQUEST.sha)
-  // `startup.cold` has no scenario in this build, so not every check ran.
+  // `grid.scroll` has no scenario in this build, so not every check ran.
   assert.equal(summary.status, 'partial')
   assert.equal(summary.safety.serverWritesAttempted, 0)
   const checks = new Map(summary.checks.map((c) => [c.id, c]))
   assert.equal(checks.get(RUN_CHECKS.serverReadOnly)?.result, 'pass')
-  assert.ok(checks.has('startup.cold'))
+  assert.equal(checks.get('grid.scroll')?.reason, 'not-implemented')
   assert.ok(checks.has(RUN_CHECKS.complete))
+})
+
+test('signed in, startup.cold times the start to an interactive Home', async () => {
+  const server = await startFakeRomm()
+  try {
+    const { code, results } = await runWithRequest(
+      { ...REQUEST, checks: [RUN_CHECKS.complete, 'startup.cold'] },
+      server
+    )
+    assert.equal(code, 0)
+    const summary = JSON.parse(readFileSync(join(results, SUMMARY_FILE), 'utf8')) as Summary
+    assert.deepEqual(summaryErrors(summary), [])
+    assert.equal(summary.status, 'complete')
+    const startup = summary.checks.find((c) => c.id === 'startup.cold')
+    // Pass or fail is the device's to say: a CI runner is not the Nova.
+    assert.ok(startup && startup.result !== 'error', JSON.stringify(startup))
+    assert.notEqual(startup.reason, 'home-not-reached')
+    assert.equal(startup.metrics.measuredFrom, 'process')
+    assert.ok(typeof startup.metrics.startupMs === 'number' && startup.metrics.startupMs > 0)
+    assert.equal(summary.checks.find((c) => c.id === RUN_CHECKS.complete)?.result, 'pass')
+  } finally {
+    await server.close()
+  }
 })
 
 test('a request without privacy is refused with an error summary and exit 1', async () => {

@@ -512,7 +512,7 @@ export class RomMixApp {
     }
   }
 
-  createWindow(): void {
+  createWindow(): BrowserWindow {
     const window = new BrowserWindow({
       width: 1280,
       height: 800,
@@ -672,6 +672,7 @@ export class RomMixApp {
     }
 
     this.window = window
+    return window
   }
 
   /**

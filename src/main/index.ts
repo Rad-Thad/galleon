@@ -2,11 +2,13 @@ import { BrowserWindow, app, protocol } from 'electron'
 import { IMAGE_SCHEME, RomMixApp } from './app.ts'
 import { registerIpc } from './ipc/index.ts'
 import { log, logSession } from './log.ts'
+import { readPowerState } from './powerstate.ts'
 import { ensureRoot, profilePath, resolveRoot } from './root.ts'
 import { ReadOnlyGuard } from './romm/guard.ts'
 import { reportRefusal, runAndReport, takeRequest } from './selftest.ts'
 import { DOWNLOAD_CHECK, downloadScenario } from './selftestdownload.ts'
 import { HEARTBEAT_CHECK, heartbeatScenario } from './selftestserver.ts'
+import { STARTUP_CHECK, startupScenario, startupStart, watchHome } from './selfteststartup.ts'
 
 /** RomMix main process bootstrap. */
 
@@ -108,14 +110,24 @@ if (!app.requestSingleInstanceLock()) {
     await rommix.offline.sweep(rommix.store.installed)
     await rommix.refreshEmulators()
     registerIpc(rommix)
-    rommix.createWindow()
+    const window = rommix.createWindow()
     if (selfTest?.kind === 'request' && guard) {
+      // Before anything else is run, so the time is Home's first arrival.
+      const reached = watchHome(window.webContents)
       // None of what follows a normal start: an update check, the launcher
       // beside the image and the catch-up all write somewhere, and the
       // harness, not this app, decides what the run may touch.
       const code = await runAndReport({
         request: selfTest.request,
         scenarios: new Map([
+          [
+            STARTUP_CHECK,
+            startupScenario({
+              reached,
+              start: startupStart(process.env, performance.timeOrigin),
+              power: () => readPowerState()
+            })
+          ],
           [HEARTBEAT_CHECK, heartbeatScenario(rommix.client)],
           [
             DOWNLOAD_CHECK,
