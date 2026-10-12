@@ -43,6 +43,9 @@ const DEFAULT_DIR_NAME = 'galleon'
  */
 const PROFILE_DIR_NAME = 'Galleon'
 
+/** The same profile when it lives inside a `GALLEON_HOME`. See `profilePath`. */
+const HOME_PROFILE_DIR_NAME = 'profile'
+
 /**
  * The pointer file's own location, which cannot itself be configurable.
  * Electron's userData is not used: this has to be readable before `app.ready`,
@@ -52,9 +55,17 @@ function pointerPath(): string {
   return join(xdgConfigHome(), DEFAULT_DIR_NAME, 'root')
 }
 
-/** Electron's userData folder. See `PROFILE_DIR_NAME`. */
+/**
+ * Electron's userData folder. See `PROFILE_DIR_NAME`.
+ *
+ * Under `GALLEON_HOME` it moves inside that root, so a second Galleon with
+ * its own home (the device self-test beside the owner's) shares no profile,
+ * cache or single-instance lock with the first, and leaves nothing outside
+ * the folder it was given.
+ */
 export function profilePath(): string {
-  return join(xdgConfigHome(), PROFILE_DIR_NAME)
+  const fromEnv = homeFromEnvironment()
+  return fromEnv ? join(fromEnv, HOME_PROFILE_DIR_NAME) : join(xdgConfigHome(), PROFILE_DIR_NAME)
 }
 
 /** The root the environment asks for, or nothing when it asks for none. */

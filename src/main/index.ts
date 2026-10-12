@@ -52,7 +52,8 @@ function applyDisplayFlags(): void {
 applyDisplayFlags()
 
 // Before the lock, which lives in the profile: a profile shared with stock
-// RomMix would let only one of the two run at a time. See `profilePath`.
+// RomMix, or between two Galleon homes, would let only one of them run at a
+// time. See `profilePath`.
 app.setPath('userData', profilePath())
 
 // Only one instance may own the ROM tree and the download queue.
@@ -66,7 +67,8 @@ if (!app.requestSingleInstanceLock()) {
   // The root has to exist before the Store reads from it. Electron's own
   // userData stays outside it, in the profile above: it holds Chromium's
   // caches, cookies, GPU state and singleton locks, none of which belong in a
-  // folder meant to hold the handful of files RomMix itself writes.
+  // folder meant to hold the handful of files RomMix itself writes. A root
+  // named by GALLEON_HOME is the exception, where everything stays inside it.
   ensureRoot()
 
   logSession({

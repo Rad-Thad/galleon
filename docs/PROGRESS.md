@@ -1489,3 +1489,19 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Evaluator: see the PR.
 - Device / acceptance: none for M0-10. Next: M0-21 (self-test mode), now unblocked. `next.mjs` should list it.
+
+## 2026-10-12 02:45 UTC session 01EHqpGGic98WcbWMnSMyxnP (owner asked to push work forward)
+
+- Device results: none new since e6bb3bd.
+- Worked on: M0-21 part 1 (tracking issue #155): acceptance line 1. M0-10's PR #154 merged at 048efc2; its CI wall time was x64 5:40, arm64 0:57. #66 closed.
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - `profilePath()` (`src/main/root.ts`) is `$GALLEON_HOME/profile` when `GALLEON_HOME` is set, so Electron's userData moves inside the test home. Chromium's profile, its caches and the single-instance lock all live in userData. Without the variable, nothing changes. `index.ts` already sets userData from `profilePath()` before taking the lock. Moving the root (`system:setRoot`) was already refused under `GALLEON_HOME`.
+  - `src/main/root.test.ts` 16/16. New:
+    - "with GALLEON_HOME the profile, its caches and its lock live inside that home".
+    - "a GALLEON_HOME reads and writes nothing of the default home, its pointer or RomMix". On a fake home with stock RomMix's files and a default Galleon pointer, the pointer is not followed. `ensureRoot` and a lock written into the profile add nothing outside the test home and change nothing else.
+  - `npm run test:app` 230/230 (the driver already sets `GALLEON_HOME`). `scripts/agent/check.sh` green.
+  - Not proven here: files Chromium itself might write outside userData. The device's `safety.owner-state` (M0-22) covers that on the Nova.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none yet. Next: M0-21 part 2, the read-only server guard (line 2).

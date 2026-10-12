@@ -226,6 +226,39 @@ describe('beside stock RomMix', () => {
     assert.equal(profilePath(), join(config, 'Galleon'))
   })
 
+  test('with GALLEON_HOME the profile, its caches and its lock live inside that home', () => {
+    const { home } = withRomMix()
+    process.env.GALLEON_HOME = join(home, 'test-home')
+
+    assert.equal(profilePath(), join(home, 'test-home', 'profile'))
+  })
+
+  test('a GALLEON_HOME reads and writes nothing of the default home, its pointer or RomMix', () => {
+    const { home, config } = withRomMix()
+    // A pointer the default Galleon left, which the test home must not follow.
+    mkdirSync(join(config, 'galleon'), { recursive: true })
+    writeFileSync(join(config, 'galleon', 'root'), `${join(home, 'owners')}\n`)
+    const testHome = join(home, 'test-home')
+    process.env.GALLEON_HOME = testHome
+    const before = snapshot(home)
+
+    assert.equal(resolveRoot(), testHome)
+    ensureRoot()
+    mkdirSync(profilePath(), { recursive: true })
+    writeFileSync(join(profilePath(), 'SingletonLock'), 'lock')
+
+    const after = snapshot(home)
+    for (const [path, contents] of Object.entries(before)) {
+      assert.equal(after[path], contents, path)
+    }
+    assert.deepEqual(
+      Object.keys(after).filter((path) => !(path in before) && !path.startsWith(testHome)),
+      []
+    )
+    assert.equal(existsSync(join(home, 'galleon')), false, 'the default home is not created')
+    assert.equal(existsSync(join(config, 'Galleon')), false, 'nor the default profile')
+  })
+
   test("setting up, moving and pointing the root leave RomMix's files as they were", () => {
     const { home, config } = withRomMix()
     const before = snapshot(home)
