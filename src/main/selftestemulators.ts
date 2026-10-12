@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process'
-import { basename, dirname, isAbsolute, relative, resolve } from 'node:path'
+import { readFileSync, readdirSync } from 'node:fs'
+import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { emulatorById, type EmulatorState } from '@config/emulators'
 import { t } from './i18n.ts'
 import { log } from './log.ts'
@@ -179,14 +180,46 @@ export function signalGroup(group: number, signal: NodeJS.Signals): void {
   }
 }
 
-/** Whether anything of the group is left. See `LaunchDeps.groupAlive`. */
-export function groupAlive(group: number): boolean {
+/**
+ * Whether anything of the group is left. See `LaunchDeps.groupAlive`.
+ *
+ * A zombie is not counted: a member killed with its leader stays in the group
+ * until whatever adopted it reaps it, and that is no emulator still running.
+ */
+export function groupAlive(group: number, procDir = '/proc'): boolean {
   try {
     process.kill(-group, 0)
-    return true
   } catch (cause) {
-    return (cause as NodeJS.ErrnoException).code === 'EPERM'
+    if ((cause as NodeJS.ErrnoException).code !== 'EPERM') return false
   }
+  return runningInGroup(group, procDir)
+}
+
+/**
+ * Whether `procDir` lists a process of the group that is not a zombie. When
+ * the list cannot be read the group is taken as running, so it is still
+ * stopped rather than left.
+ */
+export function runningInGroup(group: number, procDir = '/proc'): boolean {
+  let entries: string[]
+  try {
+    entries = readdirSync(procDir)
+  } catch {
+    return true
+  }
+  for (const name of entries) {
+    if (!/^\d+$/.test(name)) continue
+    let stat: string
+    try {
+      stat = readFileSync(join(procDir, name, 'stat'), 'utf8')
+    } catch {
+      continue
+    }
+    // Counted from the last closing bracket, as the command name may hold one.
+    const [state, , pgrp] = stat.slice(stat.lastIndexOf(')') + 2).split(' ')
+    if (Number(pgrp) === group && state !== 'Z') return true
+  }
+  return false
 }
 
 /** `EmulatorScenarioDeps.plan` on the device: the owner's install, read and never written. */
@@ -241,7 +274,7 @@ export function deviceCycle(
         {
           start: (p) => startPlan(p, env),
           signalGroup,
-          groupAlive,
+          groupAlive: (group) => groupAlive(group),
           prepare: (p) => prepareSandbox(p, state.paths.bios),
           findWindow,
           straysToClear: (p) => straysToClear(p),

@@ -13,6 +13,7 @@ import {
   emulatorScenarios,
   groupAlive,
   payloadFor,
+  runningInGroup,
   signalGroup,
   startPlan,
   type EmulatorScenarioDeps
@@ -287,11 +288,44 @@ describe('the device process', () => {
     const exited = await started.exited
 
     assert.equal(exited.signal, 'SIGTERM')
-    for (let i = 0; i < 50 && groupAlive(started.pid); i++) {
+    // The leader has exited; its child goes on the signal, but under load a
+    // moment later, so this waits for the group rather than assuming it gone.
+    for (let i = 0; i < 250 && groupAlive(started.pid); i++) {
       await new Promise((r) => setTimeout(r, 20))
     }
     assert.equal(groupAlive(started.pid), false)
     assert.doesNotThrow(() => signalGroup(started.pid, 'SIGTERM'))
+  })
+})
+
+describe('which of a group is still running', () => {
+  function proc(entries: Record<string, string>): string {
+    const dir = scratch()
+    for (const [pid, stat] of Object.entries(entries)) {
+      mkdirSync(join(dir, pid))
+      writeFileSync(join(dir, pid, 'stat'), stat)
+    }
+    mkdirSync(join(dir, 'self'))
+    return dir
+  }
+
+  test('a running member counts, even with a bracket in its name', () => {
+    const dir = proc({ '41': '41 (emu) S 40 40 40 0', '42': '42 (a) b) R 41 40 40 0' })
+    assert.equal(runningInGroup(40, dir), true)
+  })
+
+  test('a zombie does not, nor a process of another group', () => {
+    const dir = proc({ '41': '41 (emu) Z 1 40 40 0', '50': '50 (other) S 1 50 50 0' })
+    assert.equal(runningInGroup(40, dir), false)
+  })
+
+  test('a list that cannot be read is taken as running', () => {
+    assert.equal(runningInGroup(40, join(scratch(), 'missing')), true)
+  })
+
+  test('a group the kernel no longer has is not alive, whatever the list says', () => {
+    const dir = proc({ '41': '41 (emu) S 1 999999 999999 0' })
+    assert.equal(groupAlive(999_999, dir), false)
   })
 })
 
