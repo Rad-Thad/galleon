@@ -1048,6 +1048,8 @@ export const en = {
   'error.serverAddressEmpty': 'Server address is empty',
   'error.noServerConfigured': 'No RomM server configured',
   'error.cannotReach': 'Cannot reach {url}: {reason}',
+  'error.readOnly':
+    'The self-test only reads from the server, so it did not send this {method} request.',
   'error.savesNotFetched_one': '{count} save could not be fetched from RomM.',
   'error.savesNotFetched_other': '{count} saves could not be fetched from RomM.',
   'error.savesNotSent_one': '{count} save could not be sent to RomM.',

@@ -1505,3 +1505,28 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Evaluator: see the PR.
 - Device / acceptance: none yet. Next: M0-21 part 2, the read-only server guard (line 2).
+
+## 2026-10-12 03:05 UTC session 01EHqpGGic98WcbWMnSMyxnP (owner asked to push work forward)
+
+- Device results: none new.
+- Worked on: M0-21 part 2 (tracking issue #155): acceptance line 2, the read-only server guard. Part 1, PR #156, merged at ab3b9ff; its CI wall time was x64 5:40, arm64 0:53.
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - New `src/main/romm/guard.ts`, `ReadOnlyGuard`. `admit(method, path)` lets only GET and HEAD through. Any other method throws `ReadOnlyError` (new in `errors.ts`, with no status: nothing was sent, so it is neither an outage nor a refusal) and adds one to `serverWritesAttempted`. Every path that passes loses any `device_id` in its query (`withoutDeviceId`).
+  - `RommClient.readOnly(guard)` switches it on. `request()` admits each request before it is logged or sent. Every client call goes through `request()`, and `devices.ts` reaches the server only through the client's `json`, so call sites added later are covered too. Under the guard:
+    - a 401 is not followed by a token refresh;
+    - `deviceId()` answers null without asking the registry, so no device is looked up or registered and none is named in a save, state or play-session request.
+  - Nothing switches the guard on yet. The self-test runner (part 3) will.
+  - New string `error.readOnly` in all four catalogues, translated.
+  - `src/main/romm.test.ts` 136/136. New suite "the read-only guard":
+    - every write call site (login, pairing start and poll, favourite, status, now playing, collection add and remove, save and state deletes, negotiate, sync completion, save and state uploads, RetroAchievements refresh, play sessions) is refused with nothing but reads sent, and the count equals the number of calls;
+    - `deviceId()` sends nothing even with a stored device id;
+    - `savesForDevice` goes out without `device_id`;
+    - a 401 is not refreshed and the sign-in is kept;
+    - lifting the guard lets writes out again;
+    - `withoutDeviceId` unit cases.
+  - Removing the guard line from `request()` fails 3 of these tests.
+  - `scripts/agent/check.sh` green; `npm run test:romm` 24/24 on v520, v531 and v540.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none yet. Next: M0-21 part 3, the self-test request, runner and summary.json, which switches the guard on.

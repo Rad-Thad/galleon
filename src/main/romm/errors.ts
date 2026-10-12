@@ -62,6 +62,20 @@ export class UnreachableError extends RommError {
 }
 
 /**
+ * A request the read-only guard kept from leaving. See `ReadOnlyGuard`.
+ *
+ * Its own type, with no status, because nothing was sent: it is neither a
+ * refusal by the server nor an outage, and must not put the interface into
+ * offline mode or clear the credentials.
+ */
+export class ReadOnlyError extends RommError {
+  constructor(message: string) {
+    super(message)
+    this.name = 'ReadOnlyError'
+  }
+}
+
+/**
  * The server answered, and is older than this build can read — see `atLeast`.
  *
  * Its own type because it is the one failure that is neither the network's
