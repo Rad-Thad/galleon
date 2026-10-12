@@ -139,6 +139,11 @@ describe('taking the request', () => {
     assert.equal(taken.kind, 'request')
   })
 
+  test("the build's version is taken when given, and null when not", () => {
+    assert.equal(request({ version: '0.21.0' }).version, '0.21.0')
+    assert.equal(request().version, null)
+  })
+
   test('a request without the read-only server or privacy is refused, not forced', () => {
     for (const [overrides, reason] of [
       [{ readOnlyServer: false }, 'request-not-read-only'],
@@ -163,7 +168,9 @@ describe('taking the request', () => {
       [{ checks: 'selftest.complete' }, 'request-checks'],
       [{ budgetSeconds: 0 }, 'request-budget'],
       [{ profiles: [1] }, 'request-profiles'],
-      [{ payloads: { retroarch: 7 } }, 'request-payloads']
+      [{ payloads: { retroarch: 7 } }, 'request-payloads'],
+      [{ version: 21 }, 'request-version'],
+      [{ version: '0.21.0 at owners-server.example' }, 'request-version']
     ] as const) {
       const taken = parseRequest(rawRequest(overrides))
       assert.equal(taken.kind, 'refused')

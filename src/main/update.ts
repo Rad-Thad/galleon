@@ -121,7 +121,7 @@ declare const BUILD_COMMIT: string | undefined
  * A build made over an uncommitted working tree carries a `-dirty` suffix, so
  * this is not always a bare commit. `runningCommit` is what compares.
  */
-function buildStamp(): string {
+export function buildStamp(): string {
   return typeof BUILD_COMMIT === 'string' ? BUILD_COMMIT : ''
 }
 

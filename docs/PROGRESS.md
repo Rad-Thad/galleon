@@ -1803,3 +1803,19 @@ Lines the tooling reads (exact forms):
   - expose the owner's cores, BIOS folder and payload folder `:ro`;
   - test the argv for all of the above.
 - Process note: on this VM, `git commit -a` under the husky pre-commit hook fails with "invalid object … Error building trees". `git add` then `git commit` works.
+
+## 2026-10-12 12:32 UTC session 01SEPBgzYPhDLgKBBmqwLbFn (hourly heartbeat)
+
+- Device results: one new, the minimal harness again; nothing flips, no safety failures. Part 5d (PR #172) merged at c704135.
+  - DEVICE-RESULTS 2bbc78cc280d3edd2027b4baaf424adb8ee17baf complete
+- Worked on: M0-13 part 3a (tracking issue #57): the `build.identity` self-test scenario (acceptance line 4).
+- Result: PR (this one). M0-13 stays false.
+- Evidence:
+  - The request gains an optional `version`, copied by run.sh from `build-info.json` beside `sha`. A version that is not a plain version string refuses the request (`request-version`), since it is published in the summary.
+  - `src/main/selftestidentity.ts`: `build.identity` passes when the build's stamped commit (`buildStamp`, now exported from `update.ts`) equals the request's `sha` whole and `app.getVersion()` equals its `version`. Fails `commit-unstamped`, `commit-mismatch` (a `-dirty` build included) or `version-mismatch`; no `version` is `skip` / `no-build-version`. Wired into `index.ts` beside the other scenarios.
+  - Tests: `src/main/selftestidentity.test.ts` 7/7; `src/main/selftest.test.ts` gains the `version` parse and two refusals.
+  - `docs/TESTING.md`: the request schema shows `version`; a bullet says how `build.identity` judges.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none yet; run.sh does not start the app until M0-22, which will write `version` into the request. Next: `update.verify` (part 3b).

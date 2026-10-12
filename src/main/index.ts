@@ -7,11 +7,13 @@ import { ensureRoot, profilePath, resolveRoot } from './root.ts'
 import { ReadOnlyGuard } from './romm/guard.ts'
 import { reportRefusal, runAndReport, takeRequest } from './selftest.ts'
 import { DOWNLOAD_CHECK, downloadScenario } from './selftestdownload.ts'
+import { IDENTITY_CHECK, identityScenario } from './selftestidentity.ts'
 import { HEARTBEAT_CHECK, heartbeatScenario } from './selftestserver.ts'
 import { watchInput } from './selftestinput.ts'
 import { takeScreenshots } from './selftestshots.ts'
 import { GRID_CHECK, askForProfile, runScroll, scrollScenario } from './selftestscroll.ts'
 import { STARTUP_CHECK, startupScenario, startupStart, watchHome } from './selfteststartup.ts'
+import { buildStamp } from './update.ts'
 
 /** RomMix main process bootstrap. */
 
@@ -137,6 +139,7 @@ if (!app.requestSingleInstanceLock()) {
               power: () => readPowerState('/', { status: readArmadaStatus })
             })
           ],
+          [IDENTITY_CHECK, identityScenario({ version: app.getVersion(), commit: buildStamp() })],
           [HEARTBEAT_CHECK, heartbeatScenario(rommix.client)],
           [
             GRID_CHECK,
