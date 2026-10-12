@@ -10,7 +10,7 @@ import type { RommPlatform, RommRom, RommRomPage, RomQuery } from '@shared/types
  * Offered only once the scroll asks for it (see `RommClient.offerSynthetic`).
  */
 
-/** As many games as the catalogue's 1,000+ grid, with room past the first rows of a page. */
+/** Comfortably past `MIN_GAMES`, so the scroll it stands in for is held to the same size. */
 export const SYNTHETIC_GAMES = 1300
 
 /**

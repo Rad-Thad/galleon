@@ -1990,7 +1990,7 @@ Lines the tooling reads (exact forms):
   - Tests: `src/main/selftestlibrary.test.ts` 7/7 (new); `src/main/selftestscroll.test.ts` 26/26 (new: the synthetic platform is scrolled only when no real one qualifies or the list fails); `src/main/romm.test.ts` 139/139 (new: nothing synthetic until offered; its games answered with no request; the only platform when the server is away).
   - `test/app/selftest.test.ts`: new case, a library with no large platform; the built app scrolls `galleon-synthetic` (1,300 games, 188 visited on the VM) and no synthetic id reaches the fake RomM.
   - `docs/TESTING.md`: the `grid.scroll` bullet names the synthetic platform.
-  - `scripts/agent/check.sh` green.
+  - `scripts/agent/check.sh` green; `npm run test:app` 240/240 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root).
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Evaluator: see the PR.
 - Device / acceptance: none until run.sh starts the app (M0-22).
