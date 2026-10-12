@@ -736,6 +736,42 @@ describe("Eden's recipe", () => {
   })
 })
 
+describe("shadPS4's recipe", () => {
+  const shadps4 = emulatorById('shadps4')
+  assert.ok(shadps4)
+  const appImage: ResolvedInstall = {
+    kind: 'appimage',
+    ref: '/home/owner/Applications/Shadps4-sdl.AppImage'
+  }
+
+  function shadPlan(install: ResolvedInstall = appImage) {
+    return planSandbox({
+      descriptor: shadps4!,
+      install,
+      system: 'ps4',
+      romPath: '/payload/game/eboot.bin',
+      home: HOME,
+      owner: OWNER,
+      realPath: (path) => path
+    })
+  }
+
+  test('starts in the sandbox, which holds no portable user folder, with its data below XDG_DATA_HOME', () => {
+    const result = shadPlan()
+    assert.equal(result.kind, 'run')
+    if (result.kind !== 'run') return
+    assert.equal(result.cwd, result.folders.root)
+    assert.equal(result.env.XDG_DATA_HOME, result.folders.data)
+    assert.deepEqual(result.files, [])
+    assert.deepEqual(result.argv, [appImage.ref, '-f', 'true', '/payload/game/eboot.bin'])
+  })
+
+  test('is not started as a binary or a flatpak', () => {
+    assert.equal(shadPlan({ kind: 'binary', ref: '/usr/bin/shadps4' }).kind, 'skip')
+    assert.equal(shadPlan({ kind: 'flatpak', ref: 'net.shadps4.shadPS4' }).kind, 'skip')
+  })
+})
+
 describe('prepareSandbox', () => {
   function ready(home: string, recipe: SandboxRecipe = EMPTY) {
     const result = planSandbox({

@@ -1963,3 +1963,18 @@ Lines the tooling reads (exact forms):
 - Evaluator: PASS. Notes for the launch check: pass the emulator's own `paths.bios` as `ownerBios`; Eden's "Wayland detected" box (`OnCheckGraphicsBackend`) would wait for a person under native Wayland, which Game Mode is not (DEVICE-FACTS: X11 on `:1`).
 - Device / acceptance: none; no launch scenario calls `planSandbox` yet.
 - Next: shadPS4's recipe (rule out its portable `user` folder first), then the launch scenario itself.
+
+## 2026-10-12 16:51 UTC session 01CZXRhAceMMinhpATALtvqG (hourly heartbeat, second unit)
+
+- Device results: unchanged since the entry above. Part 5j of M0-21, PR #182, merged at 471fdcf; its CI wall time was x64 6:35, arm64 0:58.
+- Worked on: M0-21 part 5k (tracking issue #155): a sandbox recipe for shadPS4.
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - shadPS4's `src/common/path_util.cpp` (read as specification): a `user` folder in the working folder is its whole layout, otherwise `$XDG_DATA_HOME/shadPS4` holds settings, saves, logs and caches. `src/main.cpp`: its only message box is for a start with no arguments. So the recipe is empty: the plan's `cwd` (the sandbox root) and the XDG roots keep it inside. AppImage only.
+  - Tests: `src/main/selftestsandbox.test.ts` 58/58; new: shadPS4 starts in the sandbox root with its data below the sandbox's `XDG_DATA_HOME`, writes no files, and is skipped as a binary or flatpak.
+  - `docs/TESTING.md`: the sandbox bullet names shadPS4 beside Eden.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: PASS.
+- Device / acceptance: none; no launch scenario calls `planSandbox` yet.
+- Next: open for M0-21 line 4: flatpaks (5d, parked); then the synthetic 1,300-game platform and the launch scenario.
