@@ -86,11 +86,15 @@ export interface PowerState {
   /** GPU frequencies, in Hz as devfreq reports them. */
   gpuCurHz: number | null
   gpuMaxHz: number | null
+  /** The profile in force, by its label, as the machine's clocks show it. See `profileInForce`. */
+  profile: string
   /**
    * The profile Armada starts in, from its profile definitions: not
    * necessarily the one in force, which Steam may have switched.
    */
   defaultProfile: string
+  /** Armada's perf contract as `layer.key=value` entries. See `parsePerfState`. */
+  perf: string
 }
 
 /** What the performance overlay measures against. See the `system:perfState` handler. */

@@ -24,9 +24,15 @@ export const UNKNOWN = 'unknown'
 
 /** The prime cluster, the one whose cap Armada's profiles move. */
 const CPU_POLICY = 'sys/devices/system/cpu/cpufreq/policy7'
+/** That cluster's cap in an `[underclock.<SoC>.<level>]` section of power-profiles.conf. */
+const CPU_POLICY_CAP = 'cpu_max_policy7'
 const DEVFREQ = 'sys/class/devfreq'
 /** An edited copy in /etc wins over the factory file, as armada-powerd reads them. */
 const PROFILE_CONFS = ['etc/armada/power-profiles.conf', 'usr/share/armada/power-profiles.conf']
+/** Armada's perf contract: the cores, nice levels and scheduler it applies, in layers. */
+const PERF_STATE = 'run/armada/perf-state.json'
+/** The overlay is a corner, so a perf contract longer than this is cut short. */
+const PERF_ENTRIES = 6
 
 /** A sysfs word such as a governor name, or `unknown`. */
 export function parseWord(text: string | null): string {
@@ -46,6 +52,91 @@ export function parseDefaultProfile(conf: string | null): string {
   return match ? match[1] : UNKNOWN
 }
 
+/** power-profiles.conf's sections, each a map of its `key=value` lines. */
+export function parseIni(text: string): Map<string, Map<string, string>> {
+  const sections = new Map<string, Map<string, string>>()
+  let current = new Map<string, string>()
+  sections.set('', current)
+  for (const raw of text.split('\n')) {
+    const line = raw.trim()
+    if (line === '' || line.startsWith('#') || line.startsWith(';')) continue
+    const header = /^\[([^\]]+)\]$/.exec(line)
+    if (header) {
+      current = sections.get(header[1]) ?? new Map<string, string>()
+      sections.set(header[1], current)
+      continue
+    }
+    const eq = line.indexOf('=')
+    if (eq > 0) current.set(line.slice(0, eq).trim(), line.slice(eq + 1).trim())
+  }
+  return sections
+}
+
+/**
+ * The profile in force, by its label, or `unknown`.
+ *
+ * Armada keeps no file that says which profile is applied, so it is read off
+ * the machine: a profile fits when its governor is the prime cluster's and
+ * the cap its underclock level puts on that cluster (one per SoC in the
+ * file) is the cluster's current maximum, or, for a profile without an
+ * underclock, when no level's cap is. Only a single fit is named; two, or
+ * none (a profile Steam or a person has tuned by hand), stay unknown.
+ */
+export function profileInForce(
+  conf: string | null,
+  cpuGovernor: string,
+  cpuMaxKHz: number | null
+): string {
+  if (conf === null || cpuGovernor === UNKNOWN || cpuMaxKHz === null) return UNKNOWN
+  const sections = parseIni(conf)
+  const caps = new Map<string, Set<number>>()
+  for (const [name, keys] of sections) {
+    const level = /^underclock\.[^.]+\.(.+)$/.exec(name)?.[1]
+    const cap = parseNumber(keys.get(CPU_POLICY_CAP) ?? null)
+    if (level === undefined || cap === null) continue
+    caps.set(level, (caps.get(level) ?? new Set<number>()).add(cap))
+  }
+  const anyCap = new Set([...caps.values()].flatMap((set) => [...set]))
+  const fits: string[] = []
+  for (const [name, keys] of sections) {
+    const profile = /^profile\.(.+)$/.exec(name)?.[1]
+    if (profile === undefined || keys.get('cpu_governor') !== cpuGovernor) continue
+    const level = keys.get('cpu_underclock') ?? 'none'
+    const capped =
+      level === 'none' ? !anyCap.has(cpuMaxKHz) : (caps.get(level)?.has(cpuMaxKHz) ?? false)
+    if (capped) fits.push(keys.get('label') || profile)
+  }
+  return fits.length === 1 ? fits[0] : UNKNOWN
+}
+
+/**
+ * Armada's perf contract as `layer.key=value` entries, or `unknown`.
+ *
+ * Every scalar is listed under the path that holds it rather than picked out
+ * by name: the device has shown only a `global` layer, and whatever else
+ * Armada Control adds should appear as it is, not be guessed at.
+ */
+export function parsePerfState(text: string | null): string {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(text ?? '')
+  } catch {
+    return UNKNOWN
+  }
+  const entries: string[] = []
+  const walk = (value: unknown, path: string): void => {
+    if (value !== null && typeof value === 'object') {
+      for (const [key, inner] of Object.entries(value)) walk(inner, path ? `${path}.${key}` : key)
+    } else if (path) {
+      entries.push(`${path}=${String(value)}`)
+    }
+  }
+  walk(parsed, '')
+  if (entries.length === 0) return UNKNOWN
+  const shown = entries.slice(0, PERF_ENTRIES)
+  return entries.length > shown.length ? `${shown.join(' ')} …` : shown.join(' ')
+}
+
 /** The devfreq device that is the GPU: Adreno's is named after its address and `.gpu`. */
 export function gpuDevice(names: readonly string[]): string | null {
   return names.toSorted().find((name) => /(^|[.-])gpu$/i.test(name)) ?? null
@@ -60,17 +151,22 @@ export interface PowerFiles {
   gpuCur: string | null
   gpuMax: string | null
   profileConf: string | null
+  perfState: string | null
 }
 
 export function powerState(files: PowerFiles): PowerState {
+  const cpuGovernor = parseWord(files.cpuGovernor)
+  const cpuMaxKHz = parseNumber(files.cpuMax)
   return {
-    cpuGovernor: parseWord(files.cpuGovernor),
+    cpuGovernor,
     cpuCurKHz: parseNumber(files.cpuCur),
-    cpuMaxKHz: parseNumber(files.cpuMax),
+    cpuMaxKHz,
     gpuGovernor: parseWord(files.gpuGovernor),
     gpuCurHz: parseNumber(files.gpuCur),
     gpuMaxHz: parseNumber(files.gpuMax),
-    defaultProfile: parseDefaultProfile(files.profileConf)
+    profile: profileInForce(files.profileConf, cpuGovernor, cpuMaxKHz),
+    defaultProfile: parseDefaultProfile(files.profileConf),
+    perf: parsePerfState(files.perfState)
   }
 }
 
@@ -101,6 +197,7 @@ export async function readPowerState(root = '/'): Promise<PowerState> {
     gpuGovernor: await gpuFile('governor'),
     gpuCur: await gpuFile('cur_freq'),
     gpuMax: await gpuFile('max_freq'),
-    profileConf
+    profileConf,
+    perfState: await readText(join(root, PERF_STATE))
   })
 }

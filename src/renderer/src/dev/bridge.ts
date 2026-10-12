@@ -1087,7 +1087,9 @@ const bridge: RomMixBridge = {
           gpuGovernor: 'unknown',
           gpuCurHz: null,
           gpuMaxHz: null,
-          defaultProfile: 'unknown'
+          profile: 'unknown',
+          defaultProfile: 'unknown',
+          perf: 'unknown'
         }
       }),
     perfSummary: () => later(undefined),
