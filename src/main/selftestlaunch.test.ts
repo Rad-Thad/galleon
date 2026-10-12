@@ -1,0 +1,333 @@
+import assert from 'node:assert/strict'
+import { describe, test } from 'node:test'
+import {
+  EXIT_GRACE_MS,
+  SETTLE_MS,
+  WINDOW_TIMEOUT_MS,
+  launchCycle,
+  type Exited,
+  type LaunchDeps,
+  type WindowSighting
+} from './selftestlaunch.ts'
+import type { CheckResult } from './selftest.ts'
+import type { SandboxPlan } from './selftestsandbox.ts'
+
+/**
+ * One emulator's launch and exit against a fake process, window list and
+ * clock: the checks' verdicts, and that the group is always stopped.
+ */
+
+const PLAN: SandboxPlan = {
+  kind: 'run',
+  argv: ['/apps/emu', '/payloads/hello.sfc'],
+  env: {},
+  unset: [],
+  strays: ['/tmp/emu-stray'],
+  cwd: '/home/test/sandbox/emu',
+  bios: '/home/test/sandbox/emu/bios',
+  folders: {
+    root: '/home/test/sandbox/emu',
+    config: '/home/test/sandbox/emu/config',
+    data: '/home/test/sandbox/emu/data',
+    saves: '/home/test/sandbox/emu/saves',
+    states: '/home/test/sandbox/emu/states',
+    bios: '/home/test/sandbox/emu/bios'
+  },
+  files: []
+}
+
+const FOCUSED: WindowSighting = { focused: true, fullscreen: true }
+
+interface Fake {
+  deps: LaunchDeps
+  signals: [number, NodeJS.Signals][]
+  cleared: string[][]
+  windowAsks: number
+  clock: () => number
+  exit: (e: Exited) => void
+}
+
+interface FakeOptions {
+  /** The window the list answers once this many ms have passed, or never. */
+  windowAt?: number
+  window?: WindowSighting
+  /** What the emulator does on SIGTERM: exit with this, or ignore it. */
+  onTerm?: Exited | 'ignore'
+  /** Exits on its own at this time. */
+  exitsAt?: number
+  start?: LaunchDeps['start']
+  prepare?: LaunchDeps['prepare']
+  findWindow?: LaunchDeps['findWindow']
+  /** Called on every sleep, for a test to act mid-cycle. */
+  onSleep?: (t: number) => void
+}
+
+function fake(options: FakeOptions = {}): Fake {
+  let t = 0
+  let resolveExit: (e: Exited) => void = () => {}
+  const exited = new Promise<Exited>((r) => (resolveExit = r))
+  const f: Fake = {
+    signals: [],
+    cleared: [],
+    windowAsks: 0,
+    clock: () => t,
+    exit: (e) => resolveExit(e),
+    deps: {
+      prepare: options.prepare ?? (() => ({ kind: 'ready', biosFiles: 2 })),
+      start: options.start ?? (() => ({ pid: 4242, exited })),
+      findWindow:
+        options.findWindow ??
+        (async (group) => {
+          assert.equal(group, 4242)
+          f.windowAsks += 1
+          if (options.windowAt === undefined || t < options.windowAt) return null
+          return options.window ?? FOCUSED
+        }),
+      signalGroup: (group, sig) => {
+        f.signals.push([group, sig])
+        if (sig === 'SIGKILL') resolveExit({ code: null, signal: 'SIGKILL' })
+        else if (options.onTerm !== 'ignore')
+          resolveExit(options.onTerm ?? { code: 0, signal: null })
+      },
+      straysToClear: (plan) => (plan.kind === 'run' ? [...plan.strays] : []),
+      clearStrays: (paths) => {
+        f.cleared.push([...paths])
+        return [...paths]
+      },
+      now: () => t,
+      sleep: async (ms) => {
+        t += ms
+        options.onSleep?.(t)
+        if (options.exitsAt !== undefined && t >= options.exitsAt) {
+          resolveExit({ code: 1, signal: null })
+        }
+        await Promise.resolve()
+      }
+    }
+  }
+  return f
+}
+
+async function cycle(
+  f: Fake,
+  plan: SandboxPlan = PLAN,
+  signal = new AbortController().signal
+): Promise<[CheckResult, CheckResult]> {
+  return launchCycle('emu', plan, f.deps, signal)
+}
+
+describe('launchCycle', () => {
+  test('a focused fullscreen window and a clean exit pass both checks', async () => {
+    const f = fake({ windowAt: 1000 })
+    const [launch, exit] = await cycle(f)
+    assert.equal(launch.id, 'launch.emu')
+    assert.equal(launch.result, 'pass', launch.reason ?? '')
+    assert.equal(launch.metrics.windowMs, 1000)
+    assert.equal(launch.metrics.focused, 1)
+    assert.equal(launch.metrics.fullscreen, 1)
+    assert.equal(launch.metrics.biosFiles, 2)
+    assert.equal(exit.id, 'exit.emu')
+    assert.equal(exit.result, 'pass', exit.reason ?? '')
+    assert.equal(exit.metrics.code, 0)
+    assert.equal(exit.metrics.killed, 0)
+    assert.equal(exit.metrics.straysRemoved, 1)
+    assert.deepEqual(f.signals, [[4242, 'SIGTERM']])
+    assert.deepEqual(f.cleared, [['/tmp/emu-stray']])
+  })
+
+  test('the window is left up to settle before the stop is asked', async () => {
+    let askedAt = -1
+    const f = fake({ windowAt: 500 })
+    const signalGroup = f.deps.signalGroup
+    f.deps.signalGroup = (group, sig) => {
+      askedAt = f.clock()
+      signalGroup(group, sig)
+    }
+    await cycle(f)
+    assert.ok(askedAt >= 500 + SETTLE_MS, `asked at ${askedAt}`)
+  })
+
+  test('no window within the timeout fails launch, and the emulator is still stopped', async () => {
+    const f = fake()
+    const [launch, exit] = await cycle(f)
+    assert.equal(launch.result, 'fail')
+    assert.equal(launch.reason, 'no-window')
+    assert.equal(launch.metrics.windowMs, null)
+    assert.equal(launch.thresholds.windowMs, WINDOW_TIMEOUT_MS)
+    assert.ok(f.clock() >= WINDOW_TIMEOUT_MS)
+    assert.equal(exit.result, 'pass')
+    assert.deepEqual(f.signals, [[4242, 'SIGTERM']])
+  })
+
+  test('a window that never takes focus fails as not-focused', async () => {
+    const f = fake({ windowAt: 0, window: { focused: false, fullscreen: true } })
+    const [launch] = await cycle(f)
+    assert.equal(launch.result, 'fail')
+    assert.equal(launch.reason, 'not-focused')
+    assert.equal(launch.metrics.focused, 0)
+  })
+
+  test('an unfocused window is not the answer while a focused one may follow', async () => {
+    let t = 0
+    const f = fake({
+      findWindow: async () => (t < 2000 ? { focused: false, fullscreen: null } : FOCUSED),
+      onSleep: (now) => (t = now)
+    })
+    const [launch] = await cycle(f)
+    assert.equal(launch.result, 'pass')
+    assert.equal(launch.metrics.windowMs, 2000)
+  })
+
+  test('a window known not to be fullscreen fails; an unknown one does not', async () => {
+    const small = await cycle(fake({ windowAt: 0, window: { focused: true, fullscreen: false } }))
+    assert.equal(small[0].result, 'fail')
+    assert.equal(small[0].reason, 'not-fullscreen')
+    const unknown = await cycle(fake({ windowAt: 0, window: { focused: true, fullscreen: null } }))
+    assert.equal(unknown[0].result, 'pass')
+    assert.equal(unknown[0].metrics.fullscreen, null)
+  })
+
+  test('a window list that throws is read as no window yet', async () => {
+    let asks = 0
+    const f = fake({
+      findWindow: async () => {
+        asks += 1
+        if (asks < 3) throw new Error('xprop missing')
+        return FOCUSED
+      }
+    })
+    const [launch] = await cycle(f)
+    assert.equal(launch.result, 'pass')
+  })
+
+  test('an emulator that exits by itself before its window fails both, unsignalled', async () => {
+    const f = fake({ exitsAt: 1000 })
+    const [launch, exit] = await cycle(f)
+    assert.equal(launch.result, 'fail')
+    assert.equal(launch.reason, 'exited-early')
+    assert.equal(exit.result, 'fail')
+    assert.equal(exit.reason, 'exited-early')
+    assert.equal(exit.metrics.code, 1)
+    assert.deepEqual(f.signals, [])
+    assert.deepEqual(f.cleared, [['/tmp/emu-stray']])
+  })
+
+  test('a non-zero exit on SIGTERM fails exit with its code', async () => {
+    const [, exit] = await cycle(fake({ windowAt: 0, onTerm: { code: 3, signal: null } }))
+    assert.equal(exit.result, 'fail')
+    assert.equal(exit.reason, 'exit-code')
+    assert.equal(exit.metrics.code, 3)
+  })
+
+  test('dying on the signal itself is not a clean exit', async () => {
+    const [, exit] = await cycle(fake({ windowAt: 0, onTerm: { code: null, signal: 'SIGTERM' } }))
+    assert.equal(exit.result, 'fail')
+    assert.equal(exit.reason, 'exit-code')
+    assert.equal(exit.metrics.signal, 'SIGTERM')
+  })
+
+  test('an emulator that ignores SIGTERM is killed after the grace, and exit fails', async () => {
+    const f = fake({ windowAt: 0, onTerm: 'ignore' })
+    const [launch, exit] = await cycle(f)
+    assert.equal(launch.result, 'pass')
+    assert.equal(exit.result, 'fail')
+    assert.equal(exit.reason, 'killed')
+    assert.equal(exit.metrics.killed, 1)
+    assert.equal(exit.thresholds.exitMs, EXIT_GRACE_MS)
+    assert.deepEqual(f.signals, [
+      [4242, 'SIGTERM'],
+      [4242, 'SIGKILL']
+    ])
+  })
+
+  test('a group that outlives even SIGKILL does not hold the run', async () => {
+    const f = fake({ windowAt: 0 })
+    f.deps.signalGroup = (group, sig) => f.signals.push([group, sig])
+    const [, exit] = await cycle(f)
+    assert.equal(exit.reason, 'killed')
+    assert.equal(exit.metrics.code, null)
+    assert.ok(f.clock() <= 3 * EXIT_GRACE_MS + SETTLE_MS, `ended at ${f.clock()}`)
+  })
+
+  test('an abort mid-launch stops the emulator and skips both', async () => {
+    const controller = new AbortController()
+    const f = fake({ onSleep: (t) => t >= 1000 && controller.abort() })
+    const [launch, exit] = await cycle(f, PLAN, controller.signal)
+    assert.equal(launch.result, 'skip')
+    assert.equal(launch.reason, 'aborted-by-user')
+    assert.equal(exit.result, 'skip')
+    assert.deepEqual(f.signals, [[4242, 'SIGTERM']])
+    assert.ok(f.clock() < 2000, `stopped at ${f.clock()}`)
+  })
+
+  test('an abort while the window settles is answered within a second', async () => {
+    const controller = new AbortController()
+    const f = fake({ windowAt: 0, onSleep: (t) => t >= 250 && controller.abort() })
+    const [launch] = await cycle(f, PLAN, controller.signal)
+    assert.equal(launch.result, 'skip')
+    assert.ok(f.clock() < 1000, `stopped at ${f.clock()}`)
+  })
+
+  test('an abort before the start starts nothing', async () => {
+    const controller = new AbortController()
+    controller.abort()
+    let started = false
+    const f = fake({
+      start: () => {
+        started = true
+        throw new Error('unreachable')
+      }
+    })
+    const [launch, exit] = await cycle(f, PLAN, controller.signal)
+    assert.equal(launch.reason, 'aborted-by-user')
+    assert.equal(exit.reason, 'aborted-by-user')
+    assert.equal(started, false)
+  })
+
+  test('a plan that cannot sandbox skips both and starts nothing', async () => {
+    let started = false
+    const f = fake({
+      start: () => {
+        started = true
+        throw new Error('unreachable')
+      }
+    })
+    const [launch, exit] = await cycle(f, {
+      kind: 'skip',
+      reason: 'cannot-sandbox',
+      detail: 'no-recipe'
+    })
+    assert.equal(launch.result, 'skip')
+    assert.equal(launch.reason, 'cannot-sandbox')
+    assert.equal(exit.reason, 'cannot-sandbox')
+    assert.equal(started, false)
+  })
+
+  test('a sandbox that cannot be prepared skips both and starts nothing', async () => {
+    let started = false
+    const f = fake({
+      prepare: () => ({ kind: 'skip', reason: 'cannot-sandbox', detail: 'bios-too-large' }),
+      start: () => {
+        started = true
+        throw new Error('unreachable')
+      }
+    })
+    const [launch] = await cycle(f)
+    assert.equal(launch.reason, 'cannot-sandbox')
+    assert.equal(started, false)
+  })
+
+  test('a start that throws is an error for both, and the strays are still cleared', async () => {
+    const f = fake({
+      start: () => {
+        throw new Error('ENOENT')
+      }
+    })
+    const [launch, exit] = await cycle(f)
+    assert.equal(launch.result, 'error')
+    assert.equal(launch.reason, 'spawn-failed')
+    assert.equal(exit.result, 'error')
+    assert.deepEqual(f.signals, [])
+    assert.deepEqual(f.cleared, [['/tmp/emu-stray']])
+  })
+})

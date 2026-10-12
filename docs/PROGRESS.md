@@ -1995,3 +1995,18 @@ Lines the tooling reads (exact forms):
 - Evaluator: PASS. Note: once offered, the synthetic platform hides a failing platform list for the rest of the run, so `download.small` would then skip rather than error (a skip never passes; `server.heartbeat` still fails).
 - Device / acceptance: none until run.sh starts the app (M0-22).
 - Next: the launch scenario (M0-21 line 4 and the description's launch and graceful exit); flatpaks stay parked (5d).
+
+## 2026-10-12 18:26 UTC session 014G8BN9326ZrLUk8Ay2Rwkt (hourly heartbeat)
+
+- Device results: nothing new since the entry above (newest 791c314, complete, the minimal harness); no safety failures, no regressions. Part 6a of M0-21, PR #184, merged at 58d29a5; its CI wall time was x64 8:06, arm64 2:10.
+- Worked on: M0-21 part 6b (tracking issue #155): the launch-and-exit cycle behind `launch.<emulator>` and `exit.<emulator>`.
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - `src/main/selftestlaunch.ts`: `launchCycle` prepares the sandbox, starts the plan as a new process group, polls the window list for a window of that group until one is focused (`WINDOW_TIMEOUT_MS`), lets it settle (`SETTLE_MS`), sends SIGTERM to the group and reads the exit within `EXIT_GRACE_MS`, killing the group past it. The group is always stopped and the recipe's strays cleared, whatever happened after the start; an abort is answered in poll steps. The process, window list, signals and clock are injected.
+  - Tests: `src/main/selftestlaunch.test.ts` 18/18 (new): both pass on a focused window and a clean exit; settle before the stop; `no-window`, `not-focused`, `not-fullscreen` (only when known), `exited-early` unsignalled, `exit-code` (including death by the signal), `killed` after the grace, a group that survives SIGKILL does not hold the run; abort mid-launch and mid-settle; nothing started for an abort, a skip plan, a skip preparation; `spawn-failed` still clears strays.
+  - `docs/TESTING.md`: a bullet for the cycle, its failure reasons and metrics.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none; no scenario calls `launchCycle` yet.
+- Next: the real window list (gamescope's focus and window-list atoms, else the X11 list, matched to the group), then wiring `launch.*` / `exit.*` into the scenario map with each installed emulator's payload from the request.
