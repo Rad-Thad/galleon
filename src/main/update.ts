@@ -355,7 +355,8 @@ function imageOf(release: GithubRelease): UpdateAsset | null {
 /** What `Updater.rehearse` found. Codes, not prose: the self-test publishes them. */
 export interface Rehearsal {
   /** Null when the matching image was accepted and the corrupted copy refused. */
-  failure: 'no-image' | 'no-checksums' | 'matching-refused' | 'corrupted-accepted' | null
+  failure:
+    'no-image' | 'no-checksums' | 'no-digest' | 'matching-refused' | 'corrupted-accepted' | null
   name: string | null
   bytes: number
 }
@@ -745,8 +746,9 @@ export class Updater {
    * One anonymous request to GitHub, refused by its status rather than by
    * whatever a failure put in the body.
    */
-  private async ask(url: string, accept: string): Promise<Response> {
+  private async ask(url: string, accept: string, signal?: AbortSignal): Promise<Response> {
     const response = await fetch(url, {
+      signal,
       headers: {
         Accept: accept,
         // GitHub refuses an anonymous request with no agent, and an honest one
@@ -784,9 +786,9 @@ export class Updater {
    * sums file names no line for the image, which `verifyDownload` refuses as an
    * update with no digest.
    */
-  private async publishedDigest(asset: UpdateAsset): Promise<Digest | null> {
+  private async publishedDigest(asset: UpdateAsset, signal?: AbortSignal): Promise<Digest | null> {
     if (!asset.checksums) return asset.digest
-    const response = await this.ask(asset.checksums, 'application/octet-stream')
+    const response = await this.ask(asset.checksums, 'application/octet-stream', signal)
     const stated = digestFromChecksums(await response.text(), asset.name)
     if (!stated) {
       log.error('update', 'the checksum file names no digest for this image', undefined, {
@@ -818,26 +820,34 @@ export class Updater {
    * executable or renamed onto the running image: on the device that image is
    * the one the harness is testing, and the test home is the only place a run
    * may write. Both files are removed before this returns.
+   *
+   * `signal` ends it between any two steps and mid-transfer, so a self-test
+   * stopped by the player is not held up by a whole image still downloading.
    */
-  async rehearse(dir: string): Promise<Rehearsal> {
-    const response = await this.ask(CANARY_API, 'application/vnd.github+json')
+  async rehearse(dir: string, signal?: AbortSignal): Promise<Rehearsal> {
+    const response = await this.ask(CANARY_API, 'application/vnd.github+json', signal)
     const asset = imageOf((await response.json()) as GithubRelease)
     if (!asset) return { failure: 'no-image', name: null, bytes: 0 }
     if (!asset.checksums) return { failure: 'no-checksums', name: asset.name, bytes: 0 }
     const image = join(dir, asset.name)
     const corrupted = `${image}.corrupted`
     try {
-      const digest = await this.publishedDigest(asset)
+      const digest = await this.publishedDigest(asset, signal)
+      // Told apart from a mismatch here, since `verifyDownload` refuses both.
+      if (!digest) return { failure: 'no-digest', name: asset.name, bytes: 0 }
       const { receivedBytes } = await fetchToFile(asset.url, image, {
         sizeHint: asset.sizeBytes,
-        refused: (status) => new Error(t('update.downloadFailed', { url: asset.url, status }))
+        refused: (status) => new Error(t('update.downloadFailed', { url: asset.url, status })),
+        signal
       })
+      signal?.throwIfAborted()
       const subject = { kind: 'update', name: asset.name, required: true }
       try {
         await verifyDownload(image, digest, subject)
       } catch {
         return { failure: 'matching-refused', name: asset.name, bytes: receivedBytes }
       }
+      signal?.throwIfAborted()
       await copyFile(image, corrupted)
       // The middle rather than an end, so a check that only read a header or
       // a length would still be caught accepting it.

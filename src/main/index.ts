@@ -145,7 +145,7 @@ if (!app.requestSingleInstanceLock()) {
           [
             UPDATE_CHECK,
             updateScenario({
-              rehearse: (dir) => rommix.updates.rehearse(dir),
+              rehearse: (dir, signal) => rommix.updates.rehearse(dir, signal),
               home: resolveRoot(),
               installed: process.env.APPIMAGE ?? null
             })

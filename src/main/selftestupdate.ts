@@ -16,7 +16,7 @@ export const UPDATE_CHECK = 'update.verify'
 export const REHEARSAL_DIR = 'update-verify'
 
 export interface UpdateDeps {
-  rehearse: (dir: string) => Promise<Rehearsal>
+  rehearse: (dir: string, signal: AbortSignal) => Promise<Rehearsal>
   /** The test home, `GALLEON_HOME`. */
   home: string
   /** The AppImage this run started from, `APPIMAGE`, or null outside one. */
@@ -28,7 +28,7 @@ export interface UpdateDeps {
  * writes to it, and this is the check that would notice if it ever did.
  */
 export function updateScenario(deps: UpdateDeps): Scenario {
-  return async () => {
+  return async ({ signal }) => {
     const metrics: CheckResult['metrics'] = { image: null, bytes: 0 }
     const result = (outcome: CheckResult['result'], reason: string | null): CheckResult => ({
       id: UPDATE_CHECK,
@@ -38,13 +38,15 @@ export function updateScenario(deps: UpdateDeps): Scenario {
       reason,
       evidence: []
     })
+    if (signal.aborted) return result('skip', 'aborted')
     const before = await fingerprint(deps.installed)
     const dir = join(deps.home, REHEARSAL_DIR)
     let rehearsal: Rehearsal
     try {
       await mkdir(dir, { recursive: true })
-      rehearsal = await deps.rehearse(dir)
+      rehearsal = await deps.rehearse(dir, signal)
     } catch (cause) {
+      if (signal.aborted) return result('skip', 'aborted')
       log.info('selftest', 'the update rehearsal failed', { cause })
       return result('fail', 'channel-unreadable')
     } finally {

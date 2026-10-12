@@ -643,6 +643,35 @@ describe('rehearsing the update for the self-test', () => {
     assert.deepEqual(readdirSync(dir), [])
   })
 
+  test('a sums file with no line for the image is named apart from a mismatch', async () => {
+    const dir = scratch()
+    const { updater: subject } = updater()
+    const asked = serveCanary([image, 'SHA256SUMS'], 'abc  galleon-steam.sh')
+
+    assert.equal((await subject.rehearse(dir)).failure, 'no-digest')
+    assert.equal(
+      asked.some((url) => url.endsWith(`/${image}`)),
+      false
+    )
+  })
+
+  test('a stopped run ends it, and leaves nothing in the folder', async () => {
+    const dir = scratch()
+    const { updater: subject } = updater()
+    const stop = new AbortController()
+    serve((url) => {
+      if (url.includes('api')) return release('canary', [image, 'SHA256SUMS'], null)
+      if (url.endsWith('/SHA256SUMS')) {
+        stop.abort()
+        return new Response(sumsFor(BODY))
+      }
+      return new Response(BODY)
+    })
+
+    await assert.rejects(() => subject.rehearse(dir, stop.signal))
+    assert.deepEqual(readdirSync(dir), [])
+  })
+
   test('a channel with no image for this machine, or no sums file, is named', async () => {
     const { updater: subject } = updater()
     serveCanary(['galleon-steam.sh', 'SHA256SUMS'], '')

@@ -27,7 +27,10 @@ afterEach(() => {
 
 const GOOD: Rehearsal = { failure: null, name: 'Galleon-aarch64.AppImage', bytes: 9 }
 
-async function check(deps: Partial<UpdateDeps> = {}): Promise<CheckResult> {
+async function check(
+  deps: Partial<UpdateDeps> = {},
+  signal = new AbortController().signal
+): Promise<CheckResult> {
   const answered = await updateScenario({
     rehearse: async () => GOOD,
     home: scratch(),
@@ -36,7 +39,7 @@ async function check(deps: Partial<UpdateDeps> = {}): Promise<CheckResult> {
   })({
     request: {} as SelfTestRequest,
     safety: {} as never,
-    signal: new AbortController().signal
+    signal
   })
   assert.ok(!Array.isArray(answered))
   return answered
@@ -66,6 +69,7 @@ describe('update.verify', () => {
     for (const failure of [
       'no-image',
       'no-checksums',
+      'no-digest',
       'matching-refused',
       'corrupted-accepted'
     ] as const) {
@@ -101,6 +105,47 @@ describe('update.verify', () => {
     })
     assert.equal(result.result, 'fail')
     assert.equal(result.reason, 'installed-image-changed')
+  })
+
+  test('a run stopped by the player ends the rehearsal and is a skip, with the folder gone', async () => {
+    const home = scratch()
+    const stop = new AbortController()
+    let heard = false
+    const result = await check(
+      {
+        home,
+        rehearse: (_dir, signal) =>
+          new Promise((_resolve, reject) => {
+            signal.addEventListener('abort', () => {
+              heard = true
+              reject(signal.reason)
+            })
+            stop.abort()
+          })
+      },
+      stop.signal
+    )
+    assert.ok(heard)
+    assert.equal(result.result, 'skip')
+    assert.equal(result.reason, 'aborted')
+    assert.equal(existsSync(join(home, REHEARSAL_DIR)), false)
+  })
+
+  test('a run already stopped does not start the rehearsal', async () => {
+    const stop = new AbortController()
+    stop.abort()
+    let started = false
+    const result = await check(
+      {
+        rehearse: async () => {
+          started = true
+          return GOOD
+        }
+      },
+      stop.signal
+    )
+    assert.equal(started, false)
+    assert.equal(result.reason, 'aborted')
   })
 
   test('an installed image left alone passes', async () => {
