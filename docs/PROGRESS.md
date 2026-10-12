@@ -1611,3 +1611,23 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Evaluator: see the PR.
 - Device / acceptance: none yet; run.sh does not write a request yet. Next: `grid.scroll` per profile, screenshots, privacy mode, abort on input, the sandbox, run.sh's request (which should set `GALLEON_STARTED_AT_MS`).
+
+## 2026-10-12 05:53 UTC session 01QNMBBfGA8UpKNKTXremHYM (hourly heartbeat, unit 2)
+
+- Device results: none new since 8e03ec7.
+- Worked on: M0-21 part 4d (tracking issue #155): acceptance line 5, abort on input. Part 4c, PR #161, merged at 0999c29; its CI wall time was x64 5:41, arm64 0:54. The evaluator's two notes on it (a page that never draws could hang the wait for Home; "under" the threshold) were fixed in the PR before merging.
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - New `src/main/selftestinput.ts`:
+    - `watchInput` runs a probe in the page through the Gamepad API the interface reads (never OS input). It polls every `INPUT_POLL_MS`. Any button down counts, even at the first look: Chromium reveals a pad only once a button is pressed, and a button held as the run starts is still a person. A stick counts when it moves more than `AXIS_MOVED` from its first reading, so drift and triggers resting at one end do not.
+    - On input it aborts the run's signal. The runner already ends running checks and writes `aborted-by-user`. A page that goes away is not input.
+  - `index.ts` watches only when the request's `abortOnInput` is set.
+  - `test/app/driver.ts`: `StartOptions.files` writes files into the home after seeding (the request).
+  - TESTING.md's request section describes the abort.
+  - Tests:
+    - `src/main/selftestinput.test.ts` 8/8: the probe run under `node:vm` against a scripted `navigator`.
+    - `test/app/selftest.test.ts` 6/6. New: signed out, so `startup.cold` is still waiting. A simulated pad presses A, and the summary is on disk within a second, with status `aborted-by-user` and `startup.cold` `skip` / `aborted-by-user`. The first version ignored a button already down at the probe's first look. The app test caught that: the probe started after the press. It was the wrong rule anyway.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: see the PR.
+- Device / acceptance: none yet; run.sh does not write a request yet. Next: `grid.scroll` per profile, screenshots, privacy mode, the sandbox, run.sh's request.

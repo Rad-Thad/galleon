@@ -156,6 +156,7 @@ The app refuses a request without `readOnlyServer: true` and `privacy: true`, an
 - A refused request gets a `summary.json` with `status: error` and the refusal code as `reason` (when its `resultsDir` is usable), and the app exits 1.
 - An accepted run exits 0 once `summary.json` is written, whatever the checks say. A requested check this build has no scenario for is `skip` with reason `not-implemented`; the run is then `partial` and `selftest.complete` fails.
 - `safety.server-readonly` is in every summary, requested or not.
+- With `abortOnInput`, any controller button held down, or a stick moved from where it first rested, stops the run within a second: running checks end, unrun ones are `skip` / `aborted-by-user`, the summary's status is `aborted-by-user`, and the app exits 0 once it is written. The app watches through the page's Gamepad API, never OS input.
 - `startup.cold` is timed from `GALLEON_STARTED_AT_MS` (milliseconds since the epoch) when run.sh sets it in the app's environment just before starting the AppImage, else from the app process's own start; the check's `measuredFrom` metric says which. The end is the first frame on which Home is interactive. A time at or over the threshold on a profile other than Performance is `skip` with reason `not-on-performance`.
 
 ## `summary.json` (written to `RESULTS_DIR`)
