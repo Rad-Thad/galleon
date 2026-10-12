@@ -2,7 +2,7 @@ import { BrowserWindow, app, protocol, screen } from 'electron'
 import { IMAGE_SCHEME, RomMixApp } from './app.ts'
 import { registerIpc } from './ipc/index.ts'
 import { log, logSession } from './log.ts'
-import { readPowerState } from './powerstate.ts'
+import { readArmadaStatus, readPowerState } from './powerstate.ts'
 import { ensureRoot, profilePath, resolveRoot } from './root.ts'
 import { ReadOnlyGuard } from './romm/guard.ts'
 import { reportRefusal, runAndReport, takeRequest } from './selftest.ts'
@@ -134,7 +134,7 @@ if (!app.requestSingleInstanceLock()) {
             startupScenario({
               reached,
               start: startupStart(process.env, performance.timeOrigin),
-              power: () => readPowerState()
+              power: () => readPowerState('/', { status: readArmadaStatus })
             })
           ],
           [HEARTBEAT_CHECK, heartbeatScenario(rommix.client)],
@@ -143,7 +143,8 @@ if (!app.requestSingleInstanceLock()) {
             scrollScenario({
               client: rommix.client,
               scroll: (platformId, signal) => runScroll(window.webContents, platformId, signal),
-              power: () => readPowerState(),
+              power: () => readPowerState('/', { status: readArmadaStatus }),
+              sample: () => readPowerState(),
               askForProfile: (profile, signal) =>
                 askForProfile(selfTest.request.handshakeDir, profile, signal),
               displayHz: () => screen.getPrimaryDisplay().displayFrequency || 60

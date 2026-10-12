@@ -232,6 +232,11 @@ describe('powerMetrics', () => {
     const changed = powerMetrics([power('Performance'), power('Balanced', { cpuGovernor: 'x' })])
     assert.equal(changed.profileObserved, 'mixed')
     assert.equal(changed.governor, 'mixed')
+    // A sample that could not tell is not a second profile.
+    assert.equal(
+      powerMetrics([power('Performance'), power('unknown')]).profileObserved,
+      'performance'
+    )
     const none = powerMetrics([])
     assert.equal(none.profileObserved, 'unknown')
     assert.equal(none.policy7MaxKHz, null)
@@ -290,6 +295,33 @@ describe('scrollScenario', () => {
     const [result] = await run(fake({ run: scrolled(100, 10) }), [])
     assert.equal(result.metrics.p95Ms, 20)
     assert.equal(result.result, 'fail')
+  })
+
+  test('during the scroll the clocks come from `sample`; the profile is named by `power` first', async () => {
+    const f = fake({ profile: 'Performance' })
+    let sampled = 0
+    let scrolling = false
+    f.deps.scroll = async () => {
+      scrolling = true
+      await new Promise((resolve) => setTimeout(resolve, 20))
+      scrolling = false
+      return scrolled(1000)
+    }
+    const powered: boolean[] = []
+    const named = f.deps.power
+    f.deps.power = async () => {
+      powered.push(scrolling)
+      return named()
+    }
+    // A file-only read that cannot tell the profile.
+    f.deps.sample = async () => {
+      sampled += 1
+      return power('unknown')
+    }
+    const [result] = await run(f, ['performance'])
+    assert.ok(sampled > 0, 'sampled while scrolling')
+    assert.ok(!powered.includes(true), '`power` was never read mid-scroll')
+    assert.equal(result.metrics.profileObserved, 'performance')
   })
 
   test('a profile that could not be set is skipped, not measured under its name', async () => {

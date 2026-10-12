@@ -9,9 +9,11 @@ import {
   parseIni,
   parseNumber,
   parsePerfState,
+  parseArmadaStatus,
   parseWord,
   profileInForce,
   powerState,
+  readArmadaStatus,
   readPowerState,
   UNKNOWN
 } from './powerstate.ts'
@@ -204,5 +206,46 @@ describe('the parsers', () => {
     assert.equal(parsePerfState('{not json'), UNKNOWN)
     assert.equal(parsePerfState('{}'), UNKNOWN)
     assert.equal(parsePerfState('42'), UNKNOWN)
+  })
+})
+
+describe("Armada's own report", () => {
+  test('names the profile from its profile= line', () => {
+    const status = [
+      'profile=performance',
+      'default_profile=balanced',
+      "cpu_caps={'policy0': 1785600}",
+      'gpu_level=0'
+    ].join('\n')
+    assert.equal(parseArmadaStatus(status), 'performance')
+    assert.equal(parseArmadaStatus(' profile = Balanced \n'), 'Balanced')
+  })
+
+  test('anything but a plain word is unknown, as is no answer', () => {
+    assert.equal(parseArmadaStatus(null), UNKNOWN)
+    assert.equal(parseArmadaStatus('default_profile=balanced'), UNKNOWN)
+    assert.equal(parseArmadaStatus('profile=http://host/x'), UNKNOWN)
+    assert.equal(parseArmadaStatus('profile='), UNKNOWN)
+  })
+
+  test("wins over the clocks' inference when asked for, and the clocks stand when it fails", async () => {
+    const root = tree(nova('balanced'))
+    const told = await readPowerState(root, { status: async () => 'profile=eco\n' })
+    assert.equal(told.profile, 'eco')
+    assert.equal(told.cpuGovernor, 'conservative')
+    const silent = await readPowerState(root, { status: async () => null })
+    assert.equal(silent.profile, 'Balanced')
+    const broken = await readPowerState(root, { status: () => Promise.reject(new Error('dbus')) })
+    assert.equal(broken.profile, 'Balanced')
+  })
+
+  test('a machine without armada-power answers null', async () => {
+    const path = process.env.PATH
+    process.env.PATH = tree({})
+    try {
+      assert.equal(await readArmadaStatus(), null)
+    } finally {
+      process.env.PATH = path
+    }
   })
 })

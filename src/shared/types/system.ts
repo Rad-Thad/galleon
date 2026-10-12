@@ -86,7 +86,11 @@ export interface PowerState {
   /** GPU frequencies, in Hz as devfreq reports them. */
   gpuCurHz: number | null
   gpuMaxHz: number | null
-  /** The profile in force, by its label, as the machine's clocks show it. See `profileInForce`. */
+  /**
+   * The profile in force: as `armada-power status` names it where the caller
+   * asked it, else by its label as the machine's clocks show it. See
+   * `readPowerState` and `profileInForce`.
+   */
   profile: string
   /**
    * The profile Armada starts in, from its profile definitions: not
