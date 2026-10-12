@@ -2040,3 +2040,20 @@ Lines the tooling reads (exact forms):
 - Evaluator: PASS. Notes for the wiring: a finder caches atoms that did not exist yet, so make one per launch cycle; against a display that stops answering one poll can take candidates × `REQUEST_TIMEOUT_MS`; a window under gamescope that states `_NET_WM_STATE` without the fullscreen atom reads `fullscreen: false`, so watch the first device run for false `not-fullscreen`.
 - Device / acceptance: none; no scenario calls `launchCycle` yet.
 - Next: wiring `launch.*` / `exit.*` into the scenario map (the real `start`, `signalGroup`, `groupAlive`, `openDisplay` + `windowFinder`, and each installed emulator's payload from the request).
+
+## 2026-10-12 20:46 UTC session 01XznMz2FrKLgWuAxXwnGzb2 (hourly heartbeat)
+
+- Device results: nothing new since the entry above (newest 791c314, complete, the minimal harness); no safety failures, no regressions. Part 7b of M0-21, PR #187, merged at 2d001c4; its CI wall time was x64 6:56, arm64 1:10.
+- Worked on: M0-21 part 8 (tracking issue #155): `launch.<emulator>` and `exit.<emulator>` wired into the self-test.
+- Result: PR (this one). M0-21 stays false.
+- Evidence:
+  - `src/main/selftestemulators.ts`: `emulatorScenarios` gives every launch or exit id in the request a scenario; both ids of an emulator share one cycle, run when the first is reached. `payloadFor` resolves `payloads[<emulator>]` against `$GALLEON_HOME`, refuses one outside it by name or where its links lead, and takes the system from the payload's folder. Skips: `no-payload`, `payload-outside-home`, `payload-missing`, `not-installed`. The device parts: `devicePlan` (planSandbox over the probe's install with the owner's folders read-only), `startPlan` (spawned detached, so its own group, with `sandboxEnvironment`, in the sandbox root, no stdio), `signalGroup` and `groupAlive` (only the recorded group; ESRCH is gone; a zombie member, killed but not yet reaped by whatever adopted it, does not count as running, from `/proc/<pid>/stat`), and `deviceCycle` (the display opened on the first look and closed after, one `windowFinder` per cycle, BIOS from the probe's `paths.bios`).
+  - `src/main/index.ts`: the scenarios join the self-test's map.
+  - Tests: `src/main/selftestemulators.test.ts` 25/25 (new), including a payload linking out of the home and real child processes: started in its folder with its environment as its own group; a missing program throws; a group alive until SIGTERM empties it; a skip plan opens no display; a cycle opens the display once and closes it. `test/app/selftest.test.ts`: new case, the built app answers `launch.retroarch` / `exit.retroarch` with `payload-outside-home` and `launch.duckstation` with `no-payload`, status complete, no sandbox made.
+  - `docs/TESTING.md`: a bullet for the emulator and payload choice and its skip reasons.
+  - `scripts/agent/check.sh` green; `npm run test:app` 241/241 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root).
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- The first check.sh after the PR opened failed the new SIGTERM test once under the full suite's load: the group still read as alive a second after the signal. Not reproduced alone; the cause taken is a killed member left a zombie until reaped, which `kill(-group, 0)` still counts, and which would read as `killed` on the device too. Fixed in `groupAlive`, with the test's wait for the group lengthened alongside.
+- Evaluator: PASS. Its note (a link inside the home could lead to the owner's files) is fixed: containment is checked again on the path with links followed.
+- Device / acceptance: none until run.sh sends payloads (M0-22's bundle).
+- Next: `exit.<emulator>`'s remaining lines (Galleon focused again within 6 s, the save folder changed when the payload saves), then the payloads in the device bundle.
