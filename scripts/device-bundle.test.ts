@@ -8,6 +8,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readdirSync,
   rmSync,
   statSync,
   symlinkSync,
@@ -132,6 +133,40 @@ function withShortcut(home: string) {
   return home
 }
 
+/**
+ * An app that writes its self-test summary where its request says, as the
+ * real one does, with one passing check unless `summary` says otherwise.
+ */
+function selfTestApp(summary: Record<string, unknown> = {}) {
+  const written = JSON.stringify({
+    schema: 1,
+    sha: SHA,
+    version: VERSION,
+    status: 'complete',
+    reason: null,
+    checks: [
+      {
+        id: 'selftest.complete',
+        result: 'pass',
+        metrics: {},
+        thresholds: {},
+        reason: null,
+        evidence: ['logs/selftest.log']
+      }
+    ],
+    notes: [],
+    ...summary
+  })
+  return (
+    '#!/bin/sh\n' +
+    "exec python3 -I -c 'import json, os, sys\n" +
+    'home = os.environ["GALLEON_HOME"]\n' +
+    'request = json.load(open(os.path.join(home, "self-test-request.json")))\n' +
+    'open(os.path.join(request["resultsDir"], "summary.json"), "w").write(sys.argv[1])' +
+    `' '${written}'\n`
+  )
+}
+
 function runHarness(
   bundle: string,
   sha: string,
@@ -249,6 +284,7 @@ describe('device-bundle', () => {
       './session.py',
       './audio.py',
       './selftestrequest.py',
+      './mergesummary.py',
       './bridge/galleon_device_bridge.py',
       './bridge/install.sh',
       './bridge/VERSION.json',
@@ -260,8 +296,8 @@ describe('device-bundle', () => {
     assert.equal(JSON.parse(readFileSync(join(bundle, 'bundle.json'), 'utf8')).minBridge, 1)
   })
 
-  test('run.sh writes a summary with harness.run passing for its own commit', () => {
-    const { run, results } = runHarness(unpackLikeTheBridge(built()), SHA, true)
+  test("run.sh writes a summary with harness.run passing for its own commit, and the app's checks", () => {
+    const { run, results, testDir } = runHarness(unpackLikeTheBridge(built()), SHA, selfTestApp())
     assert.equal(run.status, 0, run.stderr)
     const summary = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8'))
     assert.equal(summary.schema, 1)
@@ -272,9 +308,15 @@ describe('device-bundle', () => {
       summary.checks.map((check: { id: string; result: string }) => [check.id, check.result]),
       [
         ['harness.run', 'pass'],
-        ['safety.owner-state', 'pass']
+        ['safety.owner-state', 'pass'],
+        ['selftest.complete', 'pass']
       ]
     )
+    assert.deepEqual(summary.checks[2].evidence, ['app/logs/selftest.log'])
+    assert.ok(summary.notes.includes('app summary: complete'), summary.notes.join('; '))
+    // Only the merged summary is left for the bridge to publish.
+    assert.ok(!existsSync(join(testDir, 'harness-summary.json')))
+    assert.ok(!readdirSync(results).some((name) => name.startsWith('.')))
     assert.ok(readFileSync(join(results, 'logs/harness.log'), 'utf8').includes('pass'))
   })
 
@@ -363,7 +405,7 @@ describe('device-bundle', () => {
     const elsewhere = join(mkdtempSync(join(tmpdir(), 'bundle-elsewhere-')), 'file')
     writeFileSync(elsewhere, 'untouched\n')
     symlinkSync(elsewhere, join(testRoot, 'launch.sh'))
-    const { run, results } = runHarness(unpackLikeTheBridge(built()), SHA, true, {
+    const { run, results } = runHarness(unpackLikeTheBridge(built()), SHA, selfTestApp(), {
       GALLEON_TEST_ROOT: testRoot
     })
     assert.equal(run.status, 0, run.stderr)
@@ -734,14 +776,40 @@ describe('device-bundle', () => {
     assert.equal(run.status, 0, run.stderr)
     const summary = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8'))
     assert.equal(summary.checks[0].result, 'pass', summary.checks[0].reason)
-    assert.equal(summary.status, 'complete')
+    // An app that writes no summary leaves its checks unrun.
+    assert.equal(summary.status, 'partial')
     assert.ok(summary.notes.includes('app: exited 0'), summary.notes.join('; '))
+    assert.ok(summary.notes.includes('app summary: wrote no summary'), summary.notes.join('; '))
     const gameid = (BigInt(APPID) << 32n) | 0x02000000n
     assert.equal(readFileSync(join(session, 'steam.log'), 'utf8'), `steam://rungameid/${gameid}\n`)
     assert.equal(readFileSync(join(seen, 'sound'), 'utf8'), 'muted\n')
     assert.equal(readFileSync(join(seen, 'home'), 'utf8'), `${join(testDir, 'home')}\n`)
     assert.match(readFileSync(join(results, 'logs/harness.log'), 'utf8'), /started through steam/)
     assert.ok(!existsSync(join(session, 'muted')))
+  })
+
+  test('run.sh exits 20 when the player stopped the app, with the harness checks passing', () => {
+    const app = selfTestApp({ status: 'aborted-by-user', reason: 'aborted-by-user' })
+    const { run, results } = runHarness(unpackLikeTheBridge(built()), SHA, app)
+    assert.equal(run.status, 20, run.stderr)
+    const summary = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8'))
+    assert.deepEqual([summary.status, summary.checks[0].result], ['aborted-by-user', 'pass'])
+  })
+
+  test('run.sh leaves out an app summary for another commit, and the run is partial', () => {
+    const { run, results } = runHarness(
+      unpackLikeTheBridge(built()),
+      SHA,
+      selfTestApp({ sha: 'b'.repeat(40) })
+    )
+    assert.equal(run.status, 0, run.stderr)
+    const summary = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8'))
+    assert.equal(summary.status, 'partial')
+    assert.equal(summary.checks.length, 2)
+    assert.ok(
+      summary.notes.includes('app summary: summary is for another commit'),
+      summary.notes.join('; ')
+    )
   })
 
   test('run.sh skips before the start when Game Mode ends after the setup, and undoes it', () => {
