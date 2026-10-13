@@ -101,6 +101,21 @@ class OwnerStateTest(unittest.TestCase):
         self.assertEqual(files[os.path.join("emu", "data", "linked")], {"type": "link", "target": self.outside})
         self.assertFalse(any(key.endswith("secret") for key in files))
 
+    def test_a_covered_folder_that_is_a_link_is_read_through(self):
+        card = os.path.join(self.outside, "sd", "settings")
+        write(card, "a=1\n")
+        folder = os.path.join(self.home, ".config/app")
+        os.rename(folder, os.path.join(self.tmp.name, "moved"))
+        os.symlink(os.path.join(self.outside, "sd"), folder)
+        before = self.snap()
+        self.assertEqual(before["files"][os.path.join(".config", "app")]["type"], "link")
+        self.assertIn(os.path.join(".config", "app", "settings"), before["files"])
+        write(card, "a=2\n")
+        self.assertEqual(
+            ownerstate.compare(before, self.snap()),
+            [{"path": os.path.join(".config", "app", "settings"), "change": "changed"}],
+        )
+
     def test_large_files_are_compared_without_a_hash(self):
         with mock.patch.object(ownerstate, "HASH_LIMIT", 3):
             entry = self.snap()["files"][os.path.join("emu", "data", "settings.ini")]
@@ -170,6 +185,18 @@ class OwnerStateTest(unittest.TestCase):
         os.symlink(self.outside, folder)
         self.assertEqual(ownerstate.restore(self.home, dest), [os.path.join(".config", "app", "app.cfg")])
         self.assertFalse(os.path.exists(os.path.join(self.outside, "app.cfg")))
+
+    def test_restore_ignores_index_keys_outside_the_home(self):
+        dest = os.path.join(self.tmp.name, "backup")
+        ownerstate.backup(self.home, SPEC, dest)
+        with open(os.path.join(dest, "index.json"), encoding="utf-8") as handle:
+            index = json.load(handle)
+        saved = next(iter(index.values()))
+        escaping = os.path.join("..", "outside", "secret")
+        with open(os.path.join(dest, "index.json"), "w", encoding="utf-8") as handle:
+            json.dump({escaping: saved, os.path.join(self.outside, "secret"): saved}, handle)
+        self.assertEqual(ownerstate.restore(self.home, dest), [])
+        self.assertEqual(read(os.path.join(self.outside, "secret")), "owner's file")
 
     def test_restore_without_a_backup_restores_nothing(self):
         self.assertEqual(ownerstate.restore(self.home, os.path.join(self.tmp.name, "none")), [])

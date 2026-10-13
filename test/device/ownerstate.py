@@ -11,7 +11,8 @@ too.
 What is covered is data, in owner-state.json beside this file, so that
 nothing here names an emulator. Every walk is by lstat: a link is recorded as
 its target and never followed, so a link inside a covered folder cannot make
-the manifest read, or the restore write, anything outside it.
+the manifest read, or the restore write, anything outside it. A covered root
+that is itself a link is the exception: it is read through, never written.
 
   ownerstate.py snapshot OUT
   ownerstate.py compare BEFORE AFTER     exit 1 when they differ
@@ -102,7 +103,7 @@ def _entry(path, info):
     return entry
 
 
-def _walk(home, path, out):
+def _walk(home, path, out, root=False):
     try:
         info = os.lstat(path)
     except FileNotFoundError:
@@ -111,7 +112,13 @@ def _walk(home, path, out):
         out[_key(home, path)] = {"type": "unreadable"}
         return
     out[_key(home, path)] = _entry(path, info)
-    if not stat.S_ISDIR(info.st_mode):
+    # A covered root that is itself a link (a saves folder moved to the SD
+    # card) is the owner's data all the same: its contents are walked through
+    # it. Links below a root are never followed.
+    if root and stat.S_ISLNK(info.st_mode):
+        if not os.path.isdir(path):
+            return
+    elif not stat.S_ISDIR(info.st_mode):
         return
     try:
         names = sorted(os.listdir(path))
@@ -126,7 +133,7 @@ def snapshot(home, spec):
     """{key: entry} for every path under the covered roots that exists now."""
     files = {}
     for root in covered_roots(home, spec):
-        _walk(home, root, files)
+        _walk(home, root, files, root=True)
     return {"schema": 1, "files": files}
 
 
@@ -190,6 +197,10 @@ def restore(home, dest):
         return []
     restored = []
     for rel, saved in sorted(index.items()):
+        # The index sits in the test folder; a key it could not have written
+        # is never a path to write to.
+        if os.path.isabs(rel) or os.pardir in rel.split(os.sep):
+            continue
         target = os.path.join(home, rel)
         if _regular_file(target) and _sha256(target) == saved["sha256"]:
             continue
