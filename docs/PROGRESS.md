@@ -2429,3 +2429,18 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: the route and `steam://open/games` are unverified on the Nova; the next nightly's `logs/harness.log` shows the route Steam reports, or the paths its own windows show.
 - Next: M0-22 part 4d-3c-3b-3d: stop an idle owner's Galleon through its core socket before the start and relaunch it after (PLAN.md 5.3 steps 8 and 11), once M1-17's socket exists; otherwise the remaining steps (payloads, `install.script`, `steam.shortcut-roundtrip`).
+
+## 2026-10-13 16:26 UTC session 01FpAHTYe4k2qCA6rRYcJnmY (hourly heartbeat)
+
+- Device results: nothing new (bridge last seen 08:03 UTC, "no new nightly"). Part 4d-3c-3b-3c of M0-22, PR #212, merged at 08ef102; CI x64 8:35, arm64 0:59.
+- Worked on: M0-22 part 4e-1 (tracking issue #191): the device bundle carries the homebrew payloads (PLAN.md 5.3 step 5), so run.sh can copy them into the test home.
+- Result: PR (this one). M0-22 stays false.
+- Evidence:
+  - `scripts/device-bundle.mjs --payloads <dir>`: copies every file `test/fixtures/roms/manifest.json` pins from the folder `fetch-fixtures.mjs` filled into `payloads/`, with the manifest's entries (`payloads/manifest.json`) and THIRD_PARTY.md's "Test payloads" part, licence text included (`payloads/THIRD_PARTY.md`). A payload that is missing, a link, or not the pinned bytes and size stops the build.
+  - `release.yml` (x64 leg) and `nightly.yml` fetch the payloads by their pinned hashes before building the bundle. Locally: both gba-tests programs fetched and bundled; the notice holds the MIT text.
+  - Tests in `scripts/device-bundle.test.ts`, new: "the bundle carries the pinned payloads, their manifest entries and licences" (unpacked with the bridge's `safe_extract`), "a payload that is missing, linked or not the pinned bytes builds no bundle", "the payload notices are THIRD_PARTY.md's test payloads part, licence text and all", "the real manifest's payloads all have their notice in THIRD_PARTY.md".
+  - `scripts/agent/check.sh` green.
+  - Evaluator: PASS with notes. The notices read to the end of THIRD_PARTY.md, taking in the fonts and ES-DE parts after it; "Test payloads" is now the file's last part and a test holds the notices to the payloads' own projects. `/device-payloads/` is ignored. Left as it is: the PR leg now fetches two small files from GitHub without a retry; a failed fetch is a `flaky` issue to root-cause, not a retry wrapper.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: from the next nightly the bundle holds `payloads/`; nothing on the device uses it yet.
+- Next: M0-22 part 4e-2: run.sh copies `payloads/` into the test home, names them in the self-test request, and deletes them, with any downloaded ROM, before exit (test asserts the folder is empty).

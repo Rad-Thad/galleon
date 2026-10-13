@@ -10,3 +10,4 @@ test/romm/.state/
 test/romm/library/
 /artifacts/
 /device/
+/device-payloads/
