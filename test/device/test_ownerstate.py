@@ -9,6 +9,7 @@ import unittest
 from unittest import mock
 
 import ownerstate
+from test_shortcuts import GAME, TEST, shortcuts_file
 
 SPEC = {
     "folders": ["emu/data", ".config/app"],
@@ -46,6 +47,65 @@ class OwnerStateTest(unittest.TestCase):
 
     def snap(self):
         return ownerstate.snapshot(self.home, SPEC)
+
+    def write_shortcuts(self, entries):
+        path = os.path.join(self.home, "steam/userdata/123/config/shortcuts.vdf")
+        with open(path, "wb") as handle:
+            handle.write(shortcuts_file(entries))
+        return path
+
+    def test_the_test_shortcuts_play_time_is_the_one_change_left_out(self):
+        spec = dict(SPEC, shortcutLists=["steam/userdata/*/config/shortcuts.vdf"])
+        game = dict(GAME, LastPlayTime=5)
+        path = self.write_shortcuts([game, dict(TEST, LastPlayTime=0)])
+        before = ownerstate.snapshot(self.home, spec)
+        key = os.path.join("steam", "userdata", "123", "config", "shortcuts.vdf")
+        self.assertEqual(before["files"][key]["playTimeMasked"], 1)
+
+        # Steam started the test shortcut and saved the list later.
+        self.write_shortcuts([game, dict(TEST, LastPlayTime=1760000000)])
+        os.utime(path, ns=(1, 1))
+        self.assertEqual(ownerstate.compare(before, ownerstate.snapshot(self.home, spec)), [])
+
+        for changed in (
+            [dict(game, LastPlayTime=6), dict(TEST, LastPlayTime=1760000000)],
+            [game, dict(TEST, LastPlayTime=1760000000, Exe='"/elsewhere"')],
+            [game, dict(TEST, LastPlayTime=1760000000), dict(GAME, AppName="Another")],
+            [dict(TEST, LastPlayTime=1760000000)],
+        ):
+            self.write_shortcuts(changed)
+            self.assertEqual(
+                ownerstate.compare(before, ownerstate.snapshot(self.home, spec)),
+                [{"path": key, "change": "changed"}],
+            )
+
+    def test_the_real_spec_masks_only_shortcut_lists_it_covers(self):
+        spec = ownerstate.load_spec()
+        self.assertTrue(spec["shortcutLists"])
+        self.assertTrue(set(spec["shortcutLists"]) <= set(spec["globs"]))
+        self.assertTrue(all(p.endswith("/shortcuts.vdf") for p in spec["shortcutLists"]))
+
+    def test_a_shortcut_list_that_is_not_vdf_is_compared_strictly(self):
+        spec = dict(SPEC, shortcutLists=["steam/userdata/*/config/shortcuts.vdf"])
+        before = ownerstate.snapshot(self.home, spec)
+        key = os.path.join("steam", "userdata", "123", "config", "shortcuts.vdf")
+        self.assertNotIn("playTimeMasked", before["files"][key])
+        os.utime(os.path.join(self.home, key), ns=(1, 1))
+        self.assertEqual(
+            ownerstate.compare(before, ownerstate.snapshot(self.home, spec)),
+            [{"path": key, "change": "changed"}],
+        )
+
+    def test_a_shortcut_list_that_is_a_link_is_never_read_through(self):
+        spec = dict(SPEC, shortcutLists=["steam/userdata/*/config/shortcuts.vdf"])
+        path = os.path.join(self.home, "steam/userdata/123/config/shortcuts.vdf")
+        target = os.path.join(self.outside, "shortcuts.vdf")
+        with open(target, "wb") as handle:
+            handle.write(shortcuts_file([TEST]))
+        os.unlink(path)
+        os.symlink(target, path)
+        entry = ownerstate.snapshot(self.home, spec)["files"][os.path.join("steam", "userdata", "123", "config", "shortcuts.vdf")]
+        self.assertEqual(entry, {"type": "link", "target": target})
 
     def test_equal_snapshots_have_no_changes(self):
         self.assertEqual(ownerstate.compare(self.snap(), self.snap()), [])

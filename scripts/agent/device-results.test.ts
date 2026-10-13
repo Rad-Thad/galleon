@@ -467,12 +467,17 @@ after(() => {
   for (const dir of scratch) rmSync(dir, { recursive: true, force: true })
 })
 
+// Deaf to the caller's own `GIT_*` settings: under the pre-commit hook,
+// GIT_INDEX_FILE names the outer repository's index, which a scratch
+// repository would otherwise write into.
 function git(cwd: string, ...args: string[]) {
   return execFileSync('git', args, {
     cwd,
     encoding: 'utf8',
     env: {
-      ...process.env,
+      ...Object.fromEntries(
+        Object.entries(process.env).filter(([name]) => !name.startsWith('GIT_'))
+      ),
       GIT_AUTHOR_NAME: 't',
       GIT_AUTHOR_EMAIL: 't@t.invalid',
       GIT_COMMITTER_NAME: 't',

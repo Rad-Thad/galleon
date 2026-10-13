@@ -28,6 +28,7 @@
     { "file": ".config/galleon/root", "folders": ["config", "saves"] }
   ],
   "globs": [".local/share/Steam/userdata/*/config/shortcuts.vdf"],
+  "shortcutLists": [".local/share/Steam/userdata/*/config/shortcuts.vdf"],
   "configs": [
     ".local/share/duckstation/settings.ini",
     ".config/ARMSX2/inis/PCSX2.ini",
