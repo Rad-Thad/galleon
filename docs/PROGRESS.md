@@ -2209,3 +2209,19 @@ Lines the tooling reads (exact forms):
 - Evaluator: FAIL, then fixed: no PROGRESS entry, PLAN.md 5.3 still put the snapshot before the shortcut; its notes (a rename saved after the first listing; the test-home path in the log) are fixed too.
 - Device / acceptance: the next nightly adds the shortcut through Steam, or finds it; a first run may skip with `steam-shortcut-unsaved` and the next one goes on. Known for the start piece: starting the shortcut makes Steam rewrite its `LastPlayTime` in `shortcuts.vdf`, so `safety.owner-state` must then tell the test shortcut's own entry apart from the owner's, without weakening the check for any other entry.
 - Next: M0-22 part 4d: `current.json`, the start through `steam://rungameid/` with the RunGame fallback, and the failing `harness.run` when neither marks the start.
+
+## 2026-10-13 03:50 UTC session 018MoGn8eG92WfjEcpYG7Mtm (hourly heartbeat, second unit)
+
+- Device results: nothing new. Part 4c of M0-22, PR #199, merged at c1fd7ec; CI x64 6:35, arm64 0:53 (on the second push; the first failed only the PROGRESS check, fixed with the entry).
+- Worked on: M0-22 part 4d-1 (tracking issue #191): run.sh writes the launch request and removes it.
+- Result: PR (this one). M0-22 stays false.
+- Evidence:
+  - `test/device/run.sh`: the budget's deadline is counted from run.sh's start (`DEVICE_TEST_BUDGET_SECONDS`); after the test home, `current.py write` names the AppImage, the test home, the results folder and the sha, expiring at that deadline; after the owner-state comparison and restore, `current.py remove`. A request that cannot be written or removed fails `harness.run`. `--cleanup` removes a request a stopped run left.
+  - `scripts/device-bundle.test.ts` 25/25; new: "run.sh writes the launch request for this build while it runs, and removes it" (seen mid-run through the fake `armada-power`: this build, the test home, private, expiring with the budget; gone afterwards, and `launch.sh` started by hand then starts nothing), "run.sh --cleanup removes the launch request a stopped run left", "run.sh --cleanup still puts back a config when the launch request cannot be removed", "run.sh writes no launch request and fails harness.run when it cannot be written".
+  - Evaluator: FAIL, then fixed: `--cleanup` exited on a failed request removal before restoring the emulator configs. Both steps now run every time, and it exits 1 if either failed. As it also suggested, the request is now written only once the shortcut and the owner state are held.
+  - `docs/TESTING.md`: a sentence.
+  - `scripts/agent/check.sh` green.
+- Evaluator note carried from #199: if the owner renamed the test shortcut, each run would skip with `steam-shortcut-unsaved`; watch for repeated skips with that reason.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: the next nightly writes and removes the request; nothing starts it yet.
+- Next: M0-22 part 4d-2: the start through `steam://rungameid/` with the RunGame fallback, `harness.run` failing when neither marks the start, and the test shortcut's own `LastPlayTime` told apart in `safety.owner-state` without weakening the check for any other entry.
