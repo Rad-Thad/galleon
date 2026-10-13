@@ -135,11 +135,13 @@ home_ok=1
 signin=$(python3 "$here/signin.py" prepare --test-dir "$GALLEON_TEST_DIR" \
   ${GALLEON_READONLY_TOKEN_FILE:+--token-file "$GALLEON_READONLY_TOKEN_FILE"} 2>>"$log")
 case $? in
-  0 | 10) echo "sign-in: $signin" >>"$log" ;;
+  0 | 10) ;;
   *) home_ok= ;;
 esac
-# The source is a kind (signin.py), never a value, so it can be published.
+# Only the source is kept: it is a kind (signin.py), never a value, while the
+# rest of the line names paths in the owner's home.
 signin_source=$(printf '%s' "$signin" | sed -n 's/.*"source": *"\([a-z-]*\)".*/\1/p')
+echo "sign-in: ${signin_source:-none}" >>"$log"
 GALLEON_HOME=$GALLEON_TEST_DIR/home
 export GALLEON_HOME
 

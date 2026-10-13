@@ -283,8 +283,23 @@ def write_record(path, name, exe, appid):
     os.replace(tmp, path)
 
 
-def listed(home, appid):
-    """True when a shortcuts.vdf that can be read lists `appid`."""
+def _matches(entry, appid, name, options):
+    if not isinstance(entry, dict) or not isinstance(entry.get("appid"), int):
+        return False
+    if entry["appid"] & 0xFFFFFFFF != appid:
+        return False
+    if name is not None and entry.get("AppName", entry.get("appname")) != name:
+        return False
+    return options is None or entry.get("LaunchOptions", entry.get("launchoptions", "")) == options
+
+
+def listed(home, appid, name=None, options=None):
+    """True when a shortcuts.vdf that can be read lists `appid`.
+
+    With `name` or `options`, only an entry that already carries them counts:
+    Steam may save the added shortcut before the rename and launch options
+    that follow it, and the save after those must not land inside the run.
+    """
     for path in glob.glob(os.path.join(glob.escape(home), shortcuts.SHORTCUTS_GLOB)):
         try:
             with open(path, "rb") as handle:
@@ -292,17 +307,16 @@ def listed(home, appid):
         except (OSError, shortcuts.VdfError):
             continue
         if isinstance(entries, dict):
-            for entry in entries.values():
-                if isinstance(entry, dict) and isinstance(entry.get("appid"), int):
-                    if entry["appid"] & 0xFFFFFFFF == appid:
-                        return True
+            if any(_matches(entry, appid, name, options) for entry in entries.values()):
+                return True
     return False
 
 
-def wait_listed(home, appid, seconds, clock=time.monotonic, sleep=time.sleep):
-    """True once shortcuts.vdf lists `appid`, False when `seconds` pass first."""
+def wait_listed(home, appid, seconds, name=None, options=None, clock=time.monotonic,
+                sleep=time.sleep):
+    """True once shortcuts.vdf lists `appid` (see `listed`), False when `seconds` pass first."""
     deadline = clock() + seconds
-    while not listed(home, appid):
+    while not listed(home, appid, name, options):
         if clock() >= deadline:
             return False
         sleep(1)
@@ -389,7 +403,11 @@ def main(argv=None):
         return 1
     reason = None
     home = os.path.abspath(args.home)
-    if args.saved_within is not None and not wait_listed(home, appid, args.saved_within):
+    # Launch options are waited for only on a shortcut this run added: one the
+    # owner already has is left as they set it.
+    options = launch_options(args.root) if source == "added" else None
+    if args.saved_within is not None and not wait_listed(home, appid, args.saved_within,
+                                                         args.name, options):
         reason = SHORTCUT_UNSAVED
     print(json.dumps({"appid": appid, "gameid": shortcuts.gameid(appid), "source": source,
                       "reason": reason}))

@@ -284,10 +284,19 @@ class SteamCefTest(unittest.TestCase):
             if len(naps) == 3:
                 self.write_vdf([{"appid": -1234567890, "AppName": "Galleon Device Test"}])
 
-        self.assertTrue(steamcef.wait_listed(self.home, 3060399406, 30, lambda: now[0], sleep))
+        self.assertTrue(steamcef.wait_listed(self.home, 3060399406, 30, clock=lambda: now[0], sleep=sleep))
         self.assertEqual(len(naps), 3)
-        self.assertFalse(steamcef.wait_listed(self.home, 3000000001, 5, lambda: now[0], sleep))
+        self.assertFalse(steamcef.wait_listed(self.home, 3000000001, 5, clock=lambda: now[0], sleep=sleep))
         self.assertLessEqual(now[0], 3 + 5 + 1)
+
+    def test_an_entry_saved_before_its_rename_or_launch_options_is_not_yet_the_save(self):
+        self.write_vdf([{"appid": -1234567890, "AppName": "launch.sh", "LaunchOptions": ""}])
+        self.assertTrue(steamcef.listed(self.home, 3060399406))
+        self.assertFalse(steamcef.listed(self.home, 3060399406, "Galleon Device Test"))
+        self.write_vdf([{"appid": -1234567890, "AppName": "Galleon Device Test", "LaunchOptions": ""}])
+        self.assertTrue(steamcef.listed(self.home, 3060399406, "Galleon Device Test", ""))
+        self.assertFalse(steamcef.listed(self.home, 3060399406, "Galleon Device Test",
+                                         f"{steamcef.ARMADA_LAUNCH} %command%"))
 
     def test_a_listing_that_cannot_be_read_is_not_a_save(self):
         path = self.write_vdf([{"appid": -1234567890, "AppName": "Galleon Device Test"}])
