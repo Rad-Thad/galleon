@@ -2307,7 +2307,7 @@ Lines the tooling reads (exact forms):
 - Device / acceptance: the next nightly writes and removes the request in the test home; nothing starts it yet.
 - Next: M0-22 part 4d-3c-2b: start the shortcut through `steam://rungameid/` with the RunGame fallback only once muted, wait for launch.sh's mark, serve until the app's summary, its exit or the budget's end, then stop only the recorded pids.
 
-## 2026-10-13 11:08 UTC session 01EZtgjfEKBDMWAq1tkX1cxJ (hourly heartbeat, second unit)
+## 2026-10-13 10:50 UTC session 01EZtgjfEKBDMWAq1tkX1cxJ (hourly heartbeat, second unit)
 
 - Device results: nothing new. Part 4d-3c-2a of M0-22, PR #205, merged at 32c7607; CI x64 7:09, arm64 0:53.
 - Worked on: M0-22 part 4d-3c-2b (tracking issue #191): run.sh starts the app through the test shortcut and stops it.
