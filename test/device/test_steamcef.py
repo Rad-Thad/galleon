@@ -57,6 +57,7 @@ class FakeCefHandler(socketserver.StreamRequestHandler):
                 big_picture["url"] = f"https://steamloopback.host/routes{self.server.route}?x=1"
             pages = [
                 {"title": "QuickAccess", "url": "https://steamloopback.host/routes/quickaccess"},
+                {"title": "Owner Persona", "url": "https://steamcommunity.com/profiles/76561198000000001/"},
                 big_picture,
                 {"title": self.server.title, "webSocketDebuggerUrl": f"ws://127.0.0.1:{port}/devtools/page/SHARED"},
             ]
@@ -295,8 +296,11 @@ class SteamCefTest(unittest.TestCase):
     def test_no_game_mode_window_is_unavailable_and_says_what_there_was(self):
         server = self.cef(lambda expression: value(1))
         server.route = None
-        with self.assertRaisesRegex(steamcef.CefUnavailable, "QuickAccess"):
+        with self.assertRaises(steamcef.CefUnavailable) as raised:
             steamcef.screen(server.url)
+        self.assertIn("'/routes/quickaccess'", str(raised.exception))
+        for private in ("Owner Persona", "76561198000000001", "steamcommunity", "QuickAccess"):
+            self.assertNotIn(private, str(raised.exception))
         server.route = "/library"
         server.big_picture = "Steam"
         with self.assertRaises(steamcef.CefUnavailable):
@@ -350,6 +354,11 @@ class SteamCefTest(unittest.TestCase):
             with contextlib.redirect_stdout(out):
                 self.assertEqual(steamcef.main(["--cef", server.url, "library"]), code)
             self.assertEqual(json.loads(out.getvalue()), {"route": route, "library": library})
+        server.route = "/profile/76561198000000001"
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.assertEqual(steamcef.main(["--cef", server.url, "library"]), 1)
+        self.assertEqual(json.loads(out.getvalue()), {"route": "/profile", "library": False})
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
             self.assertEqual(steamcef.main(["--cef", "http://127.0.0.1:1", "library"]), steamcef.EXIT_SKIPPED)

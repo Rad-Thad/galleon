@@ -53,6 +53,7 @@ SHARED_CONTEXTS = ("SharedJSContext", "Steam Shared Context presented by Valveâ„
 # ROUTES; Steam has used both titles for it.
 BIG_PICTURE = ("Steam Big Picture Mode", "SP")
 ROUTES = "/routes"
+UI_HOST = "steamloopback.host"
 POLL_SECONDS = 0.5
 ARMADA_LAUNCH = "/usr/libexec/armada/armada-game-launch"
 RECORD = "shortcut.json"
@@ -129,11 +130,25 @@ def screen(cef, timeout=TIMEOUT):
                 path = urllib.parse.urlsplit(url).path
                 if path == ROUTES or path.startswith(ROUTES + "/"):
                     return path[len(ROUTES):] or "/"
-    # What the window list held instead, without addresses' queries, so the
-    # log shows the next run what to look for.
-    seen = [(page.get("title"), urllib.parse.urlsplit(str(page.get("url", ""))).path)
-            for page in listed]
-    raise CefUnavailable(f"no Game Mode window among {seen}")
+    # What Steam's own windows showed instead, so the log tells the next run
+    # what to look for. The results are public and the list also holds web
+    # pages (a profile's address names the account), so only Steam's UI host
+    # counts, by the start of its path, and no title.
+    seen = sorted({_outline(urllib.parse.urlsplit(page["url"]).path) for page in listed
+                   if isinstance(page.get("url"), str)
+                   and urllib.parse.urlsplit(page["url"]).hostname == UI_HOST})
+    raise CefUnavailable(f"no Game Mode window; Steam's windows show {seen}")
+
+
+def _outline(path, depth=2):
+    return "/" + "/".join(path.strip("/").split("/")[:depth])
+
+
+def shown(route):
+    """The route as the log may carry it: whole in the library, else its first part."""
+    if route == "/library" or route.startswith("/library/"):
+        return route
+    return _outline(route, 1)
 
 
 def at_library(route):
@@ -451,7 +466,7 @@ def main(argv=None):
                 # run.sh logs this; the detail is how a new Steam build shows itself.
                 print(json.dumps({"reason": CEF_UNAVAILABLE, "detail": str(error)}))
                 return EXIT_SKIPPED
-            print(json.dumps({"route": route, "library": at_library(route)}))
+            print(json.dumps({"route": shown(route), "library": at_library(route)}))
             return 0 if at_library(route) else 1
         if args.command == "run":
             run_game(args.cef, args.gameid)
