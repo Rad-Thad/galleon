@@ -102,11 +102,16 @@ function fakeSession(inactive = false) {
       // `steam.late` holds a delay before the start, which run.sh may have
       // stopped waiting for.
       'late=$(cat "$d/steam.late" 2>/dev/null || echo 0)\n' +
+      // A started game's page is what Steam shows when the game quits;
+      // `steam.stuck` keeps it there.
       'case $1 in steam://rungameid/*)\n' +
+      '  echo /library/app/3060399406 >"$d/route"\n' +
       '  (sleep "$late"; "$GALLEON_TEST_ROOT/launch.sh") </dev/null >/dev/null 2>&1 &\n' +
+      ';; steam://open/games) [ -e "$d/steam.stuck" ] || echo /library/home >"$d/route" ;;\n' +
       'esac\n'
   )
   chmodSync(join(bin, 'steam'), 0o755)
+  writeFileSync(join(bin, 'route'), '/library/home\n')
   return bin
 }
 
@@ -241,8 +246,10 @@ function runHarness(
   const testDir = join(testRoot, sha)
   mkdirSync(testDir, { recursive: true })
   const home = env.HOME ?? mkdtempSync(join(tmpdir(), 'bundle-home-'))
-  // Steam already lists the test shortcut unless the test says otherwise.
+  // Steam already lists the test shortcut unless the test says otherwise,
+  // and its debugger shows the screen the fake client is on.
   if (!env.GALLEON_STEAM_CEF) withShortcut(home)
+  const cef = env.GALLEON_STEAM_CEF ? undefined : steamScreen(session)
   const run = spawnSync('/bin/sh', [join(bundle, 'run.sh')], {
     env: {
       RESULTS_DIR: results,
@@ -257,13 +264,46 @@ function runHarness(
       GALLEON_STOP_WAIT_SECONDS: '3',
       // The owner's home: the bridge's settings, the owner state and Steam's
       // shortcuts are read from it.
+      ...(cef ? { GALLEON_STEAM_CEF: `http://127.0.0.1:${cef.port}` } : {}),
       ...env,
       HOME: home,
       PATH: `${session}:${path}`
     },
     encoding: 'utf8'
   })
+  cef?.server.kill()
   return { run, results, testDir, testRoot, home }
+}
+
+/**
+ * Steam's debugger, as far as its window list: the Game Mode window's address
+ * carries the route the fake client in `session` last wrote.
+ */
+function steamScreen(session: string) {
+  return pythonServer(
+    'import http.server, json, sys\n' +
+      'class H(http.server.BaseHTTPRequestHandler):\n' +
+      '    def do_GET(self):\n' +
+      '        route = open(sys.argv[2]).read().strip()\n' +
+      '        body = json.dumps([{"title": "Steam Big Picture Mode",\n' +
+      '            "url": "https://steamloopback.host/routes" + route}]).encode()\n' +
+      '        self.send_response(200); self.send_header("Content-Length", str(len(body)))\n' +
+      '        self.end_headers(); self.wfile.write(body)\n' +
+      '    def log_message(self, *args): pass\n' +
+      's = http.server.HTTPServer(("127.0.0.1", 0), H)\n' +
+      'open(sys.argv[1] + ".tmp", "w").write(str(s.server_address[1]))\n' +
+      'import os; os.rename(sys.argv[1] + ".tmp", sys.argv[1])\n' +
+      's.serve_forever()\n',
+    join(session, 'route')
+  )
+}
+
+/** A Python server on a loopback port it writes to a file, in a process of its own. */
+function pythonServer(script: string, ...args: string[]) {
+  const portFile = join(mkdtempSync(join(tmpdir(), 'bundle-cef-')), 'port')
+  const server = spawn('python3', ['-I', '-c', script, portFile, ...args], { stdio: 'ignore' })
+  while (!existsSync(portFile)) execFileSync('sleep', ['0.05'])
+  return { server, port: Number(readFileSync(portFile, 'utf8')) }
 }
 
 /**
@@ -271,24 +311,14 @@ function runHarness(
  * while, in a process of its own since the run blocks this one.
  */
 function silentServer() {
-  const portFile = join(mkdtempSync(join(tmpdir(), 'bundle-cef-')), 'port')
-  const server = spawn(
-    'python3',
-    [
-      '-I',
-      '-c',
-      'import os, socket, sys, time\n' +
-        's = socket.socket(); s.bind(("127.0.0.1", 0)); s.listen(4)\n' +
-        'open(sys.argv[1] + ".tmp", "w").write(str(s.getsockname()[1]))\n' +
-        'os.rename(sys.argv[1] + ".tmp", sys.argv[1])\n' +
-        'while True:\n' +
-        '    c, _ = s.accept(); time.sleep(2); c.close()\n',
-      portFile
-    ],
-    { stdio: 'ignore' }
+  return pythonServer(
+    'import os, socket, sys, time\n' +
+      's = socket.socket(); s.bind(("127.0.0.1", 0)); s.listen(4)\n' +
+      'open(sys.argv[1] + ".tmp", "w").write(str(s.getsockname()[1]))\n' +
+      'os.rename(sys.argv[1] + ".tmp", sys.argv[1])\n' +
+      'while True:\n' +
+      '    c, _ = s.accept(); time.sleep(2); c.close()\n'
   )
-  while (!existsSync(portFile)) execFileSync('sleep', ['0.05'])
-  return { server, port: Number(readFileSync(portFile, 'utf8')) }
 }
 
 describe('device-bundle', () => {
@@ -840,11 +870,40 @@ describe('device-bundle', () => {
     assert.ok(summary.notes.includes('app: exited 0'), summary.notes.join('; '))
     assert.ok(summary.notes.includes('app summary: wrote no summary'), summary.notes.join('; '))
     const gameid = (BigInt(APPID) << 32n) | 0x02000000n
-    assert.equal(readFileSync(join(session, 'steam.log'), 'utf8'), `steam://rungameid/${gameid}\n`)
+    // The app's exit left Steam on the shortcut's page; the run sent it back.
+    assert.equal(
+      readFileSync(join(session, 'steam.log'), 'utf8'),
+      `steam://rungameid/${gameid}\nsteam://open/games\n`
+    )
+    assert.equal(readFileSync(join(session, 'route'), 'utf8'), '/library/home\n')
     assert.equal(readFileSync(join(seen, 'sound'), 'utf8'), 'muted\n')
     assert.equal(readFileSync(join(seen, 'home'), 'utf8'), `${join(testDir, 'home')}\n`)
     assert.match(readFileSync(join(results, 'logs/harness.log'), 'utf8'), /started through steam/)
     assert.ok(!existsSync(join(session, 'muted')))
+  })
+
+  test('run.sh fails harness.run when Steam stays on the game it started', () => {
+    const session = fakeSession()
+    writeFileSync(join(session, 'steam.stuck'), '')
+    const { run, results } = runHarness(
+      unpackLikeTheBridge(built()),
+      SHA,
+      selfTestApp(),
+      { GALLEON_LIBRARY_WAIT_SECONDS: '1' },
+      session
+    )
+    assert.equal(run.status, 0, run.stderr)
+    const summary = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8'))
+    assert.deepEqual(
+      [summary.checks[0].result, summary.checks[0].reason],
+      ['fail', 'Steam was not left at its library']
+    )
+    assert.equal(summary.checks[1].result, 'pass')
+    assert.match(readFileSync(join(session, 'steam.log'), 'utf8'), /^steam:\/\/open\/games$/m)
+    assert.match(
+      readFileSync(join(results, 'logs/harness.log'), 'utf8'),
+      /"route": "\/library\/app\/3060399406", "library": false/
+    )
   })
 
   test('run.sh exits 20 when the player stopped the app, with the harness checks passing', () => {
@@ -991,6 +1050,8 @@ describe('device-bundle', () => {
         // A debugger that answers nothing for a while, so the late start
         // lands after run.sh gave up and before it withdraws the request.
         GALLEON_STEAM_CEF: `http://127.0.0.1:${cef.port}`,
+        // The same debugger cannot show Steam's screen; nothing waits on it.
+        GALLEON_LIBRARY_WAIT_SECONDS: '0',
         HOME: withShortcut(mkdtempSync(join(tmpdir(), 'bundle-home-')))
       },
       session

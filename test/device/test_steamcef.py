@@ -26,6 +26,9 @@ class FakeCef(socketserver.ThreadingTCPServer):
         super().__init__(("127.0.0.1", 0), FakeCefHandler)
         self.answer = answer
         self.title = title
+        # The Game Mode window's route; None leaves its address out.
+        self.route = "/library/home"
+        self.big_picture = "Steam Big Picture Mode"
         self.expressions = []
         self.url = f"http://127.0.0.1:{self.server_address[1]}"
         threading.Thread(target=self.serve_forever, args=(0.05,), daemon=True).start()
@@ -48,8 +51,13 @@ class FakeCefHandler(socketserver.StreamRequestHandler):
             pass
         port = self.server.server_address[1]
         if request.startswith("GET /json "):
+            big_picture = {"title": self.server.big_picture,
+                           "webSocketDebuggerUrl": f"ws://127.0.0.1:{port}/devtools/page/BPM"}
+            if self.server.route is not None:
+                big_picture["url"] = f"https://steamloopback.host/routes{self.server.route}?x=1"
             pages = [
-                {"title": "Steam Big Picture Mode", "webSocketDebuggerUrl": f"ws://127.0.0.1:{port}/devtools/page/BPM"},
+                {"title": "QuickAccess", "url": "https://steamloopback.host/routes/quickaccess"},
+                big_picture,
                 {"title": self.server.title, "webSocketDebuggerUrl": f"ws://127.0.0.1:{port}/devtools/page/SHARED"},
             ]
             body = json.dumps(pages).encode()
@@ -273,6 +281,79 @@ class SteamCefTest(unittest.TestCase):
                 code = steamcef.main(["--home", self.home, "--cef", "http://127.0.0.1:1"] + argv)
             self.assertEqual(code, steamcef.EXIT_SKIPPED)
             self.assertEqual(json.loads(out.getvalue()), {"reason": "steam-cef-unavailable"})
+
+    def test_the_screen_is_read_from_the_game_mode_windows_address(self):
+        server = self.cef(lambda expression: value(1))
+        self.assertEqual(steamcef.screen(server.url), "/library/home")
+        server.route = "/library/app/3060399406"
+        self.assertEqual(steamcef.screen(server.url), "/library/app/3060399406")
+        server.big_picture = "SP"
+        server.route = ""
+        self.assertEqual(steamcef.screen(server.url), "/")
+        self.assertEqual(server.expressions, [], "looking evaluates nothing in Steam")
+
+    def test_no_game_mode_window_is_unavailable_and_says_what_there_was(self):
+        server = self.cef(lambda expression: value(1))
+        server.route = None
+        with self.assertRaisesRegex(steamcef.CefUnavailable, "QuickAccess"):
+            steamcef.screen(server.url)
+        server.route = "/library"
+        server.big_picture = "Steam"
+        with self.assertRaises(steamcef.CefUnavailable):
+            steamcef.screen(server.url)
+        with self.assertRaises(steamcef.CefUnavailable):
+            steamcef.screen("http://127.0.0.1:1")
+
+    def test_the_library_is_its_own_screens_not_a_games_page(self):
+        for route in ("/library", "/library/home", "/library/collections"):
+            self.assertTrue(steamcef.at_library(route), route)
+        for route in ("/", "/library/app/3060399406", "/libraryx", "/store", "/routes/library"):
+            self.assertFalse(steamcef.at_library(route), route)
+
+    def test_waits_for_steam_to_show_its_library(self):
+        server = self.cef(lambda expression: value(1))
+        server.route = "/library/app/1"
+        now = [0.0]
+
+        def sleep(seconds):
+            now[0] += seconds
+            if now[0] >= 2:
+                server.route = "/library/home"
+
+        self.assertEqual(steamcef.wait_library(server.url, 5, lambda: now[0], sleep), "/library/home")
+        self.assertEqual(now[0], 2)
+        server.route = "/library/app/1"
+        now[0] = 0.0
+        self.assertEqual(steamcef.wait_library(server.url, 1, lambda: now[0], lambda s: now.__setitem__(0, now[0] + s)),
+                         "/library/app/1")
+
+    def test_a_window_list_that_comes_back_in_time_is_waited_for(self):
+        server = self.cef(lambda expression: value(1))
+        route, server.route = server.route, None
+        now = [0.0]
+
+        def sleep(seconds):
+            now[0] += seconds
+            server.route = route
+
+        self.assertEqual(steamcef.wait_library(server.url, 5, lambda: now[0], sleep), "/library/home")
+        server.route = None
+        now[0] = 0.0
+        with self.assertRaises(steamcef.CefUnavailable):
+            steamcef.wait_library(server.url, 1, lambda: now[0], lambda s: now.__setitem__(0, now[0] + s))
+
+    def test_cli_library(self):
+        server = self.cef(lambda expression: value(1))
+        for route, code, library in (("/library/home", 0, True), ("/library/app/7", 1, False)):
+            server.route = route
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                self.assertEqual(steamcef.main(["--cef", server.url, "library"]), code)
+            self.assertEqual(json.loads(out.getvalue()), {"route": route, "library": library})
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.assertEqual(steamcef.main(["--cef", "http://127.0.0.1:1", "library"]), steamcef.EXIT_SKIPPED)
+        self.assertEqual(json.loads(out.getvalue())["reason"], "steam-cef-unavailable")
 
     def test_waits_for_steam_to_list_the_shortcut(self):
         now = [0.0]

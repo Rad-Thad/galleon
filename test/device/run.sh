@@ -23,7 +23,8 @@
 # $RESULTS_DIR/app, joins the harness's checks (mergesummary.py). The power
 # profile changes only when the app asks through the handshake folder
 # (powerprofile.py), and the profile recorded in $GALLEON_TEST_ROOT/profile.json
-# before the start is put back after the stop.
+# before the start is put back after the stop, and Steam, left on the test
+# shortcut's page by the app's exit, is sent back to its library.
 #
 # It also copies the power state the Nova shows into logs/power-facts.txt,
 # because the overlay's parsers (src/main/powerstate.ts) need the real format
@@ -302,9 +303,11 @@ fact_command() {
 # debugger only when that has not marked a start. Tests shorten the waits.
 START_WAIT_SECONDS=${GALLEON_START_WAIT_SECONDS:-60}
 STOP_WAIT_SECONDS=${GALLEON_STOP_WAIT_SECONDS:-30}
+LIBRARY_WAIT_SECONDS=${GALLEON_LIBRARY_WAIT_SECONDS:-10}
 launched="$GALLEON_HOME/launch"
 gameid=$(printf '%s' "$shortcut" | sed -n 's/.*"gameid": *\([0-9][0-9]*\).*/\1/p')
 started_by=
+app_ran=
 app_note='not started'
 start_failed=
 stopped=
@@ -394,6 +397,7 @@ stop_app() {
   app_note='killed'
 }
 if [ -n "$started_by" ]; then
+  app_ran=1
   echo "started through $started_by" >>"$log"
   # The app's own budget ends at STOP_RESERVE_SECONDS before the bridge's;
   # past that it gets one STOP_WAIT_SECONDS to finish its summary before it
@@ -415,12 +419,27 @@ request_gone=1
 python3 "$here/current.py" remove --test-root "$GALLEON_TEST_ROOT" 2>>"$log" || request_gone=
 if [ -n "$home_ok" ] && ! mkdir -- "$launched" 2>/dev/null && [ -z "$started_by" ]; then
   echo "a start given up on happened late" >>"$log"
+  app_ran=1
   # launch.sh records its pid before it marks the start.
   marked_by $(($(date +%s) + STOP_WAIT_SECONDS)) || :
   stop_app
   app_note="started late, $app_note"
 fi
 echo "app: $app_note" >>"$log"
+
+# A game that quits leaves Steam on its page, so once the app has run Steam
+# is sent back to its library (PLAN.md 5.3 step 11), the screen the bridge
+# leaves the device at. Where Steam is comes from its debugger's window
+# list, which only looks.
+steam_library() {
+  python3 "$here/steamcef.py" ${GALLEON_STEAM_CEF:+--cef "$GALLEON_STEAM_CEF"} \
+    library --wait "$1" >>"$log" 2>&1
+}
+at_library=1
+if [ -n "$app_ran" ] && ! steam_library 0; then
+  timeout "$START_WAIT_SECONDS" steam "steam://open/games" </dev/null >>"$log" 2>&1
+  steam_library "$LIBRARY_WAIT_SECONDS" || at_library=
+fi
 
 # The profile, then the sound, are put back before the second manifest. A
 # record that cannot be restored (the daemon not answering, or the sink gone)
@@ -508,6 +527,9 @@ elif [ -z "$profile_restored" ]; then
 elif [ -z "$audio_restored" ]; then
   result=fail
   reason='"the sound could not be put back as it was"'
+elif [ -z "$at_library" ]; then
+  result=fail
+  reason='"Steam was not left at its library"'
 elif [ "$built" != "$GALLEON_SHA" ]; then
   result=fail
   reason='"the bundle was built from another commit"'

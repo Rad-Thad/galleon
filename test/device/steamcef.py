@@ -18,8 +18,10 @@ address.
   steamcef.py ensure --test-root DIR [--saved-within SECONDS]
                                        prints {"appid", "gameid", "source"}
   steamcef.py run GAMEID               starts a shortcut through Steam
+  steamcef.py library [--wait SECONDS] prints {"route", "library"}; exits 1
+                                       unless Steam shows its library
 
-Both exit 10 with reason `steam-cef-unavailable` when the debugger does not
+All exit 10 with reason `steam-cef-unavailable` when the debugger does not
 answer, so run.sh can skip the Steam route rather than fail the run.
 
 shortcuts.vdf is part of the owner state run.sh holds, and Steam saves it
@@ -47,6 +49,11 @@ import shortcuts
 CEF = "http://127.0.0.1:8080"
 # The page that holds SteamClient; Steam has used both titles for it.
 SHARED_CONTEXTS = ("SharedJSContext", "Steam Shared Context presented by Valve™")
+# The Game Mode window, whose address carries the screen it shows under
+# ROUTES; Steam has used both titles for it.
+BIG_PICTURE = ("Steam Big Picture Mode", "SP")
+ROUTES = "/routes"
+POLL_SECONDS = 0.5
 ARMADA_LAUNCH = "/usr/libexec/armada/armada-game-launch"
 RECORD = "shortcut.json"
 TIMEOUT = 15
@@ -81,26 +88,74 @@ def _check_loopback(url):
         raise CefUnavailable(f"not a loopback address: {host!r}")
 
 
-def shared_context(cef, timeout=TIMEOUT):
-    """The WebSocket URL of Steam's shared JavaScript context."""
+def pages(cef, timeout=TIMEOUT):
+    """The debugger's page list: one entry for each of Steam's windows and contexts."""
     _check_loopback(cef)
     # The session's proxy settings, if any, must not route a loopback call.
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     try:
         with opener.open(cef.rstrip("/") + "/json", timeout=timeout) as response:
-            pages = json.loads(response.read(MESSAGE_LIMIT))
+            listed = json.loads(response.read(MESSAGE_LIMIT))
     except (OSError, ValueError) as error:
         raise CefUnavailable(f"no debugger: {error}") from None
-    if not isinstance(pages, list):
+    if not isinstance(listed, list):
         raise CefUnavailable("unexpected page list")
+    return [page for page in listed if isinstance(page, dict)]
+
+
+def shared_context(cef, timeout=TIMEOUT):
+    """The WebSocket URL of Steam's shared JavaScript context."""
+    listed = pages(cef, timeout)
     for title in SHARED_CONTEXTS:
-        for page in pages:
-            if isinstance(page, dict) and page.get("title") == title:
+        for page in listed:
+            if page.get("title") == title:
                 url = page.get("webSocketDebuggerUrl")
                 if isinstance(url, str):
                     _check_loopback(url)
                     return url
     raise CefUnavailable("no shared context")
+
+
+def screen(cef, timeout=TIMEOUT):
+    """The route Steam's Game Mode window shows, such as /library/home.
+
+    Read from the page list alone, so looking changes nothing in Steam.
+    """
+    listed = pages(cef, timeout)
+    for title in BIG_PICTURE:
+        for page in listed:
+            url = page.get("url")
+            if page.get("title") == title and isinstance(url, str):
+                path = urllib.parse.urlsplit(url).path
+                if path == ROUTES or path.startswith(ROUTES + "/"):
+                    return path[len(ROUTES):] or "/"
+    # What the window list held instead, without addresses' queries, so the
+    # log shows the next run what to look for.
+    seen = [(page.get("title"), urllib.parse.urlsplit(str(page.get("url", ""))).path)
+            for page in listed]
+    raise CefUnavailable(f"no Game Mode window among {seen}")
+
+
+def at_library(route):
+    """True for the library's own screens; a game's page there is not one."""
+    if route != "/library" and not route.startswith("/library/"):
+        return False
+    return not route.startswith("/library/app/")
+
+
+def wait_library(cef, seconds, clock=time.monotonic, sleep=time.sleep):
+    """The route once Steam shows its library, or the last one seen when it does not in time."""
+    end = clock() + seconds
+    while True:
+        try:
+            route = screen(cef)
+        except CefUnavailable:
+            if clock() >= end:
+                raise
+            route = None
+        if route is not None and (at_library(route) or clock() >= end):
+            return route
+        sleep(POLL_SECONDS)
 
 
 class WebSocket:
@@ -385,9 +440,19 @@ def main(argv=None):
     add.add_argument("--root", default="")
     add.add_argument("--saved-within", type=float)
     commands.add_parser("run").add_argument("gameid", type=int)
+    commands.add_parser("library").add_argument("--wait", type=float, default=0.0)
     args = parser.parse_args(argv)
 
     try:
+        if args.command == "library":
+            try:
+                route = wait_library(args.cef, args.wait)
+            except CefUnavailable as error:
+                # run.sh logs this; the detail is how a new Steam build shows itself.
+                print(json.dumps({"reason": CEF_UNAVAILABLE, "detail": str(error)}))
+                return EXIT_SKIPPED
+            print(json.dumps({"route": route, "library": at_library(route)}))
+            return 0 if at_library(route) else 1
         if args.command == "run":
             run_game(args.cef, args.gameid)
             print(json.dumps({"gameid": args.gameid, "reason": None}))
