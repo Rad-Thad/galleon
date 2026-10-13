@@ -4,6 +4,20 @@
     "counts": {
       "error": 0,
       "fail": 0,
+      "pass": 2,
+      "skip": 0
+    },
+    "finishedAt": "2026-10-13T04:55:34Z",
+    "path": "results/fffcec42fb51eaac69dfa2603f1e167d1e7679c2/summary.json",
+    "runSeconds": 4,
+    "sha": "fffcec42fb51eaac69dfa2603f1e167d1e7679c2",
+    "status": "complete"
+  },
+  {
+    "bridgeVersion": 1,
+    "counts": {
+      "error": 0,
+      "fail": 0,
       "pass": 1,
       "skip": 0
     },

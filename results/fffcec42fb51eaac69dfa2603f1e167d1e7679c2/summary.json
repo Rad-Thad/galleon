@@ -1,0 +1,36 @@
+{
+  "checks": [
+    {
+      "evidence": [
+        "logs/harness.log",
+        "logs/power-facts.txt"
+      ],
+      "id": "harness.run",
+      "metrics": {},
+      "reason": null,
+      "result": "pass",
+      "thresholds": {}
+    },
+    {
+      "evidence": [
+        "logs/owner-state.txt"
+      ],
+      "id": "safety.owner-state",
+      "metrics": {},
+      "reason": null,
+      "result": "pass",
+      "thresholds": {}
+    }
+  ],
+  "finishedAt": "2026-10-13T04:55:34Z",
+  "notes": [
+    "minimal harness: harness.run and safety.owner-state only, until M0-22",
+    "sign-in: rommix"
+  ],
+  "reason": null,
+  "schema": 1,
+  "sha": "fffcec42fb51eaac69dfa2603f1e167d1e7679c2",
+  "startedAt": "2026-10-13T04:55:29Z",
+  "status": "complete",
+  "version": "0.20.0"
+}

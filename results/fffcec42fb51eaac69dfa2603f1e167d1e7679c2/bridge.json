@@ -1,0 +1,23 @@
+{
+  "bridgeVersion": 1,
+  "budgetSeconds": 1800,
+  "finishedAt": "2026-10-13T04:55:34Z",
+  "preconditions": {
+    "freeMb": 48165,
+    "power": {
+      "acOnline": true,
+      "batteryPct": 100,
+      "batteryStatus": "Charging"
+    }
+  },
+  "run": {
+    "exitCode": 0,
+    "seconds": 4,
+    "timedOut": false
+  },
+  "sanitizer": {
+    "dropped": [],
+    "withheld": []
+  },
+  "startedAt": "2026-10-13T04:55:29Z"
+}
