@@ -10,7 +10,9 @@
 # (steamcef.py), with launch.sh and current.py in $GALLEON_TEST_ROOT; holds
 # the owner state (ownerstate.py, in $GALLEON_TEST_DIR/owner-state), reported
 # as `safety.owner-state`; and makes the test home with its read-only sign-in
-# (signin.py, $GALLEON_TEST_DIR/home). Outside RESULTS_DIR and those places it
+# (signin.py, $GALLEON_TEST_DIR/home) with the app's self-test request
+# (selftestrequest.py), removed before it finishes, and an empty handshake
+# folder ($GALLEON_TEST_DIR/handshake). Outside RESULTS_DIR and those places it
 # writes only an emulator config it restores, Steam's shortcut list through
 # Steam itself, the launch request ($GALLEON_TEST_ROOT/current.json),
 # removed before it finishes, and the default sink's mute (audio.py), put
@@ -24,9 +26,10 @@
 set -u
 
 # The harness starts no process; what there is to undo is the launch request,
-# so the shortcut cannot start a build once the run is over, the sound a
-# stopped run left muted, and an emulator config that changed after the
-# backup, from the backup this run left behind.
+# so the shortcut cannot start a build once the run is over, the self-test
+# request, so the app runs no checks unless a run asked, the sound a stopped
+# run left muted, and an emulator config that changed after the backup, from
+# the backup this run left behind.
 # Each step is tried whatever became of the other, so one that fails never
 # leaves the owner's configs unrestored.
 if [ "${1:-}" = --cleanup ]; then
@@ -34,6 +37,9 @@ if [ "${1:-}" = --cleanup ]; then
   if [ -n "${GALLEON_TEST_ROOT:-}" ]; then
     python3 "$(dirname -- "$0")/current.py" remove --test-root "$GALLEON_TEST_ROOT" || cleaned=1
     python3 "$(dirname -- "$0")/audio.py" restore --state "$GALLEON_TEST_ROOT/audio.json" || cleaned=1
+  fi
+  if [ -n "${GALLEON_TEST_DIR:-}" ]; then
+    python3 "$(dirname -- "$0")/selftestrequest.py" remove --home "$GALLEON_TEST_DIR/home" || cleaned=1
   fi
   if [ -n "${GALLEON_TEST_DIR:-}" ] && [ -d "$GALLEON_TEST_DIR/owner-state/backup" ]; then
     python3 "$(dirname -- "$0")/ownerstate.py" restore "$GALLEON_TEST_DIR/owner-state/backup"
@@ -58,6 +64,8 @@ started=$(now)
 # The budget is the bridge's, counted from here: the launch request expires
 # with it however long the steps before the start took.
 deadline=$(($(date +%s) + ${DEVICE_TEST_BUDGET_SECONDS:-1800}))
+# Kept back from the app's budget for the stop and the collection after it.
+STOP_RESERVE_SECONDS=120
 mkdir -p "$RESULTS_DIR/logs"
 log="$RESULTS_DIR/logs/harness.log"
 : >"$log"
@@ -162,11 +170,38 @@ echo "sign-in: ${signin_source:-none}" >>"$log"
 GALLEON_HOME=$GALLEON_TEST_DIR/home
 export GALLEON_HOME
 
+# build-info.json is written by scripts/device-bundle.mjs and holds no quote
+# or backslash inside a value, so a line match is enough to read it.
+version=$(sed -n 's/^ *"version": *"\([^"]*\)".*/\1/p' "$here/build-info.json" 2>/dev/null)
+built=$(sed -n 's/^ *"sha": *"\([0-9a-f]*\)".*/\1/p' "$here/build-info.json" 2>/dev/null)
+
+# What the app runs once started (selftestrequest.py). Its summary goes to a
+# folder of its own, to be merged with the harness's checks, and its budget
+# ends before the bridge's so the run keeps time to stop it and collect.
+# Payloads come with the bundle's homebrew (M0-07), so no emulator is asked
+# for yet.
+app_results="$RESULTS_DIR/app"
+handshake="$GALLEON_TEST_DIR/handshake"
+app_budget=$((deadline - $(date +%s) - STOP_RESERVE_SECONDS))
+selftest_ok=
+if [ -n "$home_ok" ] && rm -rf -- "$app_results" "$handshake" &&
+  mkdir -p -- "$app_results" "$handshake" &&
+  python3 "$here/selftestrequest.py" write --home "$GALLEON_HOME" --sha "$GALLEON_SHA" \
+    ${version:+--version "$version"} --budget "$app_budget" \
+    --results "$app_results" --handshake "$handshake" \
+    --check selftest.complete --check build.identity --check startup.cold \
+    --check grid.scroll --check server.heartbeat --check download.small \
+    --check update.verify --profile performance --profile balanced \
+    --screenshot settings --screenshot bios --screenshot emulators 2>>"$log"; then
+  selftest_ok=1
+fi
+
 # The request launch.sh obeys (current.py): only while it exists, and until
 # the budget ends, does starting the shortcut start this build. It is written
-# only once the owner state is held, so nothing can start without it.
+# only once the owner state is held and the app's request is in place, so
+# nothing can start without either.
 request_ok=
-if [ -n "$home_ok" ] && [ -n "$owner_ok" ] && [ -n "$shortcut_ok" ] && python3 "$here/current.py" write --test-root "$GALLEON_TEST_ROOT" \
+if [ -n "$selftest_ok" ] && [ -n "$owner_ok" ] && [ -n "$shortcut_ok" ] && python3 "$here/current.py" write --test-root "$GALLEON_TEST_ROOT" \
   --appimage "${GALLEON_APPIMAGE:-}" --home "$GALLEON_HOME" --results "$RESULTS_DIR" \
   --sha "$GALLEON_SHA" --budget $((deadline - $(date +%s))) 2>>"$log"; then
   request_ok=1
@@ -181,11 +216,6 @@ muted=
 if [ -n "$request_ok" ] && python3 "$here/audio.py" mute --state "$audio_state" >>"$log" 2>&1; then
   muted=1
 fi
-
-# build-info.json is written by scripts/device-bundle.mjs and holds no quote
-# or backslash inside a value, so a line match is enough to read it.
-version=$(sed -n 's/^ *"version": *"\([^"]*\)".*/\1/p' "$here/build-info.json" 2>/dev/null)
-built=$(sed -n 's/^ *"sha": *"\([0-9a-f]*\)".*/\1/p' "$here/build-info.json" 2>/dev/null)
 
 
 # Tests point this at a fake root; on the device it is the real one.
@@ -238,9 +268,9 @@ fact_command() {
 audio_restored=1
 python3 "$here/audio.py" restore --state "$audio_state" >>"$log" 2>&1 || audio_restored=
 
-# The second manifest comes before the restore, so a config the run changed
-# fails the check even though it is put back. ownerstate.py exits 1 for a
-# difference and above that when it could not do its work at all.
+# The second manifest comes before the config restore, so a config the run
+# changed fails the check even though it is put back. ownerstate.py exits 1
+# for a difference and above that when it could not do its work at all.
 owner_result=pass
 owner_reason=null
 if [ -n "$owner_ok" ]; then
@@ -282,6 +312,7 @@ echo "owner state: $owner_result" >>"$log"
 # Starting the shortcut by hand from now on does nothing.
 request_gone=1
 python3 "$here/current.py" remove --test-root "$GALLEON_TEST_ROOT" 2>>"$log" || request_gone=
+python3 "$here/selftestrequest.py" remove --home "$GALLEON_HOME" 2>>"$log" || request_gone=
 
 result=pass
 reason=null
@@ -297,12 +328,15 @@ elif [ -z "$owner_ok" ]; then
 elif [ -z "$home_ok" ]; then
   result=fail
   reason='"the test home could not be made"'
+elif [ -z "$selftest_ok" ]; then
+  result=fail
+  reason='"the self-test request could not be written"'
 elif [ -z "$request_ok" ]; then
   result=fail
   reason='"the launch request could not be written"'
 elif [ -z "$request_gone" ]; then
   result=fail
-  reason='"the launch request could not be removed"'
+  reason='"the launch or self-test request could not be removed"'
 elif [ -z "$audio_restored" ]; then
   result=fail
   reason='"the sound could not be put back as it was"'

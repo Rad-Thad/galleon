@@ -198,6 +198,8 @@ describe('device-bundle', () => {
       './launch.sh',
       './current.py',
       './session.py',
+      './audio.py',
+      './selftestrequest.py',
       './bridge/galleon_device_bridge.py',
       './bridge/install.sh',
       './bridge/VERSION.json',
@@ -551,6 +553,87 @@ describe('device-bundle', () => {
     })
     assert.equal(byHand.status, 0, byHand.stderr)
     assert.ok(!existsSync(join(testDir, 'home/launch')))
+  })
+
+  test('run.sh gives the app a self-test request it takes, and removes it', () => {
+    const testRoot = mkdtempSync(join(tmpdir(), 'bundle-testroot-'))
+    const testDir = join(testRoot, SHA)
+    const seen = join(mkdtempSync(join(tmpdir(), 'bundle-seen-')), 'request.json')
+    // armada-power is called mid-run, after the request is written.
+    const bin = mkdtempSync(join(tmpdir(), 'bundle-bin-'))
+    writeFileSync(
+      join(bin, 'armada-power'),
+      `#!/bin/sh\n[ -e '${seen}' ] || cp -p '${join(testDir, 'home', REQUEST_FILE)}' '${seen}'\n`
+    )
+    chmodSync(join(bin, 'armada-power'), 0o755)
+    const { run, results } = runHarness(unpackLikeTheBridge(built()), SHA, true, {
+      GALLEON_TEST_ROOT: testRoot,
+      DEVICE_TEST_BUDGET_SECONDS: '600',
+      PATH: `${bin}:${process.env.PATH}`
+    })
+    assert.equal(run.status, 0, run.stderr)
+    assert.equal(statSync(seen).mode & 0o077, 0)
+    const taken = parseRequest(JSON.parse(readFileSync(seen, 'utf8')))
+    assert.equal(taken.kind, 'request')
+    const request = taken.kind === 'request' ? taken.request : undefined
+    assert.deepEqual(
+      [request?.sha, request?.version, request?.resultsDir, request?.handshakeDir],
+      [SHA, VERSION, join(results, 'app'), join(testDir, 'handshake')]
+    )
+    assert.deepEqual(
+      [request?.readOnlyServer, request?.privacy, request?.abortOnInput, request?.fakeRomm],
+      [true, true, true, null]
+    )
+    assert.ok(request?.checks.includes('selftest.complete'))
+    assert.deepEqual(request?.profiles, ['performance', 'balanced'])
+    // The app's budget ends before the bridge's, leaving time to stop it.
+    const budget = request?.budgetSeconds ?? 0
+    assert.ok(budget > 400 && budget < 600, String(budget))
+    assert.ok(lstatSync(join(results, 'app')).isDirectory())
+    assert.ok(lstatSync(join(testDir, 'handshake')).isDirectory())
+    assert.ok(!existsSync(join(testDir, 'home', REQUEST_FILE)))
+    assert.equal(
+      JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8')).checks[0].result,
+      'pass'
+    )
+  })
+
+  test('run.sh writes no launch request and fails harness.run without a self-test request', () => {
+    const testRoot = mkdtempSync(join(tmpdir(), 'bundle-testroot-'))
+    const seen = join(mkdtempSync(join(tmpdir(), 'bundle-seen-')), 'current.json')
+    const bin = mkdtempSync(join(tmpdir(), 'bundle-bin-'))
+    writeFileSync(
+      join(bin, 'armada-power'),
+      `#!/bin/sh\n[ -e '${seen}' ] || cp -p '${join(testRoot, 'current.json')}' '${seen}' 2>/dev/null\nexit 0\n`
+    )
+    chmodSync(join(bin, 'armada-power'), 0o755)
+    // A budget too short to leave the app any time is one the request refuses.
+    const { run, results } = runHarness(unpackLikeTheBridge(built()), SHA, true, {
+      GALLEON_TEST_ROOT: testRoot,
+      DEVICE_TEST_BUDGET_SECONDS: '60',
+      PATH: `${bin}:${process.env.PATH}`
+    })
+    assert.equal(run.status, 0, run.stderr)
+    const check = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8')).checks[0]
+    assert.deepEqual(
+      [check.result, check.reason],
+      ['fail', 'the self-test request could not be written']
+    )
+    assert.ok(!existsSync(seen))
+  })
+
+  test('run.sh --cleanup removes the self-test request a stopped run left', () => {
+    const bundle = unpackLikeTheBridge(built())
+    const testDir = mkdtempSync(join(tmpdir(), 'bundle-testdir-'))
+    mkdirSync(join(testDir, 'home'))
+    writeFileSync(join(testDir, 'home', REQUEST_FILE), '{}')
+    writeFileSync(join(testDir, 'home', 'self-test-request.taken.json'), '{}')
+    const run = spawnSync('/bin/sh', [join(bundle, 'run.sh'), '--cleanup'], {
+      env: { PATH: process.env.PATH, GALLEON_TEST_DIR: testDir }
+    })
+    assert.equal(run.status, 0)
+    assert.ok(!existsSync(join(testDir, 'home', REQUEST_FILE)))
+    assert.ok(!existsSync(join(testDir, 'home', 'self-test-request.taken.json')))
   })
 
   test('run.sh mutes the sound while it runs and puts it back', () => {
