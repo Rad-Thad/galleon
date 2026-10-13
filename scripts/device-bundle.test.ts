@@ -102,6 +102,7 @@ describe('device-bundle', () => {
       './build-info.json',
       './ownerstate.py',
       './owner-state.json',
+      './signin.py',
       './bridge/galleon_device_bridge.py',
       './bridge/install.sh',
       './bridge/VERSION.json',
