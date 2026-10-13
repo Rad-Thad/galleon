@@ -2412,3 +2412,20 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: from the next nightly, `grid.scroll@balanced` and `@performance` can be measured on the profile they name, and the owner's profile is put back after the run.
 - Next: M0-22 part 4d-3c-3b-3c: leave Steam at its library after the run (PLAN.md 5.3 step 11).
+
+## 2026-10-13 15:26 UTC session 01AkcoRrSXgxphjh3GbmVnH4 (hourly heartbeat)
+
+- Device results: nothing new (bridge last seen 08:03 UTC, "no new nightly"). Part 4d-3c-3b-3b of M0-22, PR #211, merged at 0a61c3c; CI x64 8:17, arm64 1:00.
+- Worked on: M0-22 part 4d-3c-3b-3c (tracking issue #191): once the app has run, run.sh leaves Steam at its library (PLAN.md 5.3 step 11), part of `harness.run`.
+- Result: PR (this one). M0-22 stays false.
+- Evidence:
+  - `test/device/steamcef.py library [--wait SECONDS]`: reads the route of Steam's Game Mode window (`Steam Big Picture Mode` or `SP`, address under `/routes`) from the debugger's page list, evaluating nothing; any `/library` screen but a game's page counts. Exit 0 at the library, 1 elsewhere, 10 with the windows it saw when there is none.
+  - `test/device/run.sh`: after the app has run (a late start included), checks the screen; when not at the library, runs `steam steam://open/games` and waits `LIBRARY_WAIT_SECONDS`. Still elsewhere, or unreadable: `harness.run` fails with "Steam was not left at its library".
+  - Tests: `test/device/test_steamcef.py` 29/29, new: "the screen is read from the game mode window's address", "no game mode window is unavailable and says what there was", "the library is its own screens not a game's page", "waits for steam to show its library", "a window list that comes back in time is waited for", "cli library". `scripts/device-bundle.test.ts` 52/52: every run now has a fake debugger window list driven by the fake Steam client (a started game puts it on the game's page); the steam:// start test asserts the run sent Steam back; new "run.sh fails harness.run when Steam stays on the game it started".
+  - `docs/TESTING.md`: the step and its failure.
+  - `scripts/agent/check.sh` green.
+  - Evaluator round 1: FAIL. The failure detail listed every page's title and path, and the debugger's list also holds web pages whose addresses name the account (a SteamID64, a vanity name), which would reach the public results. It now names only the first two path parts of Steam's own UI pages (`steamloopback.host`), and a route outside `/library` only by its first part; the fake list carries a community profile page that a test keeps out. Notes left as they are: the step's worst case is not counted in `STOP_RESERVE_SECONDS` (the bridge's grace and `--cleanup` cover the restore), and a run where neither route started the app does not check the screen (it already fails `harness.run`).
+- Notes: a stale `/run/docker/containerd/containerd.pid` (pid not running) stopped `dockerd`; removed.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: the route and `steam://open/games` are unverified on the Nova; the next nightly's `logs/harness.log` shows the route Steam reports, or the paths its own windows show.
+- Next: M0-22 part 4d-3c-3b-3d: stop an idle owner's Galleon through its core socket before the start and relaunch it after (PLAN.md 5.3 steps 8 and 11), once M1-17's socket exists; otherwise the remaining steps (payloads, `install.script`, `steam.shortcut-roundtrip`).
