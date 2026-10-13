@@ -163,6 +163,12 @@ jobs:
         if: matrix.arch == 'x64'
         run: python3 -m unittest discover -s tools/device-bridge
 
+      # The bundle's Python helpers that run.sh calls on the Nova — see
+      # test/device/ and docs/PLAN.md section 5.3.
+      - name: Device bundle helper tests
+        if: matrix.arch == 'x64'
+        run: python3 -B -m unittest discover -s test/device
+
       # Every pull request names the feature it serves, so the change can be
       # held to its acceptance lines — see scripts/agent/pr-body.mjs. The body
       # comes through the environment rather than spliced into the script,

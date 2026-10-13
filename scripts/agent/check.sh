@@ -34,6 +34,8 @@ else
 fi
 step 'device bridge tests'
 python3 -m unittest discover -s tools/device-bridge
+step 'device bundle helper tests'
+python3 -B -m unittest discover -s test/device
 step 'licence and dependency guard'
 node scripts/agent/licence-guard.mjs >/dev/null
 

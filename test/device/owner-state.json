@@ -1,0 +1,40 @@
+{
+  "comment": "What a device run must leave exactly as it found it (docs/PLAN.md section 5.3, step 2). Paths are relative to the owner's home; read by ownerstate.py.",
+  "folders": [
+    "rommix/config",
+    "rommix/saves",
+    ".config/rommix",
+    "galleon/config",
+    "galleon/saves",
+    ".config/galleon",
+    ".config/Galleon",
+    ".local/share/duckstation",
+    ".config/ARMSX2",
+    ".config/melonDS",
+    ".local/share/eden",
+    ".config/eden",
+    ".local/share/shadPS4",
+    ".var/app/org.libretro.RetroArch/config",
+    ".var/app/org.libretro.RetroArch/data",
+    ".var/app/org.flycast.Flycast/config",
+    ".var/app/org.flycast.Flycast/data",
+    ".var/app/org.DolphinEmu.dolphin-emu/config",
+    ".var/app/org.DolphinEmu.dolphin-emu/data",
+    ".var/app/org.ppsspp.PPSSPP/config",
+    ".var/app/org.ppsspp.PPSSPP/data"
+  ],
+  "pointers": [
+    { "file": ".config/rommix/root", "folders": ["config", "saves"] },
+    { "file": ".config/galleon/root", "folders": ["config", "saves"] }
+  ],
+  "globs": [".local/share/Steam/userdata/*/config/shortcuts.vdf"],
+  "configs": [
+    ".local/share/duckstation/settings.ini",
+    ".config/ARMSX2/inis/PCSX2.ini",
+    ".config/melonDS/melonDS.toml",
+    ".var/app/org.flycast.Flycast/config/flycast/emu.cfg",
+    ".var/app/org.libretro.RetroArch/config/retroarch/retroarch.cfg",
+    ".var/app/org.DolphinEmu.dolphin-emu/config/dolphin-emu/Dolphin.ini",
+    ".var/app/org.ppsspp.PPSSPP/config/ppsspp/PSP/SYSTEM/ppsspp.ini"
+  ]
+}

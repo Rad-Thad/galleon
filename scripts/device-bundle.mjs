@@ -12,7 +12,7 @@
 import { execFileSync } from 'node:child_process'
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { basename, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 export const BUNDLE_NAME = 'galleon-device-tests.tar.gz'
@@ -49,7 +49,11 @@ export function writeBundle({ root, out, sha, builtAt = new Date().toISOString()
 
   const stage = mkdtempSync(join(tmpdir(), 'device-bundle-'))
   try {
-    cpSync(join(root, 'test/device'), stage, { recursive: true })
+    // The helpers' own tests run in CI, never on the device.
+    cpSync(join(root, 'test/device'), stage, {
+      recursive: true,
+      filter: (source) => !/^(test_.*\.py|__pycache__)$/.test(basename(source))
+    })
     for (const name of BRIDGE_FILES) {
       cpSync(join(root, 'tools/device-bridge', name), join(stage, 'bridge', name), {
         recursive: true

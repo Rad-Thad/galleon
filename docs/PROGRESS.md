@@ -2090,3 +2090,19 @@ Lines the tooling reads (exact forms):
 - Evaluator: PASS. Its notes are fixed: a new empty folder counted as a save, TESTING.md said unknown ids refuse the request, and a folder made empty during the run counted as a change.
 - Device / acceptance: none until run.sh sends payloads (M0-22's bundle), which must list in `savingPayloads` only payloads that write a save into the sandbox's `saves` folder.
 - Next: the payloads and `savingPayloads` in the device bundle; flatpaks (5d, parked).
+
+## 2026-10-13 00:27 UTC session 01H3vg7VG7BqxFWzp227K8Yj (hourly heartbeat)
+
+- Device results: DEVICE-RESULTS 7f8e113 complete; DEVICE-RESULTS 9f95aca complete; DEVICE-RESULTS dffeebe complete; DEVICE-RESULTS 791c314 complete; DEVICE-RESULTS 2d001c4 complete (all the minimal harness). No safety failures, no regressions, nothing newly passing. Part 10 of M0-21, PR #190, merged at 104ae31; CI x64 7:08, arm64 0:56.
+- Worked on: M0-22 part 1 (tracking issue #191): the owner-state manifest. M0-22's `depends_on` names M0-21, but M0-21's device checks run only once run.sh starts the app, which is M0-22; the parts that start the app are done now as M0-21's remaining run.sh step, and M0-22 passes only after M0-21.
+- Result: PR (this one). M0-22 stays false.
+- Evidence:
+  - `test/device/ownerstate.py` (Python standard library): `snapshot` walks every covered root by lstat (path, type, size, mtime, SHA-256 up to `HASH_LIMIT`; links recorded with their target, never followed), `compare` lists added, removed and changed paths, `backup` copies the emulator config files with an index, `restore` puts back any that changed or went, never through a link, and reports them. CLI `snapshot`, `compare` (exit 1 on a difference), `backup`, `restore` (exit 1 when anything was restored).
+  - `test/device/owner-state.json`: what is covered (stock RomMix's and the owner's Galleon config and saves, with their root pointers; every emulator folder in DEVICE-FACTS.md; Steam's `shortcuts.vdf` files) and the config files backed up.
+  - Tests: `test/device/test_ownerstate.py` 19/19: equal snapshots; covered and uncovered paths; added, removed, changed, touched-only; a new `shortcuts.vdf`; links not followed, except a covered folder that is itself a link, which is read through; large files unhashed; a relocated root through its pointer, a relative or unreadable pointer; backup and restore of a changed and a removed config; a restored config still fails the comparison taken before it; no write through a linked file or folder, nor to an index key outside the home; the CLI round trip; the shipped spec stays relative to the home.
+  - `scripts/device-bundle.mjs` leaves the helpers' tests out of the bundle; `scripts/device-bundle.test.ts` checks `ownerstate.py` and `owner-state.json` are in it and no `test_` file is.
+  - CI: `Device bundle helper tests` step in `build` (x64), and in `scripts/agent/check.sh`. `docs/TESTING.md` and CLAUDE.md's command table updated.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: FAIL, then fixed: a covered folder that was itself a link (an SD-card move) hid changes behind it; restore now also ignores index keys outside the home. Its notes for run.sh: Steam rewrites `shortcuts.vdf` when the test shortcut is added or launched, and relaunching the owner's Galleon touches its profile, so the step order must keep both out of the comparison's way; `ROMMIX_HOME` is not followed (only the pointer file).
+- Device / acceptance: none until run.sh calls it (the run part of M0-22).
+- Next: M0-22 part 2, the read-only sign-in import and the test home.
