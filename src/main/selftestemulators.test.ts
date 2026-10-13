@@ -1,5 +1,13 @@
 import assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  utimesSync,
+  writeFileSync
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, test } from 'node:test'
@@ -15,6 +23,7 @@ import {
   ownFocused,
   payloadFor,
   runningInGroup,
+  saveFingerprint,
   signalGroup,
   startPlan,
   type EmulatorScenarioDeps
@@ -83,7 +92,7 @@ function pass(id: string): CheckResult {
 
 interface Harness {
   deps: EmulatorScenarioDeps
-  cycles: { emulator: string; plan: SandboxPlan }[]
+  cycles: { emulator: string; plan: SandboxPlan; expectSave: boolean }[]
   planned: { system: string; romPath: string }[]
 }
 
@@ -105,8 +114,8 @@ function harness(
         planned.push({ system, romPath })
         return plan
       },
-      cycle: async (emulator, given) => {
-        cycles.push({ emulator, plan: given })
+      cycle: async (emulator, given, _state, _signal, expectSave) => {
+        cycles.push({ emulator, plan: given, expectSave })
         return [pass(`launch.${emulator}`), pass(`exit.${emulator}`)]
       },
       realPath: (path) => (path.startsWith('/home/test') ? path : null)
@@ -203,6 +212,24 @@ describe('the scenarios', () => {
     assert.deepEqual(h.planned, [{ system: 'snes', romPath: '/home/test/payloads/snes/hello.sfc' }])
   })
 
+  test('only an emulator the request says saves is held to its save folder', async () => {
+    const h = harness({ retroarch: 'payloads/snes/hello.sfc', dolphin: 'payloads/gc/hello.dol' }, [
+      state('retroarch'),
+      state('dolphin')
+    ])
+    h.deps.savingPayloads = ['retroarch']
+    const scenarios = emulatorScenarios(['exit.retroarch', 'exit.dolphin'], h.deps)
+    await scenarios.get('exit.retroarch')!(context)
+    await scenarios.get('exit.dolphin')!(context)
+    assert.deepEqual(
+      h.cycles.map((c) => [c.emulator, c.expectSave]),
+      [
+        ['retroarch', true],
+        ['dolphin', false]
+      ]
+    )
+  })
+
   test('an exit asked alone still runs the cycle', async () => {
     const h = harness({ dolphin: 'payloads/gc/hello.dol' }, [state('dolphin')])
     const scenarios = emulatorScenarios(['exit.dolphin'], h.deps)
@@ -244,7 +271,7 @@ describe('the scenarios', () => {
   test('a plan that cannot sandbox goes to the cycle, which skips it', async () => {
     const h = harness({ retroarch: 'payloads/snes/hello.sfc' }, [state('retroarch')], SKIP_PLAN)
     await emulatorScenarios(['launch.retroarch'], h.deps).get('launch.retroarch')!(context)
-    assert.deepEqual(h.cycles, [{ emulator: 'retroarch', plan: SKIP_PLAN }])
+    assert.deepEqual(h.cycles, [{ emulator: 'retroarch', plan: SKIP_PLAN, expectSave: false }])
   })
 })
 
@@ -359,7 +386,8 @@ describe('the device cycle', () => {
       'retroarch',
       SKIP_PLAN,
       state('retroarch'),
-      new AbortController().signal
+      new AbortController().signal,
+      false
     )
     assert.deepEqual([launch.result, exit.result], ['skip', 'skip'])
     assert.equal(opened, 0)
@@ -381,13 +409,56 @@ describe('the device cycle', () => {
       'emu',
       runPlan(join(dir, 'sandbox'), ['/bin/sh', '-c', 'sleep 0.6']),
       state('emu', { paths: { home: null, roms: null, saves: null, states: null, bios } }),
-      new AbortController().signal
+      new AbortController().signal,
+      false
     )
 
     assert.deepEqual([launch.reason, exit.reason], ['exited-early', 'exited-early'])
     assert.equal(launch.metrics.biosFiles, 1)
     assert.equal(opened, 1)
     assert.equal(display.closed, 1)
+  })
+})
+
+describe('the save folder', () => {
+  test('a folder made, or a folder in it, is no save; a new file is', () => {
+    const dir = join(scratch(), 'saves')
+    const missing = saveFingerprint(dir)
+    assert.equal(saveFingerprint(dir), missing)
+    mkdirSync(dir)
+    assert.equal(saveFingerprint(dir), missing, 'a folder made empty is no save')
+    const empty = saveFingerprint(dir)
+    mkdirSync(join(dir, 'snes'))
+    assert.equal(saveFingerprint(dir), empty, 'a folder alone is no save')
+    writeFileSync(join(dir, 'snes', 'hello.srm'), 'x')
+    assert.notEqual(saveFingerprint(dir), empty)
+  })
+
+  test('the same files give the same answer; a rewrite or a removal changes it', () => {
+    const dir = scratch()
+    const file = join(dir, 'hello.srm')
+    writeFileSync(file, 'x')
+    utimesSync(file, 1000, 1000)
+    const before = saveFingerprint(dir)
+    assert.equal(saveFingerprint(dir), before)
+    writeFileSync(file, 'y')
+    utimesSync(file, 2000, 2000)
+    const rewritten = saveFingerprint(dir)
+    assert.notEqual(rewritten, before)
+    rmSync(file)
+    assert.notEqual(saveFingerprint(dir), rewritten)
+  })
+
+  test('a link, to a file or a folder, is listed and not followed', () => {
+    const dir = scratch()
+    const owner = scratch()
+    writeFileSync(join(owner, 'owner.srm'), 'x')
+    symlinkSync(join(owner, 'owner.srm'), join(dir, 'link.srm'))
+    symlinkSync(owner, join(dir, 'linked-folder'))
+    const before = saveFingerprint(dir)
+    writeFileSync(join(owner, 'owner.srm'), 'a longer save')
+    writeFileSync(join(owner, 'another.srm'), 'x')
+    assert.equal(saveFingerprint(dir), before)
   })
 })
 

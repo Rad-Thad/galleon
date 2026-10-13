@@ -110,6 +110,7 @@ describe('server.heartbeat', () => {
         checks: [HEARTBEAT_CHECK],
         profiles: [],
         payloads: {},
+        savingPayloads: [],
         fakeRomm: null,
         readOnlyServer: true,
         privacy: true,

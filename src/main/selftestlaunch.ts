@@ -76,6 +76,12 @@ export interface LaunchDeps {
   /** See `straysToClear` and `clearStrays`. */
   straysToClear: (plan: Extract<SandboxPlan, { kind: 'run' }>) => string[]
   clearStrays: (paths: readonly string[]) => string[]
+  /**
+   * What the save folder holds, as a string that changes when any file in it
+   * is added, removed or written. Compared from before the start to after
+   * the stop.
+   */
+  saveFingerprint: (folder: string) => string
   now?: () => number
   sleep?: (ms: number) => Promise<void>
 }
@@ -90,7 +96,9 @@ export async function launchCycle(
   emulator: string,
   plan: SandboxPlan,
   deps: LaunchDeps,
-  signal: AbortSignal
+  signal: AbortSignal,
+  /** The payload writes a save while it runs, so the save folder must change. */
+  expectSave = false
 ): Promise<[CheckResult, CheckResult]> {
   const launchId = `${LAUNCH_PREFIX}${emulator}`
   const exitId = `${EXIT_PREFIX}${emulator}`
@@ -112,6 +120,7 @@ export async function launchCycle(
   const now = deps.now ?? Date.now
   const sleep = deps.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)))
   const strays = deps.straysToClear(plan)
+  const savesBefore = deps.saveFingerprint(plan.folders.saves)
   let started: Started
   try {
     started = deps.start(plan)
@@ -134,6 +143,7 @@ export async function launchCycle(
   }
   const stop = await stopGroup(started, deps, now, sleep, exit)
   const removed = deps.clearStrays(strays)
+  const saveChanged = deps.saveFingerprint(plan.folders.saves) !== savesBefore
   // Only a cycle that saw the window list working and stopped the emulator
   // cleanly can say whether the focus came back.
   const refocusMs =
@@ -153,7 +163,8 @@ export async function launchCycle(
     signal: stop.exited?.signal ?? null,
     killed: Number(stop.killed),
     straysRemoved: removed.length,
-    refocusMs: refocusMs ?? null
+    refocusMs: refocusMs ?? null,
+    saveChanged: Number(saveChanged)
   }
   if (signal.aborted) return both('skip', SKIP.aborted)
 
@@ -173,7 +184,13 @@ export async function launchCycle(
   const exitResult: CheckResult = {
     ...check(exitId, 'pass', null),
     metrics: exitMetrics,
-    thresholds: { exitMs: EXIT_GRACE_MS, code: 0, killed: 0, refocusMs: REFOCUS_MS }
+    thresholds: {
+      exitMs: EXIT_GRACE_MS,
+      code: 0,
+      killed: 0,
+      refocusMs: REFOCUS_MS,
+      ...(expectSave ? { saveChanged: 1 } : {})
+    }
   }
   // An emulator gone before it was asked was never stopped, so the stop it
   // makes for a player is untested.
@@ -183,6 +200,8 @@ export async function launchCycle(
     Object.assign(exitResult, { result: 'fail', reason: 'exit-code' })
   } else if (refocusMs === null) {
     Object.assign(exitResult, { result: 'fail', reason: 'not-refocused' })
+  } else if (expectSave && !saveChanged) {
+    Object.assign(exitResult, { result: 'fail', reason: 'save-unchanged' })
   }
   return [launchResult, exitResult]
 }
