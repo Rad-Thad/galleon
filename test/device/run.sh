@@ -481,11 +481,20 @@ fi
 echo "audio: $audio_note" >>"$log"
 echo "minimal harness: version ${version:-unknown}, harness.run $result" >>"$log"
 
+# The bridge publishes a skip only once per build and reason, so a late skip
+# whose checks did not all pass is reported as a run that ended early: a
+# failure found before the start, safety.owner-state above all, always
+# reaches the results.
 status=complete
 status_reason=null
-if [ -n "$late_skip" ]; then
+late_note=
+if [ -n "$late_skip" ] && [ "$result" = pass ] && [ "$owner_result" = pass ]; then
   status=skipped
   status_reason=$(json_string "$late_skip")
+elif [ -n "$late_skip" ]; then
+  status=partial
+  late_note="skipped before the start, reported for its failed checks: $late_skip"
+  late_skip=
 elif [ -n "$stopped" ]; then
   status=partial
 fi
@@ -522,7 +531,8 @@ cat >"$tmp" <<JSON
     "minimal harness: harness.run and safety.owner-state only, until M0-22",
     "sign-in: ${signin_source:-no-importable-credentials}",
     "audio: $audio_note",
-    "app: $app_note"
+    "app: $app_note"${late_note:+,
+    $(json_string "$late_note")}
   ]
 }
 JSON

@@ -775,6 +775,44 @@ describe('device-bundle', () => {
     assert.ok(!existsSync(join(testDir, 'home/self-test-request.json')))
   })
 
+  test('a late skip whose owner-state check failed is published as partial, not as a skip', () => {
+    const session = fakeSession()
+    const home = withShortcut(mkdtempSync(join(tmpdir(), 'bundle-home-')))
+    const bin = mkdtempSync(join(tmpdir(), 'bundle-bin-'))
+    // The owner takes the device back and an emulator config changes, both
+    // between the setup and the start.
+    const config = join(home, CONFIG)
+    mkdirSync(join(config, '..'), { recursive: true })
+    writeFileSync(config, 'Volume=100\n')
+    writeFileSync(
+      join(bin, 'armada-power'),
+      `#!/bin/sh\n: >'${join(session, 'inactive')}'\necho Volume=0 >'${config}'\n`
+    )
+    chmodSync(join(bin, 'armada-power'), 0o755)
+    const { run, results } = runHarness(
+      unpackLikeTheBridge(built()),
+      SHA,
+      true,
+      { HOME: home, PATH: `${bin}:${process.env.PATH}` },
+      session
+    )
+    assert.equal(run.status, 0, run.stderr)
+    const summary = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8'))
+    assert.deepEqual([summary.status, summary.reason], ['partial', null])
+    assert.equal(summary.checks[1].id, 'safety.owner-state')
+    assert.equal(summary.checks[1].result, 'fail')
+    assert.ok(
+      summary.notes.some((note: string) =>
+        /^skipped before the start, reported for its failed checks: .*Game Mode is not running/.test(
+          note
+        )
+      ),
+      summary.notes.join('; ')
+    )
+    assert.ok(!existsSync(join(session, 'steam.log')))
+    assert.equal(readFileSync(config, 'utf8'), 'Volume=100\n')
+  })
+
   test('run.sh fails harness.run when neither route starts the app', () => {
     const session = fakeSession()
     writeFileSync(join(session, 'steam.broken'), '')
