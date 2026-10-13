@@ -1,6 +1,15 @@
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import {
+  chmodSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  symlinkSync,
+  writeFileSync
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { describe, test } from 'node:test'
@@ -60,6 +69,29 @@ function fakeSession(inactive = false) {
   return bin
 }
 
+/**
+ * Steam's shortcut list (binary VDF) holding the test shortcut, so a run finds
+ * it there rather than asking a debugger the test machine does not have.
+ */
+function shortcutsVdf(appid: number, name = 'Galleon Device Test') {
+  const id = Buffer.alloc(4)
+  id.writeInt32LE(appid | 0)
+  return Buffer.concat([
+    Buffer.from('\x00shortcuts\x00\x000\x00\x02appid\x00', 'latin1'),
+    id,
+    Buffer.from(`\x01AppName\x00${name}\x00\x08\x08\x08`, 'utf8')
+  ])
+}
+
+const APPID = 3060399406
+
+function withShortcut(home: string) {
+  const config = join(home, '.local/share/Steam/userdata/1001/config')
+  mkdirSync(config, { recursive: true })
+  writeFileSync(join(config, 'shortcuts.vdf'), shortcutsVdf(APPID))
+  return home
+}
+
 function runHarness(
   bundle: string,
   sha: string,
@@ -75,26 +107,31 @@ function runHarness(
     chmodSync(image, 0o755)
   }
   const path = env.PATH ?? process.env.PATH
-  const testDir = mkdtempSync(join(tmpdir(), 'bundle-testdir-'))
+  const testRoot = env.GALLEON_TEST_ROOT ?? mkdtempSync(join(tmpdir(), 'bundle-testroot-'))
+  const testDir = join(testRoot, sha)
+  mkdirSync(testDir, { recursive: true })
+  const home = env.HOME ?? mkdtempSync(join(tmpdir(), 'bundle-home-'))
+  // Steam already lists the test shortcut unless the test says otherwise.
+  if (!env.GALLEON_STEAM_CEF) withShortcut(home)
   const run = spawnSync('/bin/sh', [join(bundle, 'run.sh')], {
     env: {
       RESULTS_DIR: results,
       GALLEON_SHA: sha,
       GALLEON_APPIMAGE: image,
-      GALLEON_TEST_ROOT: results,
+      GALLEON_TEST_ROOT: testRoot,
       GALLEON_TEST_DIR: testDir,
       // An empty root: no power files, and no process that would read as
       // someone playing, whatever else runs on this machine.
       GALLEON_FACTS_ROOT: mkdtempSync(join(tmpdir(), 'bundle-facts-')),
-      // The owner's home: the bridge's settings and the owner state are read
-      // from it. Unless a test gives one, it is empty.
-      HOME: mkdtempSync(join(tmpdir(), 'bundle-home-')),
+      // The owner's home: the bridge's settings, the owner state and Steam's
+      // shortcuts are read from it.
       ...env,
+      HOME: home,
       PATH: `${session}:${path}`
     },
     encoding: 'utf8'
   })
-  return { run, results, testDir }
+  return { run, results, testDir, testRoot, home }
 }
 
 describe('device-bundle', () => {
@@ -247,6 +284,95 @@ describe('device-bundle', () => {
     assert.equal(summary.sha, SHA)
     assert.match(summary.reason, /Game Mode is not running/)
     assert.deepEqual(summary.checks, [])
+  })
+
+  test('run.sh puts the shortcut executable in the test root and finds the shortcut Steam lists', () => {
+    const testRoot = mkdtempSync(join(tmpdir(), 'bundle-testroot-'))
+    // A link left where launch.sh goes is replaced, never written through.
+    const elsewhere = join(mkdtempSync(join(tmpdir(), 'bundle-elsewhere-')), 'file')
+    writeFileSync(elsewhere, 'untouched\n')
+    symlinkSync(elsewhere, join(testRoot, 'launch.sh'))
+    const { run, results } = runHarness(unpackLikeTheBridge(built()), SHA, true, {
+      GALLEON_TEST_ROOT: testRoot
+    })
+    assert.equal(run.status, 0, run.stderr)
+    assert.equal(readFileSync(elsewhere, 'utf8'), 'untouched\n')
+    for (const name of ['launch.sh', 'current.py']) {
+      const copied = lstatSync(join(testRoot, name))
+      assert.ok(copied.isFile() && (copied.mode & 0o111) !== 0, name)
+      assert.equal(
+        readFileSync(join(testRoot, name), 'utf8'),
+        readFileSync(join(ROOT, 'test/device', name), 'utf8')
+      )
+    }
+    const record = JSON.parse(readFileSync(join(testRoot, 'shortcut.json'), 'utf8'))
+    assert.deepEqual(record, {
+      name: 'Galleon Device Test',
+      exe: join(testRoot, 'launch.sh'),
+      appid: APPID
+    })
+    const summary = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8'))
+    assert.equal(summary.status, 'complete')
+    assert.equal(summary.checks[0].result, 'pass')
+    assert.match(
+      readFileSync(join(results, 'logs/harness.log'), 'utf8'),
+      /"source": "shortcuts.vdf"/
+    )
+  })
+
+  test('run.sh skips before the owner-state manifest when Steam cannot be asked for the shortcut', () => {
+    const { run, results, testDir } = runHarness(unpackLikeTheBridge(built()), SHA, true, {
+      GALLEON_STEAM_CEF: 'http://127.0.0.1:1'
+    })
+    assert.equal(run.status, 10, run.stderr)
+    const summary = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8'))
+    assert.deepEqual([summary.status, summary.reason], ['skipped', 'steam-cef-unavailable'])
+    assert.ok(!existsSync(join(testDir, 'owner-state')))
+    assert.ok(!existsSync(join(testDir, 'home')))
+  })
+
+  test('run.sh gives the app a test home without sync, and with no sign-in says so', () => {
+    const { run, results, testDir } = runHarness(unpackLikeTheBridge(built()), SHA, true)
+    assert.equal(run.status, 0, run.stderr)
+    const settings = JSON.parse(readFileSync(join(testDir, 'home/config/settings.json'), 'utf8'))
+    assert.deepEqual(settings.settings, {
+      syncSavesDown: false,
+      syncSavesUp: false,
+      deviceId: '',
+      setupComplete: true
+    })
+    assert.ok(!existsSync(join(testDir, 'home/config/credentials.bin')))
+    const summary = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8'))
+    assert.ok(summary.notes.includes('sign-in: no-importable-credentials'), summary.notes)
+    assert.equal(summary.checks[0].result, 'pass')
+  })
+
+  test("run.sh copies stock RomMix's sign-in into the test home and leaves the owner's alone", () => {
+    const home = mkdtempSync(join(tmpdir(), 'bundle-owner-'))
+    const config = join(home, 'rommix/config')
+    mkdirSync(config, { recursive: true })
+    writeFileSync(
+      join(config, 'settings.json'),
+      JSON.stringify({ server: { baseUrl: 'http://romm.test', authMode: 'token' } })
+    )
+    const stored = Buffer.concat([
+      Buffer.from('RAW1'),
+      Buffer.from(JSON.stringify({ accessToken: 'a', refreshToken: 'r', deviceId: 'd' }))
+    ])
+    writeFileSync(join(config, 'credentials.bin'), stored)
+    const { run, results, testDir } = runHarness(unpackLikeTheBridge(built()), SHA, true, {
+      HOME: home
+    })
+    assert.equal(run.status, 0, run.stderr)
+    assert.deepEqual(readFileSync(join(config, 'credentials.bin')), stored)
+    const copied = readFileSync(join(testDir, 'home/config/credentials.bin'), 'utf8')
+    assert.ok(copied.startsWith('RAW1'))
+    assert.doesNotMatch(copied, /"r"|"d"/)
+    const summary = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8'))
+    assert.ok(summary.notes.includes('sign-in: rommix'), summary.notes)
+    const owner = summary.checks.find((check: { id: string }) => check.id === 'safety.owner-state')
+    assert.equal(owner.result, 'pass')
+    assert.doesNotMatch(readFileSync(join(results, 'logs/harness.log'), 'utf8'), /romm\.test/)
   })
 
   test('run.sh holds the owner state, and keeps the manifest off the results', () => {

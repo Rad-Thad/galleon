@@ -2193,3 +2193,19 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: the next nightly reports `safety.owner-state` for the first time; with the minimal harness nothing it starts can touch the covered files, so a failure there would point at the owner's own processes (Steam rewriting `shortcuts.vdf`, say) and is to be understood before more feature work.
 - Next: M0-22 part 4c: the test home, sign-in import and the shortcut ensure wired into run.sh (the shortcut before the first snapshot, per the evaluator's note on #195).
+
+## 2026-10-13 03:27 UTC session 018MoGn8eG92WfjEcpYG7Mtm (hourly heartbeat)
+
+- Device results: nothing new since 2d001c4 (complete, the minimal harness); no safety failures, no regressions; bridge last skip "no new nightly". Part 4b of M0-22, PR #198, merged at 1003a8e.
+- Worked on: M0-22 part 4c (tracking issue #191): run.sh ensures the test shortcut before the owner-state manifest, and makes the test home with its read-only sign-in.
+- Result: PR #199. M0-22 stays false.
+- Evidence:
+  - `test/device/run.sh`: copies `launch.sh` and `current.py` into `$GALLEON_TEST_ROOT` (renamed into place, never written through a link); `steamcef.py ensure --saved-within` before the first manifest, skipping with `steam-cef-unavailable` or `steam-shortcut-unsaved`, other failures failing `harness.run`; after the manifest `signin.py prepare` makes `$GALLEON_TEST_DIR/home`, exported as `GALLEON_HOME`; the notes say `sign-in: <kind>` or `sign-in: no-importable-credentials`, and the log keeps only the kind. `GALLEON_TEST_ROOT` is required.
+  - `test/device/steamcef.py`: `listed`, `wait_listed`, `ensure --saved-within`: the manifest is taken only once Steam lists the shortcut with its name (and, when this run added it, its launch options), so a later save of the run's own shortcut cannot land inside the run.
+  - Tests: `test_steamcef.py` 23/23 (the wait, an entry saved before its rename or launch options, an unreadable listing, the CLI skip); `scripts/device-bundle.test.ts` 21/21 (executable copied over a link, shortcut found in `shortcuts.vdf`, the skip before any manifest or home, a test home without sync, stock RomMix's sign-in copied without its refresh token or device id and left unchanged). All helper tests 90/90.
+  - `docs/PLAN.md` 5.3 (steps 2 and 6) and `docs/TESTING.md`: the shortcut comes before the snapshot, and why.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: FAIL, then fixed: no PROGRESS entry, PLAN.md 5.3 still put the snapshot before the shortcut; its notes (a rename saved after the first listing; the test-home path in the log) are fixed too.
+- Device / acceptance: the next nightly adds the shortcut through Steam, or finds it; a first run may skip with `steam-shortcut-unsaved` and the next one goes on. Known for the start piece: starting the shortcut makes Steam rewrite its `LastPlayTime` in `shortcuts.vdf`, so `safety.owner-state` must then tell the test shortcut's own entry apart from the owner's, without weakening the check for any other entry.
+- Next: M0-22 part 4d: `current.json`, the start through `steam://rungameid/` with the RunGame fallback, and the failing `harness.run` when neither marks the start.
