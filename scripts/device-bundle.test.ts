@@ -67,6 +67,24 @@ function fakeSession(inactive = false) {
       'exit 1\n'
   )
   chmodSync(join(bin, 'systemctl'), 0o755)
+  // WirePlumber with one sink, 52, whose volume and mute live beside it; a
+  // `wpctl.broken` file makes every call fail.
+  writeFileSync(
+    join(bin, 'wpctl'),
+    '#!/bin/sh\n' +
+      'd=$(dirname "$0")\n' +
+      'echo "$*" >>"$d/wpctl.log"\n' +
+      '[ -e "$d/wpctl.broken" ] && exit 1\n' +
+      'case $1 in\n' +
+      '  inspect) echo "id 52, type PipeWire:Interface:Node" ;;\n' +
+      '  get-volume) [ "$2" = 52 ] || exit 1\n' +
+      '    m=; [ -e "$d/muted" ] && m=" [MUTED]"\n' +
+      '    echo "Volume: $(cat "$d/volume" 2>/dev/null || echo 0.40)$m" ;;\n' +
+      '  set-mute) if [ "$3" = 1 ]; then : >"$d/muted"; else rm -f "$d/muted"; fi ;;\n' +
+      '  set-volume) echo "$3" >"$d/volume" ;;\n' +
+      'esac\n'
+  )
+  chmodSync(join(bin, 'wpctl'), 0o755)
   return bin
 }
 
@@ -532,6 +550,107 @@ describe('device-bundle', () => {
     })
     assert.equal(byHand.status, 0, byHand.stderr)
     assert.ok(!existsSync(join(testDir, 'home/launch')))
+  })
+
+  test('run.sh mutes the sound while it runs and puts it back', () => {
+    const session = fakeSession()
+    const seen = join(mkdtempSync(join(tmpdir(), 'bundle-seen-')), 'muted')
+    // armada-power is called mid-run, after the mute.
+    const bin = mkdtempSync(join(tmpdir(), 'bundle-bin-'))
+    writeFileSync(
+      join(bin, 'armada-power'),
+      `#!/bin/sh\n[ -e '${join(session, 'muted')}' ] && : >'${seen}'\nexit 0\n`
+    )
+    chmodSync(join(bin, 'armada-power'), 0o755)
+    const { run, results, testRoot } = runHarness(
+      unpackLikeTheBridge(built()),
+      SHA,
+      true,
+      { PATH: `${bin}:${process.env.PATH}` },
+      session
+    )
+    assert.equal(run.status, 0, run.stderr)
+    assert.ok(existsSync(seen), 'the sound was not muted during the run')
+    assert.ok(!existsSync(join(session, 'muted')))
+    assert.equal(readFileSync(join(session, 'wpctl.log'), 'utf8').match(/^set-volume/m), null)
+    assert.ok(!existsSync(join(testRoot, 'audio.json')))
+    const summary = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8'))
+    assert.equal(summary.checks[0].result, 'pass')
+    assert.ok(summary.notes.includes('audio: muted and put back'), summary.notes.join('; '))
+  })
+
+  test('run.sh fails harness.run and keeps the record when the sound cannot be put back', () => {
+    const session = fakeSession()
+    // WirePlumber stops answering after the mute.
+    const bin = mkdtempSync(join(tmpdir(), 'bundle-bin-'))
+    writeFileSync(join(bin, 'armada-power'), `#!/bin/sh\n: >'${join(session, 'wpctl.broken')}'\n`)
+    chmodSync(join(bin, 'armada-power'), 0o755)
+    const { run, results, testRoot } = runHarness(
+      unpackLikeTheBridge(built()),
+      SHA,
+      true,
+      { PATH: `${bin}:${process.env.PATH}` },
+      session
+    )
+    assert.equal(run.status, 0, run.stderr)
+    const summary = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8'))
+    assert.deepEqual(
+      [summary.checks[0].result, summary.checks[0].reason],
+      ['fail', 'the sound could not be put back as it was']
+    )
+    assert.ok(summary.notes.includes('audio: muted, not put back'), summary.notes.join('; '))
+    assert.ok(existsSync(join(testRoot, 'audio.json')))
+    assert.match(readFileSync(join(results, 'logs/harness.log'), 'utf8'), /audio\.py: wpctl/)
+  })
+
+  test('run.sh notes a mute that fails, with nothing started to play sound', () => {
+    const session = fakeSession()
+    writeFileSync(join(session, 'wpctl.broken'), '')
+    const { run, results, testRoot } = runHarness(
+      unpackLikeTheBridge(built()),
+      SHA,
+      true,
+      {},
+      session
+    )
+    assert.equal(run.status, 0, run.stderr)
+    const summary = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8'))
+    assert.equal(summary.checks[0].result, 'pass')
+    assert.ok(summary.notes.includes('audio: not muted'), summary.notes.join('; '))
+    assert.ok(!existsSync(join(testRoot, 'audio.json')))
+  })
+
+  test('run.sh --cleanup puts back the sound a stopped run left muted', () => {
+    const bundle = unpackLikeTheBridge(built())
+    const session = fakeSession()
+    const testRoot = mkdtempSync(join(tmpdir(), 'bundle-testroot-'))
+    const env = { PATH: `${session}:${process.env.PATH}`, GALLEON_TEST_ROOT: testRoot }
+    execFileSync(
+      'python3',
+      [join(bundle, 'audio.py'), 'mute', '--state', join(testRoot, 'audio.json')],
+      { env }
+    )
+    assert.ok(existsSync(join(session, 'muted')))
+    const run = spawnSync('/bin/sh', [join(bundle, 'run.sh'), '--cleanup'], { env })
+    assert.equal(run.status, 0)
+    assert.ok(!existsSync(join(session, 'muted')))
+    assert.ok(!existsSync(join(testRoot, 'audio.json')))
+  })
+
+  test('run.sh --cleanup fails while the sound cannot be put back, and keeps the record', () => {
+    const bundle = unpackLikeTheBridge(built())
+    const session = fakeSession()
+    const testRoot = mkdtempSync(join(tmpdir(), 'bundle-testroot-'))
+    const env = { PATH: `${session}:${process.env.PATH}`, GALLEON_TEST_ROOT: testRoot }
+    execFileSync(
+      'python3',
+      [join(bundle, 'audio.py'), 'mute', '--state', join(testRoot, 'audio.json')],
+      { env }
+    )
+    writeFileSync(join(session, 'wpctl.broken'), '')
+    const run = spawnSync('/bin/sh', [join(bundle, 'run.sh'), '--cleanup'], { env })
+    assert.equal(run.status, 1)
+    assert.ok(existsSync(join(testRoot, 'audio.json')))
   })
 
   test('run.sh --cleanup removes the launch request a stopped run left', () => {

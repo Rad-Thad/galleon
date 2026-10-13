@@ -12,8 +12,9 @@
 # as `safety.owner-state`; and makes the test home with its read-only sign-in
 # (signin.py, $GALLEON_TEST_DIR/home). Outside RESULTS_DIR and those places it
 # writes only an emulator config it restores, Steam's shortcut list through
-# Steam itself, and the launch request ($GALLEON_TEST_ROOT/current.json),
-# removed before it finishes.
+# Steam itself, the launch request ($GALLEON_TEST_ROOT/current.json),
+# removed before it finishes, and the default sink's mute (audio.py), put
+# back with its volume from $GALLEON_TEST_ROOT/audio.json.
 #
 # It also copies the power state the Nova shows into logs/power-facts.txt,
 # because the overlay's parsers (src/main/powerstate.ts) need the real format
@@ -23,14 +24,16 @@
 set -u
 
 # The harness starts no process; what there is to undo is the launch request,
-# so the shortcut cannot start a build once the run is over, and an emulator
-# config that changed after the backup, from the backup this run left behind.
+# so the shortcut cannot start a build once the run is over, the sound a
+# stopped run left muted, and an emulator config that changed after the
+# backup, from the backup this run left behind.
 # Each step is tried whatever became of the other, so one that fails never
 # leaves the owner's configs unrestored.
 if [ "${1:-}" = --cleanup ]; then
   cleaned=0
   if [ -n "${GALLEON_TEST_ROOT:-}" ]; then
     python3 "$(dirname -- "$0")/current.py" remove --test-root "$GALLEON_TEST_ROOT" || cleaned=1
+    python3 "$(dirname -- "$0")/audio.py" restore --state "$GALLEON_TEST_ROOT/audio.json" || cleaned=1
   fi
   if [ -n "${GALLEON_TEST_DIR:-}" ] && [ -d "$GALLEON_TEST_DIR/owner-state/backup" ]; then
     python3 "$(dirname -- "$0")/ownerstate.py" restore "$GALLEON_TEST_DIR/owner-state/backup"
@@ -169,6 +172,16 @@ if [ -n "$home_ok" ] && [ -n "$owner_ok" ] && [ -n "$shortcut_ok" ] && python3 "
   request_ok=1
 fi
 
+# The sound goes off before anything could start, and stays off until the
+# restore below. The record lives in the test root, so a later --cleanup
+# finds it whichever build left it. Nothing is started yet, so a mute that
+# fails is a note here; it is what the start will wait on.
+audio_state="$GALLEON_TEST_ROOT/audio.json"
+muted=
+if [ -n "$request_ok" ] && python3 "$here/audio.py" mute --state "$audio_state" >>"$log" 2>&1; then
+  muted=1
+fi
+
 # build-info.json is written by scripts/device-bundle.mjs and holds no quote
 # or backslash inside a value, so a line match is enough to read it.
 version=$(sed -n 's/^ *"version": *"\([^"]*\)".*/\1/p' "$here/build-info.json" 2>/dev/null)
@@ -218,6 +231,12 @@ fact_command() {
   fact_command profile
   fact_command status
 } >"$facts" 2>&1
+
+# The sound is put back before the second manifest, as the run's last
+# change. A record that cannot be restored (its sink gone, or WirePlumber not
+# answering) is kept and fails harness.run on every run until it can be.
+audio_restored=1
+python3 "$here/audio.py" restore --state "$audio_state" >>"$log" 2>&1 || audio_restored=
 
 # The second manifest comes before the restore, so a config the run changed
 # fails the check even though it is put back. ownerstate.py exits 1 for a
@@ -284,6 +303,9 @@ elif [ -z "$request_ok" ]; then
 elif [ -z "$request_gone" ]; then
   result=fail
   reason='"the launch request could not be removed"'
+elif [ -z "$audio_restored" ]; then
+  result=fail
+  reason='"the sound could not be put back as it was"'
 elif [ "$built" != "$GALLEON_SHA" ]; then
   result=fail
   reason='"the bundle was built from another commit"'
@@ -291,6 +313,14 @@ elif [ ! -x "${GALLEON_APPIMAGE:-}" ]; then
   result=fail
   reason='"the AppImage is missing or not executable"'
 fi
+if [ -z "$muted" ]; then
+  audio_note='not muted'
+elif [ -n "$audio_restored" ]; then
+  audio_note='muted and put back'
+else
+  audio_note='muted, not put back'
+fi
+echo "audio: $audio_note" >>"$log"
 echo "minimal harness: version ${version:-unknown}, harness.run $result" >>"$log"
 
 tmp="$RESULTS_DIR/.summary.json.tmp"
@@ -323,7 +353,8 @@ cat >"$tmp" <<JSON
   ],
   "notes": [
     "minimal harness: harness.run and safety.owner-state only, until M0-22",
-    "sign-in: ${signin_source:-no-importable-credentials}"
+    "sign-in: ${signin_source:-no-importable-credentials}",
+    "audio: $audio_note"
   ]
 }
 JSON
