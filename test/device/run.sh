@@ -28,16 +28,24 @@
 set -u
 
 # What there is to undo is the launch request, so the shortcut cannot start
-# a build once the run is over, the self-test request, so the app runs no
-# checks unless a run asked, the sound a stopped run left muted, and an
-# emulator config that changed after the backup, from the backup this run
-# left behind.
+# a build once the run is over, an app a killed run left running, the
+# self-test request, so the app runs no checks unless a run asked, the sound
+# a stopped run left muted, and an emulator config that changed after the
+# backup, from the backup this run left behind.
 # Each step is tried whatever became of the other, so one that fails never
 # leaves the owner's configs unrestored.
 if [ "${1:-}" = --cleanup ]; then
   cleaned=0
   if [ -n "${GALLEON_TEST_ROOT:-}" ]; then
     python3 "$(dirname -- "$0")/current.py" remove --test-root "$GALLEON_TEST_ROOT" || cleaned=1
+  fi
+  # Steam started the app, outside the process group the bridge stops, so an
+  # app a killed run left is stopped here, before the sound comes back, and
+  # only while it is still the process launch.sh recorded (launched.py).
+  if [ -n "${GALLEON_TEST_DIR:-}" ]; then
+    python3 "$(dirname -- "$0")/launched.py" stop --state "$GALLEON_TEST_DIR/home/launch" || cleaned=1
+  fi
+  if [ -n "${GALLEON_TEST_ROOT:-}" ]; then
     python3 "$(dirname -- "$0")/audio.py" restore --state "$GALLEON_TEST_ROOT/audio.json" || cleaned=1
   fi
   if [ -n "${GALLEON_TEST_DIR:-}" ]; then
@@ -119,7 +127,7 @@ esac
 # folder, so the path Steam holds stays the same across runs. A copy is
 # renamed into place, so a link left there is replaced rather than followed.
 shortcut_ok=1
-for name in launch.sh current.py; do
+for name in launch.sh current.py launched.py; do
   rm -f -- "$GALLEON_TEST_ROOT/.$name.tmp"
   if ! { cp -- "$here/$name" "$GALLEON_TEST_ROOT/.$name.tmp" &&
     chmod 0755 "$GALLEON_TEST_ROOT/.$name.tmp" &&

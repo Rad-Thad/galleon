@@ -2335,3 +2335,27 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: the next nightly re-checks the session just before starting the app; a stopped app now shows as `partial`.
 - Next: M0-22 part 4d-3c-3b: an absolute deadline for the app (its budget counts from its own start, so a fallback start shifts it), `--cleanup` stopping an app a killed run left (guarded against a reused pid by the boot id and process start time recorded in launch.sh), the profile handshake, merging `RESULTS_DIR/app/summary.json` (exit 20 on `aborted-by-user`), and leaving Steam at its library.
+
+## 2026-10-13 11:58 UTC session 01CNArnLoJVfYU8wsowEi6UU (hourly heartbeat, second unit)
+
+- Device results: nothing new. Part 4d-3c-3a of M0-22, PR #207, merged at 4d5a1ce; CI x64 7:46, arm64 1:00.
+- Worked on: M0-22 part 4d-3c-3b-1 (tracking issue #191): `run.sh --cleanup` stops an app that a killed run left running, signalling only processes launch.sh recorded on this boot.
+- Result: PR (this one). M0-22 stays false.
+- Evidence:
+  - `test/device/launched.py` (Python standard library). `record` writes `<name>.id` (pid, boot id, `/proc/<pid>/stat` start time) privately, before launch.sh writes each pid file. `stop` sends SIGTERM and then SIGKILL to the recorded app and launch.sh, each only while its boot id and start time still match. A pid with no record, a linked folder, or a zombie is left alone. It exits 1 while a recorded process survives both signals.
+  - `test/device/launch.sh` records both pids, and run.sh copies `launched.py` into the test root beside it. `run.sh --cleanup` runs `launched.py stop` after withdrawing the launch request and before the sound comes back. `tools/device-bridge/README.md`'s claim that cleanup "knows how to stop Galleon" now holds.
+  - Tests: `test/device/test_launched.py` 11/11, three runs each:
+    - stops both
+    - kills one that ignores TERM
+    - leaves alone a pid with a different start time, a pid from another boot, a pid without its record, and a linked folder
+    - reads past a name with spaces and parentheses
+    - checks the record's mode through the CLI
+  - `scripts/device-bundle.test.ts` new tests:
+    - "run.sh --cleanup stops an app a killed run left running, before the sound comes back"
+    - "run.sh --cleanup leaves alone a pid recorded on another boot"
+    - the bundle listing and the test-root copies now include `launched.py`.
+  - `docs/TESTING.md`: the record and the stop.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: from the next nightly, launch.sh writes `launch.id` and `app.id` beside its pid files.
+- Next: M0-22 part 4d-3c-3b-2: give the app an absolute deadline (it counts its budget from its own start, so a fallback start shifts it), then the profile handshake, merging `RESULTS_DIR/app/summary.json` (exit 20 on `aborted-by-user`), and leaving Steam at its library.

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { execFileSync, spawn, spawnSync } from 'node:child_process'
 import {
   chmodSync,
+  copyFileSync,
   existsSync,
   lstatSync,
   mkdirSync,
@@ -244,6 +245,7 @@ describe('device-bundle', () => {
       './steamcef.py',
       './launch.sh',
       './current.py',
+      './launched.py',
       './session.py',
       './audio.py',
       './selftestrequest.py',
@@ -366,7 +368,7 @@ describe('device-bundle', () => {
     })
     assert.equal(run.status, 0, run.stderr)
     assert.equal(readFileSync(elsewhere, 'utf8'), 'untouched\n')
-    for (const name of ['launch.sh', 'current.py']) {
+    for (const name of ['launch.sh', 'current.py', 'launched.py']) {
       const copied = lstatSync(join(testRoot, name))
       assert.ok(copied.isFile() && (copied.mode & 0o111) !== 0, name)
       assert.equal(
@@ -1014,6 +1016,96 @@ describe('device-bundle', () => {
     const run = spawnSync('/bin/sh', [join(bundle, 'run.sh'), '--cleanup'], { env })
     assert.equal(run.status, 1)
     assert.ok(existsSync(join(testRoot, 'audio.json')))
+  })
+
+  test('run.sh --cleanup stops an app a killed run left running, before the sound comes back', () => {
+    const bundle = unpackLikeTheBridge(built())
+    const session = fakeSession()
+    const testRoot = mkdtempSync(join(tmpdir(), 'bundle-testroot-'))
+    const testDir = join(testRoot, SHA)
+    const home = join(testDir, 'home')
+    mkdirSync(home, { recursive: true })
+    for (const name of ['launch.sh', 'current.py', 'launched.py']) {
+      copyFileSync(join(bundle, name), join(testRoot, name))
+    }
+    const seen = mkdtempSync(join(tmpdir(), 'bundle-seen-'))
+    // An app that runs until stopped, and says whether the sound was still
+    // off when it was.
+    const app = join(testDir, 'Galleon-arm64.AppImage')
+    writeFileSync(
+      app,
+      '#!/bin/sh\n' +
+        `trap '[ -e "${join(session, 'muted')}" ] && echo muted >"${join(seen, 'stopped')}"; exit 0' TERM\n` +
+        'while :; do sleep 0.1; done\n'
+    )
+    chmodSync(app, 0o755)
+    const env = { PATH: `${session}:${process.env.PATH}`, GALLEON_TEST_ROOT: testRoot }
+    execFileSync(
+      'python3',
+      [join(bundle, 'audio.py'), 'mute', '--state', join(testRoot, 'audio.json')],
+      { env }
+    )
+    execFileSync('python3', [
+      join(bundle, 'current.py'),
+      'write',
+      '--test-root',
+      testRoot,
+      '--appimage',
+      app,
+      '--home',
+      home,
+      '--results',
+      join(testDir, 'results'),
+      '--sha',
+      SHA,
+      '--budget',
+      '60'
+    ])
+    // Steam starts the shortcut; the run that asked is gone.
+    const launcher = spawn('/bin/sh', [join(testRoot, 'launch.sh')], {
+      stdio: 'ignore',
+      detached: true
+    })
+    launcher.unref()
+    const launched = join(home, 'launch')
+    while (!existsSync(join(launched, 'app.pid'))) execFileSync('sleep', ['0.05'])
+    const pid = Number(readFileSync(join(launched, 'app.pid'), 'utf8'))
+    const run = spawnSync('/bin/sh', [join(bundle, 'run.sh'), '--cleanup'], {
+      env: { ...env, GALLEON_TEST_DIR: testDir }
+    })
+    assert.equal(run.status, 0, String(run.stderr))
+    assert.throws(() => process.kill(pid, 0))
+    assert.equal(readFileSync(join(seen, 'stopped'), 'utf8'), 'muted\n')
+    assert.equal(readFileSync(join(launched, 'exit'), 'utf8'), '0\n')
+    assert.ok(!existsSync(join(session, 'muted')))
+  })
+
+  test('run.sh --cleanup leaves alone a pid recorded on another boot', () => {
+    const bundle = unpackLikeTheBridge(built())
+    const testDir = join(mkdtempSync(join(tmpdir(), 'bundle-testroot-')), SHA)
+    const launched = join(testDir, 'home/launch')
+    mkdirSync(launched, { recursive: true })
+    const other = spawn('/bin/sh', ['-c', 'while :; do sleep 0.1; done'], { stdio: 'ignore' })
+    const start = readFileSync(`/proc/${other.pid}/stat`, 'utf8').split(') ')[1].split(' ')[19]
+    writeFileSync(join(launched, 'app.pid'), `${other.pid}\n`)
+    writeFileSync(
+      join(launched, 'app.id'),
+      `${other.pid} 00000000-0000-0000-0000-000000000000 ${start}\n`
+    )
+    const run = spawnSync('/bin/sh', [join(bundle, 'run.sh'), '--cleanup'], {
+      env: { PATH: process.env.PATH, GALLEON_TEST_DIR: testDir }
+    })
+    const alive = (() => {
+      try {
+        process.kill(other.pid!, 0)
+        return true
+      } catch {
+        return false
+      }
+    })()
+    other.kill('SIGKILL')
+    assert.equal(run.status, 0, String(run.stderr))
+    assert.ok(alive, 'a process not recorded on this boot is never signalled')
   })
 
   test('run.sh --cleanup removes the launch request a stopped run left', () => {
