@@ -2230,7 +2230,7 @@ Lines the tooling reads (exact forms):
 
 - Device results: nothing new since 2d001c4 (complete, the minimal harness); no safety failures, no regressions; bridge last skip "no new nightly". Part 4d-1 of M0-22, PR #200, merged at fffcec4; CI x64 6:55, arm64 1:03.
 - Worked on: M0-22 part 4d-2 (tracking issue #191): `safety.owner-state` leaves out the test shortcut's own `LastPlayTime`, so the start through Steam (next part) cannot fail it by itself.
-- Result: PR (this one). M0-22 stays false.
+- Result: PR #201. M0-22 stays false.
 - Evidence:
   - `test/device/shortcuts.py`: `play_time_spans` gives the offset of the `LastPlayTime` int32 of each shortcut named 'Galleon Device Test' (the VDF reader records fixed fields' offsets when asked).
   - `test/device/ownerstate.py`: for the files in the spec's new `shortcutLists` (Steam's `shortcuts.vdf`), the entry drops the modification time and hashes the file with only those bytes zeroed. A file that is not binary VDF, too large, or a link keeps the strict entry.
