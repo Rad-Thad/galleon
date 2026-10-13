@@ -2240,3 +2240,17 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: the next nightly's `safety.owner-state` uses the masked entry; nothing starts the shortcut yet, so it should still pass.
 - Next: M0-22 part 4d-3: the start through `steam://rungameid/` with the RunGame fallback, with the audio muted and restored, the self-test request, and the stop at the budget's end; `harness.run` fails when neither route marks the start.
+
+## 2026-10-13 04:55 UTC session 01SrbwrtKnx3nZrebANiPQ6H (hourly heartbeat, second unit)
+
+- Device results: nothing new. Part 4d-2 of M0-22, PR #201, merged at de0722a; CI x64 7:24, arm64 1:00. That PR's first x64 leg failed only the PR-body check (no `Feature:` line); the body was fixed and a docs commit pushed, since a re-run reuses the old body.
+- Worked on: M0-22 part 4d-3a (tracking issue #191): `audio.py`, the mute before a run and the restore after it (PLAN.md 5.3 steps 8 and 11; acceptance line 5's audio half).
+- Result: PR (this one). M0-22 stays false.
+- Evidence:
+  - `test/device/audio.py` (Python standard library): `mute --state FILE` resolves `@DEFAULT_AUDIO_SINK@` to its node id (`wpctl inspect`), records id, volume and mute (`wpctl get-volume`) in a private file, then mutes that id; a record already there is kept. `restore` sets the recorded id's volume and mute back and removes the record. Failures exit 3 and keep the record.
+  - Tests: `test/device/test_audio.py` 10/10 against a fake `wpctl` (mute and put back, including a volume changed during the run; an owner who had muted stays muted; the restore reaches the recorded sink after the default changed; a stopped run's record kept; nothing to restore; WirePlumber failing, missing or answering unexpectedly; a record it did not write refused and kept; a failed restore keeps the record). `docs/TESTING.md`: a paragraph.
+  - Not wired into run.sh yet: the mute belongs with the start (part 4d-3b), and nothing starts yet.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: nothing changes on the device until run.sh calls it.
+- Next: M0-22 part 4d-3b: run.sh mutes (refusing to start when it cannot), starts the shortcut through `steam://rungameid/` with the RunGame fallback, stops at the budget's end, and restores the sound in the run and in `--cleanup`.
