@@ -6,9 +6,13 @@
 # and reports `harness.run`, so the path from a merge to `device-results` is
 # exercised end to end. It already takes the desktop session's variables and
 # repeats the bridge's Game Mode, idle and free-space checks (session.py),
-# skipping when one fails, and holds the owner state (ownerstate.py, in
-# $GALLEON_TEST_DIR/owner-state), reported as `safety.owner-state`. Outside
-# RESULTS_DIR and that folder it writes only an emulator config it restores.
+# skipping when one fails; makes sure Steam has the test shortcut
+# (steamcef.py), with launch.sh and current.py in $GALLEON_TEST_ROOT; holds
+# the owner state (ownerstate.py, in $GALLEON_TEST_DIR/owner-state), reported
+# as `safety.owner-state`; and makes the test home with its read-only sign-in
+# (signin.py, $GALLEON_TEST_DIR/home). Outside RESULTS_DIR and those places it
+# writes only an emulator config it restores, and Steam's shortcut list
+# through Steam itself.
 #
 # It also copies the power state the Nova shows into logs/power-facts.txt,
 # because the overlay's parsers (src/main/powerstate.ts) need the real format
@@ -33,6 +37,7 @@ here=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 : "${RESULTS_DIR:?RESULTS_DIR is set by the bridge}"
 : "${GALLEON_SHA:?GALLEON_SHA is set by the bridge}"
 : "${GALLEON_TEST_DIR:?GALLEON_TEST_DIR is set by the bridge}"
+: "${GALLEON_TEST_ROOT:?GALLEON_TEST_ROOT is set by the bridge}"
 
 now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 started=$(now)
@@ -73,12 +78,42 @@ fi
 # A check that cannot run is the harness's fault, not the device's, so it
 # fails harness.run rather than skipping every build.
 session_ok=1
-why=$(python3 "$here/session.py" check --test-root "${GALLEON_TEST_ROOT:-$RESULTS_DIR}" 2>>"$log")
+why=$(python3 "$here/session.py" check --test-root "$GALLEON_TEST_ROOT" 2>>"$log")
 case $? in
   0) ;;
   10) skip "$why" ;;
   *) session_ok= ;;
 esac
+
+# The shortcut's executable lives in the test root, outside any one build's
+# folder, so the path Steam holds stays the same across runs. A copy is
+# renamed into place, so a link left there is replaced rather than followed.
+shortcut_ok=1
+for name in launch.sh current.py; do
+  rm -f -- "$GALLEON_TEST_ROOT/.$name.tmp"
+  if ! { cp -- "$here/$name" "$GALLEON_TEST_ROOT/.$name.tmp" &&
+    chmod 0755 "$GALLEON_TEST_ROOT/.$name.tmp" &&
+    mv -f -- "$GALLEON_TEST_ROOT/.$name.tmp" "$GALLEON_TEST_ROOT/$name"; } 2>>"$log"; then
+    shortcut_ok=
+  fi
+done
+# The shortcut comes before the owner-state manifest, which covers
+# shortcuts.vdf: adding it is the one change the run makes there on purpose,
+# and Steam saves that file when it likes, so the manifest waits until the
+# shortcut is listed in it (steamcef.py, SHORTCUT_UNSAVED). A run without
+# Steam's debugger, or before Steam has saved, is skipped and tried again.
+if [ -n "$shortcut_ok" ]; then
+  shortcut=$(python3 "$here/steamcef.py" ${GALLEON_STEAM_CEF:+--cef "$GALLEON_STEAM_CEF"} \
+    ensure --test-root "$GALLEON_TEST_ROOT" --saved-within 30 2>>"$log")
+  code=$?
+  echo "shortcut: $shortcut" >>"$log"
+  why=$(printf '%s' "$shortcut" | sed -n 's/.*"reason": *"\([a-z-]*\)".*/\1/p')
+  case $code in
+    0) ;;
+    10) skip "${why:-steam-cef-unavailable}" ;;
+    *) shortcut_ok= ;;
+  esac
+fi
 
 # Owner state (ownerstate.py): what the run must not change, recorded before
 # anything else happens. The manifest and the backup stay on the device, out
@@ -92,6 +127,21 @@ if ! { mkdir -p "$owner" &&
   python3 "$here/ownerstate.py" backup "$owner/backup" 2>>"$log"; }; then
   owner_ok=
 fi
+
+# The app under test gets a home of its own and, when one can be found, a copy
+# of the owner's sign-in (signin.py). Without one the run goes on, and the
+# checks that need the server report no-importable-credentials.
+home_ok=1
+signin=$(python3 "$here/signin.py" prepare --test-dir "$GALLEON_TEST_DIR" \
+  ${GALLEON_READONLY_TOKEN_FILE:+--token-file "$GALLEON_READONLY_TOKEN_FILE"} 2>>"$log")
+case $? in
+  0 | 10) echo "sign-in: $signin" >>"$log" ;;
+  *) home_ok= ;;
+esac
+# The source is a kind (signin.py), never a value, so it can be published.
+signin_source=$(printf '%s' "$signin" | sed -n 's/.*"source": *"\([a-z-]*\)".*/\1/p')
+GALLEON_HOME=$GALLEON_TEST_DIR/home
+export GALLEON_HOME
 
 # build-info.json is written by scripts/device-bundle.mjs and holds no quote
 # or backslash inside a value, so a line match is enough to read it.
@@ -189,9 +239,15 @@ reason=null
 if [ -z "$session_ok" ]; then
   result=fail
   reason='"the session checks could not run"'
+elif [ -z "$shortcut_ok" ]; then
+  result=fail
+  reason='"the test shortcut could not be made"'
 elif [ -z "$owner_ok" ]; then
   result=fail
   reason='"the owner-state manifest could not be taken"'
+elif [ -z "$home_ok" ]; then
+  result=fail
+  reason='"the test home could not be made"'
 elif [ "$built" != "$GALLEON_SHA" ]; then
   result=fail
   reason='"the bundle was built from another commit"'
@@ -229,7 +285,10 @@ cat >"$tmp" <<JSON
       "evidence": ["logs/owner-state.txt"]
     }
   ],
-  "notes": ["minimal harness: harness.run and safety.owner-state only, until M0-22"]
+  "notes": [
+    "minimal harness: harness.run and safety.owner-state only, until M0-22",
+    "sign-in: ${signin_source:-no-importable-credentials}"
+  ]
 }
 JSON
 mv "$tmp" "$RESULTS_DIR/summary.json"

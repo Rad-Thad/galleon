@@ -15,11 +15,18 @@ here is the least of it the two calls need (text frames, one request at a
 time) in the Python standard library, and it talks only to the loopback
 address.
 
-  steamcef.py ensure --test-root DIR   prints {"appid", "gameid", "source"}
+  steamcef.py ensure --test-root DIR [--saved-within SECONDS]
+                                       prints {"appid", "gameid", "source"}
   steamcef.py run GAMEID               starts a shortcut through Steam
 
 Both exit 10 with reason `steam-cef-unavailable` when the debugger does not
 answer, so run.sh can skip the Steam route rather than fail the run.
+
+shortcuts.vdf is part of the owner state run.sh holds, and Steam saves it
+when it chooses. With `--saved-within`, `ensure` waits that long for the
+shortcut to be listed there and otherwise exits 10 with reason
+`steam-shortcut-unsaved`, so the owner-state manifest is never taken while a
+save of the run's own shortcut is still to come.
 """
 
 import argparse
@@ -31,6 +38,7 @@ import os
 import socket
 import struct
 import sys
+import time
 import urllib.parse
 import urllib.request
 
@@ -47,6 +55,7 @@ MESSAGE_LIMIT = 1 << 20
 
 EXIT_SKIPPED = 10
 CEF_UNAVAILABLE = "steam-cef-unavailable"
+SHORTCUT_UNSAVED = "steam-shortcut-unsaved"
 
 
 class CefUnavailable(Exception):
@@ -274,6 +283,32 @@ def write_record(path, name, exe, appid):
     os.replace(tmp, path)
 
 
+def listed(home, appid):
+    """True when a shortcuts.vdf that can be read lists `appid`."""
+    for path in glob.glob(os.path.join(glob.escape(home), shortcuts.SHORTCUTS_GLOB)):
+        try:
+            with open(path, "rb") as handle:
+                entries = shortcuts.parse(handle.read()).get("shortcuts")
+        except (OSError, shortcuts.VdfError):
+            continue
+        if isinstance(entries, dict):
+            for entry in entries.values():
+                if isinstance(entry, dict) and isinstance(entry.get("appid"), int):
+                    if entry["appid"] & 0xFFFFFFFF == appid:
+                        return True
+    return False
+
+
+def wait_listed(home, appid, seconds, clock=time.monotonic, sleep=time.sleep):
+    """True once shortcuts.vdf lists `appid`, False when `seconds` pass first."""
+    deadline = clock() + seconds
+    while not listed(home, appid):
+        if clock() >= deadline:
+            return False
+        sleep(1)
+    return True
+
+
 def record_is_stale(home, record_path, appid):
     """True when Steam has written shortcuts.vdf since the record and left it out.
 
@@ -334,6 +369,7 @@ def main(argv=None):
     add.add_argument("--record", default=RECORD)
     # Tests point this at a fake device root; on the Nova it is the real one.
     add.add_argument("--root", default="")
+    add.add_argument("--saved-within", type=float)
     commands.add_parser("run").add_argument("gameid", type=int)
     args = parser.parse_args(argv)
 
@@ -351,9 +387,13 @@ def main(argv=None):
     except CefError as error:
         print(json.dumps({"reason": "steam-cef-error", "detail": str(error)}))
         return 1
+    reason = None
+    home = os.path.abspath(args.home)
+    if args.saved_within is not None and not wait_listed(home, appid, args.saved_within):
+        reason = SHORTCUT_UNSAVED
     print(json.dumps({"appid": appid, "gameid": shortcuts.gameid(appid), "source": source,
-                      "reason": None}))
-    return 0
+                      "reason": reason}))
+    return EXIT_SKIPPED if reason else 0
 
 
 if __name__ == "__main__":

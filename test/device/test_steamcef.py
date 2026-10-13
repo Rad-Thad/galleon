@@ -274,6 +274,47 @@ class SteamCefTest(unittest.TestCase):
             self.assertEqual(code, steamcef.EXIT_SKIPPED)
             self.assertEqual(json.loads(out.getvalue()), {"reason": "steam-cef-unavailable"})
 
+    def test_waits_for_steam_to_list_the_shortcut(self):
+        now = [0.0]
+        naps = []
+
+        def sleep(seconds):
+            naps.append(seconds)
+            now[0] += seconds
+            if len(naps) == 3:
+                self.write_vdf([{"appid": -1234567890, "AppName": "Galleon Device Test"}])
+
+        self.assertTrue(steamcef.wait_listed(self.home, 3060399406, 30, lambda: now[0], sleep))
+        self.assertEqual(len(naps), 3)
+        self.assertFalse(steamcef.wait_listed(self.home, 3000000001, 5, lambda: now[0], sleep))
+        self.assertLessEqual(now[0], 3 + 5 + 1)
+
+    def test_a_listing_that_cannot_be_read_is_not_a_save(self):
+        path = self.write_vdf([{"appid": -1234567890, "AppName": "Galleon Device Test"}])
+        with open(path, "r+b") as handle:
+            handle.truncate(12)
+        self.assertFalse(steamcef.listed(self.home, 3060399406))
+
+    def test_cli_skips_until_steam_has_saved_the_shortcut(self):
+        server = self.cef(lambda expression: value(3060399406))
+        argv = ["--home", self.home, "--cef", server.url, "ensure", "--test-root", self.test_root,
+                "--saved-within", "0"]
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = steamcef.main(argv)
+        self.assertEqual(code, steamcef.EXIT_SKIPPED)
+        self.assertEqual(json.loads(out.getvalue()), {
+            "appid": 3060399406, "gameid": shortcuts.gameid(3060399406), "source": "added",
+            "reason": "steam-shortcut-unsaved"})
+
+        self.write_vdf([{"appid": -1234567890, "AppName": "Galleon Device Test"}])
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = steamcef.main(argv)
+        self.assertEqual(code, 0)
+        self.assertEqual(json.loads(out.getvalue())["reason"], None)
+        self.assertEqual(len(server.expressions), 1)
+
     def test_cli_reports_a_failed_call(self):
         server = self.cef(lambda expression: THREW)
         out = io.StringIO()
