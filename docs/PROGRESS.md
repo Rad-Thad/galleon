@@ -2375,3 +2375,18 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: from the next nightly the request carries `deadline`.
 - Next: M0-22 part 4d-3c-3b-3: serve the profile handshake, merge `RESULTS_DIR/app/summary.json` (exit 20 on `aborted-by-user`), and leave Steam at its library.
+
+## 2026-10-13 13:28 UTC session 01BWGZuxDZ9MDnK743PyboSs (hourly heartbeat)
+
+- Device results: nothing new (bridge last seen 08:03 UTC, "no new nightly"). Part 4d-3c-3b-2 of M0-22, PR #209, merged at 2c93b3b; CI x64 7:59, arm64 1:01.
+- Worked on: M0-22 part 4d-3c-3b-3a (tracking issue #191): run.sh merges the app's `summary.json` into the run's (PLAN.md 5.3 step 10) and exits 20 when the player stopped the app.
+- Result: PR (this one). M0-22 stays false.
+- Evidence:
+  - `test/device/mergesummary.py` (Python standard library). The harness's summary is the base. The app's checks follow it, each held to the schema, with evidence moved under `app/`. An app summary that is missing, linked, too large, not JSON or for another commit is left out, and so is a check that breaks the schema or repeats a harness id; either makes the run `partial` with a note. The app's `aborted-by-user` makes the run `aborted-by-user` (exit 20) only while every harness check passed; otherwise the run is `partial`, so a failed `safety.owner-state` is never dropped by the bridge's retry of an aborted run.
+  - `test/device/run.sh` writes its own summary to `$GALLEON_TEST_DIR/harness-summary.json` when the app started and merges it into `RESULTS_DIR/summary.json`; a merge that cannot run leaves the harness's summary as `partial`.
+  - Tests: `test/device/test_mergesummary.py` 9/9; `scripts/device-bundle.test.ts` 46/46, new: "run.sh exits 20 when the player stopped the app, with the harness checks passing", "run.sh leaves out an app summary for another commit, and the run is partial"; the first summary test now carries the app's `selftest.complete` with `app/` evidence, and an app that writes no summary makes the run `partial`. `docs/TESTING.md`: the merge rules.
+  - `scripts/agent/check.sh` green.
+- Notes: the stale `/var/run/docker.pid` again stopped `dockerd`; removed after checking its pid was not running.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: from the next nightly, the app's checks appear in the published summary. Until the profile handshake is served, the app records its profiles as `profile-not-set`.
+- Next: M0-22 part 4d-3c-3b-3b: serve the profile handshake through `armada-power` and restore the profile, then leave Steam at its library.

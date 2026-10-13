@@ -19,7 +19,8 @@
 # removed before it finishes, and the default sink's mute (audio.py), put
 # back with its volume from $GALLEON_TEST_ROOT/audio.json. It starts the app
 # through the test shortcut, and stops it, signalling only the pids launch.sh
-# recorded in $GALLEON_TEST_DIR/home/launch.
+# recorded in $GALLEON_TEST_DIR/home/launch; the app's summary, from
+# $RESULTS_DIR/app, joins the harness's checks (mergesummary.py).
 #
 # It also copies the power state the Nova shows into logs/power-facts.txt,
 # because the overlay's parsers (src/main/powerstate.ts) need the real format
@@ -540,7 +541,7 @@ cat >"$tmp" <<JSON
     }
   ],
   "notes": [
-    "minimal harness: harness.run and safety.owner-state only, until M0-22",
+    "harness checks: harness.run and safety.owner-state; the app's follow once it has started",
     "sign-in: ${signin_source:-no-importable-credentials}",
     "audio: $audio_note",
     "app: $app_note"${late_note:+,
@@ -548,6 +549,25 @@ cat >"$tmp" <<JSON
   ]
 }
 JSON
-mv "$tmp" "$RESULTS_DIR/summary.json"
+# A started app's checks join the harness's (mergesummary.py), from a
+# summary written outside the results so only the merged one is published.
+# A merge that cannot run still publishes the harness's checks, as a run
+# that is missing the app's.
+if [ -z "$started_by" ]; then
+  mv "$tmp" "$RESULTS_DIR/summary.json"
+else
+  harness_summary="$GALLEON_TEST_DIR/harness-summary.json"
+  mv "$tmp" "$harness_summary"
+  python3 "$here/mergesummary.py" --harness "$harness_summary" --app "$app_results/summary.json" \
+    --sha "$GALLEON_SHA" --out "$RESULTS_DIR/summary.json" 2>>"$log"
+  merged=$?
+  if [ "$merged" -ne 0 ] && [ "$merged" -ne 20 ]; then
+    echo "the app's summary could not be merged" >>"$log"
+    sed 's/^  "status": "complete",$/  "status": "partial",/' "$harness_summary" >"$tmp" &&
+      mv "$tmp" "$RESULTS_DIR/summary.json"
+  fi
+  rm -f -- "$harness_summary"
+  [ "$merged" -ne 20 ] || exit 20
+fi
 [ -z "$late_skip" ] || exit 10
 exit 0
