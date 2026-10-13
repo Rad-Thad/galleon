@@ -1,0 +1,7 @@
+shortcut: {"appid": 3815324046, "gameid": 16386692001245954048, "source": "record", "reason": null}
+sign-in: rommix
+muted sink 53
+restored sink 53
+owner state: pass
+audio: muted and put back
+minimal harness: version 0.20.0, harness.run pass
