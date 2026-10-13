@@ -191,7 +191,9 @@ built=$(sed -n 's/^ *"sha": *"\([0-9a-f]*\)".*/\1/p' "$here/build-info.json" 2>/
 
 # What the app runs once started (selftestrequest.py). Its summary goes to a
 # folder of its own, to be merged with the harness's checks, and its budget
-# ends before the bridge's so the run keeps time to stop it and collect.
+# ends before the bridge's so the run keeps time to stop it and collect. The
+# app counts that budget from its own start, which can come a fallback's wait
+# later, so it is also given the time the run stops it by (see stop_app).
 # Payloads come with the bundle's homebrew (M0-07), so no emulator is asked
 # for yet.
 app_results="$RESULTS_DIR/app"
@@ -202,6 +204,7 @@ if [ -n "$home_ok" ] && rm -rf -- "$app_results" "$handshake" &&
   mkdir -p -- "$app_results" "$handshake" &&
   python3 "$here/selftestrequest.py" write --home "$GALLEON_HOME" --sha "$GALLEON_SHA" \
     ${version:+--version "$version"} --budget "$app_budget" \
+    --deadline $((deadline - STOP_RESERVE_SECONDS)) \
     --results "$app_results" --handshake "$handshake" \
     --check selftest.complete --check build.identity --check startup.cold \
     --check grid.scroll --check server.heartbeat --check download.small \

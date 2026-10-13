@@ -40,6 +40,12 @@ export interface SelfTestRequest {
   /** The version `build-info.json` names, or null when the harness gave none. */
   version: string | null
   budgetSeconds: number
+  /**
+   * When the run must end whenever it started, as an ISO time, or null. The
+   * budget alone counts from the app's own start, which the harness cannot
+   * time exactly, while the harness stops the app at a time of its own.
+   */
+  deadline: string | null
   resultsDir: string
   handshakeDir: string | null
   checks: string[]
@@ -178,6 +184,10 @@ export function parseRequest(raw: unknown): Taken {
   if (r.privacy !== true) return refuse('request-not-private')
   if (!isStringArray(r.checks)) return refuse('request-checks')
   if (typeof r.budgetSeconds !== 'number' || !(r.budgetSeconds > 0)) return refuse('request-budget')
+  const deadline = r.deadline ?? null
+  if (deadline !== null && (typeof deadline !== 'string' || !isIsoTime(deadline))) {
+    return refuse('request-deadline')
+  }
   if (r.profiles !== undefined && !isStringArray(r.profiles)) return refuse('request-profiles')
   if (r.screenshots !== undefined && !isStringArray(r.screenshots)) {
     return refuse('request-screenshots')
@@ -200,6 +210,7 @@ export function parseRequest(raw: unknown): Taken {
       sha,
       version,
       budgetSeconds: r.budgetSeconds,
+      deadline,
       resultsDir,
       handshakeDir: typeof r.handshakeDir === 'string' ? r.handshakeDir : null,
       checks: r.checks,
@@ -217,6 +228,17 @@ export function parseRequest(raw: unknown): Taken {
 
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((v) => typeof v === 'string')
+}
+
+// The pattern alone takes a month 13, and Date.parse rolls a 30 February
+// over into March; a time that reads back the same is the one written.
+function isIsoTime(value: string): boolean {
+  const at = Date.parse(value)
+  return (
+    ISO_TIME.test(value) &&
+    Number.isFinite(at) &&
+    new Date(at).toISOString().slice(0, 19) === value.slice(0, 19)
+  )
 }
 
 export interface RunOptions {
@@ -247,7 +269,10 @@ export async function runSelfTest(options: RunOptions): Promise<Summary> {
   const now = options.now ?? Date.now
   const signal = options.signal ?? new AbortController().signal
   const started = now()
-  const deadline = started + request.budgetSeconds * 1000
+  const deadline = Math.min(
+    started + request.budgetSeconds * 1000,
+    request.deadline === null ? Infinity : Date.parse(request.deadline)
+  )
   const safety: Safety = {
     serverWritesAttempted: 0,
     deviceIdOnSaveRequests: 0,

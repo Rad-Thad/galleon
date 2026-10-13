@@ -55,6 +55,14 @@ class SelfTestRequestTest(unittest.TestCase):
         self.assertEqual(self.write()[0], 0)
         self.assertNotIn("version", self.read())
 
+    def test_the_deadline_is_written_as_a_utc_time(self):
+        self.assertEqual(self.write("--deadline", "1791892800")[0], 0)
+        self.assertEqual(self.read()["deadline"], "2026-10-13T12:00:00Z")
+
+    def test_no_deadline_leaves_the_field_out(self):
+        self.assertEqual(self.write()[0], 0)
+        self.assertNotIn("deadline", self.read())
+
     def test_refuses_what_the_app_would_refuse_and_writes_nothing(self):
         cases = [
             ("--sha", "abc"),
@@ -63,6 +71,7 @@ class SelfTestRequestTest(unittest.TestCase):
             ("--results", "relative/results"),
             ("--handshake", "relative/hs"),
             ("--saving", "dolphin"),
+            ("--deadline", "0"),
         ]
         for flag, value in cases:
             with self.subTest(flag=flag):

@@ -2359,3 +2359,19 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: from the next nightly, launch.sh writes `launch.id` and `app.id` beside its pid files.
 - Next: M0-22 part 4d-3c-3b-2: give the app an absolute deadline (it counts its budget from its own start, so a fallback start shifts it), then the profile handshake, merging `RESULTS_DIR/app/summary.json` (exit 20 on `aborted-by-user`), and leaving Steam at its library.
+
+## 2026-10-13 12:27 UTC session 01J1ecDscdibWphvBS3VMsSD (hourly heartbeat)
+
+- Device results: nothing new (bridge last seen 08:03 UTC, "no new nightly"). Part 4d-3c-3b-1 of M0-22, PR #208, merged at 5701a17; CI x64 7:21, arm64 0:59.
+- Worked on: M0-22 part 4d-3c-3b-2 (tracking issue #191): the app's self-test run ends by an absolute time run.sh gives it, so an app started late through the RunGame fallback still writes its summary before run.sh stops it.
+- Result: PR (this one). M0-22 stays false.
+- Evidence:
+  - `src/main/selftest.ts`: the request takes an optional `deadline` (ISO UTC); the run ends at whichever of it and `budgetSeconds` after the app's start comes first; a malformed one refuses the request as `request-deadline`.
+  - `test/device/selftestrequest.py` `--deadline EPOCH_SECONDS`, written as a UTC time; `test/device/run.sh` passes the time it stops the app by (`deadline - STOP_RESERVE_SECONDS`).
+  - Tests: `src/main/selftest.test.ts` "the deadline ends the run when it comes before the budget does", "a deadline after the budget ends changes nothing", four refused deadlines (one a 30 February, which `Date.parse` alone rolls into March); `test/device/test_selftestrequest.py` (written as UTC, left out when not given, `0` refused); `scripts/device-bundle.test.ts` (run.sh's request ends 400–600 s ahead; the writer's output parses through `parseRequest`). `docs/TESTING.md`: the field and the rule.
+  - `scripts/agent/check.sh` green; `npm run test:app` 241/241 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root).
+  - Evaluator round 1: FAIL only for this missing entry; noted that `Date.parse` takes a day past the month's end; `isIsoTime` now refuses one that does not read back the same.
+- Notes: a stale `/var/run/docker.pid` again stopped `dockerd`; removed after checking its pid was not running.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: from the next nightly the request carries `deadline`.
+- Next: M0-22 part 4d-3c-3b-3: serve the profile handshake, merge `RESULTS_DIR/app/summary.json` (exit 20 on `aborted-by-user`), and leave Steam at its library.

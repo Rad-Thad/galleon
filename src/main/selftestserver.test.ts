@@ -105,6 +105,7 @@ describe('server.heartbeat', () => {
         sha: 'c'.repeat(40),
         version: null,
         budgetSeconds: 60,
+        deadline: null,
         resultsDir: '/tmp/results',
         handshakeDir: null,
         checks: [HEARTBEAT_CHECK],

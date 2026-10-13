@@ -639,6 +639,9 @@ describe('device-bundle', () => {
     // The app's budget ends before the bridge's, leaving time to stop it.
     const budget = request?.budgetSeconds ?? 0
     assert.ok(budget > 400 && budget < 600, String(budget))
+    // Its run ends by the same time however late it starts.
+    const ends = Date.parse(request?.deadline ?? '') - Date.now()
+    assert.ok(ends > 400_000 && ends < 600_000, String(request?.deadline))
     assert.ok(lstatSync(join(results, 'app')).isDirectory())
     assert.ok(lstatSync(join(testDir, 'handshake')).isDirectory())
     assert.ok(!existsSync(join(testDir, 'home', REQUEST_FILE)))
@@ -1214,6 +1217,8 @@ describe('device-bundle', () => {
       VERSION,
       '--budget',
       '600',
+      '--deadline',
+      '1791892800',
       '--results',
       results,
       '--handshake',
@@ -1241,6 +1246,7 @@ describe('device-bundle', () => {
         sha: SHA,
         version: VERSION,
         budgetSeconds: 600,
+        deadline: '2026-10-13T12:00:00Z',
         resultsDir: results,
         handshakeDir: join(home, 'handshake'),
         checks: ['selftest.complete', 'grid.scroll'],
