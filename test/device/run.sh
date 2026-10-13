@@ -5,7 +5,8 @@
 # This is the harness as M0-22 builds it up, reporting `harness.run` and
 # `safety.owner-state`. It takes the desktop session's variables and
 # repeats the bridge's Game Mode, idle and free-space checks (session.py),
-# skipping when one fails; makes sure Steam has the test shortcut
+# skipping when one fails, at the start and again just before the app is
+# started; makes sure Steam has the test shortcut
 # (steamcef.py), with launch.sh and current.py in $GALLEON_TEST_ROOT; holds
 # the owner state (ownerstate.py, in $GALLEON_TEST_DIR/owner-state), reported
 # as `safety.owner-state`; and makes the test home with its read-only sign-in
@@ -71,10 +72,13 @@ mkdir -p "$RESULTS_DIR/logs"
 log="$RESULTS_DIR/logs/harness.log"
 : >"$log"
 
+json_string() {
+  printf '"%s"' "$(printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g' | tr -d '\n')"
+}
+
 # A skip leaves a summary with its reason; the bridge publishes it once and
 # tries the same build again on a later run.
 skip() {
-  why=$(printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g' | tr -d '\n')
   echo "skipped: $1" >>"$log"
   tmp="$RESULTS_DIR/.summary.json.tmp"
   cat >"$tmp" <<JSON
@@ -82,7 +86,7 @@ skip() {
   "schema": 1,
   "sha": "$GALLEON_SHA",
   "status": "skipped",
-  "reason": "$why",
+  "reason": $(json_string "$1"),
   "startedAt": "$started",
   "finishedAt": "$(now)",
   "checks": [],
@@ -274,6 +278,7 @@ gameid=$(printf '%s' "$shortcut" | sed -n 's/.*"gameid": *\([0-9][0-9]*\).*/\1/p
 started_by=
 app_note='not started'
 start_failed=
+stopped=
 marked_by() {
   until [ -e "$launched/started" ]; do
     [ "$(date +%s)" -lt "$1" ] || return 1
@@ -298,10 +303,26 @@ gone_by() {
     sleep 1
   done
 }
-if [ -n "$request_ok" ] && [ -n "$muted" ] && [ -z "$gameid" ]; then
+# The owner may have picked the device up since the first check. Nothing has
+# started, so the run stands down as a skip and tries the build again later;
+# what it set up is still undone below, and its checks still reported.
+ready=
+late_skip=
+if [ -n "$request_ok" ] && [ -n "$muted" ]; then
+  why=$(python3 "$here/session.py" check --test-root "$GALLEON_TEST_ROOT" 2>>"$log")
+  case $? in
+    0) ready=1 ;;
+    10)
+      late_skip=$why
+      echo "skipped before the start: $why" >>"$log"
+      ;;
+    *) session_ok= ;;
+  esac
+fi
+if [ -n "$ready" ] && [ -z "$gameid" ]; then
   echo "start: the shortcut has no game id" >>"$log"
   start_failed=1
-elif [ -n "$request_ok" ] && [ -n "$muted" ] &&
+elif [ -n "$ready" ] &&
   [ "$built" = "$GALLEON_SHA" ] && [ -x "${GALLEON_APPIMAGE:-}" ]; then
   # steam hands the URL to the running client and returns; the limit keeps a
   # client that never answers from holding the run.
@@ -342,6 +363,8 @@ if [ -n "$started_by" ]; then
     app_note="exited $(cat "$launched/exit" 2>/dev/null || echo unknown)"
   else
     stop_app
+    # The budget ran out with the app's checks unfinished (PLAN.md 5.3 step 9).
+    stopped=1
   fi
 fi
 
@@ -458,14 +481,23 @@ fi
 echo "audio: $audio_note" >>"$log"
 echo "minimal harness: version ${version:-unknown}, harness.run $result" >>"$log"
 
+status=complete
+status_reason=null
+if [ -n "$late_skip" ]; then
+  status=skipped
+  status_reason=$(json_string "$late_skip")
+elif [ -n "$stopped" ]; then
+  status=partial
+fi
+
 tmp="$RESULTS_DIR/.summary.json.tmp"
 cat >"$tmp" <<JSON
 {
   "schema": 1,
   "sha": "$GALLEON_SHA",
   "version": "${version:-unknown}",
-  "status": "complete",
-  "reason": null,
+  "status": "$status",
+  "reason": $status_reason,
   "startedAt": "$started",
   "finishedAt": "$(now)",
   "checks": [
@@ -495,3 +527,5 @@ cat >"$tmp" <<JSON
 }
 JSON
 mv "$tmp" "$RESULTS_DIR/summary.json"
+[ -z "$late_skip" ] || exit 10
+exit 0

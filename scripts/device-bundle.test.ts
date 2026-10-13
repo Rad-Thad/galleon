@@ -56,15 +56,16 @@ function unpackLikeTheBridge(out: string) {
 
 /**
  * A stand-in for the Nova's user manager: Game Mode is up unless `inactive`,
- * and the desktop session's variables are the ones it reports.
+ * or until an `inactive` file appears beside it, and the desktop session's
+ * variables are the ones it reports.
  */
 function fakeSession(inactive = false) {
   const bin = mkdtempSync(join(tmpdir(), 'bundle-session-'))
-  const state = inactive ? 'inactive' : 'active'
+  if (inactive) writeFileSync(join(bin, 'inactive'), '')
   writeFileSync(
     join(bin, 'systemctl'),
     '#!/bin/sh\n' +
-      `[ "$2" = is-active ] && { echo ${state}; exit 0; }\n` +
+      '[ "$2" = is-active ] && { [ -e "$(dirname "$0")/inactive" ] && echo inactive || echo active; exit 0; }\n' +
       '[ "$2" = show-environment ] && { echo DISPLAY=:7; exit 0; }\n' +
       'exit 1\n'
   )
@@ -728,6 +729,7 @@ describe('device-bundle', () => {
     assert.equal(run.status, 0, run.stderr)
     const summary = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8'))
     assert.equal(summary.checks[0].result, 'pass', summary.checks[0].reason)
+    assert.equal(summary.status, 'complete')
     assert.ok(summary.notes.includes('app: exited 0'), summary.notes.join('; '))
     const gameid = (BigInt(APPID) << 32n) | 0x02000000n
     assert.equal(readFileSync(join(session, 'steam.log'), 'utf8'), `steam://rungameid/${gameid}\n`)
@@ -735,6 +737,42 @@ describe('device-bundle', () => {
     assert.equal(readFileSync(join(seen, 'home'), 'utf8'), `${join(testDir, 'home')}\n`)
     assert.match(readFileSync(join(results, 'logs/harness.log'), 'utf8'), /started through steam/)
     assert.ok(!existsSync(join(session, 'muted')))
+  })
+
+  test('run.sh skips before the start when Game Mode ends after the setup, and undoes it', () => {
+    const session = fakeSession()
+    const bin = mkdtempSync(join(tmpdir(), 'bundle-bin-'))
+    // armada-power is read after the mute and before the start, which is
+    // when the owner takes the device back here.
+    writeFileSync(join(bin, 'armada-power'), `#!/bin/sh\n: >'${join(session, 'inactive')}'\n`)
+    chmodSync(join(bin, 'armada-power'), 0o755)
+    const seen = mkdtempSync(join(tmpdir(), 'bundle-seen-'))
+    const app = `#!/bin/sh\necho ran >'${join(seen, 'ran')}'\n`
+    const { run, results, testDir, testRoot } = runHarness(
+      unpackLikeTheBridge(built()),
+      SHA,
+      app,
+      { PATH: `${bin}:${process.env.PATH}` },
+      session
+    )
+    assert.equal(run.status, 10, run.stderr)
+    const summary = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8'))
+    assert.equal(summary.status, 'skipped')
+    assert.match(summary.reason, /Game Mode is not running/)
+    assert.deepEqual(
+      summary.checks.map((check: { id: string; result: string }) => [check.id, check.result]),
+      [
+        ['harness.run', 'pass'],
+        ['safety.owner-state', 'pass']
+      ]
+    )
+    assert.ok(summary.notes.includes('app: not started'), summary.notes.join('; '))
+    assert.ok(summary.notes.includes('audio: muted and put back'), summary.notes.join('; '))
+    assert.ok(!existsSync(join(session, 'steam.log')))
+    assert.ok(!existsSync(join(seen, 'ran')))
+    assert.ok(!existsSync(join(session, 'muted')))
+    assert.ok(!existsSync(join(testRoot, 'current.json')))
+    assert.ok(!existsSync(join(testDir, 'home/self-test-request.json')))
   })
 
   test('run.sh fails harness.run when neither route starts the app', () => {
@@ -841,6 +879,7 @@ describe('device-bundle', () => {
     assert.equal(run.status, 0, run.stderr)
     const summary = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8'))
     assert.ok(summary.notes.includes('app: stopped by a signal'), summary.notes.join('; '))
+    assert.deepEqual([summary.status, summary.reason], ['partial', null])
     assert.ok(existsSync(join(testDir, 'handshake/stop')))
     assert.equal(readFileSync(join(seen, 'signal'), 'utf8'), 'term\n')
     assert.equal(readFileSync(join(testDir, 'home/launch/exit'), 'utf8'), '0\n')
@@ -855,6 +894,7 @@ describe('device-bundle', () => {
     assert.equal(run.status, 0, run.stderr)
     const summary = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8'))
     assert.ok(summary.notes.includes('app: killed'), summary.notes.join('; '))
+    assert.deepEqual([summary.status, summary.reason], ['partial', null])
     const pid = Number(readFileSync(join(testDir, 'home/launch/app.pid'), 'utf8'))
     assert.throws(() => process.kill(pid, 0))
   })
