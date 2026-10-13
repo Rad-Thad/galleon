@@ -2177,3 +2177,17 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: the next nightly exercises the import and the checks; a skip there would show as a `skipped` result with its reason.
 - Next: M0-22 part 4b: the owner-state snapshot after the shortcut is ensured, and the restore and comparison (`safety.owner-state`).
+
+## 2026-10-13 02:43 UTC session 01UVchUjrUmCzj4sAryMHNNE (hourly heartbeat, second unit)
+
+- Device results: nothing new. Part 4a of M0-22, PR #197, merged at d0d23e0; CI x64 6:54, arm64 1:02.
+- Worked on: M0-22 part 4b (tracking issue #191): run.sh holds the owner state and reports `safety.owner-state`.
+- Result: PR (this one). M0-22 stays false.
+- Evidence:
+  - `test/device/run.sh`: after the session checks, `ownerstate.py snapshot` and `backup` into `$GALLEON_TEST_DIR/owner-state/` (now required from the bridge); at the end the second snapshot, the comparison, then the restore; `safety.owner-state` passes only with no difference and nothing restored. A manifest that cannot be taken makes the check `skip` and fails `harness.run`. Only `logs/owner-state.txt` (the changes and restores) is published. `--cleanup` restores from a backup a stopped run left.
+  - `test/device/ownerstate.py`: any failure other than a difference exits `ERROR_EXIT` (3), so run.sh never reads a crash as a change; test `test_a_failure_is_told_apart_from_a_difference`.
+  - `scripts/device-bundle.test.ts` (14/14): "run.sh holds the owner state, and keeps the manifest off the results"; "run.sh fails safety.owner-state when an emulator rewrites its config, and puts it back" (the fake `armada-power` rewrites a config from `owner-state.json` in the fake HOME mid-run: the check fails, the file is back, the log names it changed and restored); "run.sh --cleanup puts back a config from the backup a stopped run left". All helper tests 86/86. `docs/TESTING.md` updated.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: the next nightly reports `safety.owner-state` for the first time; with the minimal harness nothing it starts can touch the covered files, so a failure there would point at the owner's own processes (Steam rewriting `shortcuts.vdf`, say) and is to be understood before more feature work.
+- Next: M0-22 part 4c: the test home, sign-in import and the shortcut ensure wired into run.sh (the shortcut before the first snapshot, per the evaluator's note on #195).

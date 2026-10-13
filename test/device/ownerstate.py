@@ -19,6 +19,8 @@ that is itself a link is the exception: it is read through, never written.
   ownerstate.py backup DEST
   ownerstate.py restore DEST             exit 1 when anything was restored
 
+Any other failure exits ERROR_EXIT, so a crash is never read as a difference.
+
 HOME is the owner's home; `--home` overrides it (tests).
 """
 
@@ -31,6 +33,7 @@ import shutil
 import stat
 import sys
 import tempfile
+import traceback
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SPEC_PATH = os.path.join(HERE, "owner-state.json")
@@ -40,6 +43,7 @@ SPEC_PATH = os.path.join(HERE, "owner-state.json")
 HASH_LIMIT = 64 * 1024 * 1024
 
 BACKUP_INDEX = "index.json"
+ERROR_EXIT = 3
 
 
 def load_spec(path=SPEC_PATH):
@@ -266,5 +270,13 @@ def main(argv=None):
     return 1 if restored else 0
 
 
+def run(argv=None):
+    try:
+        return main(argv)
+    except Exception:  # noqa: BLE001 - reported, and told apart from a difference
+        traceback.print_exc()
+        return ERROR_EXIT
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(run())
