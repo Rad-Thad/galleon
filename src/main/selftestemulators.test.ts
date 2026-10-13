@@ -421,14 +421,15 @@ describe('the device cycle', () => {
 })
 
 describe('the save folder', () => {
-  test('a folder that is not there has one answer, and a new file changes it', () => {
+  test('a folder made, or a folder in it, is no save; a new file is', () => {
     const dir = join(scratch(), 'saves')
     const missing = saveFingerprint(dir)
     assert.equal(saveFingerprint(dir), missing)
     mkdirSync(dir)
+    assert.equal(saveFingerprint(dir), missing, 'a folder made empty is no save')
     const empty = saveFingerprint(dir)
-    assert.notEqual(empty, missing)
     mkdirSync(join(dir, 'snes'))
+    assert.equal(saveFingerprint(dir), empty, 'a folder alone is no save')
     writeFileSync(join(dir, 'snes', 'hello.srm'), 'x')
     assert.notEqual(saveFingerprint(dir), empty)
   })

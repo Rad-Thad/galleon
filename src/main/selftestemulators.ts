@@ -227,35 +227,35 @@ export function runningInGroup(group: number, procDir = '/proc'): boolean {
 
 /**
  * `LaunchDeps.saveFingerprint` on a disk: every file below `folder` with its
- * size and modification time, links not followed. A folder that is not there,
- * or a file that cannot be read, is part of the answer rather than an error,
- * so the cycle never throws over it.
+ * size and modification time, links not followed. A folder that is not there
+ * holds no save, like an empty one; a file that cannot be read is part of the
+ * answer rather than an error, so the cycle never throws over it.
  */
 export function saveFingerprint(folder: string): string {
   const lines: string[] = []
   // Walked by hand: a recursive readdir goes through links to folders.
-  const walk = (dir: string, prefix: string): boolean => {
+  const walk = (dir: string, prefix: string): void => {
     let names: string[]
     try {
       names = readdirSync(dir).sort()
     } catch {
-      return false
+      return
     }
     for (const name of names) {
       const rel = prefix + name
       try {
         const st = lstatSync(join(dir, name))
-        if (st.isDirectory()) {
-          lines.push(`${rel}/`)
-          walk(join(dir, name), `${rel}/`)
-        } else lines.push(`${rel} ${st.size} ${st.mtimeMs}`)
+        // Only files: an emulator can make a folder per core or game on
+        // loading it, and a folder alone is no save.
+        if (st.isDirectory()) walk(join(dir, name), `${rel}/`)
+        else lines.push(`${rel} ${st.size} ${st.mtimeMs}`)
       } catch {
         lines.push(`${rel} ?`)
       }
     }
-    return true
   }
-  return walk(folder, '') ? lines.join('\n') : 'none'
+  walk(folder, '')
+  return lines.join('\n')
 }
 
 /** `EmulatorScenarioDeps.plan` on the device: the owner's install, read and never written. */
