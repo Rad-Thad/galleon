@@ -88,6 +88,18 @@ class ShortcutsTest(unittest.TestCase):
         with self.assertRaises(shortcuts.VdfError):
             shortcuts.parse(deep)
 
+    def test_play_time_spans_point_at_the_test_shortcuts_play_time_only(self):
+        game = dict(GAME, LastPlayTime=111)
+        data = shortcuts_file([game, dict(TEST, LastPlayTime=0x01020304)])
+        spans = shortcuts.play_time_spans(data)
+        self.assertEqual(len(spans), 1)
+        offset, width = spans[0]
+        self.assertEqual(data[offset : offset + width], struct.pack("<i", 0x01020304))
+        self.assertEqual(shortcuts.play_time_spans(shortcuts_file([game])), [])
+        self.assertEqual(shortcuts.play_time_spans(shortcuts_file([{"AppName": "Galleon Device Test"}])), [])
+        with self.assertRaises(shortcuts.VdfError):
+            shortcuts.play_time_spans(data[:-6])
+
     def test_the_game_id_puts_the_unsigned_appid_high_and_the_non_steam_flag_low(self):
         self.assertEqual(shortcuts.gameid(1), (1 << 32) | 0x02000000)
         self.assertEqual(shortcuts.gameid(-1), (0xFFFFFFFF << 32) | 0x02000000)

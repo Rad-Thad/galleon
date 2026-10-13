@@ -2225,3 +2225,18 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: the next nightly writes and removes the request; nothing starts it yet.
 - Next: M0-22 part 4d-2: the start through `steam://rungameid/` with the RunGame fallback, `harness.run` failing when neither marks the start, and the test shortcut's own `LastPlayTime` told apart in `safety.owner-state` without weakening the check for any other entry.
+
+## 2026-10-13 04:27 UTC session 01SrbwrtKnx3nZrebANiPQ6H (hourly heartbeat)
+
+- Device results: nothing new since 2d001c4 (complete, the minimal harness); no safety failures, no regressions; bridge last skip "no new nightly". Part 4d-1 of M0-22, PR #200, merged at fffcec4; CI x64 6:55, arm64 1:03.
+- Worked on: M0-22 part 4d-2 (tracking issue #191): `safety.owner-state` leaves out the test shortcut's own `LastPlayTime`, so the start through Steam (next part) cannot fail it by itself.
+- Result: PR (this one). M0-22 stays false.
+- Evidence:
+  - `test/device/shortcuts.py`: `play_time_spans` gives the offset of the `LastPlayTime` int32 of each shortcut named 'Galleon Device Test' (the VDF reader records fixed fields' offsets when asked).
+  - `test/device/ownerstate.py`: for the files in the spec's new `shortcutLists` (Steam's `shortcuts.vdf`), the entry drops the modification time and hashes the file with only those bytes zeroed. A file that is not binary VDF, too large, or a link keeps the strict entry.
+  - Tests: `test_ownerstate.py` "the test shortcut's play time is the one change left out" (a later save with a new play time compares equal; the owner's play time, the test shortcut's Exe, an added shortcut and a removed one each still differ), "a shortcut list that is not VDF is compared strictly", "a shortcut list that is a link is never read through", "the real spec masks only shortcut lists it covers"; `test_shortcuts.py` "play time spans point at the test shortcut's play time only". All helper tests 95/95. `docs/TESTING.md`: a paragraph.
+  - Started on its own rather than with the start: starting the app needs the mute, the self-test request and the stop (PLAN.md 5.3 steps 7 to 9) in the same PR, so it is not wired in yet.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: the next nightly's `safety.owner-state` uses the masked entry; nothing starts the shortcut yet, so it should still pass.
+- Next: M0-22 part 4d-3: the start through `steam://rungameid/` with the RunGame fallback, with the audio muted and restored, the self-test request, and the stop at the budget's end; `harness.run` fails when neither route marks the start.

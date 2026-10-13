@@ -35,6 +35,8 @@ import sys
 import tempfile
 import traceback
 
+import shortcuts
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 SPEC_PATH = os.path.join(HERE, "owner-state.json")
 
@@ -133,11 +135,46 @@ def _walk(home, path, out, root=False):
         _walk(home, os.path.join(path, name), out)
 
 
+def _shortcut_list_entry(path):
+    """A Steam shortcut list's entry with the test shortcut's play time masked.
+
+    Starting the test shortcut makes Steam write its LastPlayTime, and save the
+    file when it likes, so the modification time is left out and those bytes
+    are zeroed before hashing; every other byte, the owner's shortcuts and the
+    test shortcut's other fields included, still counts. None when the file
+    cannot be read as binary VDF, which leaves the strict entry in place.
+    """
+    try:
+        with open(path, "rb") as handle:
+            data = bytearray(handle.read(HASH_LIMIT + 1))
+        if len(data) > HASH_LIMIT:
+            return None
+        spans = shortcuts.play_time_spans(bytes(data))
+    except (OSError, shortcuts.VdfError):
+        return None
+    for offset, width in spans:
+        data[offset : offset + width] = bytes(width)
+    return {
+        "type": "file",
+        "size": len(data),
+        "sha256": hashlib.sha256(data).hexdigest(),
+        "playTimeMasked": len(spans),
+    }
+
+
 def snapshot(home, spec):
     """{key: entry} for every path under the covered roots that exists now."""
     files = {}
     for root in covered_roots(home, spec):
         _walk(home, root, files, root=True)
+    for pattern in spec.get("shortcutLists", []):
+        for path in glob.glob(os.path.join(glob.escape(home), pattern)):
+            key = _key(home, os.path.normpath(path))
+            if files.get(key, {}).get("type") != "file":
+                continue
+            entry = _shortcut_list_entry(path)
+            if entry:
+                files[key] = entry
     return {"schema": 1, "files": files}
 
 

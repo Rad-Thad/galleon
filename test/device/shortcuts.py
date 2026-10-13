@@ -47,7 +47,8 @@ def _cstring(data, at):
     return data[at:end].decode("utf-8", "replace"), end + 1
 
 
-def _map(data, at, depth):
+def _map(data, at, depth, spots=None):
+    """One map from `at`; spots, when given, gets each fixed field's offset."""
     if depth > 16:
         raise VdfError("nested too deeply")
     fields = {}
@@ -60,7 +61,8 @@ def _map(data, at, depth):
             return fields, at
         name, at = _cstring(data, at)
         if kind == MAP:
-            fields[name], at = _map(data, at, depth + 1)
+            inner = None if spots is None else spots.setdefault(name, {})
+            fields[name], at = _map(data, at, depth + 1, inner)
         elif kind == STRING:
             fields[name], at = _cstring(data, at)
         elif kind in FIXED:
@@ -68,6 +70,8 @@ def _map(data, at, depth):
             if at + width > len(data):
                 raise VdfError("truncated")
             raw = data[at : at + width]
+            if spots is not None:
+                spots[name] = at
             fields[name] = struct.unpack("<i", raw)[0] if kind == INT32 else raw
             at += width
         else:
@@ -78,6 +82,27 @@ def parse(data):
     """The top-level maps of a binary VDF file, as nested dicts."""
     fields, _ = _map(data, 0, 0)
     return fields
+
+
+def play_time_spans(data, name=TEST_SHORTCUT):
+    """(offset, width) of the LastPlayTime value of each shortcut called `name`.
+
+    Steam rewrites that field whenever the shortcut starts, so the owner-state
+    manifest leaves these bytes, and only these, out of its comparison.
+    Raises VdfError when the file cannot be read as binary VDF.
+    """
+    spots = {}
+    fields, _ = _map(data, 0, 0, spots)
+    shortcuts = fields.get("shortcuts")
+    if not isinstance(shortcuts, dict):
+        return []
+    spans = []
+    for key, entry in shortcuts.items():
+        if not isinstance(entry, dict) or _name(entry) != name:
+            continue
+        if isinstance(entry.get("LastPlayTime"), int):
+            spans.append((spots["shortcuts"][key]["LastPlayTime"], FIXED[INT32]))
+    return spans
 
 
 def gameid(appid):
