@@ -2,9 +2,8 @@
 # The device test harness the bridge runs on the Nova — see docs/PLAN.md
 # section 5.3 for the contract it keeps.
 #
-# This is the minimal harness that stands in until M0-22: it starts nothing
-# and reports `harness.run`, so the path from a merge to `device-results` is
-# exercised end to end. It already takes the desktop session's variables and
+# This is the harness as M0-22 builds it up, reporting `harness.run` and
+# `safety.owner-state`. It takes the desktop session's variables and
 # repeats the bridge's Game Mode, idle and free-space checks (session.py),
 # skipping when one fails; makes sure Steam has the test shortcut
 # (steamcef.py), with launch.sh and current.py in $GALLEON_TEST_ROOT; holds
@@ -16,7 +15,9 @@
 # writes only an emulator config it restores, Steam's shortcut list through
 # Steam itself, the launch request ($GALLEON_TEST_ROOT/current.json),
 # removed before it finishes, and the default sink's mute (audio.py), put
-# back with its volume from $GALLEON_TEST_ROOT/audio.json.
+# back with its volume from $GALLEON_TEST_ROOT/audio.json. It starts the app
+# through the test shortcut, and stops it, signalling only the pids launch.sh
+# recorded in $GALLEON_TEST_DIR/home/launch.
 #
 # It also copies the power state the Nova shows into logs/power-facts.txt,
 # because the overlay's parsers (src/main/powerstate.ts) need the real format
@@ -25,11 +26,11 @@
 # a profile.
 set -u
 
-# The harness starts no process; what there is to undo is the launch request,
-# so the shortcut cannot start a build once the run is over, the self-test
-# request, so the app runs no checks unless a run asked, the sound a stopped
-# run left muted, and an emulator config that changed after the backup, from
-# the backup this run left behind.
+# What there is to undo is the launch request, so the shortcut cannot start
+# a build once the run is over, the self-test request, so the app runs no
+# checks unless a run asked, the sound a stopped run left muted, and an
+# emulator config that changed after the backup, from the backup this run
+# left behind.
 # Each step is tried whatever became of the other, so one that fails never
 # leaves the owner's configs unrestored.
 if [ "${1:-}" = --cleanup ]; then
@@ -209,8 +210,7 @@ fi
 
 # The sound goes off before anything could start, and stays off until the
 # restore below. The record lives in the test root, so a later --cleanup
-# finds it whichever build left it. Nothing is started yet, so a mute that
-# fails is a note here; it is what the start will wait on.
+# finds it whichever build left it. Without the mute nothing is started.
 audio_state="$GALLEON_TEST_ROOT/audio.json"
 muted=
 if [ -n "$request_ok" ] && python3 "$here/audio.py" mute --state "$audio_state" >>"$log" 2>&1; then
@@ -261,6 +261,86 @@ fact_command() {
   fact_command profile
   fact_command status
 } >"$facts" 2>&1
+
+# The start (PLAN.md section 5.3, steps 8 and 9): only this build, only with
+# both requests written and the sound off. Steam starts the shortcut, which
+# runs launch.sh; launch.sh marks the start and records the only pids this
+# run ever signals. Steam's own route goes first, and RunGame through the
+# debugger only when that has not marked a start. Tests shorten the waits.
+START_WAIT_SECONDS=${GALLEON_START_WAIT_SECONDS:-60}
+STOP_WAIT_SECONDS=${GALLEON_STOP_WAIT_SECONDS:-30}
+launched="$GALLEON_HOME/launch"
+gameid=$(printf '%s' "$shortcut" | sed -n 's/.*"gameid": *\([0-9][0-9]*\).*/\1/p')
+started_by=
+app_note='not started'
+start_failed=
+marked_by() {
+  until [ -e "$launched/started" ]; do
+    [ "$(date +%s)" -lt "$1" ] || return 1
+    sleep 1
+  done
+}
+# A pid launch.sh wrote, digits only, so nothing else can be signalled.
+recorded() {
+  pid=$(sed -n '1{/^[0-9][0-9]*$/p;}' "$launched/$1" 2>/dev/null)
+  [ -n "$pid" ] && printf '%s' "$pid"
+}
+# launch.sh writes `exit` once the app has gone; a launch.sh that was itself
+# stopped writes nothing, so its pid going counts as well.
+app_gone() {
+  [ -e "$launched/exit" ] && return 0
+  pid=$(recorded launch.pid) || return 0
+  ! kill -0 "$pid" 2>/dev/null
+}
+gone_by() {
+  until app_gone; do
+    [ "$(date +%s)" -lt "$1" ] || return 1
+    sleep 1
+  done
+}
+if [ -n "$request_ok" ] && [ -n "$muted" ] && [ -z "$gameid" ]; then
+  echo "start: the shortcut has no game id" >>"$log"
+  start_failed=1
+elif [ -n "$request_ok" ] && [ -n "$muted" ] &&
+  [ "$built" = "$GALLEON_SHA" ] && [ -x "${GALLEON_APPIMAGE:-}" ]; then
+  # steam hands the URL to the running client and returns; the limit keeps a
+  # client that never answers from holding the run.
+  timeout "$START_WAIT_SECONDS" steam "steam://rungameid/$gameid" </dev/null >>"$log" 2>&1 &
+  if marked_by $(($(date +%s) + START_WAIT_SECONDS)); then
+    started_by=steam
+  elif python3 "$here/steamcef.py" ${GALLEON_STEAM_CEF:+--cef "$GALLEON_STEAM_CEF"} \
+    run "$gameid" >>"$log" 2>&1 && marked_by $(($(date +%s) + START_WAIT_SECONDS)); then
+    started_by=cef
+  else
+    start_failed=1
+  fi
+fi
+if [ -n "$started_by" ]; then
+  echo "started through $started_by" >>"$log"
+  # The app's own budget ends at STOP_RESERVE_SECONDS before the bridge's;
+  # past that it gets one STOP_WAIT_SECONDS to finish its summary, then is
+  # asked to stop, then signalled, all inside the reserve.
+  if gone_by $((deadline - STOP_RESERVE_SECONDS + STOP_WAIT_SECONDS)); then
+    app_note="exited $(cat "$launched/exit" 2>/dev/null || echo unknown)"
+  else
+    : >"$handshake/stop" 2>>"$log"
+    if gone_by $(($(date +%s) + STOP_WAIT_SECONDS)); then
+      app_note='stopped when asked'
+    else
+      # launch.sh passes the signal on to the app alone.
+      if pid=$(recorded launch.pid); then kill -TERM "$pid" 2>>"$log"; fi
+      if gone_by $(($(date +%s) + STOP_WAIT_SECONDS)); then
+        app_note='stopped by a signal'
+      else
+        for name in app.pid launch.pid; do
+          if pid=$(recorded "$name"); then kill -KILL "$pid" 2>>"$log"; fi
+        done
+        app_note='killed'
+      fi
+    fi
+  fi
+fi
+echo "app: $app_note" >>"$log"
 
 # The sound is put back before the second manifest, as the run's last
 # change. A record that cannot be restored (its sink gone, or WirePlumber not
@@ -334,6 +414,12 @@ elif [ -z "$selftest_ok" ]; then
 elif [ -z "$request_ok" ]; then
   result=fail
   reason='"the launch request could not be written"'
+elif [ -z "$muted" ]; then
+  result=fail
+  reason='"the sound could not be muted, so the app was not started"'
+elif [ -n "$start_failed" ]; then
+  result=fail
+  reason='"neither route started the app"'
 elif [ -z "$request_gone" ]; then
   result=fail
   reason='"the launch or self-test request could not be removed"'
@@ -388,7 +474,8 @@ cat >"$tmp" <<JSON
   "notes": [
     "minimal harness: harness.run and safety.owner-state only, until M0-22",
     "sign-in: ${signin_source:-no-importable-credentials}",
-    "audio: $audio_note"
+    "audio: $audio_note",
+    "app: $app_note"
   ]
 }
 JSON

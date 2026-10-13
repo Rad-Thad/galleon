@@ -7,6 +7,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  rmSync,
   statSync,
   symlinkSync,
   writeFileSync
@@ -86,6 +87,20 @@ function fakeSession(inactive = false) {
       'esac\n'
   )
   chmodSync(join(bin, 'wpctl'), 0o755)
+  // Steam's client, which starts a shortcut's executable on its own, so the
+  // run waits on launch.sh's mark; a `steam.broken` file makes it start
+  // nothing.
+  writeFileSync(
+    join(bin, 'steam'),
+    '#!/bin/sh\n' +
+      'd=$(dirname "$0")\n' +
+      'echo "$*" >>"$d/steam.log"\n' +
+      '[ -e "$d/steam.broken" ] && exit 0\n' +
+      'case $1 in steam://rungameid/*)\n' +
+      '  "$GALLEON_TEST_ROOT/launch.sh" </dev/null >/dev/null 2>&1 &\n' +
+      'esac\n'
+  )
+  chmodSync(join(bin, 'steam'), 0o755)
   return bin
 }
 
@@ -115,15 +130,16 @@ function withShortcut(home: string) {
 function runHarness(
   bundle: string,
   sha: string,
-  appimage: boolean,
+  appimage: boolean | string,
   env: Record<string, string> = {},
   session = fakeSession()
 ) {
   const results = mkdtempSync(join(tmpdir(), 'bundle-results-'))
   mkdirSync(join(results, 'logs'))
   const image = join(results, 'Galleon-arm64.AppImage')
-  if (appimage) {
-    writeFileSync(image, '')
+  if (appimage !== false) {
+    // An empty file runs as an empty script: the app starts and quits.
+    writeFileSync(image, appimage === true ? '' : appimage)
     chmodSync(image, 0o755)
   }
   const path = env.PATH ?? process.env.PATH
@@ -143,6 +159,8 @@ function runHarness(
       // An empty root: no power files, and no process that would read as
       // someone playing, whatever else runs on this machine.
       GALLEON_FACTS_ROOT: mkdtempSync(join(tmpdir(), 'bundle-facts-')),
+      GALLEON_START_WAIT_SECONDS: '5',
+      GALLEON_STOP_WAIT_SECONDS: '3',
       // The owner's home: the bridge's settings, the owner state and Steam's
       // shortcuts are read from it.
       ...env,
@@ -547,6 +565,7 @@ describe('device-bundle', () => {
       'pass'
     )
     // The shortcut started by hand afterwards starts nothing.
+    rmSync(join(testDir, 'home/launch'), { recursive: true })
     const byHand = spawnSync('/bin/sh', [join(testRoot, 'launch.sh')], {
       env: { PATH: process.env.PATH },
       encoding: 'utf8'
@@ -663,6 +682,92 @@ describe('device-bundle', () => {
     assert.ok(summary.notes.includes('audio: muted and put back'), summary.notes.join('; '))
   })
 
+  test('run.sh starts the app through steam://, muted, and waits for it to quit', () => {
+    const session = fakeSession()
+    const seen = mkdtempSync(join(tmpdir(), 'bundle-seen-'))
+    // The app notes whether the sound was off and which home it was given.
+    const app =
+      '#!/bin/sh\n' +
+      `[ -e '${join(session, 'muted')}' ] && echo muted >'${join(seen, 'sound')}'\n` +
+      `echo "$GALLEON_HOME" >'${join(seen, 'home')}'\n`
+    const { run, results, testDir } = runHarness(
+      unpackLikeTheBridge(built()),
+      SHA,
+      app,
+      {},
+      session
+    )
+    assert.equal(run.status, 0, run.stderr)
+    const summary = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8'))
+    assert.equal(summary.checks[0].result, 'pass', summary.checks[0].reason)
+    assert.ok(summary.notes.includes('app: exited 0'), summary.notes.join('; '))
+    const gameid = (BigInt(APPID) << 32n) | 0x02000000n
+    assert.equal(readFileSync(join(session, 'steam.log'), 'utf8'), `steam://rungameid/${gameid}\n`)
+    assert.equal(readFileSync(join(seen, 'sound'), 'utf8'), 'muted\n')
+    assert.equal(readFileSync(join(seen, 'home'), 'utf8'), `${join(testDir, 'home')}\n`)
+    assert.match(readFileSync(join(results, 'logs/harness.log'), 'utf8'), /started through steam/)
+    assert.ok(!existsSync(join(session, 'muted')))
+  })
+
+  test('run.sh fails harness.run when neither route starts the app', () => {
+    const session = fakeSession()
+    writeFileSync(join(session, 'steam.broken'), '')
+    const { run, results } = runHarness(
+      unpackLikeTheBridge(built()),
+      SHA,
+      true,
+      // Nothing listens here, so the debugger's RunGame cannot be asked.
+      {
+        GALLEON_START_WAIT_SECONDS: '1',
+        GALLEON_STEAM_CEF: 'http://127.0.0.1:9',
+        HOME: withShortcut(mkdtempSync(join(tmpdir(), 'bundle-home-')))
+      },
+      session
+    )
+    assert.equal(run.status, 0, run.stderr)
+    const summary = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8'))
+    assert.deepEqual(
+      [summary.checks[0].result, summary.checks[0].reason],
+      ['fail', 'neither route started the app']
+    )
+    assert.ok(summary.notes.includes('app: not started'), summary.notes.join('; '))
+    assert.ok(!existsSync(join(session, 'muted')))
+  })
+
+  test('run.sh asks an app past its budget to stop, then signals only the pids launch.sh recorded', () => {
+    const seen = mkdtempSync(join(tmpdir(), 'bundle-seen-'))
+    // An app that runs on until it is signalled, and says what stopped it.
+    const app =
+      '#!/bin/sh\n' +
+      `trap 'echo term >"${join(seen, 'signal')}"; exit 0' TERM\n` +
+      'while :; do sleep 0.2; done\n'
+    // The app's budget is the bridge's less the stop reserve, so this one
+    // leaves it a few seconds.
+    const { run, results, testDir } = runHarness(unpackLikeTheBridge(built()), SHA, app, {
+      DEVICE_TEST_BUDGET_SECONDS: '124',
+      GALLEON_STOP_WAIT_SECONDS: '2'
+    })
+    assert.equal(run.status, 0, run.stderr)
+    const summary = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8'))
+    assert.ok(summary.notes.includes('app: stopped by a signal'), summary.notes.join('; '))
+    assert.ok(existsSync(join(testDir, 'handshake/stop')))
+    assert.equal(readFileSync(join(seen, 'signal'), 'utf8'), 'term\n')
+    assert.equal(readFileSync(join(testDir, 'home/launch/exit'), 'utf8'), '0\n')
+  })
+
+  test('run.sh kills an app that ignores the stop, by its recorded pid', () => {
+    const app = "#!/bin/sh\ntrap '' TERM\nwhile :; do sleep 0.2; done\n"
+    const { run, results, testDir } = runHarness(unpackLikeTheBridge(built()), SHA, app, {
+      DEVICE_TEST_BUDGET_SECONDS: '124',
+      GALLEON_STOP_WAIT_SECONDS: '2'
+    })
+    assert.equal(run.status, 0, run.stderr)
+    const summary = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8'))
+    assert.ok(summary.notes.includes('app: killed'), summary.notes.join('; '))
+    const pid = Number(readFileSync(join(testDir, 'home/launch/app.pid'), 'utf8'))
+    assert.throws(() => process.kill(pid, 0))
+  })
+
   test('run.sh fails harness.run and keeps the record when the sound cannot be put back', () => {
     const session = fakeSession()
     // WirePlumber stops answering after the mute.
@@ -687,7 +792,7 @@ describe('device-bundle', () => {
     assert.match(readFileSync(join(results, 'logs/harness.log'), 'utf8'), /audio\.py: wpctl/)
   })
 
-  test('run.sh notes a mute that fails, with nothing started to play sound', () => {
+  test('run.sh fails harness.run and starts nothing when the sound cannot be muted', () => {
     const session = fakeSession()
     writeFileSync(join(session, 'wpctl.broken'), '')
     const { run, results, testRoot } = runHarness(
@@ -699,8 +804,13 @@ describe('device-bundle', () => {
     )
     assert.equal(run.status, 0, run.stderr)
     const summary = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8'))
-    assert.equal(summary.checks[0].result, 'pass')
+    assert.deepEqual(
+      [summary.checks[0].result, summary.checks[0].reason],
+      ['fail', 'the sound could not be muted, so the app was not started']
+    )
     assert.ok(summary.notes.includes('audio: not muted'), summary.notes.join('; '))
+    assert.ok(summary.notes.includes('app: not started'), summary.notes.join('; '))
+    assert.ok(!existsSync(join(session, 'steam.log')))
     assert.ok(!existsSync(join(testRoot, 'audio.json')))
   })
 

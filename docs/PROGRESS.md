@@ -2306,3 +2306,16 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: the next nightly writes and removes the request in the test home; nothing starts it yet.
 - Next: M0-22 part 4d-3c-2b: start the shortcut through `steam://rungameid/` with the RunGame fallback only once muted, wait for launch.sh's mark, serve until the app's summary, its exit or the budget's end, then stop only the recorded pids.
+
+## 2026-10-13 11:08 UTC session 01EZtgjfEKBDMWAq1tkX1cxJ (hourly heartbeat, second unit)
+
+- Device results: nothing new. Part 4d-3c-2a of M0-22, PR #205, merged at 32c7607; CI x64 7:09, arm64 0:53.
+- Worked on: M0-22 part 4d-3c-2b (tracking issue #191): run.sh starts the app through the test shortcut and stops it.
+- Result: PR (this one). M0-22 stays false.
+- Evidence:
+  - `test/device/run.sh`: only for this build, with both requests written and the sound muted, it runs `steam steam://rungameid/<gameid>` and waits `START_WAIT_SECONDS` for launch.sh's `started` mark, then tries `steamcef.py run` (RunGame) and waits again. Neither → `harness.run` fails "neither route started the app". A failed mute now starts nothing and fails `harness.run`; the Nova's runs show `wpctl` answering ("audio: muted and put back" on ebf5100). It waits for the app to quit until the app's budget plus one `STOP_WAIT_SECONDS`. Past that it writes `stop` into the handshake folder, then SIGTERMs the recorded `launch.pid`, which passes it on to the app, then SIGKILLs the recorded `app.pid` and `launch.pid`. No other process is signalled. Notes: `app: not started`, `exited <code>`, `stopped when asked`, `stopped by a signal` or `killed`. Header comments no longer say it starts nothing.
+  - Tests (`scripts/device-bundle.test.ts`, 38/38, with a fake `steam` that runs launch.sh): "run.sh starts the app through steam://, muted, and waits for it to quit" (the game id, the sound off while the app runs, the test home), "run.sh fails harness.run when neither route starts the app", "run.sh asks an app past its budget to stop, then signals only the pids launch.sh recorded", "run.sh kills an app that ignores the stop, by its recorded pid", "run.sh fails harness.run and starts nothing when the sound cannot be muted". `docs/TESTING.md`: the start and the stop.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: the next nightly is the first to start the app on the Nova, with the sound muted, through Steam. The app's results stay in `RESULTS_DIR/app/` until they are merged. Profile requests go unanswered, so the app records those profiles as `profile-not-set`.
+- Next: M0-22 part 4d-3c-3. `--cleanup` should stop an app a killed run left running. That needs a guard against a pid reused after a reboot (record the boot id and the process start time in launch.sh), so it was left out of this part. Then serve the profile handshake, merge `RESULTS_DIR/app/summary.json` into the summary (exit 20 on `aborted-by-user`), and leave Steam at its library.
