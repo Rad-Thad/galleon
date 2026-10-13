@@ -2132,3 +2132,18 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none until run.sh calls it.
 - Next: M0-22 part 3b, adding the shortcut through Steam's CEF debugger, `launch.sh` and `current.json`.
+
+## 2026-10-13 01:26 UTC session 01FEpH9AZJTA5nwBaJmeYwoT (hourly heartbeat)
+
+- Device results: nothing new since 2d001c4 (complete, the minimal harness); no safety failures, no regressions; bridge last skip "no new nightly". Part 3a of M0-22, PR #194, merged at 8e80a37; CI x64 6:57, arm64 0:54.
+- Worked on: M0-22 part 3b (tracking issue #191): the Steam CEF client that adds the test shortcut and starts it.
+- Result: PR (this one). M0-22 stays false.
+- Evidence:
+  - `test/device/steamcef.py` (Python standard library): finds Steam's shared JavaScript context in the debugger's page list (either of its titles), speaks just enough WebSocket for one `Runtime.evaluate` (masked text frames, fragments, pings answered, events skipped, a reply size cap), loopback addresses only and no proxy. `add_shortcut` (`SteamClient.Apps.AddShortcut` with JSON-quoted arguments, then `SetShortcutName` and `SetShortcutLaunchOptions` when present; appid unsigned), `run_game` (`SteamClient.Apps.RunGame(gameid, "", -1, 100)`), `ensure` (the `shortcut.json` record, unless Steam has saved `shortcuts.vdf` since and left its appid out; else the entry by name in `shortcuts.vdf`; else added through Steam; Armada's game launcher as launch options when present; the record written atomically, never through a link). CLI `ensure --test-root DIR`, `run GAMEID`; both exit 10 with `steam-cef-unavailable`. `shortcuts.vdf` is only read.
+  - Tests: `test/device/test_steamcef.py` 19/19 against a fake CEF endpoint (page list over HTTP, an event, a ping and a fragmented reply over the WebSocket): added and recorded; Armada's launcher; a quoting-hostile name stays one string; record reused without Steam; found by name in `shortcuts.vdf`; a record Steam has dropped replaced; a record newer than the file, or listed in it, trusted; broken or foreign records ignored; no write through a link; `shortcuts.vdf` unchanged; the newer context title; no debugger or no shared context unavailable; non-loopback refused; a call that throws or returns no appid; RunGame's arguments; the CLI and its skip. All helper tests 60/60.
+  - `scripts/device-bundle.test.ts`: `steamcef.py` is in the bundle. `docs/TESTING.md`: a paragraph.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: PASS. Its notes for run.sh: the owner-state snapshot covers `shortcuts.vdf`, so on a device without the shortcut `ensure` must run before the snapshot (or the docs must settle that one entry), never by weakening the check; a record is trusted while Steam has not saved the file since, so a start that neither `steam://` nor RunGame marks must fail `harness.run` with a clear reason; an AddShortcut reply that times out reads as `steam-cef-unavailable` though the shortcut may exist (the next run finds it by name).
+- Device / acceptance: none until run.sh calls it.
+- Next: M0-22 part 3c, `launch.sh` and `current.json`; then run.sh itself.
