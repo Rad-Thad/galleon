@@ -2320,3 +2320,18 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: the next nightly is the first to start the app on the Nova, with the sound muted, through Steam. The app's results stay in `RESULTS_DIR/app/` until they are merged. Profile requests go unanswered, so the app records those profiles as `profile-not-set`.
 - Next: M0-22 part 4d-3c-3. Set `status: partial` after a stop. Give the app an absolute deadline: the app counts its budget from its own start, so a start through the fallback shifts it later. Re-check the session just before the start. `--cleanup` should stop an app a killed run left running; until it does, `tools/device-bridge/README.md` claims more than run.sh does. That needs a guard against a pid reused after a reboot (record the boot id and the process start time in launch.sh), so it was left out of this part. Then serve the profile handshake, merge `RESULTS_DIR/app/summary.json` into the summary (exit 20 on `aborted-by-user`), and leave Steam at its library.
+
+## 2026-10-13 11:26 UTC session 01CNArnLoJVfYU8wsowEi6UU (hourly heartbeat)
+
+- Device results: nothing new. Part 4d-3c-2b of M0-22, PR #206, merged at 96a109c. The 10:26 entry recorded 0adfb2d's result under a mistyped sha; the result is:
+  - DEVICE-RESULTS 0adfb2d367fb51530021141330d2826290e1625e complete
+- Worked on: M0-22 part 4d-3c-3a (tracking issue #191): run.sh repeats the session check just before the start, and a run whose app was stopped at its budget's end is `partial` (PLAN.md 5.3 step 9).
+- Result: PR (this one). M0-22 stays false.
+- Evidence:
+  - `test/device/run.sh`: `session.py check` again once both requests are written and the sound is muted. On a skip reason nothing starts, the setup is undone as after any run, and the summary is `skipped` with the reason (exit 10), carrying `harness.run` and `safety.owner-state`; a check that cannot run fails `harness.run`. When those checks did not all pass, the run is `partial` (exit 0) with the note `skipped before the start, reported for its failed checks: <reason>`, because the bridge publishes a skip only once per build and reason. An app stopped past its budget makes the run `partial`. `json_string` escapes both skip reasons.
+  - Evaluator round 1: FAIL. A late skip's failed `safety.owner-state` could be lost to the bridge's once-per-reason skip publishing. Fixed as above; new test "a late skip whose owner-state check failed is published as partial, not as a skip" fails against the round-1 run.sh.
+  - Tests: `scripts/device-bundle.test.ts` 42/42; new: "run.sh skips before the start when Game Mode ends after the setup, and undoes it" and the test above; the stop tests assert `partial`, the start test `complete`. `docs/TESTING.md`: the re-check and the statuses.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: the next nightly re-checks the session just before starting the app; a stopped app now shows as `partial`.
+- Next: M0-22 part 4d-3c-3b: an absolute deadline for the app (its budget counts from its own start, so a fallback start shifts it), `--cleanup` stopping an app a killed run left (guarded against a reused pid by the boot id and process start time recorded in launch.sh), the profile handshake, merging `RESULTS_DIR/app/summary.json` (exit 20 on `aborted-by-user`), and leaving Steam at its library.
