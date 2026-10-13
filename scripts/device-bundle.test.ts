@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { describe, test } from 'node:test'
@@ -16,6 +16,10 @@ const ROOT = resolve(import.meta.dirname, '..')
 const SHA = 'a'.repeat(40)
 const BUILT_AT = '2026-10-09T12:00:00Z'
 const VERSION = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).version
+/** An emulator config the owner-state spec backs up, relative to the home. */
+const CONFIG: string = JSON.parse(readFileSync(join(ROOT, 'test/device/owner-state.json'), 'utf8'))
+  .configs[0]
+const CONFIG_PATTERN = CONFIG.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')
 
 function built(sha = SHA) {
   const out = mkdtempSync(join(tmpdir(), 'bundle-out-'))
@@ -71,20 +75,26 @@ function runHarness(
     chmodSync(image, 0o755)
   }
   const path = env.PATH ?? process.env.PATH
+  const testDir = mkdtempSync(join(tmpdir(), 'bundle-testdir-'))
   const run = spawnSync('/bin/sh', [join(bundle, 'run.sh')], {
     env: {
       RESULTS_DIR: results,
       GALLEON_SHA: sha,
       GALLEON_APPIMAGE: image,
       GALLEON_TEST_ROOT: results,
-      // The bridge's settings are read from the home; this one has none.
+      GALLEON_TEST_DIR: testDir,
+      // An empty root: no power files, and no process that would read as
+      // someone playing, whatever else runs on this machine.
+      GALLEON_FACTS_ROOT: mkdtempSync(join(tmpdir(), 'bundle-facts-')),
+      // The owner's home: the bridge's settings and the owner state are read
+      // from it. Unless a test gives one, it is empty.
       HOME: mkdtempSync(join(tmpdir(), 'bundle-home-')),
       ...env,
       PATH: `${session}:${path}`
     },
     encoding: 'utf8'
   })
-  return { run, results }
+  return { run, results, testDir }
 }
 
 describe('device-bundle', () => {
@@ -152,7 +162,10 @@ describe('device-bundle', () => {
     assert.equal(summary.status, 'complete')
     assert.deepEqual(
       summary.checks.map((check: { id: string; result: string }) => [check.id, check.result]),
-      [['harness.run', 'pass']]
+      [
+        ['harness.run', 'pass'],
+        ['safety.owner-state', 'pass']
+      ]
     )
     assert.ok(readFileSync(join(results, 'logs/harness.log'), 'utf8').includes('pass'))
   })
@@ -234,6 +247,148 @@ describe('device-bundle', () => {
     assert.equal(summary.sha, SHA)
     assert.match(summary.reason, /Game Mode is not running/)
     assert.deepEqual(summary.checks, [])
+  })
+
+  test('run.sh holds the owner state, and keeps the manifest off the results', () => {
+    const home = mkdtempSync(join(tmpdir(), 'bundle-owner-'))
+    mkdirSync(join(home, CONFIG, '..'), { recursive: true })
+    writeFileSync(join(home, CONFIG), 'Volume=100\n')
+    const { run, results, testDir } = runHarness(unpackLikeTheBridge(built()), SHA, true, {
+      HOME: home
+    })
+    assert.equal(run.status, 0, run.stderr)
+    const checks = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8')).checks
+    const owner = checks.find((check: { id: string }) => check.id === 'safety.owner-state')
+    assert.deepEqual(
+      [owner.result, owner.reason, owner.evidence],
+      ['pass', null, ['logs/owner-state.txt']]
+    )
+    assert.equal(readFileSync(join(results, 'logs/owner-state.txt'), 'utf8'), '')
+    const manifest = JSON.parse(readFileSync(join(testDir, 'owner-state/before.json'), 'utf8'))
+    assert.ok(CONFIG in manifest.files)
+    // Its work done, the backup goes, so a later --cleanup restores nothing stale.
+    assert.ok(!existsSync(join(testDir, 'owner-state/backup')))
+    const published = execFileSync('find', ['.'], { cwd: results, encoding: 'utf8' })
+    assert.ok(!/before|after|backup/.test(published), published)
+  })
+
+  test('run.sh fails safety.owner-state when an emulator rewrites its config, and puts it back', () => {
+    const home = mkdtempSync(join(tmpdir(), 'bundle-owner-'))
+    const config = join(home, CONFIG)
+    mkdirSync(join(config, '..'), { recursive: true })
+    writeFileSync(config, 'Volume=100\n')
+    // Something the run starts rewrites the owner's config; armada-power is
+    // the one program the minimal harness runs.
+    const bin = mkdtempSync(join(tmpdir(), 'bundle-bin-'))
+    writeFileSync(join(bin, 'armada-power'), `#!/bin/sh\necho Volume=0 >'${config}'\n`)
+    chmodSync(join(bin, 'armada-power'), 0o755)
+    const { run, results } = runHarness(unpackLikeTheBridge(built()), SHA, true, {
+      HOME: home,
+      PATH: `${bin}:${process.env.PATH}`
+    })
+    assert.equal(run.status, 0, run.stderr)
+    const checks = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8')).checks
+    const owner = checks.find((check: { id: string }) => check.id === 'safety.owner-state')
+    assert.equal(owner.result, 'fail')
+    assert.match(owner.reason, /changed/)
+    assert.equal(readFileSync(config, 'utf8'), 'Volume=100\n')
+    const log = readFileSync(join(results, 'logs/owner-state.txt'), 'utf8')
+    assert.match(log, new RegExp(`^changed: ${CONFIG_PATTERN}$`, 'm'))
+    assert.match(log, new RegExp(`^restored: ${CONFIG_PATTERN}$`, 'm'))
+  })
+
+  test('run.sh fails safety.owner-state when the run changed a config it then cannot restore', () => {
+    const home = mkdtempSync(join(tmpdir(), 'bundle-owner-'))
+    const config = join(home, CONFIG)
+    mkdirSync(join(config, '..'), { recursive: true })
+    writeFileSync(config, 'Volume=100\n')
+    // The rewrite also takes the backed-up copy away, keeping only the index.
+    const bin = mkdtempSync(join(tmpdir(), 'bundle-bin-'))
+    writeFileSync(
+      join(bin, 'armada-power'),
+      `#!/bin/sh\necho Volume=0 >'${config}'\n` +
+        'find "$GALLEON_TEST_DIR/owner-state/backup" -type f ! -name index.json -delete\n'
+    )
+    chmodSync(join(bin, 'armada-power'), 0o755)
+    const { run, results, testDir } = runHarness(unpackLikeTheBridge(built()), SHA, true, {
+      HOME: home,
+      PATH: `${bin}:${process.env.PATH}`
+    })
+    assert.equal(run.status, 0, run.stderr)
+    const checks = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8')).checks
+    const owner = checks.find((check: { id: string }) => check.id === 'safety.owner-state')
+    assert.equal(owner.result, 'fail')
+    assert.match(owner.reason, /changed/)
+    // Left for --cleanup to try again.
+    assert.ok(existsSync(join(testDir, 'owner-state/backup/index.json')))
+  })
+
+  test('run.sh fails safety.owner-state when a config was put back though the second manifest failed', () => {
+    const home = mkdtempSync(join(tmpdir(), 'bundle-owner-'))
+    const config = join(home, CONFIG)
+    mkdirSync(join(config, '..'), { recursive: true })
+    writeFileSync(config, 'Volume=100\n')
+    // A folder where the second manifest's temporary file goes makes it fail.
+    const bin = mkdtempSync(join(tmpdir(), 'bundle-bin-'))
+    writeFileSync(
+      join(bin, 'armada-power'),
+      `#!/bin/sh\necho Volume=0 >'${config}'\n` +
+        'mkdir -p "$GALLEON_TEST_DIR/owner-state/after.json.tmp"\n'
+    )
+    chmodSync(join(bin, 'armada-power'), 0o755)
+    const { run, results } = runHarness(unpackLikeTheBridge(built()), SHA, true, {
+      HOME: home,
+      PATH: `${bin}:${process.env.PATH}`
+    })
+    assert.equal(run.status, 0, run.stderr)
+    const checks = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8')).checks
+    const owner = checks.find((check: { id: string }) => check.id === 'safety.owner-state')
+    assert.equal(owner.result, 'fail')
+    assert.match(owner.reason, /restored/)
+    assert.equal(readFileSync(config, 'utf8'), 'Volume=100\n')
+  })
+
+  test('run.sh skips safety.owner-state and fails harness.run when no manifest can be taken', () => {
+    const testDir = join(mkdtempSync(join(tmpdir(), 'bundle-testdir-')), 'not-a-folder')
+    writeFileSync(testDir, '')
+    const { run, results } = runHarness(unpackLikeTheBridge(built()), SHA, true, {
+      GALLEON_TEST_DIR: testDir
+    })
+    assert.equal(run.status, 0, run.stderr)
+    const checks = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8')).checks
+    assert.deepEqual(
+      checks.map((check: { id: string; result: string; reason: string }) => [
+        check.id,
+        check.result,
+        check.reason
+      ]),
+      [
+        ['harness.run', 'fail', 'the owner-state manifest could not be taken'],
+        ['safety.owner-state', 'skip', 'the owner-state manifest could not be taken']
+      ]
+    )
+  })
+
+  test('run.sh --cleanup puts back a config from the backup a stopped run left', () => {
+    const bundle = unpackLikeTheBridge(built())
+    const home = mkdtempSync(join(tmpdir(), 'bundle-owner-'))
+    const config = join(home, CONFIG)
+    mkdirSync(join(config, '..'), { recursive: true })
+    writeFileSync(config, 'Volume=100\n')
+    const testDir = mkdtempSync(join(tmpdir(), 'bundle-testdir-'))
+    execFileSync('python3', [
+      join(bundle, 'ownerstate.py'),
+      '--home',
+      home,
+      'backup',
+      join(testDir, 'owner-state/backup')
+    ])
+    writeFileSync(config, 'Volume=0\n')
+    const run = spawnSync('/bin/sh', [join(bundle, 'run.sh'), '--cleanup'], {
+      env: { PATH: process.env.PATH, HOME: home, GALLEON_TEST_DIR: testDir }
+    })
+    assert.equal(run.status, 0)
+    assert.equal(readFileSync(config, 'utf8'), 'Volume=100\n')
   })
 
   test('run.sh --cleanup is safe to run at any time', () => {

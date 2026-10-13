@@ -12,7 +12,9 @@ checks, because the owner may pick the device up while the build downloads.
   session.py env                  prints `export KEY='value'` lines
   session.py check --test-root R  prints `ready`, or a reason and exits 10
 
-The rules for "Game Mode" and "playing" are the bridge's own, imported from
+Tests point GALLEON_FACTS_ROOT at a fake root whose proc/ stands in for
+/proc, as run.sh does for the power files. The rules for "Game Mode" and
+"playing" are the bridge's own, imported from
 its copy in the bundle, so the two can never disagree.
 """
 
@@ -87,13 +89,14 @@ def session_env(proc=Path("/proc"), uid=None):
 def check(test_root, cfg=None, processes=None, idle=None, free=None):
     """(True, 'ready') or (False, reason), in the bridge's order."""
     cfg = bridge.load_config() if cfg is None else cfg
-    processes = bridge.running_processes() if processes is None else processes
+    proc = Path(os.environ.get("GALLEON_FACTS_ROOT", "") + "/proc")
+    processes = bridge.running_processes(proc) if processes is None else processes
     ok, why = bridge.session_active(cfg["SESSION_UNIT"], cfg["SESSION_PROCESSES"].split(),
                                     processes)
     if not ok:
         return False, why
     idle = bridge.galleon_idle_state() if idle is None else idle
-    busy = bridge.busy_names(cfg["BUSY_PROCESSES"].split(), processes, idle or None)
+    busy = bridge.busy_names(cfg["BUSY_PROCESSES"].split(), processes, idle or None, proc)
     if busy:
         return False, f"busy: {', '.join(busy)} running"
     if free is None:

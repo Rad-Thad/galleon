@@ -223,6 +223,15 @@ class OwnerStateTest(unittest.TestCase):
             self.assertEqual(len(json.load(handle)["changes"]), 1)
         self.assertIn("restored: " + os.path.join("emu", "data", "settings.ini"), out.getvalue())
 
+    def test_a_failure_is_told_apart_from_a_difference(self):
+        missing = os.path.join(self.tmp.name, "missing.json")
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            code = ownerstate.run(["--home", self.home, "compare", missing, missing])
+        self.assertEqual(code, ownerstate.ERROR_EXIT)
+        self.assertGreater(ownerstate.ERROR_EXIT, 1)
+        self.assertIn("FileNotFoundError", err.getvalue())
+
     def test_the_shipped_spec_is_relative_to_the_home(self):
         spec = ownerstate.load_spec()
         for rel in spec["folders"] + spec["configs"] + spec["globs"]:
