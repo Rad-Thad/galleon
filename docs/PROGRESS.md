@@ -2119,3 +2119,16 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none until run.sh calls it.
 - Next: M0-22 part 3, the Steam test shortcut, `launch.sh` and `current.json`.
+
+## 2026-10-13 00:57 UTC session 01H3vg7VG7BqxFWzp227K8Yj (hourly heartbeat, third unit)
+
+- Device results: nothing new. Part 2 of M0-22, PR #193, merged at fe448a6; CI x64 6:46, arm64 1:05. Its evaluator: PASS, with notes for run.sh: an authMode present but invalid is copied as is; a password-mode token cannot refresh under the guard, so long server checks may meet 401s; "play sessions off, the guard on" come from the self-test request and guard; run.sh should check the test dir lies under `GALLEON_TEST_ROOT`.
+- Worked on: M0-22 part 3a (tracking issue #191): finding the test shortcut in `shortcuts.vdf`.
+- Result: PR (this one). M0-22 stays false.
+- Evidence:
+  - `test/device/shortcuts.py` (Python standard library): a binary VDF reader (maps, strings, int32 and the fixed-width types; anything else, truncation or deep nesting raises `VdfError`), `find` (the first shortcut with the name, `AppName` or `appname`, in any user's file; an unreadable file is passed over; appid returned unsigned), `gameid` (unsigned appid high, `0x02000000` low). CLI `find [NAME]`, `gameid APPID`. Read only.
+  - Tests: `test/device/test_shortcuts.py` 9/9: field types; a negative stored appid; the lowercase key; several users with a broken file; nothing found or no appid; malformed data refused; game id arithmetic; the file unchanged; the CLI. All helper tests 41/41.
+  - `scripts/device-bundle.test.ts`: `shortcuts.py` is in the bundle. `docs/TESTING.md`: a paragraph.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none until run.sh calls it.
+- Next: M0-22 part 3b, adding the shortcut through Steam's CEF debugger, `launch.sh` and `current.json`.
