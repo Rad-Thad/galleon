@@ -45,7 +45,7 @@ SHA = re.compile(r"[0-9a-f]{40}")
 CHECK_ID = re.compile(r"[a-z0-9-]+(\.[a-z0-9-]+)+(@[a-z0-9-]+)?")
 STATUSES = ("complete", "partial", "skipped", "aborted-by-user", "error", "withheld")
 RESULTS = ("pass", "fail", "skip", "error")
-# What the harness knows better than the app does, so the harness's copy stands.
+# What only the app measures, taken from its summary as they stand.
 APP_FIELDS = ("device", "power", "safety")
 
 
@@ -149,7 +149,11 @@ def merge(harness, app_file, sha):
     app_status = app["status"]
     reason = app.get("reason") if isinstance(app.get("reason"), str) else None
     notes.append(f"app summary: {app_status}" + (f" ({reason})" if reason else ""))
-    notes.extend(f"app: {n}" for n in app.get("notes", []) if isinstance(n, str))
+    app_notes = app.get("notes")
+    if isinstance(app_notes, list):
+        notes.extend(f"app: {n}" for n in app_notes if isinstance(n, str))
+    elif app_notes is not None:
+        notes.append("app summary: notes left out, not a list")
     if dropped:
         notes.append(f"app summary: {dropped} check(s) left out, not keeping the schema or repeating an id")
 

@@ -142,6 +142,17 @@ class MergeSummaryTest(unittest.TestCase):
         self.assertIn(f"app summary: {len(bad)} check(s) left out, not keeping the schema"
                       " or repeating an id", merged["notes"])
 
+    def test_notes_that_are_not_a_list_are_left_out_and_the_checks_kept(self):
+        for notes in (5, "abc"):
+            with self.subTest(notes=notes):
+                self.write_app(notes=notes)
+                self.assertEqual(self.run_cli(), (0, ""))
+                merged = self.merged()
+                self.assertEqual(merged["status"], "complete")
+                self.assertEqual(len(merged["checks"]), 4)
+                self.assertIn("app summary: notes left out, not a list", merged["notes"])
+                self.assertFalse(any(n in ("app: a", "app: b") for n in merged["notes"]))
+
     def test_the_app_status_and_reason_carry_into_the_run(self):
         for app_status, harness_status, expected in [
             ("partial", "complete", "partial"),
