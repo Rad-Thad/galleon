@@ -169,6 +169,13 @@ jobs:
         if: matrix.arch == 'x64'
         run: python3 -B -m unittest discover -s test/device
 
+      # run.sh and launch.sh run on the Nova as POSIX sh, where a quoting slip
+      # cannot be seen until a device run goes wrong. The runner image ships
+      # shellcheck.
+      - name: Device shell scripts (shellcheck)
+        if: matrix.arch == 'x64'
+        run: shellcheck test/device/*.sh
+
       # Every pull request names the feature it serves, so the change can be
       # held to its acceptance lines — see scripts/agent/pr-body.mjs. The body
       # comes through the environment rather than spliced into the script,

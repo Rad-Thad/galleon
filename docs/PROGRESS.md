@@ -2147,3 +2147,19 @@ Lines the tooling reads (exact forms):
 - Evaluator: PASS. Its notes for run.sh: the owner-state snapshot covers `shortcuts.vdf`, so on a device without the shortcut `ensure` must run before the snapshot (or the docs must settle that one entry), never by weakening the check; a record is trusted while Steam has not saved the file since, so a start that neither `steam://` nor RunGame marks must fail `harness.run` with a clear reason; an AddShortcut reply that times out reads as `steam-cef-unavailable` though the shortcut may exist (the next run finds it by name).
 - Device / acceptance: none until run.sh calls it.
 - Next: M0-22 part 3c, `launch.sh` and `current.json`; then run.sh itself.
+
+## 2026-10-13 01:52 UTC session 01FEpH9AZJTA5nwBaJmeYwoT (hourly heartbeat, second unit)
+
+- Device results: nothing new. Part 3b of M0-22, PR #195, merged at 23316f9; CI x64 7:02, arm64 0:52 (on the second push; the first failed only the PR-body check, fixed by adding the `Feature:` line).
+- Worked on: M0-22 part 3c (tracking issue #191): `launch.sh`, the test shortcut's executable, and its request `current.json`.
+- Result: PR (this one). M0-22 stays false.
+- Evidence:
+  - `test/device/current.py` (Python standard library): `write` (AppImage, home, results, sha, an expiry at the end of the budget; mode 0600, atomic, never through a link), `check` (refuses a missing, linked, unreadable or expired record, a bad field or sha, an AppImage that is not an executable file, and a home that is missing, a link, or not strictly inside the test root), `remove`. CLI `write`, `check` (prints the AppImage and the home, one per line), `remove`.
+  - `test/device/launch.sh` (POSIX sh): copied by run.sh with `current.py` into `$GALLEON_TEST_ROOT`; starts nothing without a sound, current request (exit 0); takes `$GALLEON_HOME/launch/` with an atomic `mkdir` so the `steam://` start and the CEF fallback start the app once; records `launch.pid`, `started`, `app.pid`, `app.log` and `exit`; starts the AppImage with `GALLEON_HOME`; passes TERM, INT and HUP on to the app's pid only, and exits with its code.
+  - Tests: `test/device/test_launch.py` 13/13: launch.sh against a fake AppImage (no request, expired, current: started in the test home with its state and exit code; a second route does not start it again; a home outside the test root refused; a stop reaches the app) and `current.py` (private with its expiry; each refusal; the test root itself no home; a home linked outside; missing, unreadable, linked records; a boolean expiry; the CLI). All helper tests 73/73.
+  - CI: `Device shell scripts (shellcheck)` step in `build` (x64) and in `scripts/agent/check.sh`; run.sh's one warning (SC1007) fixed. `scripts/device-bundle.test.ts`: `launch.sh` and `current.py` are in the bundle. `docs/TESTING.md`: a paragraph.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: PASS. Its note is fixed: the stop trap is set before the app starts, so a stop arriving in between is passed on once the pid is known.
+- Device / acceptance: none until run.sh calls it.
+- Next: M0-22 part 4, run.sh itself (in pieces): the session environment and preconditions, the snapshot after the shortcut is ensured, the request, the start and the handshake, the restore.

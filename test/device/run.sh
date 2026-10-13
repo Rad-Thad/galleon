@@ -18,7 +18,7 @@ if [ "${1:-}" = --cleanup ]; then
   exit 0
 fi
 
-here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+here=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 : "${RESULTS_DIR:?RESULTS_DIR is set by the bridge}"
 : "${GALLEON_SHA:?GALLEON_SHA is set by the bridge}"
 
