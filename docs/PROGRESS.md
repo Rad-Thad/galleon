@@ -2391,3 +2391,24 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: from the next nightly, the app's checks appear in the published summary. Until the profile handshake is served, the app records its profiles as `profile-not-set`.
 - Next: M0-22 part 4d-3c-3b-3b: serve the profile handshake through `armada-power` and restore the profile, then leave Steam at its library.
+
+## 2026-10-13 14:26 UTC session 0129mDm6wWNQLZGc9sD57WvK (hourly heartbeat)
+
+- Device results: nothing new (bridge last seen 08:03 UTC, "no new nightly"). Part 4d-3c-3b-3a of M0-22, PR #210, merged at 13d2075; CI x64 8:19, arm64 0:50.
+- Worked on: M0-22 part 4d-3c-3b-3b (tracking issue #191): run.sh serves the app's profile handshake (PLAN.md 5.3 step 8) and puts the owner's power profile back (step 11).
+- Result: PR (this one). M0-22 stays false.
+- Evidence:
+  - `test/device/powerprofile.py` (Python standard library). `record` keeps the profile in force (`armada-power profile`, its label matched to a name through the profile definitions) in `$GALLEON_TEST_ROOT/profile.json`, keeping a record already there. `answer` switches only to a profile the request names, only with a record to put back, and answers the name once `armada-power` names it and policy7's governor matches; anything else is `unchanged:<current>`. `restore` switches back when another profile is in force and keeps the record when it cannot.
+  - `test/device/run.sh` records after the mute, serves requests while it waits on the app, and restores just before the sound; a failed restore fails `harness.run`. `run.sh --cleanup` restores a record a stopped run left.
+  - Tests: `test/device/test_powerprofile.py` 19/19. `scripts/device-bundle.test.ts` new tests:
+    - "run.sh switches to the profiles the app asks for, and only those"
+    - "run.sh puts the owner's profile back after the app has quit on another"
+    - "run.sh answers unchanged, and switches nothing, without armada-power"
+    - "run.sh fails harness.run and keeps the record when the profile cannot be put back"
+    - "run.sh --cleanup puts back the profile a stopped run left, and keeps it while it cannot"
+  - `docs/TESTING.md`: the helper and the handshake's harness side.
+  - Evaluator: PASS, with two notes. A hung daemon can make an answer later than the app's wait; the comment now says so, and the app checks the profile in force regardless. A label matching no definition is taken by its lowercased name, which the next nightly will show.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: from the next nightly, `grid.scroll@balanced` and `@performance` can be measured on the profile they name, and the owner's profile is put back after the run.
+- Next: M0-22 part 4d-3c-3b-3c: leave Steam at its library after the run (PLAN.md 5.3 step 11).
