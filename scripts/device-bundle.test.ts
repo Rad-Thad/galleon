@@ -15,6 +15,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { describe, test } from 'node:test'
 import { BUILD_INFO_NAME, BUNDLE_NAME, buildInfo, writeBundle } from './device-bundle.mjs'
+import { REQUEST_FILE, parseRequest } from '../src/main/selftest.ts'
 
 /**
  * The bundle is the one thing the bridge on the Nova runs, and it cannot be
@@ -738,6 +739,63 @@ describe('device-bundle', () => {
       env: { PATH: process.env.PATH }
     })
     assert.equal(run.status, 0)
+  })
+
+  test('the self-test request the bundle writes is one the app takes as written', () => {
+    const bundle = unpackLikeTheBridge(built())
+    const home = mkdtempSync(join(tmpdir(), 'bundle-testhome-'))
+    const results = mkdtempSync(join(tmpdir(), 'bundle-appresults-'))
+    execFileSync('python3', [
+      join(bundle, 'selftestrequest.py'),
+      'write',
+      '--home',
+      home,
+      '--sha',
+      SHA,
+      '--version',
+      VERSION,
+      '--budget',
+      '600',
+      '--results',
+      results,
+      '--handshake',
+      join(home, 'handshake'),
+      '--check',
+      'selftest.complete',
+      '--check',
+      'grid.scroll',
+      '--profile',
+      'performance',
+      '--profile',
+      'balanced',
+      '--payload',
+      'retroarch=payloads/snes/hello.sfc',
+      '--saving',
+      'retroarch',
+      '--screenshot',
+      'settings'
+    ])
+    const taken = parseRequest(JSON.parse(readFileSync(join(home, REQUEST_FILE), 'utf8')))
+    assert.deepEqual(taken, {
+      kind: 'request',
+      request: {
+        schema: 1,
+        sha: SHA,
+        version: VERSION,
+        budgetSeconds: 600,
+        resultsDir: results,
+        handshakeDir: join(home, 'handshake'),
+        checks: ['selftest.complete', 'grid.scroll'],
+        profiles: ['performance', 'balanced'],
+        payloads: { retroarch: 'payloads/snes/hello.sfc' },
+        savingPayloads: ['retroarch'],
+        fakeRomm: null,
+        readOnlyServer: true,
+        privacy: true,
+        abortOnInput: true,
+        screenshots: ['settings']
+      }
+    })
   })
 
   test('the command line writes both files, and refuses a short sha', () => {
