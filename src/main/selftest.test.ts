@@ -170,6 +170,7 @@ describe('taking the request', () => {
       [{ deadline: 1_800_000_000 }, 'request-deadline'],
       [{ deadline: '2026-10-13 12:00:00' }, 'request-deadline'],
       [{ deadline: '2026-13-13T12:00:00Z' }, 'request-deadline'],
+      [{ deadline: '2026-02-30T12:00:00Z' }, 'request-deadline'],
       [{ profiles: [1] }, 'request-profiles'],
       [{ payloads: { retroarch: 7 } }, 'request-payloads'],
       [{ savingPayloads: 'retroarch' }, 'request-saving-payloads'],

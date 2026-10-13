@@ -230,9 +230,15 @@ function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((v) => typeof v === 'string')
 }
 
-// The pattern alone takes a month 13; Date.parse does not.
+// The pattern alone takes a month 13, and Date.parse rolls a 30 February
+// over into March; a time that reads back the same is the one written.
 function isIsoTime(value: string): boolean {
-  return ISO_TIME.test(value) && Number.isFinite(Date.parse(value))
+  const at = Date.parse(value)
+  return (
+    ISO_TIME.test(value) &&
+    Number.isFinite(at) &&
+    new Date(at).toISOString().slice(0, 19) === value.slice(0, 19)
+  )
 }
 
 export interface RunOptions {
