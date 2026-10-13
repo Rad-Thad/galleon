@@ -2217,7 +2217,8 @@ Lines the tooling reads (exact forms):
 - Result: PR (this one). M0-22 stays false.
 - Evidence:
   - `test/device/run.sh`: the budget's deadline is counted from run.sh's start (`DEVICE_TEST_BUDGET_SECONDS`); after the test home, `current.py write` names the AppImage, the test home, the results folder and the sha, expiring at that deadline; after the owner-state comparison and restore, `current.py remove`. A request that cannot be written or removed fails `harness.run`. `--cleanup` removes a request a stopped run left.
-  - `scripts/device-bundle.test.ts` 23/23; new: "run.sh writes the launch request for this build while it runs, and removes it" (seen mid-run through the fake `armada-power`: this build, the test home, private, expiring with the budget; gone afterwards, and `launch.sh` started by hand then starts nothing), "run.sh --cleanup removes the launch request a stopped run left".
+  - `scripts/device-bundle.test.ts` 25/25; new: "run.sh writes the launch request for this build while it runs, and removes it" (seen mid-run through the fake `armada-power`: this build, the test home, private, expiring with the budget; gone afterwards, and `launch.sh` started by hand then starts nothing), "run.sh --cleanup removes the launch request a stopped run left", "run.sh --cleanup still puts back a config when the launch request cannot be removed", "run.sh writes no launch request and fails harness.run when it cannot be written".
+  - Evaluator: FAIL, then fixed: `--cleanup` exited on a failed request removal before restoring the emulator configs. Both steps now run every time, and it exits 1 if either failed. As it also suggested, the request is now written only once the shortcut and the owner state are held.
   - `docs/TESTING.md`: a sentence.
   - `scripts/agent/check.sh` green.
 - Evaluator note carried from #199: if the owner renamed the test shortcut, each run would skip with `steam-shortcut-unsaved`; watch for repeated skips with that reason.

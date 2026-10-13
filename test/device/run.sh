@@ -25,17 +25,23 @@ set -u
 # The harness starts no process; what there is to undo is the launch request,
 # so the shortcut cannot start a build once the run is over, and an emulator
 # config that changed after the backup, from the backup this run left behind.
+# Each step is tried whatever became of the other, so one that fails never
+# leaves the owner's configs unrestored.
 if [ "${1:-}" = --cleanup ]; then
+  cleaned=0
   if [ -n "${GALLEON_TEST_ROOT:-}" ]; then
-    python3 "$(dirname -- "$0")/current.py" remove --test-root "$GALLEON_TEST_ROOT" || exit 1
+    python3 "$(dirname -- "$0")/current.py" remove --test-root "$GALLEON_TEST_ROOT" || cleaned=1
   fi
   if [ -n "${GALLEON_TEST_DIR:-}" ] && [ -d "$GALLEON_TEST_DIR/owner-state/backup" ]; then
     python3 "$(dirname -- "$0")/ownerstate.py" restore "$GALLEON_TEST_DIR/owner-state/backup"
     # 1 means something was put back, which is what cleanup is for.
-    [ $? -le 1 ] || exit 1
-    rm -rf -- "$GALLEON_TEST_DIR/owner-state/backup"
+    if [ $? -le 1 ]; then
+      rm -rf -- "$GALLEON_TEST_DIR/owner-state/backup"
+    else
+      cleaned=1
+    fi
   fi
-  exit 0
+  exit "$cleaned"
 fi
 
 here=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
@@ -154,9 +160,10 @@ GALLEON_HOME=$GALLEON_TEST_DIR/home
 export GALLEON_HOME
 
 # The request launch.sh obeys (current.py): only while it exists, and until
-# the budget ends, does starting the shortcut start this build.
+# the budget ends, does starting the shortcut start this build. It is written
+# only once the owner state is held, so nothing can start without it.
 request_ok=
-if [ -n "$home_ok" ] && python3 "$here/current.py" write --test-root "$GALLEON_TEST_ROOT" \
+if [ -n "$home_ok" ] && [ -n "$owner_ok" ] && [ -n "$shortcut_ok" ] && python3 "$here/current.py" write --test-root "$GALLEON_TEST_ROOT" \
   --appimage "${GALLEON_APPIMAGE:-}" --home "$GALLEON_HOME" --results "$RESULTS_DIR" \
   --sha "$GALLEON_SHA" --budget $((deadline - $(date +%s))) 2>>"$log"; then
   request_ok=1
