@@ -1,13 +1,14 @@
 #!/bin/sh
 # The 'Galleon Device Test' shortcut's executable — see docs/PLAN.md section
-# 5.3, steps 6 to 9. run.sh copies it, with current.py, into
+# 5.3, steps 6 to 9. run.sh copies it, with current.py and launched.py, into
 # GALLEON_TEST_ROOT, so the shortcut's path stays the same across runs.
 #
 # Steam starts it with no arguments, so what to start comes from
 # current.json, which run.sh writes just before the start. Without a current,
 # unexpired request it starts nothing, which is what a hand on the shortcut
 # gets. It marks the start and records the pids run.sh may signal in
-# $GALLEON_HOME/launch/, and starts once per run however many routes asked.
+# $GALLEON_HOME/launch/, with launched.py beside it, and starts once per run
+# however many routes asked.
 set -u
 
 here=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
@@ -21,6 +22,10 @@ home=$(printf '%s\n' "$request" | sed -n 2p)
 state="$home/launch"
 mkdir "$state" 2>/dev/null || exit 0
 
+# Each pid goes with its boot id and start time (launched.py), written first,
+# so run.sh --cleanup can stop these processes after a run that was killed,
+# and never a later process given the same number.
+python3 -I "$here/launched.py" record --state "$state" --name launch --pid "$$" 2>/dev/null || :
 echo "$$" >"$state/launch.pid"
 date -u +%Y-%m-%dT%H:%M:%SZ >"$state/started"
 
@@ -35,6 +40,7 @@ GALLEON_HOME=$home
 export GALLEON_HOME
 "$appimage" >"$state/app.log" 2>&1 &
 app=$!
+python3 -I "$here/launched.py" record --state "$state" --name app --pid "$app" 2>/dev/null || :
 echo "$app" >"$state/app.pid"
 [ -z "$stopped" ] || kill -TERM "$app" 2>/dev/null
 
