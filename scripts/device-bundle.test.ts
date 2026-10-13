@@ -100,6 +100,8 @@ describe('device-bundle', () => {
       './run.sh',
       './bundle.json',
       './build-info.json',
+      './ownerstate.py',
+      './owner-state.json',
       './bridge/galleon_device_bridge.py',
       './bridge/install.sh',
       './bridge/VERSION.json',
@@ -107,7 +109,7 @@ describe('device-bundle', () => {
     ]) {
       assert.ok(listing.includes(file), `${file} is in the bundle`)
     }
-    assert.ok(!listing.some((file) => file.includes('test_')), 'no bridge tests')
+    assert.ok(!listing.some((file) => file.includes('test_')), 'no bridge or helper tests')
     assert.equal(JSON.parse(readFileSync(join(bundle, 'bundle.json'), 'utf8')).minBridge, 1)
   })
 
