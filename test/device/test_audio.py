@@ -91,6 +91,20 @@ class AudioTest(unittest.TestCase):
         self.assertEqual(self.world()["sinks"]["52"], {"volume": "0.40", "muted": False})
         self.assertFalse(os.path.exists(self.state))
 
+    def test_a_volume_the_run_left_alone_is_not_set_again(self):
+        # get-volume rounds, so setting its answer back could move the
+        # owner's volume by the rounding.
+        self.run_cli("mute")
+        self.assertEqual(self.run_cli("restore")[0], 0)
+        self.assertEqual([c for c in self.calls() if c.startswith("set-volume")], [])
+        self.assertEqual(self.world()["sinks"]["52"], {"volume": "0.40", "muted": False})
+
+    def test_a_record_for_a_sink_that_has_gone_fails_and_is_kept(self):
+        with open(self.state, "w", encoding="utf-8") as handle:
+            json.dump({"sink": "99", "volume": "0.40", "muted": False}, handle)
+        self.assertEqual(self.run_cli("restore")[0], audio.ERROR_EXIT)
+        self.assertTrue(os.path.exists(self.state))
+
     def test_an_owner_who_had_muted_stays_muted(self):
         world = self.world()
         world["sinks"]["52"]["muted"] = True

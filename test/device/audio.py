@@ -96,7 +96,13 @@ def restore(wpctl, state_file):
     if not os.path.lexists(state_file):
         return None
     record = _read(state_file)
-    _wpctl(wpctl, "set-volume", record["sink"], record["volume"])
+    # get-volume rounds, so setting the recorded value back would move a
+    # volume the run never touched; it is set only when it differs.
+    now = VOLUME.match(_wpctl(wpctl, "get-volume", record["sink"]).strip())
+    if not now:
+        raise AudioError("wpctl get-volume: unexpected answer")
+    if now.group(1) != record["volume"]:
+        _wpctl(wpctl, "set-volume", record["sink"], record["volume"])
     _wpctl(wpctl, "set-mute", record["sink"], "1" if record["muted"] else "0")
     os.unlink(state_file)
     return record

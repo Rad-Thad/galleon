@@ -2254,3 +2254,25 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: nothing changes on the device until run.sh calls it.
 - Next: M0-22 part 4d-3b: run.sh mutes (refusing to start when it cannot), starts the shortcut through `steam://rungameid/` with the RunGame fallback, stops at the budget's end, and restores the sound in the run and in `--cleanup`.
+
+## 2026-10-13 05:27 UTC session 01UJF4noK6S1hm1oCFg1RK56 (hourly heartbeat)
+
+- Device results: the earlier entries named these by short commit, which `device-results.mjs` does not match, so they are recorded here in full:
+  - DEVICE-RESULTS 7f8e11382c5977e01755a145daac336ee41164bc complete
+  - DEVICE-RESULTS 9f95acac4c6335c890e1057f01a080082c2c6f58 complete
+  - DEVICE-RESULTS dffeebe1288cea2931dca16b9be24c8fe16dcbbf complete
+  - DEVICE-RESULTS 791c3147fd80b14589d10aaa226ec7e45eaa5834 complete
+  - DEVICE-RESULTS 2d001c46632e5aad9324c051dbf362cef84c496e complete
+  - DEVICE-RESULTS fffcec42fb51eaac69dfa2603f1e167d1e7679c2 complete
+  - DEVICE-RESULTS de0722a332d9678bf92ccf3fb16525aa8904a7ff complete
+  - No safety failures, no regressions, no reports. fffcec4 and de0722a are the first runs with the test shortcut held (found by record) and the read-only sign-in (`rommix`); `safety.owner-state` passed on both, de0722a with the masked play time. Part 4d-3a of M0-22, PR #202, merged at 30d9fee.
+- Worked on: M0-22 part 4d-3b (tracking issue #191): run.sh mutes the default sink once the launch request is written and puts it back before the second owner-state manifest; `--cleanup` puts back what a stopped run left muted.
+- Result: PR (this one). M0-22 stays false.
+- Evidence:
+  - `test/device/run.sh`: `audio.py mute --state $GALLEON_TEST_ROOT/audio.json` after the request; `audio.py restore` before the second manifest and in `--cleanup` (exit 1 when it fails, the other cleanup steps still run). A failed restore fails `harness.run` ("the sound could not be put back as it was") and keeps the record; the summary notes `audio: muted and put back`, `not muted` or `muted, not put back`. Nothing starts yet, so a failed mute is only a note; the start (next part) waits on it.
+  - `test/device/audio.py`: `restore` sets the volume only when it differs from the record, since `get-volume` rounds (the evaluator's note on #202).
+  - Tests: `test_audio.py` 12/12 (new: "a volume the run left alone is not set again", "a record for a sink that has gone fails and is kept"); `scripts/device-bundle.test.ts` 30/30 against a fake `wpctl` (new: "run.sh mutes the sound while it runs and puts it back", "run.sh fails harness.run and keeps the record when the sound cannot be put back", "run.sh notes a mute that fails, with nothing started to play sound", "run.sh --cleanup puts back the sound a stopped run left muted", "run.sh --cleanup fails while the sound cannot be put back, and keeps the record"). `docs/TESTING.md`: the wiring.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: the next nightly mutes and restores the Nova's sound for a few seconds; its notes say whether `wpctl` answered (DEVICE-FACTS.md does not yet confirm it is there).
+- Next: M0-22 part 4d-3c: the self-test request, the start through `steam://rungameid/` with the RunGame fallback (only when muted), and the stop at the budget's end.
