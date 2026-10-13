@@ -496,6 +496,13 @@ describe('device-bundle', () => {
       const project = url.split('/').slice(3, 5).join('/')
       assert.ok(notices.includes(`https://github.com/${project}`), `${project} has its notice`)
     }
+    // Nothing but the payloads' own notices travels with them.
+    for (const [, heading] of notices.matchAll(/^## (.+)$/gm)) {
+      assert.ok(
+        files.some(({ url }) => url.includes(`/${heading}/`)),
+        `${heading} is a payload's project`
+      )
+    }
   })
 
   test("run.sh writes a summary with harness.run passing for its own commit, and the app's checks", () => {

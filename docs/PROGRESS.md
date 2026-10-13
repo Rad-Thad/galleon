@@ -2440,6 +2440,7 @@ Lines the tooling reads (exact forms):
   - `release.yml` (x64 leg) and `nightly.yml` fetch the payloads by their pinned hashes before building the bundle. Locally: both gba-tests programs fetched and bundled; the notice holds the MIT text.
   - Tests in `scripts/device-bundle.test.ts`, new: "the bundle carries the pinned payloads, their manifest entries and licences" (unpacked with the bridge's `safe_extract`), "a payload that is missing, linked or not the pinned bytes builds no bundle", "the payload notices are THIRD_PARTY.md's test payloads part, licence text and all", "the real manifest's payloads all have their notice in THIRD_PARTY.md".
   - `scripts/agent/check.sh` green.
+  - Evaluator: PASS with notes. The notices read to the end of THIRD_PARTY.md, taking in the fonts and ES-DE parts after it; "Test payloads" is now the file's last part and a test holds the notices to the payloads' own projects. `/device-payloads/` is ignored. Left as it is: the PR leg now fetches two small files from GitHub without a retry; a failed fetch is a `flaky` issue to root-cause, not a retry wrapper.
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: from the next nightly the bundle holds `payloads/`; nothing on the device uses it yet.
 - Next: M0-22 part 4e-2: run.sh copies `payloads/` into the test home, names them in the self-test request, and deletes them, with any downloaded ROM, before exit (test asserts the folder is empty).
