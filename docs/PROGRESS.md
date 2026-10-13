@@ -2276,3 +2276,18 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: the next nightly mutes and restores the Nova's sound for a few seconds; its notes say whether `wpctl` answered (DEVICE-FACTS.md does not yet confirm it is there).
 - Next: M0-22 part 4d-3c: the self-test request, the start through `steam://rungameid/` with the RunGame fallback (only when muted), and the stop at the budget's end.
+
+## 2026-10-13 05:50 UTC session 01UJF4noK6S1hm1oCFg1RK56 (hourly heartbeat, second unit)
+
+- Device results: nothing new. Part 4d-3b of M0-22, PR #203, merged at 0adfb2d; CI x64 7:00, arm64 0:52.
+- Worked on: M0-22 part 4d-3c-1 (tracking issue #191): `selftestrequest.py`, which writes the self-test request into the test home (PLAN.md 5.3 step 7, second half).
+- Result: PR (this one). M0-22 stays false.
+- Evidence:
+  - `test/device/selftestrequest.py` (Python standard library): `write` builds the request in TESTING.md's schema, always with `readOnlyServer`, `privacy` and `abortOnInput` true and `fakeRomm` null. It refuses what the app's `parseRequest` would refuse (exit 3, nothing written), and writes privately, renamed into place, only into a home that is a real folder. `remove` takes the request and the app's taken copy.
+  - Tests: `test/device/test_selftestrequest.py` 8/8 (the safeguards always asked for; no version leaves the field out; each refusal writes nothing; no check refused; a linked home never written through; a link at the request's path replaced, not followed; remove, never through a linked home). `scripts/device-bundle.test.ts` 31/31; new: "the self-test request the bundle writes is one the app takes as written" (the bundle's copy, through the app's own `parseRequest`, field for field). `docs/TESTING.md`: a paragraph.
+  - Not wired into run.sh yet: which checks and payloads the first run asks for goes with the start.
+  - Evaluator: PASS, with two notes, both addressed: TESTING.md now tells the refusals the app shares from the harness's own stricter ones (an empty check list, a saving payload without a payload, a handshake folder that is not absolute), and `remove` keeps to a home that is a real folder.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: nothing changes on the device until run.sh calls it.
+- Next: M0-22 part 4d-3c-2: run.sh writes the request (the app's results in a folder of their own, merged in step 10), starts the shortcut through `steam://rungameid/` with the RunGame fallback only once muted, and stops at the budget's end. Evaluator notes from #203 still to do: reword the comment on the second manifest's ordering so it plainly means the config restore.

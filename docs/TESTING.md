@@ -170,6 +170,8 @@ Adding a check: add it here, to the self-test or `run.sh`, and to the feature's 
 
 The app refuses a request without `readOnlyServer: true` and `privacy: true`, and ignores the file entirely unless `GALLEON_HOME` is set.
 
+`test/device/selftestrequest.py` writes it (privately, renamed into place, never through a link, and only into a test home that is a real folder) and refuses what the app would refuse (a short sha, a version that is not plain, a budget that is not positive, a results folder that is not absolute), and beyond that a handshake folder that is not absolute, no checks, or a saving payload with no payload, none of which a sound harness writes. It always asks for the read-only server, privacy and the abort on input. `remove` takes the request and the app's taken copy, from a home that is a real folder only. A test in `scripts/device-bundle.test.ts` hands what it writes to the app's own `parseRequest`.
+
 - The app renames the file to `self-test-request.taken.json` before reading it, so a restart is a normal start.
 - A refused request gets a `summary.json` with `status: error` and the refusal code as `reason` (when its `resultsDir` is usable), and the app exits 1.
 - An accepted run exits 0 once `summary.json` is written, whatever the checks say. A requested check this build has no scenario for is `skip` with reason `not-implemented`; the run is then `partial` and `selftest.complete` fails.
