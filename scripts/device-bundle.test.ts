@@ -38,11 +38,30 @@ function unpackLikeTheBridge(out: string) {
   return target
 }
 
+/**
+ * A stand-in for the Nova's user manager: Game Mode is up unless `inactive`,
+ * and the desktop session's variables are the ones it reports.
+ */
+function fakeSession(inactive = false) {
+  const bin = mkdtempSync(join(tmpdir(), 'bundle-session-'))
+  const state = inactive ? 'inactive' : 'active'
+  writeFileSync(
+    join(bin, 'systemctl'),
+    '#!/bin/sh\n' +
+      `[ "$2" = is-active ] && { echo ${state}; exit 0; }\n` +
+      '[ "$2" = show-environment ] && { echo DISPLAY=:7; exit 0; }\n' +
+      'exit 1\n'
+  )
+  chmodSync(join(bin, 'systemctl'), 0o755)
+  return bin
+}
+
 function runHarness(
   bundle: string,
   sha: string,
   appimage: boolean,
-  env: Record<string, string> = {}
+  env: Record<string, string> = {},
+  session = fakeSession()
 ) {
   const results = mkdtempSync(join(tmpdir(), 'bundle-results-'))
   mkdirSync(join(results, 'logs'))
@@ -51,13 +70,17 @@ function runHarness(
     writeFileSync(image, '')
     chmodSync(image, 0o755)
   }
+  const path = env.PATH ?? process.env.PATH
   const run = spawnSync('/bin/sh', [join(bundle, 'run.sh')], {
     env: {
-      PATH: process.env.PATH,
       RESULTS_DIR: results,
       GALLEON_SHA: sha,
       GALLEON_APPIMAGE: image,
-      ...env
+      GALLEON_TEST_ROOT: results,
+      // The bridge's settings are read from the home; this one has none.
+      HOME: mkdtempSync(join(tmpdir(), 'bundle-home-')),
+      ...env,
+      PATH: `${session}:${path}`
     },
     encoding: 'utf8'
   })
@@ -107,6 +130,7 @@ describe('device-bundle', () => {
       './steamcef.py',
       './launch.sh',
       './current.py',
+      './session.py',
       './bridge/galleon_device_bridge.py',
       './bridge/install.sh',
       './bridge/VERSION.json',
@@ -199,6 +223,17 @@ describe('device-bundle', () => {
     assert.match(facts, /== armada-power status\n\(not installed\)/)
     const [check] = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8')).checks
     assert.equal(check.result, 'pass')
+  })
+
+  test('run.sh skips, with the reason, when Game Mode is not running', () => {
+    const bundle = unpackLikeTheBridge(built())
+    const { run, results } = runHarness(bundle, SHA, true, {}, fakeSession(true))
+    assert.equal(run.status, 10, run.stderr)
+    const summary = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8'))
+    assert.equal(summary.status, 'skipped')
+    assert.equal(summary.sha, SHA)
+    assert.match(summary.reason, /Game Mode is not running/)
+    assert.deepEqual(summary.checks, [])
   })
 
   test('run.sh --cleanup is safe to run at any time', () => {

@@ -2163,3 +2163,17 @@ Lines the tooling reads (exact forms):
 - Evaluator: PASS. Its note is fixed: the stop trap is set before the app starts, so a stop arriving in between is passed on once the pid is known.
 - Device / acceptance: none until run.sh calls it.
 - Next: M0-22 part 4, run.sh itself (in pieces): the session environment and preconditions, the snapshot after the shortcut is ensured, the request, the start and the handshake, the restore.
+
+## 2026-10-13 02:26 UTC session 01UVchUjrUmCzj4sAryMHNNE (hourly heartbeat)
+
+- Device results: five results since 7f8e113, newest 2d001c4 (complete, the minimal harness); no safety failures, no regressions, nothing newly passing; bridge last skip "no new nightly". Part 3c of M0-22, PR #196, merged at 94522ad; CI x64 6:24, arm64 0:57.
+- Worked on: M0-22 part 4a (tracking issue #191): run.sh takes the desktop session's variables and repeats the preconditions.
+- Result: PR (this one). M0-22 stays false.
+- Evidence:
+  - `test/device/session.py` (Python standard library): `env` prints `export KEY='value'` for `DISPLAY`, `XAUTHORITY`, `DBUS_SESSION_BUS_ADDRESS`, `XDG_RUNTIME_DIR` and `GAMESCOPE_WAYLAND_DISPLAY` from `systemctl --user show-environment`, gaps filled from this user's exact-named `steam` process (`/proc/<pid>/environ`, never a command-line match); escaped values are not trusted. `check` uses the bridge's own `session_active`, `busy_names` and `galleon_idle_state` (imported from the bundle's `bridge/`, or `tools/device-bridge/` in the repo) and a free-space floor for the test home; prints `ready`, or the reason and exits 10.
+  - `test/device/run.sh`: evaluates `session.py env`, then runs `session.py check`; a failed check writes a `skipped` summary with the reason and exits 10; a check that cannot run fails `harness.run`. The minimal harness is otherwise unchanged.
+  - Tests: `test/device/test_session.py` 13/13 (manager keys and escaped values; no manager; exact-named `steam` only, this user's only; manager wins, steam fills gaps; the printed assignments read back unchanged by the shell; ready, Game Mode off, playing, idle Galleon, low space, the skip exit code equals the bridge's). `scripts/device-bundle.test.ts`: every run.sh test runs with a fake user manager; new test "run.sh skips, with the reason, when Game Mode is not running"; `session.py` is in the bundle. All helper tests 85/85. `docs/TESTING.md`: a paragraph.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: the next nightly exercises the import and the checks; a skip there would show as a `skipped` result with its reason.
+- Next: M0-22 part 4b: the owner-state snapshot after the shortcut is ensured, and the restore and comparison (`safety.owner-state`).

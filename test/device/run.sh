@@ -4,7 +4,9 @@
 #
 # This is the minimal harness that stands in until M0-22: it starts nothing,
 # touches nothing outside RESULTS_DIR, and reports one check, `harness.run`,
-# so the path from a merge to `device-results` is exercised end to end.
+# so the path from a merge to `device-results` is exercised end to end. It
+# already takes the desktop session's variables and repeats the bridge's
+# Game Mode, idle and free-space checks (session.py), skipping when one fails.
 #
 # It also copies the power state the Nova shows into logs/power-facts.txt,
 # because the overlay's parsers (src/main/powerstate.ts) need the real format
@@ -26,6 +28,47 @@ now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 started=$(now)
 mkdir -p "$RESULTS_DIR/logs"
 log="$RESULTS_DIR/logs/harness.log"
+: >"$log"
+
+# A skip leaves a summary with its reason; the bridge publishes it once and
+# tries the same build again on a later run.
+skip() {
+  why=$(printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g' | tr -d '\n')
+  echo "skipped: $1" >>"$log"
+  tmp="$RESULTS_DIR/.summary.json.tmp"
+  cat >"$tmp" <<JSON
+{
+  "schema": 1,
+  "sha": "$GALLEON_SHA",
+  "status": "skipped",
+  "reason": "$why",
+  "startedAt": "$started",
+  "finishedAt": "$(now)",
+  "checks": [],
+  "notes": []
+}
+JSON
+  mv "$tmp" "$RESULTS_DIR/summary.json"
+  exit 10
+}
+
+# A timer-started run lacks the desktop session's variables, and Steam, the
+# compositor and the audio server are reached only through them.
+if session_vars=$(python3 "$here/session.py" env 2>>"$log"); then
+  eval "$session_vars"
+else
+  echo "session variables: none imported" >>"$log"
+fi
+# Someone may have picked the device up while the bridge downloaded the build.
+# A check that cannot run is the harness's fault, not the device's, so it
+# fails harness.run rather than skipping every build.
+session_ok=1
+why=$(python3 "$here/session.py" check --test-root "${GALLEON_TEST_ROOT:-$RESULTS_DIR}" 2>>"$log")
+case $? in
+  0) ;;
+  10) skip "$why" ;;
+  *) session_ok= ;;
+esac
 
 # build-info.json is written by scripts/device-bundle.mjs and holds no quote
 # or backslash inside a value, so a line match is enough to read it.
@@ -34,14 +77,17 @@ built=$(sed -n 's/^ *"sha": *"\([0-9a-f]*\)".*/\1/p' "$here/build-info.json" 2>/
 
 result=pass
 reason=null
-if [ "$built" != "$GALLEON_SHA" ]; then
+if [ -z "$session_ok" ]; then
+  result=fail
+  reason='"the session checks could not run"'
+elif [ "$built" != "$GALLEON_SHA" ]; then
   result=fail
   reason='"the bundle was built from another commit"'
 elif [ ! -x "${GALLEON_APPIMAGE:-}" ]; then
   result=fail
   reason='"the AppImage is missing or not executable"'
 fi
-echo "minimal harness: version ${version:-unknown}, harness.run $result" >"$log"
+echo "minimal harness: version ${version:-unknown}, harness.run $result" >>"$log"
 
 # Tests point this at a fake root; on the device it is the real one.
 root=${GALLEON_FACTS_ROOT:-}
