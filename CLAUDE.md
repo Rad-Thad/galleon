@@ -116,20 +116,20 @@ Pull-request legs: target 10 minutes, hard limit 20. Nightly: 30. Expensive chec
 
 ## Commands
 
-| Command                                                           | What it does                                                      |
-| ----------------------------------------------------------------- | ----------------------------------------------------------------- |
-| `npm ci && npx install-electron`                                  | Install, including Electron's binary                              |
-| `npm run format:check`, `npm run lint`, `npm run typecheck`       | The upstream checks, in that order                                |
-| `npm test`, `npm run test:coverage`                               | Unit tests; coverage with floors 96/88/89                         |
-| `npm run test:app`                                                | Built app under Xvfb against `test/app/server.ts`                 |
-| `npm run preview:app`                                             | UI in a browser against a stub library (`src/renderer/src/dev/`)  |
-| `npm run test:romm`, `npm run test:saves`, `npm run shots:nova`   | Docker RomM; saves (M2); 1280x960 shots into `artifacts/shots/`   |
-| `npm run smoke:app`                                               | Packaged app starts, reaches Home, quits (arm64 leg)              |
-| `python3 -m unittest discover -s tools/device-bridge`             | Device bridge unit tests                                          |
-| `python3 -B -m unittest discover -s test/device`                  | Device bundle helper tests (owner-state manifest, sign-in import) |
-| `node scripts/agent/device-results.mjs --summary`                 | Newest device results, regressions, reports, bridge last seen     |
-| `node scripts/agent/gate1.mjs`, `node scripts/agent/ci-times.mjs` | Gate 1 from device results; CI wall time per leg                  |
-| `npm run appimage`                                                | Local AppImage (x64 on the VM). arm64 comes only from CI          |
+| Command                                                           | What it does                                                     |
+| ----------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `npm ci && npx install-electron`                                  | Install, including Electron's binary                             |
+| `npm run format:check`, `npm run lint`, `npm run typecheck`       | The upstream checks, in that order                               |
+| `npm test`, `npm run test:coverage`                               | Unit tests; coverage with floors 96/88/89                        |
+| `npm run test:app`                                                | Built app under Xvfb against `test/app/server.ts`                |
+| `npm run preview:app`                                             | UI in a browser against a stub library (`src/renderer/src/dev/`) |
+| `npm run test:romm`, `npm run test:saves`, `npm run shots:nova`   | Docker RomM; saves (M2); 1280x960 shots into `artifacts/shots/`  |
+| `npm run smoke:app`                                               | Packaged app starts, reaches Home, quits (arm64 leg)             |
+| `python3 -m unittest discover -s tools/device-bridge`             | Device bridge unit tests                                         |
+| `python3 -B -m unittest discover -s test/device`                  | Device bundle helper tests (owner state, sign-in, shortcuts)     |
+| `node scripts/agent/device-results.mjs --summary`                 | Newest device results, regressions, reports, bridge last seen    |
+| `node scripts/agent/gate1.mjs`, `node scripts/agent/ci-times.mjs` | Gate 1 from device results; CI wall time per leg                 |
+| `npm run appimage`                                                | Local AppImage (x64 on the VM). arm64 comes only from CI         |
 
 Single test file: `node --import ./scripts/test-resolve.mjs --experimental-transform-types --test src/path/file.test.ts`.
 
