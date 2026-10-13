@@ -53,7 +53,7 @@ def identity(pid):
 def _pid(state, name):
     text = _read(os.path.join(state, f"{name}.pid"))
     line = (text or "").split("\n", 1)[0]
-    return int(line) if line.isdigit() and int(line) > 1 else None
+    return int(line) if line.isascii() and line.isdigit() and int(line) > 1 else None
 
 
 def record(state, name, pid):

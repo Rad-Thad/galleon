@@ -7,7 +7,8 @@
 # repeats the bridge's Game Mode, idle and free-space checks (session.py),
 # skipping when one fails, at the start and again just before the app is
 # started; makes sure Steam has the test shortcut
-# (steamcef.py), with launch.sh and current.py in $GALLEON_TEST_ROOT; holds
+# (steamcef.py), with launch.sh, current.py and launched.py in
+# $GALLEON_TEST_ROOT; holds
 # the owner state (ownerstate.py, in $GALLEON_TEST_DIR/owner-state), reported
 # as `safety.owner-state`; and makes the test home with its read-only sign-in
 # (signin.py, $GALLEON_TEST_DIR/home) with the app's self-test request

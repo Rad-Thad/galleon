@@ -101,7 +101,7 @@ class LaunchedTest(unittest.TestCase):
         self.assertIsNone(app.poll())
 
     def test_pid_files_that_are_not_plain_numbers_are_ignored(self):
-        for text in ("", "1\n", "12x\n", "-5\n"):
+        for text in ("", "1\n", "12x\n", "-5\n", "\u00b2\n"):
             with open(os.path.join(self.state, "app.pid"), "w", encoding="utf-8") as handle:
                 handle.write(text)
             self.assertIsNone(launched.recorded(self.state, "app"), text)

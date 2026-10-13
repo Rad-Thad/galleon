@@ -1068,7 +1068,11 @@ describe('device-bundle', () => {
     })
     launcher.unref()
     const launched = join(home, 'launch')
-    while (!existsSync(join(launched, 'app.pid'))) execFileSync('sleep', ['0.05'])
+    const by = Date.now() + 10_000
+    while (!existsSync(join(launched, 'app.pid'))) {
+      assert.ok(Date.now() < by, 'launch.sh started the app')
+      execFileSync('sleep', ['0.05'])
+    }
     const pid = Number(readFileSync(join(launched, 'app.pid'), 'utf8'))
     const run = spawnSync('/bin/sh', [join(bundle, 'run.sh'), '--cleanup'], {
       env: { ...env, GALLEON_TEST_DIR: testDir }
