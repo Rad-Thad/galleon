@@ -44,8 +44,10 @@ import time
 ERROR_EXIT = 3
 # A hung armada-powerd must not hold up the run.
 TIMEOUT_SECONDS = 10
-# How long a switch has to show in the governor before it counts as not done;
-# with TIMEOUT_SECONDS it stays inside the app's own wait (PROFILE_WAIT_MS).
+# How long a switch has to show in the governor before it counts as not done,
+# kept short of the app's own wait (PROFILE_WAIT_MS) while the daemon answers.
+# A hung daemon can make an answer late; the app reads the profile in force
+# afterwards, so a late answer never files numbers under the wrong profile.
 SETTLE_SECONDS = 10
 POLL_SECONDS = 0.5
 

@@ -2407,6 +2407,7 @@ Lines the tooling reads (exact forms):
     - "run.sh fails harness.run and keeps the record when the profile cannot be put back"
     - "run.sh --cleanup puts back the profile a stopped run left, and keeps it while it cannot"
   - `docs/TESTING.md`: the helper and the handshake's harness side.
+  - Evaluator: PASS, with two notes. A hung daemon can make an answer later than the app's wait; the comment now says so, and the app checks the profile in force regardless. A label matching no definition is taken by its lowercased name, which the next nightly will show.
   - `scripts/agent/check.sh` green.
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: from the next nightly, `grid.scroll@balanced` and `@performance` can be measured on the profile they name, and the owner's profile is put back after the run.
