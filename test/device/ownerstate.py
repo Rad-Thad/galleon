@@ -145,7 +145,8 @@ def _shortcut_list_entry(path):
     cannot be read as binary VDF, which leaves the strict entry in place.
     """
     try:
-        with open(path, "rb") as handle:
+        # Not through a link that replaced the file since the walk saw it.
+        with os.fdopen(os.open(path, os.O_RDONLY | os.O_NOFOLLOW), "rb") as handle:
             data = bytearray(handle.read(HASH_LIMIT + 1))
         if len(data) > HASH_LIMIT:
             return None
