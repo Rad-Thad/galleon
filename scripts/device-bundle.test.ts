@@ -17,7 +17,14 @@ import {
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { describe, test } from 'node:test'
-import { BUILD_INFO_NAME, BUNDLE_NAME, buildInfo, writeBundle } from './device-bundle.mjs'
+import {
+  BUILD_INFO_NAME,
+  BUNDLE_NAME,
+  buildInfo,
+  payloadNotices,
+  writeBundle
+} from './device-bundle.mjs'
+import { sha256 } from './agent/fetch-fixtures.mjs'
 import { REQUEST_FILE, parseRequest } from '../src/main/selftest.ts'
 
 /**
@@ -34,6 +41,29 @@ const VERSION = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).ver
 const CONFIG: string = JSON.parse(readFileSync(join(ROOT, 'test/device/owner-state.json'), 'utf8'))
   .configs[0]
 const CONFIG_PATTERN = CONFIG.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')
+
+/**
+ * A payload manifest of two small programs and the folder fetch-fixtures
+ * would have put them in, so the bundle is built without the network.
+ */
+function fetchedPayloads() {
+  const dir = mkdtempSync(join(tmpdir(), 'bundle-payloads-'))
+  const entries = ['roms/gba/one test.gba', 'roms/snes/two.sfc'].map((path) => {
+    const bytes = Buffer.from(`homebrew ${path}`)
+    mkdirSync(join(dir, 'fetched', path, '..'), { recursive: true })
+    writeFileSync(join(dir, 'fetched', path), bytes)
+    return {
+      path,
+      url: `https://example.com/${encodeURIComponent(path)}`,
+      sha256: sha256(bytes),
+      bytes: bytes.length,
+      licence: 'MIT',
+      attribution: `Test Author, ${path}`
+    }
+  })
+  writeFileSync(join(dir, 'manifest.json'), JSON.stringify({ files: entries }))
+  return { from: join(dir, 'fetched'), manifest: join(dir, 'manifest.json'), entries }
+}
 
 function built(sha = SHA) {
   const out = mkdtempSync(join(tmpdir(), 'bundle-out-'))
@@ -379,6 +409,93 @@ describe('device-bundle', () => {
     }
     assert.ok(!listing.some((file) => file.includes('test_')), 'no bridge or helper tests')
     assert.equal(JSON.parse(readFileSync(join(bundle, 'bundle.json'), 'utf8')).minBridge, 1)
+  })
+
+  test('the bundle carries the pinned payloads, their manifest entries and licences', () => {
+    const { from, manifest, entries } = fetchedPayloads()
+    const out = mkdtempSync(join(tmpdir(), 'bundle-out-'))
+    writeBundle({ root: ROOT, out, sha: SHA, builtAt: BUILT_AT, payloads: from, manifest })
+    const bundle = unpackLikeTheBridge(out)
+    for (const entry of entries) {
+      const bytes = readFileSync(join(bundle, 'payloads', entry.path))
+      assert.equal(sha256(bytes), entry.sha256, `${entry.path} is the pinned bytes`)
+    }
+    assert.deepEqual(
+      JSON.parse(readFileSync(join(bundle, 'payloads/manifest.json'), 'utf8')).files,
+      entries
+    )
+    const notices = readFileSync(join(bundle, 'payloads/THIRD_PARTY.md'), 'utf8')
+    assert.match(notices, /^# Test payloads\n/)
+    assert.match(notices, /Permission is hereby granted/)
+    // The bundle is built from the payloads as fetched, nothing else in their folder.
+    assert.deepEqual(readdirSync(join(bundle, 'payloads')).sort(), [
+      'THIRD_PARTY.md',
+      'manifest.json',
+      'roms'
+    ])
+  })
+
+  test('a payload that is missing, linked or not the pinned bytes builds no bundle', () => {
+    const cases: [string, (from: string, path: string) => void, RegExp][] = [
+      ['missing', (from, path) => rmSync(join(from, path)), /is not in .*; fetch it first/],
+      [
+        'changed',
+        (from, path) => writeFileSync(join(from, path), 'other bytes'),
+        /is not the bytes the manifest pins/
+      ],
+      [
+        'linked',
+        (from, path) => {
+          const bytes = readFileSync(join(from, path))
+          const elsewhere = join(from, '..', 'elsewhere')
+          writeFileSync(elsewhere, bytes)
+          rmSync(join(from, path))
+          symlinkSync(elsewhere, join(from, path))
+        },
+        /is not a plain file/
+      ]
+    ]
+    for (const [name, spoil, message] of cases) {
+      const { from, manifest, entries } = fetchedPayloads()
+      spoil(from, entries[1].path)
+      const out = mkdtempSync(join(tmpdir(), 'bundle-out-'))
+      assert.throws(
+        () => writeBundle({ root: ROOT, out, sha: SHA, payloads: from, manifest }),
+        message,
+        name
+      )
+      assert.ok(!existsSync(join(out, BUNDLE_NAME)), `${name}: no bundle`)
+    }
+  })
+
+  test("the payload notices are THIRD_PARTY.md's test payloads part, licence text and all", () => {
+    const text = [
+      '# Other',
+      'kept out',
+      '# Test payloads',
+      '',
+      '## gba-tests',
+      '```',
+      '# not a heading',
+      '```',
+      '# After',
+      'kept out'
+    ].join('\n')
+    assert.equal(
+      payloadNotices(text),
+      '# Test payloads\n\n## gba-tests\n```\n# not a heading\n```\n'
+    )
+    assert.throws(() => payloadNotices('# Other\n'), /no "# Test payloads" part/)
+  })
+
+  test("the real manifest's payloads all have their notice in THIRD_PARTY.md", () => {
+    const notices = payloadNotices(readFileSync(join(ROOT, 'THIRD_PARTY.md'), 'utf8'))
+    const files = JSON.parse(readFileSync(join(ROOT, 'test/fixtures/roms/manifest.json'), 'utf8'))
+      .files as { url: string }[]
+    for (const { url } of files) {
+      const project = url.split('/').slice(3, 5).join('/')
+      assert.ok(notices.includes(`https://github.com/${project}`), `${project} has its notice`)
+    }
   })
 
   test("run.sh writes a summary with harness.run passing for its own commit, and the app's checks", () => {

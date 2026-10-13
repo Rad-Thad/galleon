@@ -318,12 +318,15 @@ jobs:
 
       # The device test bundle and the build-info.json naming this commit,
       # which the `nightly` publish below carries to the Nova — see
-      # scripts/device-bundle.mjs. Built on every x64 leg, pull requests too,
+      # scripts/device-bundle.mjs, with the homebrew payloads it carries,
+      # fetched by their pinned hashes. Built on every x64 leg, pull requests too,
       # so a bundle that cannot be built is red before it is merged; kept only
       # from main, the one place it is published from.
       - name: Build the device test bundle
         if: matrix.arch == 'x64'
-        run: node scripts/device-bundle.mjs --sha "$GITHUB_SHA" --out device
+        run: |
+          node scripts/agent/fetch-fixtures.mjs --out device-payloads
+          node scripts/device-bundle.mjs --sha "$GITHUB_SHA" --out device --payloads device-payloads
       - uses: actions/upload-artifact@v7
         if: matrix.arch == 'x64' && github.ref == 'refs/heads/main'
         with:

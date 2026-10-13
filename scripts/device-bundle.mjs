@@ -4,19 +4,32 @@
 // and the `build-info.json` that names the commit both were built from — see
 // docs/PLAN.md section 5.
 //
-//   node scripts/device-bundle.mjs --sha <40-hex> [--out dist]
+//   node scripts/device-bundle.mjs --sha <40-hex> [--out dist] [--payloads <dir>]
 //
 // Writes `<out>/galleon-device-tests.tar.gz` and `<out>/build-info.json`. The
-// bundle holds `test/device/` at its root, the same `build-info.json`, and
-// `bridge/`, the device bridge from the same commit for its self-update.
+// bundle holds `test/device/` at its root, the same `build-info.json`,
+// `bridge/`, the device bridge from the same commit for its self-update, and,
+// with `--payloads`, `payloads/`: the homebrew of test/fixtures/roms/
+// manifest.json as scripts/agent/fetch-fixtures.mjs put it in that folder.
 import { execFileSync } from 'node:child_process'
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  cpSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync
+} from 'node:fs'
 import { tmpdir } from 'node:os'
-import { basename, join, resolve } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { loadManifest, sha256 } from './agent/fetch-fixtures.mjs'
 
 export const BUNDLE_NAME = 'galleon-device-tests.tar.gz'
 export const BUILD_INFO_NAME = 'build-info.json'
+export const PAYLOADS_DIR = 'payloads'
+export const PAYLOAD_MANIFEST = 'test/fixtures/roms/manifest.json'
 
 /**
  * What of tools/device-bridge/ the bridge's `install.sh --update` installs.
@@ -41,10 +54,71 @@ export function buildInfo({ sha, version, builtAt, bundleContract }) {
   return { sha, version, builtAt, bundleContract }
 }
 
-export function writeBundle({ root, out, sha, builtAt = new Date().toISOString() }) {
+/**
+ * The `Test payloads` part of THIRD_PARTY.md: each payload's project, licence
+ * and licence text, which travel with the files they cover. A heading inside
+ * a fenced block is licence text, not the end of the part.
+ */
+export function payloadNotices(thirdParty) {
+  const lines = thirdParty.split('\n')
+  const start = lines.findIndex((line) => line.trim() === '# Test payloads')
+  if (start < 0) throw new Error('THIRD_PARTY.md has no "# Test payloads" part')
+  let fenced = false
+  let end = lines.length
+  for (let i = start + 1; i < lines.length; i++) {
+    if (lines[i].startsWith('```')) fenced = !fenced
+    else if (!fenced && lines[i].startsWith('# ')) {
+      end = i
+      break
+    }
+  }
+  return `${lines.slice(start, end).join('\n').trimEnd()}\n`
+}
+
+/**
+ * Copies every payload the manifest pins from `from` into `<stage>/payloads/`,
+ * with the manifest's entries and the licence notices beside them. A payload
+ * that is missing, not a plain file, or not the pinned bytes stops the build:
+ * the device must never run, or the bundle carry, bytes nobody checked.
+ */
+export function stagePayloads({ root, from, stage, manifest = join(root, PAYLOAD_MANIFEST) }) {
+  const files = loadManifest(manifest)
+  const target = join(stage, PAYLOADS_DIR)
+  for (const f of files) {
+    const source = join(from, f.path)
+    let stat
+    try {
+      stat = lstatSync(source)
+    } catch {
+      throw new Error(`payload ${f.path} is not in ${from}; fetch it first`)
+    }
+    if (!stat.isFile()) throw new Error(`payload ${f.path} is not a plain file`)
+    const bytes = readFileSync(source)
+    if (bytes.length !== f.bytes || sha256(bytes) !== f.sha256) {
+      throw new Error(`payload ${f.path} is not the bytes the manifest pins`)
+    }
+    mkdirSync(dirname(join(target, f.path)), { recursive: true })
+    writeFileSync(join(target, f.path), bytes)
+  }
+  writeFileSync(join(target, 'manifest.json'), `${JSON.stringify({ files }, null, 2)}\n`)
+  writeFileSync(
+    join(target, 'THIRD_PARTY.md'),
+    payloadNotices(readFileSync(join(root, 'THIRD_PARTY.md'), 'utf8'))
+  )
+  return files
+}
+
+export function writeBundle({
+  root,
+  out,
+  sha,
+  builtAt = new Date().toISOString(),
+  payloads,
+  manifest
+}) {
   const version = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version
-  const manifest = JSON.parse(readFileSync(join(root, 'test/device/bundle.json'), 'utf8'))
-  const info = buildInfo({ sha, version, builtAt, bundleContract: manifest.contract })
+  const contract = JSON.parse(readFileSync(join(root, 'test/device/bundle.json'), 'utf8')).contract
+  const info = buildInfo({ sha, version, builtAt, bundleContract: contract })
   const text = `${JSON.stringify(info, null, 2)}\n`
 
   const stage = mkdtempSync(join(tmpdir(), 'device-bundle-'))
@@ -59,6 +133,7 @@ export function writeBundle({ root, out, sha, builtAt = new Date().toISOString()
         recursive: true
       })
     }
+    if (payloads !== undefined) stagePayloads({ root, from: payloads, stage, manifest })
     writeFileSync(join(stage, BUILD_INFO_NAME), text)
     mkdirSync(out, { recursive: true })
     // Owner, times and order fixed, so the same commit packs to the same bytes
@@ -90,10 +165,16 @@ function main(argv) {
     const [flag, value] = [argv[i], argv[i + 1]]
     if (flag === '--sha') args.sha = value
     else if (flag === '--out') args.out = value
+    else if (flag === '--payloads' && value !== undefined) args.payloads = resolve(value)
     else throw new Error(`unknown option ${flag}`)
   }
   const root = resolve(import.meta.dirname, '..')
-  const info = writeBundle({ root, out: resolve(args.out), sha: args.sha ?? '' })
+  const info = writeBundle({
+    root,
+    out: resolve(args.out),
+    sha: args.sha ?? '',
+    payloads: args.payloads
+  })
   console.log(`${BUNDLE_NAME} and ${BUILD_INFO_NAME} for ${info.sha} (${info.version})`)
 }
 

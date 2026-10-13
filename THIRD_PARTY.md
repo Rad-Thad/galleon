@@ -42,7 +42,8 @@ SOFTWARE.
 
 Fetched by `scripts/agent/fetch-fixtures.mjs` from the pinned URLs in
 `test/fixtures/roms/manifest.json` and never committed. Each entry there names
-its licence and author.
+its licence and author. The device test bundle carries them under `payloads/`
+with that manifest and this part of the file.
 
 ## gba-tests
 
