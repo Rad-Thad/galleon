@@ -315,30 +315,48 @@ elif [ -n "$request_ok" ] && [ -n "$muted" ] &&
     start_failed=1
   fi
 fi
+# Past the wait the app is asked to stop, then launch.sh is signalled (it
+# passes the signal on to the app alone), then both recorded pids are killed.
+stop_app() {
+  : >"$handshake/stop" 2>>"$log"
+  if gone_by $(($(date +%s) + STOP_WAIT_SECONDS)); then
+    app_note='stopped when asked'
+    return
+  fi
+  if pid=$(recorded launch.pid); then kill -TERM "$pid" 2>>"$log"; fi
+  if gone_by $(($(date +%s) + STOP_WAIT_SECONDS)); then
+    app_note='stopped by a signal'
+    return
+  fi
+  for name in app.pid launch.pid; do
+    if pid=$(recorded "$name"); then kill -KILL "$pid" 2>>"$log"; fi
+  done
+  app_note='killed'
+}
 if [ -n "$started_by" ]; then
   echo "started through $started_by" >>"$log"
   # The app's own budget ends at STOP_RESERVE_SECONDS before the bridge's;
-  # past that it gets one STOP_WAIT_SECONDS to finish its summary, then is
-  # asked to stop, then signalled, all inside the reserve.
+  # past that it gets one STOP_WAIT_SECONDS to finish its summary before it
+  # is stopped, all inside the reserve.
   if gone_by $((deadline - STOP_RESERVE_SECONDS + STOP_WAIT_SECONDS)); then
     app_note="exited $(cat "$launched/exit" 2>/dev/null || echo unknown)"
   else
-    : >"$handshake/stop" 2>>"$log"
-    if gone_by $(($(date +%s) + STOP_WAIT_SECONDS)); then
-      app_note='stopped when asked'
-    else
-      # launch.sh passes the signal on to the app alone.
-      if pid=$(recorded launch.pid); then kill -TERM "$pid" 2>>"$log"; fi
-      if gone_by $(($(date +%s) + STOP_WAIT_SECONDS)); then
-        app_note='stopped by a signal'
-      else
-        for name in app.pid launch.pid; do
-          if pid=$(recorded "$name"); then kill -KILL "$pid" 2>>"$log"; fi
-        done
-        app_note='killed'
-      fi
-    fi
+    stop_app
   fi
+fi
+
+# The request is withdrawn before the sound comes back, so a start Steam
+# acts on late finds nothing to start. Making launch.sh's own start mark
+# shuts out one already past its check; when the mark is taken, a start
+# this run gave up on happened anyway and is stopped at once.
+request_gone=1
+python3 "$here/current.py" remove --test-root "$GALLEON_TEST_ROOT" 2>>"$log" || request_gone=
+if [ -n "$home_ok" ] && ! mkdir -- "$launched" 2>/dev/null && [ -z "$started_by" ]; then
+  echo "a start given up on happened late" >>"$log"
+  # launch.sh records its pid before it marks the start.
+  marked_by $(($(date +%s) + STOP_WAIT_SECONDS)) || :
+  stop_app
+  app_note="started late, $app_note"
 fi
 echo "app: $app_note" >>"$log"
 
@@ -389,9 +407,6 @@ if [ -z "$owner_ok" ]; then
 fi
 echo "owner state: $owner_result" >>"$log"
 
-# Starting the shortcut by hand from now on does nothing.
-request_gone=1
-python3 "$here/current.py" remove --test-root "$GALLEON_TEST_ROOT" 2>>"$log" || request_gone=
 python3 "$here/selftestrequest.py" remove --home "$GALLEON_HOME" 2>>"$log" || request_gone=
 
 result=pass

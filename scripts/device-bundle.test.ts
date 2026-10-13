@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { execFileSync, spawnSync } from 'node:child_process'
+import { execFileSync, spawn, spawnSync } from 'node:child_process'
 import {
   chmodSync,
   existsSync,
@@ -96,8 +96,11 @@ function fakeSession(inactive = false) {
       'd=$(dirname "$0")\n' +
       'echo "$*" >>"$d/steam.log"\n' +
       '[ -e "$d/steam.broken" ] && exit 0\n' +
+      // `steam.late` holds a delay before the start, which run.sh may have
+      // stopped waiting for.
+      'late=$(cat "$d/steam.late" 2>/dev/null || echo 0)\n' +
       'case $1 in steam://rungameid/*)\n' +
-      '  "$GALLEON_TEST_ROOT/launch.sh" </dev/null >/dev/null 2>&1 &\n' +
+      '  (sleep "$late"; "$GALLEON_TEST_ROOT/launch.sh") </dev/null >/dev/null 2>&1 &\n' +
       'esac\n'
   )
   chmodSync(join(bin, 'steam'), 0o755)
@@ -170,6 +173,31 @@ function runHarness(
     encoding: 'utf8'
   })
   return { run, results, testDir, testRoot, home }
+}
+
+/**
+ * A loopback server that takes connections and answers none of them for a
+ * while, in a process of its own since the run blocks this one.
+ */
+function silentServer() {
+  const portFile = join(mkdtempSync(join(tmpdir(), 'bundle-cef-')), 'port')
+  const server = spawn(
+    'python3',
+    [
+      '-I',
+      '-c',
+      'import os, socket, sys, time\n' +
+        's = socket.socket(); s.bind(("127.0.0.1", 0)); s.listen(4)\n' +
+        'open(sys.argv[1] + ".tmp", "w").write(str(s.getsockname()[1]))\n' +
+        'os.rename(sys.argv[1] + ".tmp", sys.argv[1])\n' +
+        'while True:\n' +
+        '    c, _ = s.accept(); time.sleep(2); c.close()\n',
+      portFile
+    ],
+    { stdio: 'ignore' }
+  )
+  while (!existsSync(portFile)) execFileSync('sleep', ['0.05'])
+  return { server, port: Number(readFileSync(portFile, 'utf8')) }
 }
 
 describe('device-bundle', () => {
@@ -732,6 +760,69 @@ describe('device-bundle', () => {
     )
     assert.ok(summary.notes.includes('app: not started'), summary.notes.join('; '))
     assert.ok(!existsSync(join(session, 'muted')))
+  })
+
+  test('run.sh stops a start it gave up on that happens before the request is withdrawn', () => {
+    const session = fakeSession()
+    // Steam starts the shortcut only after run.sh stops waiting for it, and
+    // the debugger cannot be asked, so the start is given up on.
+    writeFileSync(join(session, 'steam.late'), '0.5')
+    const seen = mkdtempSync(join(tmpdir(), 'bundle-seen-'))
+    const cef = silentServer()
+    const app =
+      '#!/bin/sh\n' +
+      `[ -e '${join(session, 'muted')}' ] || echo unmuted >>'${join(seen, 'sound')}'\n` +
+      `echo $$ >'${join(seen, 'pid')}'\n` +
+      'while :; do sleep 0.2; done\n'
+    const { run, results } = runHarness(
+      unpackLikeTheBridge(built()),
+      SHA,
+      app,
+      {
+        GALLEON_START_WAIT_SECONDS: '0',
+        // A debugger that answers nothing for a while, so the late start
+        // lands after run.sh gave up and before it withdraws the request.
+        GALLEON_STEAM_CEF: `http://127.0.0.1:${cef.port}`,
+        HOME: withShortcut(mkdtempSync(join(tmpdir(), 'bundle-home-')))
+      },
+      session
+    )
+    cef.server.kill()
+    assert.equal(run.status, 0, run.stderr)
+    const summary = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8'))
+    assert.equal(summary.checks[0].reason, 'neither route started the app')
+    assert.ok(
+      summary.notes.some((note: string) => note.startsWith('app: started late, ')),
+      summary.notes.join('; ')
+    )
+    assert.ok(!existsSync(join(seen, 'sound')), 'the app never ran with the sound on')
+    const pid = Number(readFileSync(join(seen, 'pid'), 'utf8'))
+    assert.throws(() => process.kill(pid, 0))
+  })
+
+  test('a start Steam acts on after the run withdrew its request starts nothing', () => {
+    const session = fakeSession()
+    writeFileSync(join(session, 'steam.late'), '6')
+    const seen = mkdtempSync(join(tmpdir(), 'bundle-seen-'))
+    const app = `#!/bin/sh\necho ran >'${join(seen, 'ran')}'\n`
+    const { run, results, testDir } = runHarness(
+      unpackLikeTheBridge(built()),
+      SHA,
+      app,
+      {
+        GALLEON_START_WAIT_SECONDS: '1',
+        GALLEON_STEAM_CEF: 'http://127.0.0.1:9',
+        HOME: withShortcut(mkdtempSync(join(tmpdir(), 'bundle-home-')))
+      },
+      session
+    )
+    assert.equal(run.status, 0, run.stderr)
+    const summary = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8'))
+    assert.ok(summary.notes.includes('app: not started'), summary.notes.join('; '))
+    // The late start comes after run.sh has finished.
+    execFileSync('sleep', ['7'])
+    assert.ok(!existsSync(join(seen, 'ran')))
+    assert.ok(!existsSync(join(testDir, 'home/launch/started')))
   })
 
   test('run.sh asks an app past its budget to stop, then signals only the pids launch.sh recorded', () => {
