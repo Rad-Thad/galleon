@@ -1,14 +1,15 @@
 {
   "bridgeVersion": 1,
-  "lastPublished": "2026-10-08T15:06:02Z",
-  "lastSeen": "2026-10-12T08:04:00Z",
+  "lastPublished": "2026-10-12T08:04:02Z",
+  "lastSeen": "2026-10-13T08:03:00Z",
   "lastSkip": "no new nightly",
-  "lastTested": "730da98825f828dfb68d7a1eafd93c68c792efda",
+  "lastTested": "ebf5100d9ca302579f49147690f4491e3b2245d5",
   "skipReasons": {
     "busy: reaper running": 2,
+    "busy: reaper, retroarch running": 1,
     "network unavailable (URLError)": 1,
-    "no 'nightly' release published yet": 7,
-    "no new nightly": 1,
-    "not on the charger": 6
+    "no new nightly": 2,
+    "not on the charger": 3,
+    "only 796 MB free": 1
   }
 }
