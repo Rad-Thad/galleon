@@ -2291,3 +2291,18 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: nothing changes on the device until run.sh calls it.
 - Next: M0-22 part 4d-3c-2: run.sh writes the request (the app's results in a folder of their own, merged in step 10), starts the shortcut through `steam://rungameid/` with the RunGame fallback only once muted, and stops at the budget's end. Evaluator notes from #203 still to do: reword the comment on the second manifest's ordering so it plainly means the config restore.
+
+## 2026-10-13 10:26 UTC session 01EZtgjfEKBDMWAq1tkX1cxJ (hourly heartbeat)
+
+- Device results: two new, no safety failures, no regressions, no reports. Part 4d-3c-1 of M0-22, PR #204, merged at ebf5100; CI x64 6:15, arm64 1:01.
+  - DEVICE-RESULTS 0adfb2d332fd7c0bc4fb3f80f26be07b0d7cf8c4 complete
+  - DEVICE-RESULTS ebf5100d9ca302579f49147690f4491e3b2245d5 complete
+- Worked on: M0-22 part 4d-3c-2a (tracking issue #191): run.sh writes the app's self-test request into the test home before the launch request, and removes it after the run and in `--cleanup`.
+- Result: PR (this one). M0-22 stays false.
+- Evidence:
+  - `test/device/run.sh`: `selftestrequest.py write` once the home is made, with results in `RESULTS_DIR/app/`, the handshake folder `$GALLEON_TEST_DIR/handshake/` (made empty), sha and version from `build-info.json`, a budget of what is left less `STOP_RESERVE_SECONDS`, the checks the app has scenarios for that need no payload (`selftest.complete`, `build.identity`, `startup.cold`, `grid.scroll`, `server.heartbeat`, `download.small`, `update.verify`), both profiles and the three screenshots. The launch request is written only after it. A request that cannot be written fails `harness.run` ("the self-test request could not be written"); one that cannot be removed fails it with the launch request's reason. The comment on the second manifest now says "config restore" (the evaluator's note on #203).
+  - Tests: `scripts/device-bundle.test.ts` new: "run.sh gives the app a self-test request it takes, and removes it" (the copy seen mid-run, through the app's own `parseRequest`), "run.sh writes no launch request and fails harness.run without a self-test request", "run.sh --cleanup removes the self-test request a stopped run left"; the bundle listing now names `audio.py` and `selftestrequest.py`. `docs/TESTING.md`: the wiring.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: the next nightly writes and removes the request in the test home; nothing starts it yet.
+- Next: M0-22 part 4d-3c-2b: start the shortcut through `steam://rungameid/` with the RunGame fallback only once muted, wait for launch.sh's mark, serve until the app's summary, its exit or the budget's end, then stop only the recorded pids.
