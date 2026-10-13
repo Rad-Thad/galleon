@@ -2106,3 +2106,16 @@ Lines the tooling reads (exact forms):
 - Evaluator: FAIL, then fixed: a covered folder that was itself a link (an SD-card move) hid changes behind it; restore now also ignores index keys outside the home. Its notes for run.sh: Steam rewrites `shortcuts.vdf` when the test shortcut is added or launched, and relaunching the owner's Galleon touches its profile, so the step order must keep both out of the comparison's way; `ROMMIX_HOME` is not followed (only the pointer file).
 - Device / acceptance: none until run.sh calls it (the run part of M0-22).
 - Next: M0-22 part 2, the read-only sign-in import and the test home.
+
+## 2026-10-13 00:50 UTC session 01H3vg7VG7BqxFWzp227K8Yj (hourly heartbeat, second unit)
+
+- Device results: nothing new since the entry above. Part 1 of M0-22, PR #192, merged at d83f7dd; CI x64 6:54, arm64 0:50.
+- Worked on: M0-22 part 2 (tracking issue #191): the test home and its read-only sign-in import.
+- Result: PR (this one). M0-22 stays false.
+- Evidence:
+  - `test/device/signin.py` (Python standard library): `find_signin` takes, first found, the bridge's `pair-readonly` token, the owner's Galleon, stock RomMix (root pointer, `ROMMIX_HOME`, else the default folder; never `GALLEON_HOME`, which is the test home's). Only a `RAW1` store with a server is used; only its client or access token is kept, the refresh token and device id are dropped. `fresh_home` empties and remakes `<test dir>/home`, refusing a `home` that is a link. `write_test_home` writes `config/settings.json` (save sync off both ways, empty device id, setup done, the server) and `config/credentials.bin` (`RAW1`, mode 0600). CLI `prepare --test-dir DIR [--token-file FILE]` prints the source by kind only and exits 0, or 10 with `no-importable-credentials` (the home still made, with no server).
+  - Tests: `test/device/test_signin.py` 15/15: RomMix imported without refresh token or device id; the bridge token first; a broken or missing token file falls through; Galleon before RomMix; pointer and `ROMMIX_HOME` followed; `GALLEON_HOME` not; encrypted, token-less and server-less stores passed over; a missing auth mode; the home emptied each time; a linked home refused with its target untouched; the written settings and private credentials, with no token or address in the printed line; the skip; the owner's files unchanged (by `ownerstate` snapshot). All helper tests 32/32.
+  - `scripts/device-bundle.test.ts`: `signin.py` is in the bundle. `docs/TESTING.md`: a paragraph on the test home and the import.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none until run.sh calls it.
+- Next: M0-22 part 3, the Steam test shortcut, `launch.sh` and `current.json`.
