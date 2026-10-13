@@ -3,9 +3,10 @@
 
 The app under test reads `$GALLEON_HOME/self-test-request.json` at start
 (src/main/selftest.ts, `takeRequest`; schema in docs/TESTING.md) and runs the
-checks it names. This writes it, refusing anything the app would refuse, so a
-mistake in run.sh shows up in the harness log rather than as a run the app
-turned down. The read-only server, privacy and the abort on input are always
+checks it names. This writes it, refusing anything the app would refuse, and
+a few things it would take that no sound harness asks for, so a mistake in
+run.sh shows up in the harness log rather than as a run the app turned down
+or ran wrong. The read-only server, privacy and the abort on input are always
 asked for: they are what keep a device run from leaving a trace.
 
   selftestrequest.py write --home H --sha S [--version V] --budget SECONDS
@@ -73,11 +74,15 @@ def request(sha, version, budget, results, handshake, checks, profiles, payloads
     return record
 
 
-def write(home, record):
+def _real_folder(home):
     # The home is the run's own folder; a link there could point the request
     # into the owner's files.
     if os.path.islink(home) or not os.path.isdir(home):
         raise RequestError("the test home is not a folder")
+
+
+def write(home, record):
+    _real_folder(home)
     target = os.path.join(home, NAME)
     tmp = target + ".tmp"
     if os.path.lexists(tmp):
@@ -90,6 +95,9 @@ def write(home, record):
 
 
 def remove(home):
+    if not os.path.lexists(home):
+        return
+    _real_folder(home)
     for name in (NAME, TAKEN):
         try:
             os.unlink(os.path.join(home, name))

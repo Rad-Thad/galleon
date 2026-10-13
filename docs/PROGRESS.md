@@ -2284,8 +2284,9 @@ Lines the tooling reads (exact forms):
 - Result: PR (this one). M0-22 stays false.
 - Evidence:
   - `test/device/selftestrequest.py` (Python standard library): `write` builds the request in TESTING.md's schema, always with `readOnlyServer`, `privacy` and `abortOnInput` true and `fakeRomm` null. It refuses what the app's `parseRequest` would refuse (exit 3, nothing written), and writes privately, renamed into place, only into a home that is a real folder. `remove` takes the request and the app's taken copy.
-  - Tests: `test/device/test_selftestrequest.py` 7/7 (the safeguards always asked for; no version leaves the field out; each refusal writes nothing; no check refused; a linked home never written through; a link at the request's path replaced, not followed; remove). `scripts/device-bundle.test.ts` 31/31; new: "the self-test request the bundle writes is one the app takes as written" (the bundle's copy, through the app's own `parseRequest`, field for field). `docs/TESTING.md`: a paragraph.
+  - Tests: `test/device/test_selftestrequest.py` 8/8 (the safeguards always asked for; no version leaves the field out; each refusal writes nothing; no check refused; a linked home never written through; a link at the request's path replaced, not followed; remove, never through a linked home). `scripts/device-bundle.test.ts` 31/31; new: "the self-test request the bundle writes is one the app takes as written" (the bundle's copy, through the app's own `parseRequest`, field for field). `docs/TESTING.md`: a paragraph.
   - Not wired into run.sh yet: which checks and payloads the first run asks for goes with the start.
+  - Evaluator: PASS, with two notes, both addressed: TESTING.md now tells the refusals the app shares from the harness's own stricter ones (an empty check list, a saving payload without a payload, a handshake folder that is not absolute), and `remove` keeps to a home that is a real folder.
   - `scripts/agent/check.sh` green.
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: nothing changes on the device until run.sh calls it.

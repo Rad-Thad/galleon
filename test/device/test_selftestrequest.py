@@ -89,6 +89,16 @@ class SelfTestRequestTest(unittest.TestCase):
         self.assertEqual(self.write()[0], selftestrequest.ERROR_EXIT)
         self.assertEqual(os.listdir(elsewhere), [])
 
+    def test_remove_never_reaches_through_a_linked_home(self):
+        os.rmdir(self.home)
+        elsewhere = os.path.join(self.tmp.name, "owner")
+        os.mkdir(elsewhere)
+        with open(os.path.join(elsewhere, selftestrequest.NAME), "w", encoding="utf-8") as handle:
+            handle.write("{}")
+        os.symlink(elsewhere, self.home)
+        self.assertEqual(self.run_cli("remove", "--home", self.home)[0], selftestrequest.ERROR_EXIT)
+        self.assertEqual(os.listdir(elsewhere), [selftestrequest.NAME])
+
     def test_a_link_where_the_request_goes_is_replaced_not_followed(self):
         owner = os.path.join(self.tmp.name, "owner.json")
         with open(owner, "w", encoding="utf-8") as handle:
