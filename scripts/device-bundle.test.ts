@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { describe, test } from 'node:test'
@@ -263,6 +263,8 @@ describe('device-bundle', () => {
     assert.equal(readFileSync(join(results, 'logs/owner-state.txt'), 'utf8'), '')
     const manifest = JSON.parse(readFileSync(join(testDir, 'owner-state/before.json'), 'utf8'))
     assert.ok(CONFIG in manifest.files)
+    // Its work done, the backup goes, so a later --cleanup restores nothing stale.
+    assert.ok(!existsSync(join(testDir, 'owner-state/backup')))
     const published = execFileSync('find', ['.'], { cwd: results, encoding: 'utf8' })
     assert.ok(!/before|after|backup/.test(published), published)
   })
@@ -290,6 +292,53 @@ describe('device-bundle', () => {
     const log = readFileSync(join(results, 'logs/owner-state.txt'), 'utf8')
     assert.match(log, new RegExp(`^changed: ${CONFIG_PATTERN}$`, 'm'))
     assert.match(log, new RegExp(`^restored: ${CONFIG_PATTERN}$`, 'm'))
+  })
+
+  test('run.sh fails safety.owner-state when the run changed a config it then cannot restore', () => {
+    const home = mkdtempSync(join(tmpdir(), 'bundle-owner-'))
+    const config = join(home, CONFIG)
+    mkdirSync(join(config, '..'), { recursive: true })
+    writeFileSync(config, 'Volume=100\n')
+    // The rewrite also takes the backed-up copy away, keeping only the index.
+    const bin = mkdtempSync(join(tmpdir(), 'bundle-bin-'))
+    writeFileSync(
+      join(bin, 'armada-power'),
+      `#!/bin/sh\necho Volume=0 >'${config}'\n` +
+        'find "$GALLEON_TEST_DIR/owner-state/backup" -type f ! -name index.json -delete\n'
+    )
+    chmodSync(join(bin, 'armada-power'), 0o755)
+    const { run, results, testDir } = runHarness(unpackLikeTheBridge(built()), SHA, true, {
+      HOME: home,
+      PATH: `${bin}:${process.env.PATH}`
+    })
+    assert.equal(run.status, 0, run.stderr)
+    const checks = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8')).checks
+    const owner = checks.find((check: { id: string }) => check.id === 'safety.owner-state')
+    assert.equal(owner.result, 'fail')
+    assert.match(owner.reason, /changed/)
+    // Left for --cleanup to try again.
+    assert.ok(existsSync(join(testDir, 'owner-state/backup/index.json')))
+  })
+
+  test('run.sh skips safety.owner-state and fails harness.run when no manifest can be taken', () => {
+    const testDir = join(mkdtempSync(join(tmpdir(), 'bundle-testdir-')), 'not-a-folder')
+    writeFileSync(testDir, '')
+    const { run, results } = runHarness(unpackLikeTheBridge(built()), SHA, true, {
+      GALLEON_TEST_DIR: testDir
+    })
+    assert.equal(run.status, 0, run.stderr)
+    const checks = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8')).checks
+    assert.deepEqual(
+      checks.map((check: { id: string; result: string; reason: string }) => [
+        check.id,
+        check.result,
+        check.reason
+      ]),
+      [
+        ['harness.run', 'fail', 'the owner-state manifest could not be taken'],
+        ['safety.owner-state', 'skip', 'the owner-state manifest could not be taken']
+      ]
+    )
   })
 
   test('run.sh --cleanup puts back a config from the backup a stopped run left', () => {

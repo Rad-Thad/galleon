@@ -2,17 +2,19 @@
 # The device test harness the bridge runs on the Nova — see docs/PLAN.md
 # section 5.3 for the contract it keeps.
 #
-# This is the minimal harness that stands in until M0-22: it starts nothing,
-# touches nothing outside RESULTS_DIR, and reports one check, `harness.run`,
-# so the path from a merge to `device-results` is exercised end to end. It
-# already takes the desktop session's variables and repeats the bridge's
-# Game Mode, idle and free-space checks (session.py), skipping when one fails.
+# This is the minimal harness that stands in until M0-22: it starts nothing
+# and reports `harness.run`, so the path from a merge to `device-results` is
+# exercised end to end. It already takes the desktop session's variables and
+# repeats the bridge's Game Mode, idle and free-space checks (session.py),
+# skipping when one fails, and holds the owner state (ownerstate.py, in
+# $GALLEON_TEST_DIR/owner-state), reported as `safety.owner-state`. Outside
+# RESULTS_DIR and that folder it writes only an emulator config it restores.
 #
 # It also copies the power state the Nova shows into logs/power-facts.txt,
 # because the overlay's parsers (src/main/powerstate.ts) need the real format
 # of Armada's files and nothing else can see them (M0-10). Every source is
 # readable by any user and the harness only reads it: nothing here switches
-# a profile or writes outside RESULTS_DIR.
+# a profile.
 set -u
 
 # The harness starts no process; the only thing to undo is an emulator config
@@ -20,6 +22,9 @@ set -u
 if [ "${1:-}" = --cleanup ]; then
   if [ -n "${GALLEON_TEST_DIR:-}" ] && [ -d "$GALLEON_TEST_DIR/owner-state/backup" ]; then
     python3 "$(dirname -- "$0")/ownerstate.py" restore "$GALLEON_TEST_DIR/owner-state/backup"
+    # 1 means something was put back, which is what cleanup is for.
+    [ $? -le 1 ] || exit 1
+    rm -rf -- "$GALLEON_TEST_DIR/owner-state/backup"
   fi
   exit 0
 fi
@@ -153,12 +158,20 @@ if [ -n "$owner_ok" ]; then
   fi
   python3 "$here/ownerstate.py" restore "$owner/backup" >>"$owner_log" 2>>"$log"
   restored=$?
-  if [ "$compared" -gt 1 ] || [ "$restored" -gt 1 ]; then
-    owner_ok=
-  elif [ "$compared" -ne 0 ]; then
+  # A backup that has done its work goes, so a later --cleanup cannot put a
+  # stale config over one the owner changed since.
+  if [ "$restored" -le 1 ]; then
+    rm -rf -- "$owner/backup"
+  fi
+  if [ "$compared" -eq 1 ]; then
     owner_result=fail
     owner_reason='"the owner state changed during the run"'
-  elif [ "$restored" -ne 0 ]; then
+  elif [ "$restored" -gt 1 ]; then
+    owner_result=fail
+    owner_reason='"the emulator configs could not be restored"'
+  elif [ "$compared" -gt 1 ]; then
+    owner_ok=
+  elif [ "$restored" -eq 1 ]; then
     owner_result=fail
     owner_reason='"an emulator config had to be restored"'
   fi
