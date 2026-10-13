@@ -163,17 +163,19 @@ if [ -n "$owner_ok" ]; then
   if [ "$restored" -le 1 ]; then
     rm -rf -- "$owner/backup"
   fi
+  # Evidence of a change outranks a manifest that is missing: only with no
+  # sign of one is the check a skip.
   if [ "$compared" -eq 1 ]; then
     owner_result=fail
     owner_reason='"the owner state changed during the run"'
   elif [ "$restored" -gt 1 ]; then
     owner_result=fail
     owner_reason='"the emulator configs could not be restored"'
-  elif [ "$compared" -gt 1 ]; then
-    owner_ok=
   elif [ "$restored" -eq 1 ]; then
     owner_result=fail
     owner_reason='"an emulator config had to be restored"'
+  elif [ "$compared" -gt 1 ]; then
+    owner_ok=
   fi
 fi
 if [ -z "$owner_ok" ]; then

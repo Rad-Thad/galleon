@@ -83,6 +83,9 @@ function runHarness(
       GALLEON_APPIMAGE: image,
       GALLEON_TEST_ROOT: results,
       GALLEON_TEST_DIR: testDir,
+      // An empty root: no power files, and no process that would read as
+      // someone playing, whatever else runs on this machine.
+      GALLEON_FACTS_ROOT: mkdtempSync(join(tmpdir(), 'bundle-facts-')),
       // The owner's home: the bridge's settings and the owner state are read
       // from it. Unless a test gives one, it is empty.
       HOME: mkdtempSync(join(tmpdir(), 'bundle-home-')),
@@ -318,6 +321,31 @@ describe('device-bundle', () => {
     assert.match(owner.reason, /changed/)
     // Left for --cleanup to try again.
     assert.ok(existsSync(join(testDir, 'owner-state/backup/index.json')))
+  })
+
+  test('run.sh fails safety.owner-state when a config was put back though the second manifest failed', () => {
+    const home = mkdtempSync(join(tmpdir(), 'bundle-owner-'))
+    const config = join(home, CONFIG)
+    mkdirSync(join(config, '..'), { recursive: true })
+    writeFileSync(config, 'Volume=100\n')
+    // A folder where the second manifest's temporary file goes makes it fail.
+    const bin = mkdtempSync(join(tmpdir(), 'bundle-bin-'))
+    writeFileSync(
+      join(bin, 'armada-power'),
+      `#!/bin/sh\necho Volume=0 >'${config}'\n` +
+        'mkdir -p "$GALLEON_TEST_DIR/owner-state/after.json.tmp"\n'
+    )
+    chmodSync(join(bin, 'armada-power'), 0o755)
+    const { run, results } = runHarness(unpackLikeTheBridge(built()), SHA, true, {
+      HOME: home,
+      PATH: `${bin}:${process.env.PATH}`
+    })
+    assert.equal(run.status, 0, run.stderr)
+    const checks = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8')).checks
+    const owner = checks.find((check: { id: string }) => check.id === 'safety.owner-state')
+    assert.equal(owner.result, 'fail')
+    assert.match(owner.reason, /restored/)
+    assert.equal(readFileSync(config, 'utf8'), 'Volume=100\n')
   })
 
   test('run.sh skips safety.owner-state and fails harness.run when no manifest can be taken', () => {
