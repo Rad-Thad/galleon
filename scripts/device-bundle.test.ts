@@ -7,6 +7,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  statSync,
   symlinkSync,
   writeFileSync
 } from 'node:fs'
@@ -493,6 +494,55 @@ describe('device-bundle', () => {
         ['safety.owner-state', 'skip', 'the owner-state manifest could not be taken']
       ]
     )
+  })
+
+  test('run.sh writes the launch request for this build while it runs, and removes it', () => {
+    const testRoot = mkdtempSync(join(tmpdir(), 'bundle-testroot-'))
+    const seen = join(mkdtempSync(join(tmpdir(), 'bundle-seen-')), 'current.json')
+    // armada-power is called mid-run, after the request is written.
+    const bin = mkdtempSync(join(tmpdir(), 'bundle-bin-'))
+    writeFileSync(
+      join(bin, 'armada-power'),
+      `#!/bin/sh\n[ -e '${seen}' ] || cp -p '${join(testRoot, 'current.json')}' '${seen}'\n`
+    )
+    chmodSync(join(bin, 'armada-power'), 0o755)
+    const { run, results, testDir } = runHarness(unpackLikeTheBridge(built()), SHA, true, {
+      GALLEON_TEST_ROOT: testRoot,
+      DEVICE_TEST_BUDGET_SECONDS: '600',
+      PATH: `${bin}:${process.env.PATH}`
+    })
+    assert.equal(run.status, 0, run.stderr)
+    const request = JSON.parse(readFileSync(seen, 'utf8'))
+    assert.deepEqual(
+      [request.appimage, request.home, request.results, request.sha],
+      [join(results, 'Galleon-arm64.AppImage'), join(testDir, 'home'), results, SHA]
+    )
+    const left = request.expires - Date.now() / 1000
+    assert.ok(left > 500 && left <= 600, String(left))
+    assert.equal(statSync(seen).mode & 0o077, 0)
+    assert.ok(!existsSync(join(testRoot, 'current.json')))
+    assert.equal(
+      JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8')).checks[0].result,
+      'pass'
+    )
+    // The shortcut started by hand afterwards starts nothing.
+    const byHand = spawnSync('/bin/sh', [join(testRoot, 'launch.sh')], {
+      env: { PATH: process.env.PATH },
+      encoding: 'utf8'
+    })
+    assert.equal(byHand.status, 0, byHand.stderr)
+    assert.ok(!existsSync(join(testDir, 'home/launch')))
+  })
+
+  test('run.sh --cleanup removes the launch request a stopped run left', () => {
+    const bundle = unpackLikeTheBridge(built())
+    const testRoot = mkdtempSync(join(tmpdir(), 'bundle-testroot-'))
+    writeFileSync(join(testRoot, 'current.json'), '{}')
+    const run = spawnSync('/bin/sh', [join(bundle, 'run.sh'), '--cleanup'], {
+      env: { PATH: process.env.PATH, GALLEON_TEST_ROOT: testRoot }
+    })
+    assert.equal(run.status, 0)
+    assert.ok(!existsSync(join(testRoot, 'current.json')))
   })
 
   test('run.sh --cleanup puts back a config from the backup a stopped run left', () => {

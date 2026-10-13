@@ -11,8 +11,9 @@
 # the owner state (ownerstate.py, in $GALLEON_TEST_DIR/owner-state), reported
 # as `safety.owner-state`; and makes the test home with its read-only sign-in
 # (signin.py, $GALLEON_TEST_DIR/home). Outside RESULTS_DIR and those places it
-# writes only an emulator config it restores, and Steam's shortcut list
-# through Steam itself.
+# writes only an emulator config it restores, Steam's shortcut list through
+# Steam itself, and the launch request ($GALLEON_TEST_ROOT/current.json),
+# removed before it finishes.
 #
 # It also copies the power state the Nova shows into logs/power-facts.txt,
 # because the overlay's parsers (src/main/powerstate.ts) need the real format
@@ -21,9 +22,13 @@
 # a profile.
 set -u
 
-# The harness starts no process; the only thing to undo is an emulator config
-# that changed after the backup, from the backup this run left behind.
+# The harness starts no process; what there is to undo is the launch request,
+# so the shortcut cannot start a build once the run is over, and an emulator
+# config that changed after the backup, from the backup this run left behind.
 if [ "${1:-}" = --cleanup ]; then
+  if [ -n "${GALLEON_TEST_ROOT:-}" ]; then
+    python3 "$(dirname -- "$0")/current.py" remove --test-root "$GALLEON_TEST_ROOT" || exit 1
+  fi
   if [ -n "${GALLEON_TEST_DIR:-}" ] && [ -d "$GALLEON_TEST_DIR/owner-state/backup" ]; then
     python3 "$(dirname -- "$0")/ownerstate.py" restore "$GALLEON_TEST_DIR/owner-state/backup"
     # 1 means something was put back, which is what cleanup is for.
@@ -41,6 +46,9 @@ here=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 
 now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 started=$(now)
+# The budget is the bridge's, counted from here: the launch request expires
+# with it however long the steps before the start took.
+deadline=$(($(date +%s) + ${DEVICE_TEST_BUDGET_SECONDS:-1800}))
 mkdir -p "$RESULTS_DIR/logs"
 log="$RESULTS_DIR/logs/harness.log"
 : >"$log"
@@ -145,6 +153,15 @@ echo "sign-in: ${signin_source:-none}" >>"$log"
 GALLEON_HOME=$GALLEON_TEST_DIR/home
 export GALLEON_HOME
 
+# The request launch.sh obeys (current.py): only while it exists, and until
+# the budget ends, does starting the shortcut start this build.
+request_ok=
+if [ -n "$home_ok" ] && python3 "$here/current.py" write --test-root "$GALLEON_TEST_ROOT" \
+  --appimage "${GALLEON_APPIMAGE:-}" --home "$GALLEON_HOME" --results "$RESULTS_DIR" \
+  --sha "$GALLEON_SHA" --budget $((deadline - $(date +%s))) 2>>"$log"; then
+  request_ok=1
+fi
+
 # build-info.json is written by scripts/device-bundle.mjs and holds no quote
 # or backslash inside a value, so a line match is enough to read it.
 version=$(sed -n 's/^ *"version": *"\([^"]*\)".*/\1/p' "$here/build-info.json" 2>/dev/null)
@@ -236,6 +253,10 @@ if [ -z "$owner_ok" ]; then
 fi
 echo "owner state: $owner_result" >>"$log"
 
+# Starting the shortcut by hand from now on does nothing.
+request_gone=1
+python3 "$here/current.py" remove --test-root "$GALLEON_TEST_ROOT" 2>>"$log" || request_gone=
+
 result=pass
 reason=null
 if [ -z "$session_ok" ]; then
@@ -250,6 +271,12 @@ elif [ -z "$owner_ok" ]; then
 elif [ -z "$home_ok" ]; then
   result=fail
   reason='"the test home could not be made"'
+elif [ -z "$request_ok" ]; then
+  result=fail
+  reason='"the launch request could not be written"'
+elif [ -z "$request_gone" ]; then
+  result=fail
+  reason='"the launch request could not be removed"'
 elif [ "$built" != "$GALLEON_SHA" ]; then
   result=fail
   reason='"the bundle was built from another commit"'
