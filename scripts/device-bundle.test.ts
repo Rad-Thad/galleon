@@ -167,6 +167,60 @@ function selfTestApp(summary: Record<string, unknown> = {}) {
   )
 }
 
+/**
+ * armada-power with the profile in force, by name, in a file beside it, and
+ * every call logged. An `armada.broken` file makes every call fail, and an
+ * `armada.break-after` file makes one appear after the next switch.
+ */
+function fakeArmadaPower(profile = 'balanced') {
+  const bin = mkdtempSync(join(tmpdir(), 'bundle-armada-'))
+  writeFileSync(join(bin, 'profile'), `${profile}\n`)
+  writeFileSync(
+    join(bin, 'armada-power'),
+    '#!/bin/sh\n' +
+      'd=$(dirname "$0")\n' +
+      'echo "$*" >>"$d/armada.log"\n' +
+      '[ -e "$d/armada.broken" ] && exit 1\n' +
+      'if [ "$*" = profile ]; then cat "$d/profile"\n' +
+      'elif [ "$*" = status ]; then echo "profile=$(cat "$d/profile")"\n' +
+      'elif [ "$1" = profile ] && [ $# = 2 ]; then echo "$2" >"$d/profile"\n' +
+      '  if [ -e "$d/armada.break-after" ]; then : >"$d/armada.broken"; fi\n' +
+      'else exit 2; fi\n'
+  )
+  chmodSync(join(bin, 'armada-power'), 0o755)
+  return bin
+}
+
+/**
+ * An app that asks the harness for each profile in turn, through its
+ * request's handshake folder as the real one does (askForProfile), and
+ * writes the answers to `seen`.
+ */
+function profileAskingApp(seen: string, profiles: string[]) {
+  return (
+    '#!/bin/sh\n' +
+    "exec python3 -I -c 'import json, os, sys, time\n" +
+    'home = os.environ["GALLEON_HOME"]\n' +
+    'hs = json.load(open(os.path.join(home, "self-test-request.json")))["handshakeDir"]\n' +
+    'want, answer = os.path.join(hs, "want-profile"), os.path.join(hs, "profile-set")\n' +
+    'said = []\n' +
+    'for name in sys.argv[2:]:\n' +
+    '    open(want + ".tmp", "w").write(name + "\\n")\n' +
+    '    os.rename(want + ".tmp", want)\n' +
+    '    got = "no-answer"\n' +
+    '    for _ in range(300):\n' +
+    '        if os.path.exists(answer):\n' +
+    '            got = open(answer).read().strip()\n' +
+    '            break\n' +
+    '        time.sleep(0.05)\n' +
+    '    os.remove(want)\n' +
+    '    if os.path.exists(answer): os.remove(answer)\n' +
+    '    said.append(got)\n' +
+    'open(sys.argv[1], "w").write(" ".join(said))' +
+    `' '${seen}' ${profiles.join(' ')}\n`
+  )
+}
+
 function runHarness(
   bundle: string,
   sha: string,
@@ -283,6 +337,7 @@ describe('device-bundle', () => {
       './launched.py',
       './session.py',
       './audio.py',
+      './powerprofile.py',
       './selftestrequest.py',
       './mergesummary.py',
       './bridge/galleon_device_bridge.py',
@@ -368,8 +423,12 @@ describe('device-bundle', () => {
     ]) {
       assert.ok(facts.includes(line), `power-facts.txt has ${JSON.stringify(line)}`)
     }
-    // `profile` with an argument would switch it; the harness only asks.
-    assert.equal(readFileSync(calls, 'utf8'), 'profile\nstatus\n')
+    // `profile` with an argument would switch it; with nothing asked of it
+    // the harness only reads.
+    assert.deepEqual([...new Set(readFileSync(calls, 'utf8').trim().split('\n'))].sort(), [
+      'profile',
+      'status'
+    ])
     const [check] = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8')).checks
     assert.deepEqual(check.evidence, ['logs/harness.log', 'logs/power-facts.txt'])
   })
@@ -1087,6 +1146,98 @@ describe('device-bundle', () => {
     const run = spawnSync('/bin/sh', [join(bundle, 'run.sh'), '--cleanup'], { env })
     assert.equal(run.status, 1)
     assert.ok(existsSync(join(testRoot, 'audio.json')))
+  })
+
+  test('run.sh switches to the profiles the app asks for, and only those', () => {
+    const armada = fakeArmadaPower('balanced')
+    const seen = join(mkdtempSync(join(tmpdir(), 'bundle-seen-')), 'answers')
+    const { run, results, testRoot } = runHarness(
+      unpackLikeTheBridge(built()),
+      SHA,
+      profileAskingApp(seen, ['performance', 'eco', 'balanced']),
+      { PATH: `${armada}:${process.env.PATH}` }
+    )
+    assert.equal(run.status, 0, run.stderr)
+    // Eco is not one the run measures, so it is never switched to.
+    assert.equal(readFileSync(seen, 'utf8'), 'performance unchanged:performance balanced')
+    const calls = readFileSync(join(armada, 'armada.log'), 'utf8').split('\n')
+    assert.deepEqual(
+      calls.filter((call) => call.startsWith('profile ')),
+      ['profile performance', 'profile balanced']
+    )
+    assert.equal(readFileSync(join(armada, 'profile'), 'utf8'), 'balanced\n')
+    assert.ok(!existsSync(join(testRoot, 'profile.json')))
+    const summary = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8'))
+    assert.equal(summary.checks[0].result, 'pass', summary.checks[0].reason)
+  })
+
+  test("run.sh puts the owner's profile back after the app has quit on another", () => {
+    const armada = fakeArmadaPower('balanced')
+    const seen = join(mkdtempSync(join(tmpdir(), 'bundle-seen-')), 'answers')
+    const { run, testRoot } = runHarness(
+      unpackLikeTheBridge(built()),
+      SHA,
+      profileAskingApp(seen, ['performance']),
+      { PATH: `${armada}:${process.env.PATH}` }
+    )
+    assert.equal(run.status, 0, run.stderr)
+    assert.equal(readFileSync(seen, 'utf8'), 'performance')
+    assert.equal(readFileSync(join(armada, 'profile'), 'utf8'), 'balanced\n')
+    assert.ok(!existsSync(join(testRoot, 'profile.json')))
+  })
+
+  test('run.sh answers unchanged, and switches nothing, without armada-power', () => {
+    const seen = join(mkdtempSync(join(tmpdir(), 'bundle-seen-')), 'answers')
+    const { run, results } = runHarness(
+      unpackLikeTheBridge(built()),
+      SHA,
+      profileAskingApp(seen, ['performance'])
+    )
+    assert.equal(run.status, 0, run.stderr)
+    assert.equal(readFileSync(seen, 'utf8'), 'unchanged:unknown')
+    assert.match(
+      readFileSync(join(results, 'logs/harness.log'), 'utf8'),
+      /power profile: not recorded, so not switched/
+    )
+  })
+
+  test('run.sh fails harness.run and keeps the record when the profile cannot be put back', () => {
+    const armada = fakeArmadaPower('balanced')
+    writeFileSync(join(armada, 'armada.break-after'), '')
+    const seen = join(mkdtempSync(join(tmpdir(), 'bundle-seen-')), 'answers')
+    const { run, results, testRoot } = runHarness(
+      unpackLikeTheBridge(built()),
+      SHA,
+      profileAskingApp(seen, ['performance']),
+      { PATH: `${armada}:${process.env.PATH}` }
+    )
+    assert.equal(run.status, 0, run.stderr)
+    const [check] = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8')).checks
+    assert.deepEqual(
+      [check.result, check.reason],
+      ['fail', 'the power profile could not be put back as it was']
+    )
+    assert.deepEqual(JSON.parse(readFileSync(join(testRoot, 'profile.json'), 'utf8')), {
+      profile: 'balanced'
+    })
+  })
+
+  test('run.sh --cleanup puts back the profile a stopped run left, and keeps it while it cannot', () => {
+    const bundle = unpackLikeTheBridge(built())
+    const armada = fakeArmadaPower('performance')
+    const testRoot = mkdtempSync(join(tmpdir(), 'bundle-testroot-'))
+    writeFileSync(join(testRoot, 'profile.json'), '{"profile": "balanced"}')
+    const cleanup = () =>
+      spawnSync('/bin/sh', [join(bundle, 'run.sh'), '--cleanup'], {
+        env: { PATH: `${armada}:${process.env.PATH}`, GALLEON_TEST_ROOT: testRoot }
+      })
+    writeFileSync(join(armada, 'armada.broken'), '')
+    assert.equal(cleanup().status, 1)
+    assert.ok(existsSync(join(testRoot, 'profile.json')))
+    rmSync(join(armada, 'armada.broken'))
+    assert.equal(cleanup().status, 0)
+    assert.equal(readFileSync(join(armada, 'profile'), 'utf8'), 'balanced\n')
+    assert.ok(!existsSync(join(testRoot, 'profile.json')))
   })
 
   test('run.sh --cleanup stops an app a killed run left running, before the sound comes back', () => {

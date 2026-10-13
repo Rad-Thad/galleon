@@ -20,20 +20,22 @@
 # back with its volume from $GALLEON_TEST_ROOT/audio.json. It starts the app
 # through the test shortcut, and stops it, signalling only the pids launch.sh
 # recorded in $GALLEON_TEST_DIR/home/launch; the app's summary, from
-# $RESULTS_DIR/app, joins the harness's checks (mergesummary.py).
+# $RESULTS_DIR/app, joins the harness's checks (mergesummary.py). The power
+# profile changes only when the app asks through the handshake folder
+# (powerprofile.py), and the profile recorded in $GALLEON_TEST_ROOT/profile.json
+# before the start is put back after the stop.
 #
 # It also copies the power state the Nova shows into logs/power-facts.txt,
 # because the overlay's parsers (src/main/powerstate.ts) need the real format
 # of Armada's files and nothing else can see them (M0-10). Every source is
-# readable by any user and the harness only reads it: nothing here switches
-# a profile.
+# readable by any user and the harness only reads it.
 set -u
 
 # What there is to undo is the launch request, so the shortcut cannot start
 # a build once the run is over, an app a killed run left running, the
-# self-test request, so the app runs no checks unless a run asked, the sound
-# a stopped run left muted, and an emulator config that changed after the
-# backup, from the backup this run left behind.
+# self-test request, so the app runs no checks unless a run asked, the power
+# profile and the sound a stopped run left changed, and an emulator config
+# that changed after the backup, from the backup this run left behind.
 # Each step is tried whatever became of the other, so one that fails never
 # leaves the owner's configs unrestored.
 if [ "${1:-}" = --cleanup ]; then
@@ -48,6 +50,7 @@ if [ "${1:-}" = --cleanup ]; then
     python3 "$(dirname -- "$0")/launched.py" stop --state "$GALLEON_TEST_DIR/home/launch" || cleaned=1
   fi
   if [ -n "${GALLEON_TEST_ROOT:-}" ]; then
+    python3 "$(dirname -- "$0")/powerprofile.py" restore --state "$GALLEON_TEST_ROOT/profile.json" || cleaned=1
     python3 "$(dirname -- "$0")/audio.py" restore --state "$GALLEON_TEST_ROOT/audio.json" || cleaned=1
   fi
   if [ -n "${GALLEON_TEST_DIR:-}" ]; then
@@ -199,6 +202,10 @@ built=$(sed -n 's/^ *"sha": *"\([0-9a-f]*\)".*/\1/p' "$here/build-info.json" 2>/
 # for yet.
 app_results="$RESULTS_DIR/app"
 handshake="$GALLEON_TEST_DIR/handshake"
+# The profiles the app measures, and the only ones it may have switched to.
+profiles="performance balanced"
+set --
+for name in $profiles; do set -- "$@" --profile "$name"; done
 app_budget=$((deadline - $(date +%s) - STOP_RESERVE_SECONDS))
 selftest_ok=
 if [ -n "$home_ok" ] && rm -rf -- "$app_results" "$handshake" &&
@@ -209,7 +216,7 @@ if [ -n "$home_ok" ] && rm -rf -- "$app_results" "$handshake" &&
     --results "$app_results" --handshake "$handshake" \
     --check selftest.complete --check build.identity --check startup.cold \
     --check grid.scroll --check server.heartbeat --check download.small \
-    --check update.verify --profile performance --profile balanced \
+    --check update.verify "$@" \
     --screenshot settings --screenshot bios --screenshot emulators 2>>"$log"; then
   selftest_ok=1
 fi
@@ -232,6 +239,15 @@ audio_state="$GALLEON_TEST_ROOT/audio.json"
 muted=
 if [ -n "$request_ok" ] && python3 "$here/audio.py" mute --state "$audio_state" >>"$log" 2>&1; then
   muted=1
+fi
+
+# The owner's power profile, recorded before anything could ask to switch it
+# and kept in the test root for a later --cleanup. Without a record every
+# request is answered unchanged, and the app reports those profiles not set.
+profile_state="$GALLEON_TEST_ROOT/profile.json"
+if [ -n "$muted" ]; then
+  python3 "$here/powerprofile.py" record --state "$profile_state" >>"$log" 2>&1 ||
+    echo "power profile: not recorded, so not switched" >>"$log"
 fi
 
 
@@ -310,9 +326,19 @@ app_gone() {
   pid=$(recorded launch.pid) || return 0
   ! kill -0 "$pid" 2>/dev/null
 }
+# The app asks for a profile while it runs (PLAN.md 5.3 step 8) and waits
+# for the answer, so requests are served for as long as the run waits on it.
+serve_profile() {
+  [ -e "$handshake/want-profile" ] && [ ! -e "$handshake/profile-set" ] || return 0
+  set --
+  for name in $profiles; do set -- "$@" --allow "$name"; done
+  python3 "$here/powerprofile.py" answer --state "$profile_state" --handshake "$handshake" \
+    "$@" >>"$log" 2>&1 || :
+}
 gone_by() {
   until app_gone; do
     [ "$(date +%s)" -lt "$1" ] || return 1
+    serve_profile
     sleep 1
   done
 }
@@ -396,9 +422,11 @@ if [ -n "$home_ok" ] && ! mkdir -- "$launched" 2>/dev/null && [ -z "$started_by"
 fi
 echo "app: $app_note" >>"$log"
 
-# The sound is put back before the second manifest, as the run's last
-# change. A record that cannot be restored (its sink gone, or WirePlumber not
-# answering) is kept and fails harness.run on every run until it can be.
+# The profile, then the sound, are put back before the second manifest. A
+# record that cannot be restored (the daemon not answering, or the sink gone)
+# is kept and fails harness.run on every run until it can be.
+profile_restored=1
+python3 "$here/powerprofile.py" restore --state "$profile_state" >>"$log" 2>&1 || profile_restored=
 audio_restored=1
 python3 "$here/audio.py" restore --state "$audio_state" >>"$log" 2>&1 || audio_restored=
 
@@ -474,6 +502,9 @@ elif [ -n "$start_failed" ]; then
 elif [ -z "$request_gone" ]; then
   result=fail
   reason='"the launch or self-test request could not be removed"'
+elif [ -z "$profile_restored" ]; then
+  result=fail
+  reason='"the power profile could not be put back as it was"'
 elif [ -z "$audio_restored" ]; then
   result=fail
   reason='"the sound could not be put back as it was"'
