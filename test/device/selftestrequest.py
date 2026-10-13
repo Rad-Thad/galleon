@@ -10,7 +10,7 @@ or ran wrong. The read-only server, privacy and the abort on input are always
 asked for: they are what keep a device run from leaving a trace.
 
   selftestrequest.py write --home H --sha S [--version V] --budget SECONDS
-      --results D [--handshake D] --check ID ... [--profile NAME ...]
+      [--deadline EPOCH_SECONDS] --results D [--handshake D] --check ID ... [--profile NAME ...]
       [--payload EMULATOR=PATH ...] [--saving EMULATOR ...] [--screenshot NAME ...]
   selftestrequest.py remove --home H    the request and the app's taken copy
 
@@ -22,6 +22,7 @@ import json
 import os
 import re
 import sys
+import time
 
 NAME = "self-test-request.json"
 # The app renames the request to this once it has taken it.
@@ -37,14 +38,21 @@ class RequestError(ValueError):
     pass
 
 
-def request(sha, version, budget, results, handshake, checks, profiles, payloads, saving, screenshots):
-    """The request as the app expects it, or RequestError naming what is wrong."""
+def request(sha, version, budget, results, handshake, checks, profiles, payloads, saving, screenshots,
+            deadline=None):
+    """The request as the app expects it, or RequestError naming what is wrong.
+
+    `deadline` is when the app's run must end, in seconds since the epoch; the
+    app writes its summary by whichever comes first of it and the budget.
+    """
     if not SHA.fullmatch(sha):
         raise RequestError("the sha is not a full commit")
     if version is not None and not VERSION.fullmatch(version):
         raise RequestError("the version is not a plain version string")
     if budget <= 0:
         raise RequestError("the budget is not positive")
+    if deadline is not None and deadline <= 0:
+        raise RequestError("the deadline is not a time")
     for name, folder in (("results", results), ("handshake", handshake)):
         if folder is not None and (not os.path.isabs(folder) or "\0" in folder):
             raise RequestError(f"the {name} folder is not an absolute path")
@@ -71,6 +79,8 @@ def request(sha, version, budget, results, handshake, checks, profiles, payloads
     }
     if version is not None:
         record["version"] = version
+    if deadline is not None:
+        record["deadline"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(deadline))
     return record
 
 
@@ -119,6 +129,7 @@ def main(argv=None):
     put.add_argument("--sha", required=True)
     put.add_argument("--version")
     put.add_argument("--budget", type=int, required=True)
+    put.add_argument("--deadline", type=int)
     put.add_argument("--results", required=True)
     put.add_argument("--handshake")
     put.add_argument("--check", action="append", default=[])
@@ -135,7 +146,8 @@ def main(argv=None):
             remove(args.home)
             return 0
         record = request(args.sha, args.version, args.budget, args.results, args.handshake,
-                         args.check, args.profile, dict(args.payload), args.saving, args.screenshot)
+                         args.check, args.profile, dict(args.payload), args.saving, args.screenshot,
+                         args.deadline)
         write(args.home, record)
     except (RequestError, OSError) as error:
         print(f"selftestrequest.py: {error}", file=sys.stderr)

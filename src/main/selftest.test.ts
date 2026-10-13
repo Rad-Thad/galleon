@@ -167,6 +167,9 @@ describe('taking the request', () => {
       [{ sha: 'HEAD' }, 'request-sha'],
       [{ checks: 'selftest.complete' }, 'request-checks'],
       [{ budgetSeconds: 0 }, 'request-budget'],
+      [{ deadline: 1_800_000_000 }, 'request-deadline'],
+      [{ deadline: '2026-10-13 12:00:00' }, 'request-deadline'],
+      [{ deadline: '2026-13-13T12:00:00Z' }, 'request-deadline'],
       [{ profiles: [1] }, 'request-profiles'],
       [{ payloads: { retroarch: 7 } }, 'request-payloads'],
       [{ savingPayloads: 'retroarch' }, 'request-saving-payloads'],
@@ -287,6 +290,57 @@ describe('the run', () => {
       now: () => clock
     })
     assert.equal(summary.status, 'partial')
+    assert.equal(byId(summary).get('memory.resident')?.reason, SKIP.budget)
+  })
+
+  test('the deadline ends the run when it comes before the budget does', async () => {
+    let clock = Date.UTC(2026, 9, 13, 12, 0, 0)
+    const summary = await runSelfTest({
+      request: request({
+        budgetSeconds: 600,
+        deadline: '2026-10-13T12:00:10Z',
+        checks: ['startup.cold', 'memory.resident']
+      }),
+      scenarios: new Map<string, Scenario>([
+        [
+          'startup.cold',
+          async () => {
+            clock += 11_000
+            return pass('startup.cold')
+          }
+        ],
+        ['memory.resident', async () => assert.fail('ran past the deadline')]
+      ]),
+      guard: new ReadOnlyGuard(),
+      version: '0.21.0',
+      now: () => clock
+    })
+    assert.equal(summary.status, 'partial')
+    assert.equal(byId(summary).get('memory.resident')?.reason, SKIP.budget)
+  })
+
+  test('a deadline after the budget ends changes nothing', async () => {
+    let clock = Date.UTC(2026, 9, 13, 12, 0, 0)
+    const summary = await runSelfTest({
+      request: request({
+        budgetSeconds: 10,
+        deadline: '2026-10-13T13:00:00Z',
+        checks: ['startup.cold', 'memory.resident']
+      }),
+      scenarios: new Map<string, Scenario>([
+        [
+          'startup.cold',
+          async () => {
+            clock += 11_000
+            return pass('startup.cold')
+          }
+        ],
+        ['memory.resident', async () => assert.fail('ran past the budget')]
+      ]),
+      guard: new ReadOnlyGuard(),
+      version: '0.21.0',
+      now: () => clock
+    })
     assert.equal(byId(summary).get('memory.resident')?.reason, SKIP.budget)
   })
 
