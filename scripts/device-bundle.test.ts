@@ -104,6 +104,7 @@ describe('device-bundle', () => {
       './owner-state.json',
       './signin.py',
       './shortcuts.py',
+      './steamcef.py',
       './bridge/galleon_device_bridge.py',
       './bridge/install.sh',
       './bridge/VERSION.json',
