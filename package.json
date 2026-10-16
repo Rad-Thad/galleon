@@ -40,7 +40,7 @@
     "smoke:app": "./scripts/smoke-app.sh"
   },
   "dependencies": {
-    "lucide-react": "^1.52.0",
+    "lucide-react": "^1.55.0",
     "qrcode-generator": "^2.0.4",
     "yauzl": "^3.4.0"
   },
