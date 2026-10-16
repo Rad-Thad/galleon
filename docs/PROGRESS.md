@@ -2502,3 +2502,18 @@ Lines the tooling reads (exact forms):
 - Device / acceptance: READY-FOR-DEVICE M0-13. `update.verify` reads the live `canary` release from GitHub; `build.identity` compares against the nightly's `build-info.json`. Both need a `complete` or `partial` run with both safety checks passing.
 - Next: Dependabot #214 (Electron) still waits for the first app-starting device run; M0-22's remaining lines wait on M1-17 and M0-17.
 - Notes: the first x64 run failed `pr-body`: the PR body had no `Feature:` line. The body was fixed and this entry's evaluator line rode the next push, since a re-run reads the old body.
+
+## 2026-10-16 06:27 UTC session 01UixAvXphFxZYY3MzZ8aiBX (hourly heartbeat)
+
+- Device results: nothing new (bridge last seen 2026-10-13 08:03 UTC, "no new nightly"); no safety failures, no regressions. M0-13, PR #221, merged at 8b5b524 (CI times in its PR).
+- Worked on: M1-17 part 1 (tracking issue #222), ahead of M1-11: nothing on `next.mjs`'s list can move without device results, and M0-22's last CI line (run.sh stops an idle owner's Galleon through its socket) waits on this socket. The core also outlives a UI fallback (PLAN.md section 9).
+- Result: PR (this one). M1-17 stays false.
+- Evidence:
+  - `src/shared/types/coresocket.ts`: the socket's commands (`status`, `quit-emulator`, `pause-downloads`, `resume-downloads`, `quit-app`), request and response, the refusal reasons, and the schema-1 state file the bridge reads (`idle`, `steamAppId`, `updatedAt`).
+  - `src/main/core-socket/protocol.ts`: `parseCoreRequest` never throws; a line is a request or `malformed`, `too-long` (over `MAX_LINE_BYTES`, in bytes) or `unknown-command`, with a readable id echoed. `src/main/core-socket/idlestate.ts`: `busyReason` (game, then download, then pending upload), `idleState`, `runtimeDir` (none without an absolute `XDG_RUNTIME_DIR`, no shared fallback) and `writeIdleState` (whole file through a rename, 0600 in a 0700 folder).
+  - Tests: `protocol.test.ts` 11/11 (every command, ids, non-JSON, non-objects, bad ids, unknown commands, the byte cap), `idlestate.test.ts` 11/11 (one per idle and busy state, the reason's order, the file's modes, replacement and path). `idlestate.ts` is on the save-tree allow-list.
+  - `scripts/agent/check.sh` green.
+- Not yet: nothing serves the socket or writes the file; part 2 (socket, peer check, `status`, `quit-app`, the main process keeping the file current and never in self-test, `docs/core-socket.md`) and part 3 (`quit-emulator`, pause and resume).
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none.
+- Next: M1-17 part 2.

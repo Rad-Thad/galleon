@@ -45,6 +45,7 @@ const WRITING = new Set([
 /** Every module allowed to write, and where — none of it a save tree. */
 const ALLOWED: Record<string, string> = {
   'main/savewriter.ts': 'the save tree itself, and the backups beside the app root',
+  'main/core-socket/idlestate.ts': 'the idle state file under the runtime directory',
   'main/cores.ts': 'RetroArch cores in the emulators folder',
   'main/downloads.ts': 'a ROM download that was cancelled or failed',
   'main/fetchfile.ts': 'the staged file a caller names, which for a save is `stageBeside`',
