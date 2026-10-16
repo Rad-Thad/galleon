@@ -2498,5 +2498,7 @@ Lines the tooling reads (exact forms):
   - Acceptance line 1: `release.yml` publishes `canary` with both AppImages, the Steam script and `SHA256SUMS`, tag last (#58). Line 2: `src/main/update.ts` refuses a mismatched image and keeps the running one (#58's unit tests). Line 3: footer and Settings -> About (#59). Lines 4 and 5: the `build.identity` and `update.verify` scenarios (#173, #174).
   - `scripts/device-bundle.test.ts` "run.sh gives the app a self-test request it takes, and removes it" now also requires `build.identity` and `update.verify` in the request run.sh writes; it already held `version` to the bundle's `build-info.json`.
   - `scripts/agent/check.sh` green.
+- Evaluator: PASS. It checked all five acceptance lines against main, run.sh's version and both checks in the request, and this entry's PR numbers and CI times.
 - Device / acceptance: READY-FOR-DEVICE M0-13. `update.verify` reads the live `canary` release from GitHub; `build.identity` compares against the nightly's `build-info.json`. Both need a `complete` or `partial` run with both safety checks passing.
 - Next: Dependabot #214 (Electron) still waits for the first app-starting device run; M0-22's remaining lines wait on M1-17 and M0-17.
+- Notes: the first x64 run failed `pr-body`: the PR body had no `Feature:` line. The body was fixed and this entry's evaluator line rode the next push, since a re-run reads the old body.
