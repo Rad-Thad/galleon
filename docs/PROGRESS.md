@@ -2445,6 +2445,18 @@ Lines the tooling reads (exact forms):
 - Device / acceptance: from the next nightly the bundle holds `payloads/`; nothing on the device uses it yet.
 - Next: M0-22 part 4e-2: run.sh copies `payloads/` into the test home, names them in the self-test request, and deletes them, with any downloaded ROM, before exit (test asserts the folder is empty).
 
+## 2026-10-16 02:28 UTC session 01B3z1YWit6yDYhVB9bqoECW (hourly heartbeat)
+
+- Device results: none new; bridge last seen 2026-10-13 08:03 UTC ("no new nightly"), although the nightlies of 10-14 and 10-15 succeeded.
+- Worked on: Dependabot triage (CLAUDE.md rule 8, docs/MAINTENANCE.md).
+- Result: merged #216 (lucide-react 1.52.0 -> 1.55.0, ISC) at d5997da, #217 (happy-dom 20.14.5 -> 21.0.1) at 723188b, #215 (tooling: @types/node 24.19.2, oxlint 1.87.0, prettier 3.9.10, release-it 21.1.1, vite 7.3.7) at 0899679. #214 (Electron 44.6.0 -> 44.7.0) held with one comment.
+- Evidence: all four merged together locally onto 3e62b7c without conflicts; `scripts/agent/check.sh` green (coverage 96.96/94.61/96.39, licence guard: 7 production packages, all permitted); `npm run test:app` 241/241 (Electron through a `--no-sandbox` wrapper, as root). Lockfiles change only the named packages and release-it's own dev dependencies, all from registry.npmjs.org with matching integrity. happy-dom 21: the three DOM test files pass 44/44 under both versions with identical test names. docs/DEPENDENCIES.md records none of these versions.
+- CI wall time: #214 x64 8:34, arm64 1:13; #215 8:43, 0:55; #216 8:54, 1:08; #217 8:42, 0:55.
+- Evaluator: PASS for #215, #216, #217. FAIL for #214 on timing only: every device run so far checks only the minimal harness (`harness.run`, `safety.owner-state`), so 44.6.0 has no baseline that starts the app and MAINTENANCE.md step 6 could not catch a regression. #214 waits for a `complete` or `partial` run from a nightly built from 3e62b7c or later that carries the app's checks.
+- Device / acceptance: none.
+- Next: M0-22 part 4e-2 (run.sh copies `payloads/` into the test home, names them in the request, deletes them before exit). Then #214 once the first app-starting device run is in.
+- Notes: the VM's `npx install-electron` failed once with an undici assertion; a retry fetched it. `test:app` without `ELECTRON_EXEC_PATH` tries to borrow Electron from nixpkgs as root, which is slow; use the `--no-sandbox` wrapper.
+
 ## 2026-10-16 02:49 UTC session 01FdFhjmLvPnWidC6Tawet9s (hourly heartbeat)
 
 - Device results: nothing new (bridge last seen 2026-10-13 08:03 UTC, "no new nightly"); no safety failures, no regressions. Dependabot #215, #216 and #217 were merged and #214 (Electron) held by a concurrent session (PR #218), which took no `agent-working` claim; this run claimed #191 before it went on.
