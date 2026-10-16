@@ -12,8 +12,9 @@
 # the owner state (ownerstate.py, in $GALLEON_TEST_DIR/owner-state), reported
 # as `safety.owner-state`; and makes the test home with its read-only sign-in
 # (signin.py, $GALLEON_TEST_DIR/home) with the app's self-test request
-# (selftestrequest.py), removed before it finishes, and an empty handshake
-# folder ($GALLEON_TEST_DIR/handshake). Outside RESULTS_DIR and those places it
+# (selftestrequest.py), removed before it finishes, the bundle's homebrew
+# payloads in its ROM folder (payloads.py), removed with anything the app
+# downloaded, and an empty handshake folder ($GALLEON_TEST_DIR/handshake). Outside RESULTS_DIR and those places it
 # writes only an emulator config it restores, Steam's shortcut list through
 # Steam itself, the launch request ($GALLEON_TEST_ROOT/current.json),
 # removed before it finishes, and the default sink's mute (audio.py), put
@@ -34,7 +35,8 @@ set -u
 
 # What there is to undo is the launch request, so the shortcut cannot start
 # a build once the run is over, an app a killed run left running, the
-# self-test request, so the app runs no checks unless a run asked, the power
+# self-test request, so the app runs no checks unless a run asked, the ROMs
+# in the test home, payloads and downloads alike, the power
 # profile and the sound a stopped run left changed, and an emulator config
 # that changed after the backup, from the backup this run left behind.
 # Each step is tried whatever became of the other, so one that fails never
@@ -56,6 +58,7 @@ if [ "${1:-}" = --cleanup ]; then
   fi
   if [ -n "${GALLEON_TEST_DIR:-}" ]; then
     python3 "$(dirname -- "$0")/selftestrequest.py" remove --home "$GALLEON_TEST_DIR/home" || cleaned=1
+    python3 "$(dirname -- "$0")/payloads.py" remove --home "$GALLEON_TEST_DIR/home" || cleaned=1
   fi
   if [ -n "${GALLEON_TEST_DIR:-}" ] && [ -d "$GALLEON_TEST_DIR/owner-state/backup" ]; then
     python3 "$(dirname -- "$0")/ownerstate.py" restore "$GALLEON_TEST_DIR/owner-state/backup"
@@ -189,6 +192,20 @@ echo "sign-in: ${signin_source:-none}" >>"$log"
 GALLEON_HOME=$GALLEON_TEST_DIR/home
 export GALLEON_HOME
 
+# The bundle's homebrew (payloads.py), checked against its pins and copied
+# into the app's ROM folder, where a payload's folder names its system. A
+# bundle built without them runs the checks that need none.
+payloads_ok=1
+payload_list=
+if [ -n "$home_ok" ]; then
+  payload_list=$(python3 "$here/payloads.py" copy --bundle "$here/payloads" --home "$GALLEON_HOME" 2>>"$log")
+  case $? in
+    0) ;;
+    10) echo "payloads: none in the bundle" >>"$log" ;;
+    *) payloads_ok= ;;
+  esac
+fi
+
 # build-info.json is written by scripts/device-bundle.mjs and holds no quote
 # or backslash inside a value, so a line match is enough to read it.
 version=$(sed -n 's/^ *"version": *"\([^"]*\)".*/\1/p' "$here/build-info.json" 2>/dev/null)
@@ -199,14 +216,18 @@ built=$(sed -n 's/^ *"sha": *"\([0-9a-f]*\)".*/\1/p' "$here/build-info.json" 2>/
 # ends before the bridge's so the run keeps time to stop it and collect. The
 # app counts that budget from its own start, which can come a fallback's wait
 # later, so it is also given the time the run stops it by (see stop_app).
-# Payloads come with the bundle's homebrew (M0-07), so no emulator is asked
-# for yet.
 app_results="$RESULTS_DIR/app"
 handshake="$GALLEON_TEST_DIR/handshake"
 # The profiles the app measures, and the only ones it may have switched to.
 profiles="performance balanced"
 set --
 for name in $profiles; do set -- "$@" --profile "$name"; done
+# Each emulator is started with the payload of a system it plays, once
+# that payload was copied: a cycle without one is only a skip.
+gba_payload='roms/gba/gba-tests hello.gba'
+if [ -n "$payloads_ok" ] && printf '%s\n' "$payload_list" | grep -qxF "$gba_payload"; then
+  set -- "$@" --payload "retroarch=$gba_payload" --check launch.retroarch --check exit.retroarch
+fi
 app_budget=$((deadline - $(date +%s) - STOP_RESERVE_SECONDS))
 selftest_ok=
 if [ -n "$home_ok" ] && rm -rf -- "$app_results" "$handshake" &&
@@ -491,6 +512,10 @@ fi
 echo "owner state: $owner_result" >>"$log"
 
 python3 "$here/selftestrequest.py" remove --home "$GALLEON_HOME" 2>>"$log" || request_gone=
+# The payload copies and every ROM the app downloaded go once it has quit
+# (PLAN.md 5.3 step 11); nothing of them is left in the test home.
+roms_gone=1
+python3 "$here/payloads.py" remove --home "$GALLEON_HOME" 2>>"$log" || roms_gone=
 
 result=pass
 reason=null
@@ -506,6 +531,9 @@ elif [ -z "$owner_ok" ]; then
 elif [ -z "$home_ok" ]; then
   result=fail
   reason='"the test home could not be made"'
+elif [ -z "$payloads_ok" ]; then
+  result=fail
+  reason='"the payloads could not be copied into the test home"'
 elif [ -z "$selftest_ok" ]; then
   result=fail
   reason='"the self-test request could not be written"'
@@ -521,6 +549,9 @@ elif [ -n "$start_failed" ]; then
 elif [ -z "$request_gone" ]; then
   result=fail
   reason='"the launch or self-test request could not be removed"'
+elif [ -z "$roms_gone" ]; then
+  result=fail
+  reason='"the payloads and downloaded ROMs could not be removed"'
 elif [ -z "$profile_restored" ]; then
   result=fail
   reason='"the power profile could not be put back as it was"'

@@ -46,9 +46,9 @@ const CONFIG_PATTERN = CONFIG.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')
  * A payload manifest of two small programs and the folder fetch-fixtures
  * would have put them in, so the bundle is built without the network.
  */
-function fetchedPayloads() {
+function fetchedPayloads(paths = ['roms/gba/one test.gba', 'roms/snes/two.sfc']) {
   const dir = mkdtempSync(join(tmpdir(), 'bundle-payloads-'))
-  const entries = ['roms/gba/one test.gba', 'roms/snes/two.sfc'].map((path) => {
+  const entries = paths.map((path) => {
     const bytes = Buffer.from(`homebrew ${path}`)
     mkdirSync(join(dir, 'fetched', path, '..'), { recursive: true })
     writeFileSync(join(dir, 'fetched', path), bytes)
@@ -199,6 +199,29 @@ function selfTestApp(summary: Record<string, unknown> = {}) {
     'request = json.load(open(os.path.join(home, "self-test-request.json")))\n' +
     'open(os.path.join(request["resultsDir"], "summary.json"), "w").write(sys.argv[1])' +
     `' '${written}'\n`
+  )
+}
+
+/**
+ * An app that keeps its self-test request, and the ROM folder's files with
+ * their hashes, in `seen`, then downloads a ROM of its own into that folder.
+ */
+function payloadApp(seen: string) {
+  return (
+    '#!/bin/sh\n' +
+    "exec python3 -I -c 'import hashlib, json, os, shutil, sys\n" +
+    'home = os.environ["GALLEON_HOME"]\n' +
+    'shutil.copy(os.path.join(home, "self-test-request.json"), os.path.join(sys.argv[1], "request.json"))\n' +
+    'roms = os.path.join(home, "roms")\n' +
+    'held = {}\n' +
+    'for folder, _, names in os.walk(roms):\n' +
+    '    for name in names:\n' +
+    '        path = os.path.join(folder, name)\n' +
+    '        held[os.path.relpath(path, home)] = hashlib.sha256(open(path, "rb").read()).hexdigest()\n' +
+    'json.dump(held, open(os.path.join(sys.argv[1], "roms.json"), "w"))\n' +
+    'os.makedirs(os.path.join(roms, "snes"), exist_ok=True)\n' +
+    'open(os.path.join(roms, "snes", "downloaded.sfc"), "wb").write(b"rom")' +
+    `' '${seen}'\n`
   )
 }
 
@@ -400,6 +423,7 @@ describe('device-bundle', () => {
       './powerprofile.py',
       './selftestrequest.py',
       './mergesummary.py',
+      './payloads.py',
       './bridge/galleon_device_bridge.py',
       './bridge/install.sh',
       './bridge/VERSION.json',
@@ -904,6 +928,95 @@ describe('device-bundle', () => {
       JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8')).checks[0].result,
       'pass'
     )
+  })
+
+  test('every payload run.sh names is one the real manifest pins', () => {
+    const files = JSON.parse(readFileSync(join(ROOT, 'test/fixtures/roms/manifest.json'), 'utf8'))
+      .files as { path: string }[]
+    const script = readFileSync(join(ROOT, 'test/device/run.sh'), 'utf8')
+    const named = [...script.matchAll(/^[a-z]+_payload='([^']+)'$/gm)].map((match) => match[1])
+    assert.ok(named.length > 0)
+    for (const path of named) {
+      assert.ok(
+        files.some((file) => file.path === path),
+        `${path} is pinned`
+      )
+    }
+  })
+
+  test('run.sh copies the payloads into the test home, names RetroArch its own, and empties the ROM folder', () => {
+    const { from, manifest, entries } = fetchedPayloads([
+      'roms/gba/gba-tests hello.gba',
+      'roms/snes/two.sfc'
+    ])
+    const out = mkdtempSync(join(tmpdir(), 'bundle-out-'))
+    writeBundle({ root: ROOT, out, sha: SHA, builtAt: BUILT_AT, payloads: from, manifest })
+    const seen = mkdtempSync(join(tmpdir(), 'bundle-seen-'))
+    const { run, results, testDir } = runHarness(unpackLikeTheBridge(out), SHA, payloadApp(seen), {
+      DEVICE_TEST_BUDGET_SECONDS: '600'
+    })
+    assert.equal(run.status, 0, run.stderr)
+    const request = JSON.parse(readFileSync(join(seen, 'request.json'), 'utf8'))
+    assert.deepEqual(request.payloads, { retroarch: 'roms/gba/gba-tests hello.gba' })
+    assert.ok(
+      request.checks.includes('launch.retroarch') && request.checks.includes('exit.retroarch')
+    )
+    assert.deepEqual(request.savingPayloads, [])
+    // While the app ran, every payload was in its ROM folder as pinned.
+    const held = JSON.parse(readFileSync(join(seen, 'roms.json'), 'utf8'))
+    assert.deepEqual(held, Object.fromEntries(entries.map((entry) => [entry.path, entry.sha256])))
+    // Afterwards nothing is left of them, nor of the ROM the app downloaded.
+    assert.ok(!existsSync(join(testDir, 'home', 'roms')))
+    const check = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8')).checks[0]
+    assert.deepEqual([check.id, check.result], ['harness.run', 'pass'])
+  })
+
+  test('run.sh names no payload, and fails harness.run, when a payload is not the pinned bytes', () => {
+    const { from, manifest } = fetchedPayloads(['roms/gba/gba-tests hello.gba'])
+    const out = mkdtempSync(join(tmpdir(), 'bundle-out-'))
+    writeBundle({ root: ROOT, out, sha: SHA, builtAt: BUILT_AT, payloads: from, manifest })
+    const bundle = unpackLikeTheBridge(out)
+    writeFileSync(join(bundle, 'payloads/roms/gba/gba-tests hello.gba'), 'other bytes')
+    const seen = mkdtempSync(join(tmpdir(), 'bundle-seen-'))
+    const { run, results, testDir } = runHarness(bundle, SHA, payloadApp(seen), {
+      DEVICE_TEST_BUDGET_SECONDS: '600'
+    })
+    assert.equal(run.status, 0, run.stderr)
+    const request = JSON.parse(readFileSync(join(seen, 'request.json'), 'utf8'))
+    assert.deepEqual(request.payloads, {})
+    assert.ok(!request.checks.includes('launch.retroarch'))
+    assert.ok(!existsSync(join(testDir, 'home', 'roms')))
+    const check = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8')).checks[0]
+    assert.deepEqual(
+      [check.result, check.reason],
+      ['fail', 'the payloads could not be copied into the test home']
+    )
+  })
+
+  test('run.sh asks for no emulator check from a bundle without payloads', () => {
+    const seen = mkdtempSync(join(tmpdir(), 'bundle-seen-'))
+    const { run, results } = runHarness(unpackLikeTheBridge(built()), SHA, payloadApp(seen), {
+      DEVICE_TEST_BUDGET_SECONDS: '600'
+    })
+    assert.equal(run.status, 0, run.stderr)
+    const request = JSON.parse(readFileSync(join(seen, 'request.json'), 'utf8'))
+    assert.deepEqual(request.payloads, {})
+    assert.ok(!request.checks.some((id: string) => id.startsWith('launch.')))
+    assert.deepEqual(readFileSync(join(seen, 'roms.json'), 'utf8'), '{}')
+    const check = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8')).checks[0]
+    assert.equal(check.result, 'pass')
+  })
+
+  test('run.sh --cleanup removes the ROMs a stopped run left in the test home', () => {
+    const bundle = unpackLikeTheBridge(built())
+    const testDir = mkdtempSync(join(tmpdir(), 'bundle-testdir-'))
+    mkdirSync(join(testDir, 'home/roms/gba'), { recursive: true })
+    writeFileSync(join(testDir, 'home/roms/gba/left.gba'), 'rom')
+    const run = spawnSync('/bin/sh', [join(bundle, 'run.sh'), '--cleanup'], {
+      env: { PATH: process.env.PATH, GALLEON_TEST_DIR: testDir }
+    })
+    assert.equal(run.status, 0)
+    assert.ok(!existsSync(join(testDir, 'home/roms')))
   })
 
   test('run.sh writes no launch request and fails harness.run without a self-test request', () => {
