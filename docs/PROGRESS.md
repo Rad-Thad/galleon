@@ -2473,3 +2473,18 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: on the Nova RetroArch is a flatpak, which the self-test's sandbox refuses, so `launch.retroarch` and `exit.retroarch` are expected as `skip` / `cannot-sandbox` until a sandboxable install exists.
 - Next: M0-22 part 4e-3: the small-ROM download rule (smallest SNES and GBA titles, at most 16 MB, else a capped Range read), or `install.script` and `steam.shortcut-roundtrip`.
+
+## 2026-10-16 04:27 UTC session 017XZLNA3MF8LELsDa9zW4ES (hourly heartbeat)
+
+- Device results: nothing new (bridge last seen 2026-10-13 08:03 UTC, "no new nightly"); no safety failures, no regressions. Part 4e-2 of M0-22, PR #219, merged at 39afcb6; CI x64 8:20, arm64 0:57.
+- Worked on: M0-22 part 4e-3 (tracking issue #191): the self-test's `download.small` fetches a whole title only up to `SMALL_GAME_MAX_BYTES` (PLAN.md 5.3 step 5; acceptance line 4's "at most 16 MB").
+- Result: PR (this one). M0-22 stays false.
+- Evidence:
+  - `src/main/selftestdownload.ts`: the smallest hashed SNES or GBA title is judged by the size RomM lists before anything is queued; over the cap it is a `skip` (`smallest-title-too-large`, with its platform and size), and the check's `thresholds` carry `maxBytes`.
+  - Tests in `src/main/selftestdownload.test.ts` 14/14, new: "a smallest title over the cap is a skip, and nothing is fetched" (empty queue, `romsDownloadedBytes` 0), "a title of exactly the cap is fetched".
+  - `docs/TESTING.md`: the catalogue row says what happens over the cap.
+  - `scripts/agent/check.sh` green; `npm run test:app` 241/241 (`--no-sandbox` wrapper).
+- Notes: stale `/var/run/docker.pid` and `containerd.pid` stopped `dockerd` again; removed.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: on the Nova the check now either passes on a title of at most 16 MB or skips; the owner's library decides which.
+- Next: M0-22 `install.script` and `steam.shortcut-roundtrip`, or stopping an idle owner's Galleon through its core socket once M1-17 exists.

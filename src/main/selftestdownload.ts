@@ -28,6 +28,13 @@ export const DOWNLOAD_CHECK = 'download.small'
 /** The platforms whose games are small enough to fetch on every run. */
 const SMALL_PLATFORMS = new Set(['snes', 'sfam', 'gba'])
 
+/**
+ * The most a run may fetch whole. The self-test reads the owner's real
+ * library, where even the smallest game of a platform can be large, and a
+ * nightly that pulls one down costs the owner's bandwidth and the run's budget.
+ */
+export const SMALL_GAME_MAX_BYTES = 16 * 1024 * 1024
+
 /** How many listings a page asks for while looking for the smallest game. */
 const PAGE = 250
 
@@ -99,7 +106,7 @@ export function downloadScenario(deps: DownloadScenarioDeps): Scenario {
       id: DOWNLOAD_CHECK,
       result: outcome,
       metrics,
-      thresholds: {},
+      thresholds: { maxBytes: SMALL_GAME_MAX_BYTES },
       reason,
       evidence: []
     })
@@ -112,6 +119,14 @@ export function downloadScenario(deps: DownloadScenarioDeps): Scenario {
       return result('error', 'listing-failed')
     }
     if (rom === null) return result('skip', 'no-hashed-snes-or-gba-title')
+    // Judged by the size RomM lists, before anything is fetched: a cap checked
+    // afterwards would only report the download it was meant to prevent.
+    if (rom.fs_size_bytes > SMALL_GAME_MAX_BYTES) {
+      return result('skip', 'smallest-title-too-large', {
+        platform: rom.platform_slug,
+        bytes: rom.fs_size_bytes
+      })
+    }
     // A game already here is not one this run may take away afterwards.
     if (deps.store.getInstalled(rom.id)) return result('skip', 'already-installed')
     // The listener below hears only an abort still to come.

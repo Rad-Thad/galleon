@@ -6,7 +6,12 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, test } from 'node:test'
 import type { DownloadItem, InstalledRom, RommRom } from '@shared/types'
-import { DOWNLOAD_CHECK, downloadScenario, smallestGame } from './selftestdownload.ts'
+import {
+  DOWNLOAD_CHECK,
+  downloadScenario,
+  SMALL_GAME_MAX_BYTES,
+  smallestGame
+} from './selftestdownload.ts'
 import type { CheckResult, Safety } from './selftest.ts'
 
 /**
@@ -182,6 +187,25 @@ describe('download.small', () => {
     assert.equal(result.result, 'skip')
     assert.equal(result.reason, 'no-hashed-snes-or-gba-title')
     assert.equal(queue.items.length, 0)
+  })
+
+  test('a smallest title over the cap is a skip, and nothing is fetched', async () => {
+    const { result, queue, sums } = await run('ok', {
+      1: [rom(10, SMALL_GAME_MAX_BYTES + 1)],
+      2: [rom(20, SMALL_GAME_MAX_BYTES * 4)]
+    })
+    assert.equal(result.result, 'skip')
+    assert.equal(result.reason, 'smallest-title-too-large')
+    assert.equal(result.metrics.bytes, SMALL_GAME_MAX_BYTES + 1)
+    assert.equal(result.thresholds.maxBytes, SMALL_GAME_MAX_BYTES)
+    assert.equal(queue.items.length, 0)
+    assert.equal(sums.romsDownloadedBytes, 0)
+  })
+
+  test('a title of exactly the cap is fetched', async () => {
+    const { result, uninstalled } = await run('ok', { 1: [rom(10, SMALL_GAME_MAX_BYTES)] })
+    assert.equal(result.result, 'pass', String(result.reason))
+    assert.deepEqual(uninstalled, [10])
   })
 
   test('a game already installed is left alone', async () => {
