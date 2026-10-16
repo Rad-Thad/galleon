@@ -31,15 +31,20 @@ export class CoreSocketInUseError extends Error {
   }
 }
 
-/** Whether something answers on the socket at `path`. */
-function answers(path: string): Promise<boolean> {
+/**
+ * Whether the socket at `path` is dead: refused, with nothing listening.
+ *
+ * Only a refusal counts. Any other failure (a full backlog, a socket this user
+ * may not connect to) can be a live listener, and is treated as one.
+ */
+function isDead(path: string): Promise<boolean> {
   return new Promise((resolve) => {
     const probe = createConnection(path)
     probe.once('connect', () => {
       probe.destroy()
-      resolve(true)
+      resolve(false)
     })
-    probe.once('error', () => resolve(false))
+    probe.once('error', (error: NodeJS.ErrnoException) => resolve(error.code === 'ECONNREFUSED'))
   })
 }
 
@@ -58,7 +63,7 @@ async function clearStale(path: string): Promise<void> {
   } catch {
     return
   }
-  if (!stat.isSocket() || (await answers(path))) throw new CoreSocketInUseError(path)
+  if (!stat.isSocket() || !(await isDead(path))) throw new CoreSocketInUseError(path)
   unlinkSync(path)
 }
 
@@ -68,11 +73,17 @@ function serve(client: Socket, handle: CoreHandler): void {
   // Answers chain so a slow command never lets a later quick one overtake it,
   // which a client matching answers to requests by order would misread.
   let queue = Promise.resolve()
-  const answer = (respond: () => Promise<CoreResponse>): void => {
-    queue = queue.then(async () => {
-      const response = await respond()
-      if (!client.destroyed) client.write(encodeCoreResponse(response))
-    })
+  const answer = (respond: () => Promise<string>): void => {
+    queue = queue
+      .then(async () => {
+        const line = await respond()
+        if (!client.destroyed) client.write(line)
+      })
+      // A link that rejects would skip every later one, leaving this client
+      // waiting forever; one it cannot be answered on is dropped instead.
+      .catch(() => {
+        client.destroy()
+      })
   }
 
   client.setEncoding('utf8')
@@ -87,19 +98,21 @@ function serve(client: Socket, handle: CoreHandler): void {
         const parsed = parseCoreRequest(line)
         if (!parsed.ok) {
           const { ok, ...refusal } = parsed
-          return { ...refusal, ok }
+          return encodeCoreResponse({ ...refusal, ok })
         }
         const echo = parsed.request.id === undefined ? {} : { id: parsed.request.id }
+        // Encoded inside the try: a result JSON cannot carry is as much a
+        // failure of the request as a handler that throws.
         try {
-          return { ...echo, ...(await handle(parsed.request)) } as CoreResponse
+          return encodeCoreResponse({ ...echo, ...(await handle(parsed.request)) } as CoreResponse)
         } catch {
-          return { ...echo, ok: false, error: 'failed' }
+          return encodeCoreResponse({ ...echo, ok: false, error: 'failed' })
         }
       })
     }
     if (Buffer.byteLength(buffered, 'utf8') > MAX_LINE_BYTES) {
       buffered = ''
-      answer(async () => ({ ok: false, error: 'too-long' }))
+      answer(async () => encodeCoreResponse({ ok: false, error: 'too-long' }))
       queue = queue.then(() => {
         client.end()
       })

@@ -134,6 +134,19 @@ describe('startCoreSocket', () => {
     ])
   })
 
+  test('a result that cannot be sent is a failed request, and later requests are still answered', async () => {
+    const socket = await start((request) =>
+      request.id === 1 ? { ok: true, result: 1n } : { ok: true, result: request.id }
+    )
+    assert.deepEqual(
+      await exchange(socket.path, ['{"id":1,"cmd":"status"}\n{"id":2,"cmd":"status"}\n'], 2),
+      [
+        { id: 1, ok: false, error: 'failed' },
+        { id: 2, ok: true, result: 2 }
+      ]
+    )
+  })
+
   test('a line that never ends is cut off with too-long', async () => {
     const socket = await start()
     const answers = await exchange(socket.path, ['x'.repeat(MAX_LINE_BYTES + 1)], 1)
