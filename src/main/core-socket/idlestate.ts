@@ -9,7 +9,7 @@
  * so the bridge and the socket can never disagree about what idle means.
  */
 
-import { chmodSync, mkdirSync, renameSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { IdleStateFile, QuitRefusal } from '@shared/types'
 
@@ -82,4 +82,14 @@ export function writeIdleState(dir: string, state: IdleStateFile): void {
   writeFileSync(tmp, `${JSON.stringify(state)}\n`, { encoding: 'utf8', mode: 0o600 })
   chmodSync(tmp, 0o600)
   renameSync(tmp, path)
+}
+
+/**
+ * Remove the state file, as Galleon stops.
+ *
+ * A file left behind would keep saying idle for as long as the bridge trusts a
+ * fresh one, about a Galleon that is no longer there to be asked to quit.
+ */
+export function removeIdleState(dir: string): void {
+  rmSync(join(dir, 'state.json'), { force: true })
 }

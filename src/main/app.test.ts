@@ -46,3 +46,40 @@ test('under the read-only guard the catch-up sends nothing', async () => {
   await held.catchUp()
   assert.equal(guard.serverWritesAttempted, 0)
 })
+
+test('the core socket sees the game, the live queue and the saves owed', () => {
+  const app = Object.create(RomMixApp.prototype) as RomMixApp
+  const row = (romId: number, state: string) => ({
+    romId,
+    name: `Game ${romId}`,
+    coverPath: null,
+    system: 'snes',
+    platformName: 'SNES',
+    state,
+    receivedBytes: 5,
+    totalBytes: 10,
+    error: null
+  })
+  const settings = { syncSavesUp: true }
+  Object.assign(app, {
+    connection: { current: { connected: true } },
+    launcher: { playing: 3 },
+    downloads: {
+      items: [row(1, 'downloading'), row(2, 'paused'), row(4, 'done'), row(5, 'error')]
+    },
+    store: { settings, unsentSaves: [{ romId: 8, since: 0 }] }
+  })
+  assert.deepEqual(app.coreObservation(), {
+    connected: true,
+    playing: 3,
+    downloads: [
+      { romId: 1, name: 'Game 1', state: 'downloading', receivedBytes: 5, totalBytes: 10 },
+      { romId: 2, name: 'Game 2', state: 'paused', receivedBytes: 5, totalBytes: 10 }
+    ],
+    pendingUploads: [8]
+  })
+
+  // Nothing is ever sent unasked with sending up switched off.
+  settings.syncSavesUp = false
+  assert.deepEqual(app.coreObservation().pendingUploads, [])
+})

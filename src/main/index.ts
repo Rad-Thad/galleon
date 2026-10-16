@@ -1,5 +1,6 @@
 import { BrowserWindow, app, protocol, screen } from 'electron'
 import { IMAGE_SCHEME, RomMixApp } from './app.ts'
+import { startCoreService, type CoreService } from './core-socket/service.ts'
 import { registerIpc } from './ipc/index.ts'
 import { log, logSession } from './log.ts'
 import { readArmadaStatus, readPowerState } from './powerstate.ts'
@@ -104,6 +105,8 @@ if (!app.requestSingleInstanceLock()) {
   }
   /** Set by the first quit, so the second one is let through. See below. */
   let quitting = false
+  /** The core socket, once it is up. Never in a self-test run. */
+  let core: CoreService | null = null
 
   void app.whenReady().then(async () => {
     if (selfTest?.kind === 'refused') {
@@ -210,6 +213,31 @@ if (!app.requestSingleInstanceLock()) {
     // run again by the watch the moment there is one. See `RomMixApp.catchUp`.
     rommix.connection.start()
     void rommix.catchUp()
+    // Not in a self-test run, which returned above: the device tests ask the
+    // owner's own Galleon whether it is idle through this socket and its state
+    // file, and a test instance answering for it would be believed.
+    void startCoreService({
+      env: process.env,
+      observe: () => rommix.coreObservation(),
+      quitApp: () => app.quit()
+    })
+      .then((service) => {
+        if (!service) {
+          log.info('core', 'no runtime directory, so no core socket')
+          return
+        }
+        // A quit asked for while the socket was starting has already passed
+        // the point where it would have been closed.
+        if (quitting) {
+          void service.close()
+          return
+        }
+        core = service
+        // A download starting or finishing changes whether Galleon is idle, and
+        // the bridge should not have to wait for the next refresh to see it.
+        rommix.downloads.on('update', service.refresh)
+      })
+      .catch((cause) => log.warn('core', 'no core socket', { reason: (cause as Error).message }))
     log.info('app', 'ready', { ms: took() })
   })
 
@@ -241,6 +269,12 @@ if (!app.requestSingleInstanceLock()) {
     if (quitting) return
     quitting = true
     event.preventDefault()
-    void rommix.shutdown().finally(() => app.quit())
+    // The socket and the state file go only once the shutdown is done, so the
+    // answer to the `quit-app` that started it is out, and a save still going
+    // up during it is reported as busy rather than not at all.
+    void rommix
+      .shutdown()
+      .then(() => core?.close())
+      .finally(() => app.quit())
   })
 }

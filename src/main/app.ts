@@ -24,7 +24,8 @@ import { Updater } from './update.ts'
 import { isWebAddress } from './weblink.ts'
 import { saveContext } from './gamecontext.ts'
 import { realHome } from './xdg.ts'
-import type { EmulatorState, SavesWaiting } from '@shared/types'
+import { isInProgress, isStopped, type EmulatorState, type SavesWaiting } from '@shared/types'
+import type { CoreObservation } from './core-socket/service.ts'
 
 export const IMAGE_SCHEME = 'rommix-img'
 
@@ -154,6 +155,33 @@ export class RomMixApp {
       log.info('app', '--- RomMix quitting ---')
     })()
     return this.shuttingDown
+  }
+
+  /**
+   * What the core socket and its state file report. See `startCoreService`.
+   *
+   * Finished rows are left out: the queue keeps them for the Downloads screen,
+   * and to a panel they are neither progress nor a reason to wait. Unsent saves
+   * count only with sending up switched on, since with it off nothing is ever
+   * sent on its own and the record would hold Galleon busy for good.
+   */
+  coreObservation(): CoreObservation {
+    return {
+      connected: this.connection.current?.connected ?? false,
+      playing: this.launcher.playing,
+      downloads: this.downloads.items
+        .filter((item) => isInProgress(item.state) || isStopped(item.state))
+        .map(({ romId, name, state, receivedBytes, totalBytes }) => ({
+          romId,
+          name,
+          state,
+          receivedBytes,
+          totalBytes
+        })),
+      pendingUploads: this.store.settings.syncSavesUp
+        ? this.store.unsentSaves.map((row) => row.romId)
+        : []
+    }
   }
 
   /**
