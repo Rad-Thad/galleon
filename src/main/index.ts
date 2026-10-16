@@ -226,8 +226,9 @@ if (!app.requestSingleInstanceLock()) {
           log.info('core', 'no runtime directory, so no core socket')
           return
         }
-        // A quit asked for while the socket was starting has already passed
-        // the point where it would have been closed.
+        // A quit asked for while the socket was starting may already be past
+        // the close, and a socket going early during a shutdown only reads as
+        // busy to the bridge.
         if (quitting) {
           void service.close()
           return
