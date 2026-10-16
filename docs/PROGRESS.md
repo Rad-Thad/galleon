@@ -2488,3 +2488,17 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: on the Nova the check now either passes on a title of at most 16 MB or skips; the owner's library decides which.
 - Next: M0-22 `install.script` and `steam.shortcut-roundtrip`, or stopping an idle owner's Galleon through its core socket once M1-17 exists.
+
+## 2026-10-16 05:40 UTC session 01WNa5QTYzFctPzrXTKXtwUf (hourly heartbeat)
+
+- Device results: nothing new (bridge last seen 2026-10-13 08:03 UTC, "no new nightly"); no safety failures, no regressions. Part 4e-3 of M0-22, PR #220, merged at ba4f7f1; CI x64 8:49, arm64 0:52.
+- Worked on: M0-13 (tracking issue #57): its device checks reach the Nova. Every CI line was merged in #58, #59, #173 and #174; the remaining gap was run.sh starting the app with `build.identity`, `update.verify` and the nightly's `version` in its request, which M0-22's parts #205 to #220 closed. M0-22's own remaining lines (the owner's Galleon through M1-17's socket, `install.script` through M0-17) do not touch these checks.
+- Result: PR (this one).
+- Evidence:
+  - Acceptance line 1: `release.yml` publishes `canary` with both AppImages, the Steam script and `SHA256SUMS`, tag last (#58). Line 2: `src/main/update.ts` refuses a mismatched image and keeps the running one (#58's unit tests). Line 3: footer and Settings -> About (#59). Lines 4 and 5: the `build.identity` and `update.verify` scenarios (#173, #174).
+  - `scripts/device-bundle.test.ts` "run.sh gives the app a self-test request it takes, and removes it" now also requires `build.identity` and `update.verify` in the request run.sh writes; it already held `version` to the bundle's `build-info.json`.
+  - `scripts/agent/check.sh` green.
+- Evaluator: PASS. It checked all five acceptance lines against main, run.sh's version and both checks in the request, and this entry's PR numbers and CI times.
+- Device / acceptance: READY-FOR-DEVICE M0-13. `update.verify` reads the live `canary` release from GitHub; `build.identity` compares against the nightly's `build-info.json`. Both need a `complete` or `partial` run with both safety checks passing.
+- Next: Dependabot #214 (Electron) still waits for the first app-starting device run; M0-22's remaining lines wait on M1-17 and M0-17.
+- Notes: the first x64 run failed `pr-body`: the PR body had no `Feature:` line. The body was fixed and this entry's evaluator line rode the next push, since a re-run reads the old body.

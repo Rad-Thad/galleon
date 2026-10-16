@@ -914,6 +914,11 @@ describe('device-bundle', () => {
       [true, true, true, null]
     )
     assert.ok(request?.checks.includes('selftest.complete'))
+    // Only the app can report these, so a request without them leaves the
+    // features that name them unable to pass on the device.
+    for (const id of ['build.identity', 'update.verify']) {
+      assert.ok(request?.checks.includes(id), id)
+    }
     assert.deepEqual(request?.profiles, ['performance', 'balanced'])
     // The app's budget ends before the bridge's, leaving time to stop it.
     const budget = request?.budgetSeconds ?? 0
