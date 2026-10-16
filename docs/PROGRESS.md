@@ -2444,3 +2444,20 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: from the next nightly the bundle holds `payloads/`; nothing on the device uses it yet.
 - Next: M0-22 part 4e-2: run.sh copies `payloads/` into the test home, names them in the self-test request, and deletes them, with any downloaded ROM, before exit (test asserts the folder is empty).
+
+## 2026-10-16 02:49 UTC session 01FdFhjmLvPnWidC6Tawet9s (hourly heartbeat)
+
+- Device results: nothing new (bridge last seen 2026-10-13 08:03 UTC, "no new nightly"); no safety failures, no regressions. Dependabot #215, #216 and #217 were merged and #214 (Electron) held by a concurrent session (PR #218), which took no `agent-working` claim; this run claimed #191 before it went on.
+- Worked on: M0-22 part 4e-2 (tracking issue #191): run.sh copies the bundle's payloads into the test home, names RetroArch the GBA payload, and removes the ROM folder before exit (PLAN.md 5.3 steps 5 and 11; acceptance line 4's "deleted before exit").
+- Result: PR (this one). M0-22 stays false.
+- Evidence:
+  - `test/device/payloads.py` (Python standard library): `copy --bundle DIR --home H` copies each `roms/<system>/<file>` entry of the bundle's `payloads/manifest.json` into the app's ROM folder, checked against its pinned size and hash, never through a link and never over an existing file; `remove --home H` takes the whole ROM folder (copies and downloads), never following a link.
+  - `test/device/run.sh`: copies after the home is made; with `roms/gba/gba-tests hello.gba` copied, the request gets `retroarch` in `payloads` plus `launch.retroarch` and `exit.retroarch` (no save expected); a failed copy names none and fails `harness.run`; after the app has quit the ROM folder is removed, and `harness.run` fails if it remains; `--cleanup` removes one a stopped run left.
+  - Tests: `test/device/test_payloads.py` 13/13. `scripts/device-bundle.test.ts` 61/61, new: "every payload run.sh names is one the real manifest pins", "run.sh copies the payloads into the test home, names RetroArch its own, and empties the ROM folder" (the folder held exactly the pinned hashes while the app ran; the app's downloaded ROM and the folder are gone after), "run.sh names no payload, and fails harness.run, when a payload is not the pinned bytes", "run.sh asks for no emulator check from a bundle without payloads", "run.sh --cleanup removes the ROMs a stopped run left in the test home". Not tested: a ROM folder that cannot be removed (the VM runs as root).
+  - `docs/TESTING.md`: the helper and the request's emulator checks.
+  - Evaluator: PASS. Its style note (an unwrapped header comment line in run.sh) is fixed.
+  - `scripts/agent/check.sh` green.
+- Notes: stale `/var/run/docker.pid` and `containerd.pid` (pids not running) stopped `dockerd` again; removed.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: on the Nova RetroArch is a flatpak, which the self-test's sandbox refuses, so `launch.retroarch` and `exit.retroarch` are expected as `skip` / `cannot-sandbox` until a sandboxable install exists.
+- Next: M0-22 part 4e-3: the small-ROM download rule (smallest SNES and GBA titles, at most 16 MB, else a capped Range read), or `install.script` and `steam.shortcut-roundtrip`.

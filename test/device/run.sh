@@ -14,8 +14,9 @@
 # (signin.py, $GALLEON_TEST_DIR/home) with the app's self-test request
 # (selftestrequest.py), removed before it finishes, the bundle's homebrew
 # payloads in its ROM folder (payloads.py), removed with anything the app
-# downloaded, and an empty handshake folder ($GALLEON_TEST_DIR/handshake). Outside RESULTS_DIR and those places it
-# writes only an emulator config it restores, Steam's shortcut list through
+# downloaded, and an empty handshake folder ($GALLEON_TEST_DIR/handshake).
+# Outside RESULTS_DIR and those places it writes only an emulator config it
+# restores, Steam's shortcut list through
 # Steam itself, the launch request ($GALLEON_TEST_ROOT/current.json),
 # removed before it finishes, and the default sink's mute (audio.py), put
 # back with its volume from $GALLEON_TEST_ROOT/audio.json. It starts the app
