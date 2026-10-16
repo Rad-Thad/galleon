@@ -8,6 +8,8 @@
  * where the contracts do.
  */
 
+import type { DownloadState } from './downloads.ts'
+
 /**
  * Every command the socket accepts, one per JSON line.
  *
@@ -82,4 +84,34 @@ export interface IdleStateFile {
    * freshness by the file's mtime, not by this.
    */
   updatedAt: string
+}
+
+/** One row of the download queue, as `status` reports it. */
+export interface CoreDownload {
+  romId: number
+  name: string
+  state: DownloadState
+  receivedBytes: number
+  totalBytes: number
+}
+
+/**
+ * The answer to `status`: what a panel needs to say what Galleon is doing.
+ *
+ * Its own shape rather than the renderer's, so the panel can be written against
+ * a contract that does not move every time a screen wants one more field.
+ */
+export interface CoreStatus {
+  /** Whether RomM answered the last time Galleon asked. */
+  connected: boolean
+  /** The game being played, or null. */
+  playing: { romId: number } | null
+  /** Rows still in the queue, stopped ones included. Finished rows are not. */
+  downloads: CoreDownload[]
+  /** Games whose saves are on this disk and not yet on RomM. */
+  pendingUploads: number[]
+  /** The same rule as the state file and `quit-app`. */
+  idle: boolean
+  /** Why it is not idle, or null when it is. */
+  busy: QuitRefusal | null
 }

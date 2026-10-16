@@ -2533,3 +2533,20 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none.
 - Next: M1-17 part 2b.
+
+## 2026-10-16 07:27 UTC session 01WebgG47ESJSPjNTKSzausT (hourly heartbeat)
+
+- Device results: nothing new (bridge last seen 2026-10-13 08:03 UTC, "no new nightly"); no safety failures, no regressions. M1-17 part 2a, PR #224, merged at ea8513b; CI x64 8:40, arm64 1:09.
+- Worked on: M1-17 part 2b (tracking issue #222): `status` and `quit-app`, and the app starting the socket and keeping `state.json` current. The SO_PEERCRED check is split out: Node exposes no peer credentials, so it needs its own part.
+- Result: PR (this one). M1-17 stays false.
+- Evidence:
+  - `src/main/core-socket/service.ts`: `coreHandler` answers `status` (connection, the game being played, the queue with progress, saves owed, `idle`, `busy`) and `quit-app` (refused with the `busyReason`, otherwise answered and then quit). `startCoreService` starts the socket first, so a second Galleon with another home gives up before touching the state file; it writes `state.json` at once, on a timer (`STATE_REFRESH_MS`, held under 30 s by a test) and when a download flips `idle`; `close()` removes the socket and the file (`removeIdleState`).
+  - `RomMixApp.coreObservation()`; `src/main/index.ts` starts the service only on a normal start (never in self-test) and closes it after the shutdown.
+  - `docs/core-socket.md`: the protocol, the errors, the idle rule and the state file.
+  - Tests: `service.test.ts` 17/17 (each idle and busy state, `quit-app` refused for each reason and quitting only after the answer, the timer, refresh only on a flip, both commands over a real socket, removal on close, nothing written after it, a second instance), `app.test.ts` "the core socket sees the game, the live queue and the saves owed".
+  - `scripts/agent/check.sh` green; `npm run test:app` 241/241 (`--no-sandbox` wrapper).
+- Evaluator: PASS. Two of its notes are fixed: a closed service never writes again (a download finishing after the close could have left a fresh "idle" file), and a service that finishes starting after a quit began is closed at once. Its other notes stand as written: a game starting or a save being queued reaches the file on the next tick, and `quit-app` judges live; unsent saves do not hold Galleon busy with sending up switched off.
+- Not yet: the peer check, `quit-emulator` through the same path as holding Start, pause and resume downloads.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none.
+- Next: M1-17 part 3 (`quit-emulator`, pause and resume), then the peer check.
