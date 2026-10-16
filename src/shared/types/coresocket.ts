@@ -40,7 +40,7 @@ export interface CoreRequest {
   cmd: CoreCommand
 }
 
-/** Why a line was not a request at all. */
+/** Why a line was not a request Galleon could answer. */
 export type CoreRequestError =
   /** Not JSON, or JSON that is not an object with a string `cmd`. */
   | 'malformed'
@@ -48,6 +48,8 @@ export type CoreRequestError =
   | 'too-long'
   /** A `cmd` this Galleon does not know. */
   | 'unknown-command'
+  /** A request it understood and could not carry out. */
+  | 'failed'
 
 /**
  * Why Galleon will not quit when asked.

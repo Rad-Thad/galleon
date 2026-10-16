@@ -2518,3 +2518,17 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none.
 - Next: M1-17 part 2.
+
+## 2026-10-16 07:01 UTC session 01UixAvXphFxZYY3MzZ8aiBX (hourly heartbeat, second unit)
+
+- Device results: as at 06:27, nothing new. M1-17 part 1, PR #223, merged at 7492ed3; CI x64 8:36, arm64 0:51.
+- Worked on: M1-17 part 2a (tracking issue #222): the socket listener, still not started by the app.
+- Result: PR (this one). M1-17 stays false.
+- Evidence:
+  - `src/main/core-socket/server.ts`: `startCoreSocket(dir, handle)` listens on `core.sock` in `dir`, the socket 0600 and the folder 0700. It reads one request per line (split across writes or several per write; CR and blank lines tolerated) and answers in the order asked. A line longer than `MAX_LINE_BYTES` with no newline is answered `too-long` and the connection is closed. A handler that throws is `failed` (new in `CoreRequestError`). `close()` drops clients and the socket file goes. A dead socket file (its listener killed) is replaced; a live one, or anything that is not a socket, is left alone and refused with `CoreSocketInUseError`.
+  - Tests: `server.test.ts` 11/11 over a real Unix socket, the dead socket from a child process killed with SIGKILL. `server.ts` is on the save-tree allow-list (it removes only a dead socket file).
+  - `scripts/agent/check.sh` green.
+- Not yet: the peer check (line 2's SO_PEERCRED), `status` and `quit-app` handlers, the app starting the socket and keeping `state.json` current (never in self-test), `docs/core-socket.md`; then part 3.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none.
+- Next: M1-17 part 2b.
