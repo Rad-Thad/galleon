@@ -1,6 +1,15 @@
 import assert from 'node:assert/strict'
 import { afterEach, describe, test } from 'node:test'
-import { mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs'
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { busyReason, idleState, runtimeDir, writeIdleState } from './idlestate.ts'
@@ -82,6 +91,18 @@ describe('writeIdleState', () => {
     assert.deepEqual(JSON.parse(readFileSync(join(dir, 'state.json'), 'utf8')), state)
     assert.equal(statSync(join(dir, 'state.json')).mode & 0o777, 0o600)
     assert.equal(statSync(dir).mode & 0o777, 0o700)
+    assert.deepEqual(readdirSync(dir), ['state.json'])
+  })
+
+  test('an existing folder or leftover temporary file is made owner-only', () => {
+    root = mkdtempSync(join(tmpdir(), 'idlestate-'))
+    const dir = join(root, 'galleon')
+    mkdirSync(dir, { mode: 0o755 })
+    chmodSync(dir, 0o755)
+    writeFileSync(join(dir, 'state.json.tmp'), 'stale', { mode: 0o644 })
+    writeIdleState(dir, idleState(quiet, '42', at))
+    assert.equal(statSync(dir).mode & 0o777, 0o700)
+    assert.equal(statSync(join(dir, 'state.json')).mode & 0o777, 0o600)
     assert.deepEqual(readdirSync(dir), ['state.json'])
   })
 

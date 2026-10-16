@@ -9,7 +9,7 @@
  * so the bridge and the socket can never disagree about what idle means.
  */
 
-import { mkdirSync, renameSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdirSync, renameSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { IdleStateFile, QuitRefusal } from '@shared/types'
 
@@ -70,12 +70,16 @@ export function runtimeDir(env: NodeJS.ProcessEnv): string | null {
  * Write the state file whole, readable only by its owner.
  *
  * Through a rename so the bridge never reads half a file, which it would take
- * as "not idle" at best and as a parse error at worst.
+ * as "not idle" at best and as a parse error at worst. The modes are set
+ * again on every write because `mode` only applies to what is created, and a
+ * folder or temporary file left by anyone else keeps whatever it had.
  */
 export function writeIdleState(dir: string, state: IdleStateFile): void {
   mkdirSync(dir, { recursive: true, mode: 0o700 })
+  chmodSync(dir, 0o700)
   const path = join(dir, 'state.json')
   const tmp = `${path}.tmp`
   writeFileSync(tmp, `${JSON.stringify(state)}\n`, { encoding: 'utf8', mode: 0o600 })
+  chmodSync(tmp, 0o600)
   renameSync(tmp, path)
 }

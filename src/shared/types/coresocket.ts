@@ -75,6 +75,9 @@ export interface IdleStateFile {
   idle: boolean
   /** The Steam app id Galleon was started under, or null outside Steam. */
   steamAppId: string | null
-  /** ISO 8601. The bridge also reads the file's mtime, and trusts neither alone. */
+  /**
+   * ISO 8601, for people and clients reading the file. The bridge judges
+   * freshness by the file's mtime, not by this.
+   */
   updatedAt: string
 }

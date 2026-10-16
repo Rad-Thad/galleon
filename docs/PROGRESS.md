@@ -2511,8 +2511,9 @@ Lines the tooling reads (exact forms):
 - Evidence:
   - `src/shared/types/coresocket.ts`: the socket's commands (`status`, `quit-emulator`, `pause-downloads`, `resume-downloads`, `quit-app`), request and response, the refusal reasons, and the schema-1 state file the bridge reads (`idle`, `steamAppId`, `updatedAt`).
   - `src/main/core-socket/protocol.ts`: `parseCoreRequest` never throws; a line is a request or `malformed`, `too-long` (over `MAX_LINE_BYTES`, in bytes) or `unknown-command`, with a readable id echoed. `src/main/core-socket/idlestate.ts`: `busyReason` (game, then download, then pending upload), `idleState`, `runtimeDir` (none without an absolute `XDG_RUNTIME_DIR`, no shared fallback) and `writeIdleState` (whole file through a rename, 0600 in a 0700 folder).
-  - Tests: `protocol.test.ts` 11/11 (every command, ids, non-JSON, non-objects, bad ids, unknown commands, the byte cap), `idlestate.test.ts` 11/11 (one per idle and busy state, the reason's order, the file's modes, replacement and path). `idlestate.ts` is on the save-tree allow-list.
+  - Tests: `protocol.test.ts` 11/11 (every command, ids, non-JSON, non-objects, bad ids, unknown commands, the byte cap), `idlestate.test.ts` 12/12 (one per idle and busy state, the reason's order, the file's modes, including over an existing folder and a leftover temporary file, replacement and path). `idlestate.ts` is on the save-tree allow-list.
   - `scripts/agent/check.sh` green.
+- Evaluator: PASS. Its two notes are fixed: the `updatedAt` comment no longer claims the bridge reads it (the bridge reads the mtime), and the modes are set again over an existing folder or temporary file.
 - Not yet: nothing serves the socket or writes the file; part 2 (socket, peer check, `status`, `quit-app`, the main process keeping the file current and never in self-test, `docs/core-socket.md`) and part 3 (`quit-emulator`, pause and resume).
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none.
