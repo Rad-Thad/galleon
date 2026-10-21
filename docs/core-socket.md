@@ -77,7 +77,7 @@ A complete line that is too long is answered `too-long` and the connection stays
 
 `pause-downloads`: pause every transfer that is queued or downloading, as the pause button on the Downloads screen does, keeping what has arrived. The answer is `{ "paused": n }`.
 
-`resume-downloads`: start every paused transfer again, in the order they were in, behind anything already queued. Stalled transfers (stopped by the network) are left to Galleon, which resumes them when the server answers again. The answer is `{ "resumed": n }`; a game the server no longer answers for stays paused and is not counted.
+`resume-downloads`: start every paused transfer again, in the order they were in, behind anything already queued. Stalled transfers (stopped by the network) are left to Galleon, which resumes them when the server answers again. The answer is `{ "resumed": n }`; a game the server no longer answers for stays paused and is not counted. A transfer on the wire takes a moment to stop after `pause-downloads`: it is counted at once, and until it has stopped it is still `downloading` and a `resume-downloads` leaves it out, so poll `status` before resuming. If it finishes in that moment it ends as done.
 
 ## Idle
 

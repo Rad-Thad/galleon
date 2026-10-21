@@ -2561,7 +2561,7 @@ Lines the tooling reads (exact forms):
   - `DownloadManager.pauseAll` pauses every queued or downloading row through `pause`. `resumePaused` re-enqueues paused rows in queue order, leaves stalled rows to `resumeAfterOutage`, and keeps a row the server no longer answers for paused. `downloads.test.ts` 75/75, three of them new.
   - `service.test.ts` 18/18: each command reaches its dependency and answers its count. `docs/core-socket.md` documents all three.
   - `scripts/agent/check.sh` green.
-- Evaluator: (see the PR).
+- Evaluator: PASS. Its one note (a transfer still stopping after `pause-downloads` is left out of an immediate `resume-downloads`) is documented in `docs/core-socket.md` rather than changed; the Downloads screen's buttons have the same window.
 - Not yet: the peer check (SO_PEERCRED) on line 2.
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none.
