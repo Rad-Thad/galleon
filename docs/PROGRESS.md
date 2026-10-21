@@ -2550,3 +2550,19 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none.
 - Next: M1-17 part 3 (`quit-emulator`, pause and resume), then the peer check.
+
+## 2026-10-21 17:15 UTC session 018eV6B3jCZaam87iG2XY4LE (hourly heartbeat)
+
+- Device results: nothing new. The bridge was last seen 2026-10-21 08:42 UTC, skipping with "not on the charger" (12 such skips since the last run on 2026-10-13). The nightly waiting for it is fe32741. No safety failures, no regressions. M1-17 part 2b, PR #225, merged at fe32741.
+- Worked on: M1-17 part 3 (tracking issue #222): `quit-emulator`, `pause-downloads` and `resume-downloads`.
+- Result: PR (this one). M1-17 stays false: the SO_PEERCRED check is still to come.
+- Evidence:
+  - Acceptance line 3: `quit-emulator` calls `Launcher.stop()`, the same method the running screen's close button and held Start reach through `running:stop`. It is never forced and answers `{ stopping }`. `test/app/running.test.ts` "the core socket asks it to quit the way holding Start does, never by force": with a stand-in emulator that ignores being asked, the socket answers `stopping: true`, the app log says "stopping the running game" and never "forcing", and the overlay stays up. Passed under Xvfb, 5/5 in the file (`--no-sandbox` wrapper, as root).
+  - `DownloadManager.pauseAll` pauses every queued or downloading row through `pause`. `resumePaused` re-enqueues paused rows in queue order, leaves stalled rows to `resumeAfterOutage`, and keeps a row the server no longer answers for paused. `downloads.test.ts` 75/75, three of them new.
+  - `service.test.ts` 18/18: each command reaches its dependency and answers its count. `docs/core-socket.md` documents all three.
+  - `scripts/agent/check.sh` green.
+- Evaluator: (see the PR).
+- Not yet: the peer check (SO_PEERCRED) on line 2.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none.
+- Next: the M1-17 peer check.

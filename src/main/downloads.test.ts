@@ -667,6 +667,63 @@ describe('changing the order of the queue', () => {
       before
     )
   })
+
+  test('pausing everything stops the wire and leaves nothing to start after it', async () => {
+    // The core socket's command. A row left queued behind the paused transfer
+    // would start the moment the wire let go, which is the opposite of what was
+    // asked for. The wire's own stop is `pause`'s, tested under "pausing on
+    // purpose".
+    const made = manager({ contents: '0123456789', roms: library(), hold: heldWire().held })
+    for (const game of three()) await made.downloads.enqueue(game)
+    await onTheWire(made.downloads, 1)
+
+    assert.equal(made.downloads.pauseAll(), 3)
+    assert.deepEqual(
+      made.downloads.items.slice(1).map((item) => `${item.romId}:${item.state}`),
+      ['2:paused', '3:paused']
+    )
+  })
+
+  test('resuming everything keeps the paused games in the order they were in', async () => {
+    const games = [...three(), rom({ id: 4, fs_name: 'Four.md', fs_name_no_ext: 'Four' })]
+    const made = manager({
+      contents: '0123456789',
+      roms: Object.fromEntries(games.map((game) => [game.id, game])),
+      hold: heldWire().held
+    })
+    for (const game of games.slice(0, 3)) await made.downloads.enqueue(game)
+    await onTheWire(made.downloads, 1)
+    made.downloads.pause(2)
+    made.downloads.pause(3)
+    await made.downloads.enqueue(games[3])
+
+    assert.equal(await made.downloads.resumePaused(), 2)
+    // Behind what was already waiting, as a resume from the Downloads screen
+    // puts them, and still two then three.
+    assert.deepEqual(
+      made.downloads.items.map((item) => `${item.romId}:${item.state}`),
+      ['1:downloading', '4:queued', '2:queued', '3:queued']
+    )
+  })
+
+  test('a paused game the server no longer answers for stays paused, and the rest resume', async () => {
+    const [one, two, last] = three()
+    const made = manager({
+      contents: '0123456789',
+      roms: { 1: one, 3: last },
+      hold: heldWire().held
+    })
+    for (const game of [one, two, last]) await made.downloads.enqueue(game)
+    await onTheWire(made.downloads, 1)
+    made.downloads.pause(2)
+    made.downloads.pause(3)
+
+    assert.equal(await made.downloads.resumePaused(), 1)
+    assert.deepEqual(
+      made.downloads.items.map((item) => `${item.romId}:${item.state}`),
+      ['1:downloading', '3:queued', '2:paused']
+    )
+  })
 })
 
 describe('waiting for the queue to stop', () => {

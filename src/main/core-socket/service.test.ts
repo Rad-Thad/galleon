@@ -68,11 +68,28 @@ describe('activityOf and coreStatus', () => {
 })
 
 describe('coreHandler', () => {
-  function handler(observed: CoreObservation) {
+  function handler(observed: CoreObservation, running = false) {
     const quits: string[] = []
+    const asked: string[] = []
     return {
       quits,
-      handle: coreHandler({ observe: () => observed, quitApp: () => quits.push('quit') })
+      asked,
+      handle: coreHandler({
+        observe: () => observed,
+        quitApp: () => quits.push('quit'),
+        quitEmulator: () => {
+          asked.push('quit-emulator')
+          return running
+        },
+        pauseDownloads: () => {
+          asked.push('pause')
+          return 2
+        },
+        resumeDownloads: async () => {
+          asked.push('resume')
+          return 1
+        }
+      })
     }
   }
 
@@ -106,11 +123,30 @@ describe('coreHandler', () => {
     }
   })
 
-  test('commands not yet wired are answered failed', async () => {
-    const { handle } = handler(quiet)
-    for (const cmd of ['quit-emulator', 'pause-downloads', 'resume-downloads'] as const) {
-      assert.deepEqual(await handle({ cmd }), { ok: false, error: 'failed' }, cmd)
-    }
+  test('quit-emulator asks the emulator to quit, and says whether one was running', async () => {
+    const playing = handler({ ...quiet, playing: 4 }, true)
+    assert.deepEqual(await playing.handle({ cmd: 'quit-emulator' }), {
+      ok: true,
+      result: { stopping: true }
+    })
+    assert.deepEqual(playing.asked, ['quit-emulator'])
+    assert.deepEqual(playing.quits, [], 'never Galleon itself')
+
+    const nothing = handler(quiet, false)
+    assert.deepEqual(await nothing.handle({ cmd: 'quit-emulator' }), {
+      ok: true,
+      result: { stopping: false }
+    })
+  })
+
+  test('pause-downloads and resume-downloads reach the queue and say how many', async () => {
+    const { handle, asked } = handler(quiet)
+    assert.deepEqual(await handle({ cmd: 'pause-downloads' }), { ok: true, result: { paused: 2 } })
+    assert.deepEqual(await handle({ cmd: 'resume-downloads' }), {
+      ok: true,
+      result: { resumed: 1 }
+    })
+    assert.deepEqual(asked, ['pause', 'resume'])
   })
 })
 
@@ -125,6 +161,13 @@ describe('steamAppIdOf', () => {
 })
 
 describe('startCoreService', () => {
+  /** Nothing running and nothing queued, for the cases about the files. */
+  const noQueue = {
+    quitEmulator: () => false,
+    pauseDownloads: () => 0,
+    resumeDownloads: async () => 0
+  }
+
   let root: string | null = null
   const services: CoreService[] = []
 
@@ -140,6 +183,7 @@ describe('startCoreService', () => {
       env: { XDG_RUNTIME_DIR: root, SteamAppId: '3456789012' },
       observe,
       quitApp,
+      ...noQueue,
       now: () => new Date('2026-10-16T07:00:00.000Z')
     })
     assert.ok(service)
@@ -168,7 +212,12 @@ describe('startCoreService', () => {
   }
 
   test('without a runtime directory there is nothing to start', async () => {
-    const service = await startCoreService({ env: {}, observe: () => quiet, quitApp: () => {} })
+    const service = await startCoreService({
+      env: {},
+      observe: () => quiet,
+      quitApp: () => {},
+      ...noQueue
+    })
     assert.equal(service, null)
   })
 
@@ -273,7 +322,8 @@ describe('startCoreService', () => {
       startCoreService({
         env: { XDG_RUNTIME_DIR: root! },
         observe: () => quiet,
-        quitApp: () => {}
+        quitApp: () => {},
+        ...noQueue
       }),
       CoreSocketInUseError
     )

@@ -219,7 +219,10 @@ if (!app.requestSingleInstanceLock()) {
     void startCoreService({
       env: process.env,
       observe: () => rommix.coreObservation(),
-      quitApp: () => app.quit()
+      quitApp: () => app.quit(),
+      quitEmulator: () => rommix.launcher.stop(),
+      pauseDownloads: () => rommix.downloads.pauseAll(),
+      resumeDownloads: () => rommix.downloads.resumePaused()
     })
       .then((service) => {
         if (!service) {

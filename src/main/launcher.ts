@@ -663,8 +663,13 @@ export class Launcher {
    * emulator opened on its own cannot be running at the same time as a launch
    * — `launch` refuses a second one, and the Run button is on a screen that a
    * running game covers.
+   *
+   * The one way in for every graceful stop: the overlay's close button, Start
+   * held down and the core socket's `quit-emulator` all land here, so none of
+   * them can skip what the others give the emulator time to do. Says whether
+   * there was anything to ask.
    */
-  stop(force = false): void {
+  stop(force = false): boolean {
     if (this.current) {
       log.info('launch', force ? 'forcing the running game closed' : 'stopping the running game', {
         romId: this.current.romId
@@ -675,7 +680,7 @@ export class Launcher {
       // downloading. See the session set up in `launch`.
       if (force && this.current.forceKill) this.current.forceKill()
       else this.current.kill()
-      return
+      return true
     }
     if (this.opened) {
       log.info('launch', force ? 'forcing the emulator closed' : 'closing the emulator', {
@@ -683,9 +688,10 @@ export class Launcher {
       })
       if (force) this.opened.forceKill()
       else this.opened.kill()
-      return
+      return true
     }
     log.debug('launch', 'stop asked for with nothing running')
+    return false
   }
 
   /**

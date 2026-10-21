@@ -1,4 +1,8 @@
 import assert from 'node:assert/strict'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { createConnection } from 'node:net'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { after, before, describe, test } from 'node:test'
 import { atHome, standInEmulator, startApp, type App } from './driver.ts'
 import { startFakeRomm, type FakeRomm } from './server.ts'
@@ -25,11 +29,31 @@ import { startFakeRomm, type FakeRomm } from './server.ts'
 let server: FakeRomm
 let stuck: App
 let stubborn: ReturnType<typeof standInEmulator>
+/** Its own, so the core socket is this application's and no other run's. */
+let runtime: string
+
+/** One request over the core socket, and its answer. See `docs/core-socket.md`. */
+function ask(cmd: string): Promise<unknown> {
+  return new Promise((resolve, reject) => {
+    const client = createConnection(join(runtime, 'galleon', 'core.sock'))
+    let got = ''
+    client.on('error', reject)
+    client.on('data', (chunk) => {
+      got += chunk.toString('utf8')
+      if (!got.includes('\n')) return
+      client.end()
+      resolve(JSON.parse(got.slice(0, got.indexOf('\n'))))
+    })
+    client.write(`${JSON.stringify({ cmd })}\n`)
+  })
+}
 
 before(async () => {
   server = await startFakeRomm()
   stubborn = standInEmulator({ stubborn: true })
+  runtime = mkdtempSync(join(tmpdir(), 'galleon-runtime-'))
   stuck = await startApp({
+    env: { XDG_RUNTIME_DIR: runtime },
     baseUrl: server.baseUrl,
     token: server.token,
     settings: {
@@ -43,6 +67,7 @@ before(async () => {
 after(async () => {
   await stuck?.stop()
   await server?.close().catch(() => undefined)
+  if (runtime) rmSync(runtime, { recursive: true, force: true })
 })
 
 describe('while an emulator owns the screen', () => {
@@ -61,6 +86,17 @@ describe('while an emulator owns the screen', () => {
     )
     await stuck.choose('[data-action="play"]')
     await stuck.waitFor(`document.querySelector('.overlay')`, 'the running overlay')
+  })
+
+  test('the core socket asks it to quit the way holding Start does, never by force', async () => {
+    // What the Decky panel sends. The stand-in ignores being asked, so the
+    // game stays up, which is the point: a graceful stop gives the emulator
+    // time to write its save, and a panel outside cannot see when it has.
+    assert.deepEqual(await ask('quit-emulator'), { ok: true, result: { stopping: true } })
+    const said = readFileSync(join(stuck.home, 'logs', 'app.log'), 'utf8')
+    assert.match(said, /stopping the running game/)
+    assert.doesNotMatch(said, /forcing the running game closed/)
+    await stuck.waitFor(`document.querySelector('.overlay')`, 'the overlay to stay up')
   })
 
   test('the pad belongs to the game, so nothing on it reaches RomMix', async () => {
