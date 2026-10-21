@@ -13,6 +13,7 @@ import { createConnection, createServer, type Server, type Socket } from 'node:n
 import { join } from 'node:path'
 import type { CoreRequest, CoreResponse } from '@shared/types'
 import { MAX_LINE_BYTES, encodeCoreResponse, parseCoreRequest } from './protocol.ts'
+import { peerUid } from './peercred.ts'
 
 /** Answers one request. Its `id` is put on the answer by the server. */
 export type CoreHandler = (
@@ -23,6 +24,13 @@ export interface CoreSocket {
   path: string
   /** Stop listening, drop every client, and remove the socket file. */
   close: () => Promise<void>
+}
+
+export interface CoreSocketOptions {
+  /** The only user allowed to connect; this process's own by default. */
+  uid?: number
+  /** How the connecting user is learnt; see `peerUid`. */
+  identify?: (client: Socket) => Promise<number | null>
 }
 
 export class CoreSocketInUseError extends Error {
@@ -87,6 +95,7 @@ function serve(client: Socket, handle: CoreHandler): void {
   }
 
   client.setEncoding('utf8')
+  client.resume()
   client.on('data', (chunk: string) => {
     buffered += chunk
     let newline: number
@@ -118,16 +127,24 @@ function serve(client: Socket, handle: CoreHandler): void {
       })
     }
   })
-  client.on('error', () => client.destroy())
 }
 
 /**
  * Listen on `core.sock` in `dir`, readable and writable by its owner only.
  *
  * The folder is made owner-only too: a socket's own mode is not honoured on
- * every system, and the folder's is.
+ * every system, and the folder's is. Each connection is then asked who made
+ * it, and one from any other user, root included, is closed unanswered before
+ * a byte of it is read: the modes stop a stranger at the door, and this stops
+ * one who got past it (a looser folder, a descriptor handed on).
  */
-export async function startCoreSocket(dir: string, handle: CoreHandler): Promise<CoreSocket> {
+export async function startCoreSocket(
+  dir: string,
+  handle: CoreHandler,
+  options: CoreSocketOptions = {}
+): Promise<CoreSocket> {
+  const owner = options.uid ?? process.getuid?.()
+  const identify = options.identify ?? ((client: Socket) => peerUid(client))
   mkdirSync(dir, { recursive: true, mode: 0o700 })
   chmodSync(dir, 0o700)
   const path = join(dir, 'core.sock')
@@ -137,7 +154,16 @@ export async function startCoreSocket(dir: string, handle: CoreHandler): Promise
   const server: Server = createServer((client) => {
     clients.add(client)
     client.once('close', () => clients.delete(client))
-    serve(client, handle)
+    client.pause()
+    client.on('error', () => client.destroy())
+    void identify(client).then(
+      (uid) => {
+        if (client.destroyed) return
+        if (owner === undefined || uid !== owner) client.destroy()
+        else serve(client, handle)
+      },
+      () => client.destroy()
+    )
   })
   await new Promise<void>((resolve, reject) => {
     server.once('error', reject)

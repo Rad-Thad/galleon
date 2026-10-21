@@ -201,4 +201,81 @@ describe('startCoreSocket', () => {
     await assert.rejects(startCoreSocket(dir, echoStatus), CoreSocketInUseError)
     assert.equal(statSync(join(dir, 'core.sock')).isFile(), true)
   })
+
+  describe('who may connect', () => {
+    async function startAs(options: Parameters<typeof startCoreSocket>[2]) {
+      let calls = 0
+      const socket = await startCoreSocket(
+        folder(),
+        (request) => {
+          calls++
+          return echoStatus(request)
+        },
+        options
+      )
+      closers.push(socket.close)
+      return { socket, calls: () => calls }
+    }
+
+    /**
+     * Send a request and see how the connection ends: a refused client is shut
+     * out without a word, by a close or a reset, whichever the kernel delivers
+     * with the request still unread.
+     */
+    function refused(path: string): Promise<boolean> {
+      return new Promise((resolve) => {
+        const client = createConnection(path, () => client.write('{"id":1,"cmd":"quit-app"}\n'))
+        client.once('data', () => {
+          client.destroy()
+          resolve(false)
+        })
+        client.once('error', () => resolve(true))
+        client.once('close', () => resolve(true))
+      })
+    }
+
+    test('the kernel names this process as the peer, so its own requests are answered', async () => {
+      const { socket, calls } = await startAs({})
+      assert.deepEqual(await exchange(socket.path, ['{"id":1,"cmd":"status"}\n'], 1), [
+        { id: 1, ok: true, result: { cmd: 'status' } }
+      ])
+      assert.equal(calls(), 1)
+    })
+
+    test('another user is closed unanswered, and nothing it sent is acted on', async () => {
+      const { socket, calls } = await startAs({ uid: process.getuid!() + 1 })
+      assert.equal(await refused(socket.path), true)
+      assert.equal(calls(), 0)
+    })
+
+    test('a peer that cannot be named is refused', async () => {
+      const { socket, calls } = await startAs({ identify: async () => null })
+      assert.equal(await refused(socket.path), true)
+      assert.equal(calls(), 0)
+    })
+
+    test('a check that fails is a refusal', async () => {
+      const { socket, calls } = await startAs({
+        identify: async () => {
+          throw new Error('boom')
+        }
+      })
+      assert.equal(await refused(socket.path), true)
+      assert.equal(calls(), 0)
+    })
+
+    test('a connection still being checked is dropped on close and never served', async () => {
+      let release: (uid: number) => void = () => {}
+      const { socket, calls } = await startAs({
+        uid: 7,
+        identify: () => new Promise((resolve) => (release = resolve))
+      })
+      const outcome = refused(socket.path)
+      await new Promise((r) => setTimeout(r, 20))
+      await socket.close()
+      release(7)
+      assert.equal(await outcome, true)
+      assert.equal(calls(), 0)
+    })
+  })
 })
