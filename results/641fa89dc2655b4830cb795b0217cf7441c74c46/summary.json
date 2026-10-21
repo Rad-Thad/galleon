@@ -1,0 +1,205 @@
+{
+  "checks": [
+    {
+      "evidence": [
+        "logs/harness.log",
+        "logs/power-facts.txt"
+      ],
+      "id": "harness.run",
+      "metrics": {},
+      "reason": "Steam was not left at its library",
+      "result": "fail",
+      "thresholds": {}
+    },
+    {
+      "evidence": [
+        "logs/owner-state.txt"
+      ],
+      "id": "safety.owner-state",
+      "metrics": {},
+      "reason": null,
+      "result": "pass",
+      "thresholds": {}
+    },
+    {
+      "evidence": [],
+      "id": "build.identity",
+      "metrics": {
+        "commit": "641fa89dc2655b4830cb795b0217cf7441c74c46",
+        "expectedCommit": "641fa89dc2655b4830cb795b0217cf7441c74c46",
+        "expectedVersion": "0.20.0",
+        "version": "0.20.0"
+      },
+      "reason": null,
+      "result": "pass",
+      "thresholds": {}
+    },
+    {
+      "evidence": [],
+      "id": "startup.cold",
+      "metrics": {
+        "cpuGovernor": "performance",
+        "measuredFrom": "process",
+        "profileObserved": "Performance"
+      },
+      "reason": "home-not-reached",
+      "result": "fail",
+      "thresholds": {
+        "startupMs": 4000
+      }
+    },
+    {
+      "evidence": [],
+      "id": "grid.scroll@performance",
+      "metrics": {
+        "games": 1292,
+        "governor": "performance",
+        "gpuMHz": 680,
+        "platform": "psp",
+        "policy7MaxKHz": 2956800,
+        "profileObserved": "performance",
+        "samples": 7,
+        "visited": 1
+      },
+      "reason": "grid-did-not-scroll",
+      "result": "error",
+      "thresholds": {
+        "droppedPct": 3,
+        "p95Ms": 16.7
+      }
+    },
+    {
+      "evidence": [],
+      "id": "grid.scroll@balanced",
+      "metrics": {
+        "games": 1292,
+        "governor": "conservative",
+        "gpuMHz": 220,
+        "platform": "psp",
+        "policy7MaxKHz": 2092800,
+        "profileObserved": "balanced",
+        "samples": 7,
+        "visited": 1
+      },
+      "reason": "grid-did-not-scroll",
+      "result": "error",
+      "thresholds": {
+        "droppedPct": 5,
+        "p95Ms": 16.7
+      }
+    },
+    {
+      "evidence": [],
+      "id": "server.heartbeat",
+      "metrics": {
+        "heartbeatMs": 97,
+        "meMs": 22,
+        "serverVersion": "5.2.0"
+      },
+      "reason": null,
+      "result": "pass",
+      "thresholds": {}
+    },
+    {
+      "evidence": [],
+      "id": "download.small",
+      "metrics": {
+        "bytes": 262144,
+        "downloadMs": 181,
+        "hashAlgorithm": "md5",
+        "platform": "snes",
+        "progressEvents": 3
+      },
+      "reason": null,
+      "result": "pass",
+      "thresholds": {
+        "maxBytes": 16777216
+      }
+    },
+    {
+      "evidence": [],
+      "id": "update.verify",
+      "metrics": {
+        "bytes": 120072090,
+        "image": "Galleon-arm64.AppImage"
+      },
+      "reason": null,
+      "result": "pass",
+      "thresholds": {}
+    },
+    {
+      "evidence": [],
+      "id": "launch.retroarch",
+      "metrics": {},
+      "reason": "cannot-sandbox",
+      "result": "skip",
+      "thresholds": {}
+    },
+    {
+      "evidence": [],
+      "id": "exit.retroarch",
+      "metrics": {},
+      "reason": "cannot-sandbox",
+      "result": "skip",
+      "thresholds": {}
+    },
+    {
+      "evidence": [],
+      "id": "safety.server-readonly",
+      "metrics": {
+        "deviceIdOnSaveRequests": 0,
+        "deviceIdsRemoved": 0,
+        "serverWritesAttempted": 0
+      },
+      "reason": null,
+      "result": "pass",
+      "thresholds": {
+        "serverWritesAttempted": 0
+      }
+    },
+    {
+      "evidence": [
+        "app/shots/settings.png",
+        "app/shots/bios.png",
+        "app/shots/emulators.png"
+      ],
+      "id": "selftest.complete",
+      "metrics": {
+        "checks": 10,
+        "notRun": 2,
+        "screenshots": 3,
+        "screenshotsMissing": 0,
+        "screenshotsWithheld": 0
+      },
+      "reason": "checks-not-run",
+      "result": "fail",
+      "thresholds": {
+        "notRun": 0,
+        "screenshotsMissing": 0
+      }
+    }
+  ],
+  "device": {},
+  "finishedAt": "2026-10-21T23:01:29Z",
+  "notes": [
+    "harness checks: harness.run and safety.owner-state; the app's follow once it has started",
+    "sign-in: rommix",
+    "audio: muted and put back",
+    "app: exited 0",
+    "app summary: complete"
+  ],
+  "power": {},
+  "reason": null,
+  "safety": {
+    "deviceIdOnSaveRequests": 0,
+    "ownerStateChanged": [],
+    "romsDownloadedBytes": 262144,
+    "romsLeft": 0,
+    "serverWritesAttempted": 0
+  },
+  "schema": 1,
+  "sha": "641fa89dc2655b4830cb795b0217cf7441c74c46",
+  "startedAt": "2026-10-21T22:58:19Z",
+  "status": "complete",
+  "version": "0.20.0"
+}

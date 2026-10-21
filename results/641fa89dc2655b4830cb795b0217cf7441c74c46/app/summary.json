@@ -1,0 +1,178 @@
+{
+  "schema": 1,
+  "sha": "641fa89dc2655b4830cb795b0217cf7441c74c46",
+  "version": "0.20.0",
+  "status": "complete",
+  "reason": null,
+  "startedAt": "2026-10-21T22:58:26Z",
+  "finishedAt": "2026-10-21T23:01:17Z",
+  "device": {},
+  "power": {},
+  "safety": {
+    "serverWritesAttempted": 0,
+    "deviceIdOnSaveRequests": 0,
+    "ownerStateChanged": [],
+    "romsDownloadedBytes": 262144,
+    "romsLeft": 0
+  },
+  "checks": [
+    {
+      "id": "build.identity",
+      "result": "pass",
+      "metrics": {
+        "version": "0.20.0",
+        "commit": "641fa89dc2655b4830cb795b0217cf7441c74c46",
+        "expectedVersion": "0.20.0",
+        "expectedCommit": "641fa89dc2655b4830cb795b0217cf7441c74c46"
+      },
+      "thresholds": {},
+      "reason": null,
+      "evidence": []
+    },
+    {
+      "id": "startup.cold",
+      "result": "fail",
+      "metrics": {
+        "measuredFrom": "process",
+        "profileObserved": "Performance",
+        "cpuGovernor": "performance"
+      },
+      "thresholds": {
+        "startupMs": 4000
+      },
+      "reason": "home-not-reached",
+      "evidence": []
+    },
+    {
+      "id": "grid.scroll@performance",
+      "result": "error",
+      "metrics": {
+        "platform": "psp",
+        "games": 1292,
+        "profileObserved": "performance",
+        "governor": "performance",
+        "policy7MaxKHz": 2956800,
+        "gpuMHz": 680,
+        "samples": 7,
+        "visited": 1
+      },
+      "thresholds": {
+        "p95Ms": 16.7,
+        "droppedPct": 3
+      },
+      "reason": "grid-did-not-scroll",
+      "evidence": []
+    },
+    {
+      "id": "grid.scroll@balanced",
+      "result": "error",
+      "metrics": {
+        "platform": "psp",
+        "games": 1292,
+        "profileObserved": "balanced",
+        "governor": "conservative",
+        "policy7MaxKHz": 2092800,
+        "gpuMHz": 220,
+        "samples": 7,
+        "visited": 1
+      },
+      "thresholds": {
+        "p95Ms": 16.7,
+        "droppedPct": 5
+      },
+      "reason": "grid-did-not-scroll",
+      "evidence": []
+    },
+    {
+      "id": "server.heartbeat",
+      "result": "pass",
+      "metrics": {
+        "serverVersion": "5.2.0",
+        "heartbeatMs": 97,
+        "meMs": 22
+      },
+      "thresholds": {},
+      "reason": null,
+      "evidence": []
+    },
+    {
+      "id": "download.small",
+      "result": "pass",
+      "metrics": {
+        "platform": "snes",
+        "bytes": 262144,
+        "downloadMs": 181,
+        "progressEvents": 3,
+        "hashAlgorithm": "md5"
+      },
+      "thresholds": {
+        "maxBytes": 16777216
+      },
+      "reason": null,
+      "evidence": []
+    },
+    {
+      "id": "update.verify",
+      "result": "pass",
+      "metrics": {
+        "image": "Galleon-arm64.AppImage",
+        "bytes": 120072090
+      },
+      "thresholds": {},
+      "reason": null,
+      "evidence": []
+    },
+    {
+      "id": "launch.retroarch",
+      "result": "skip",
+      "metrics": {},
+      "thresholds": {},
+      "reason": "cannot-sandbox",
+      "evidence": []
+    },
+    {
+      "id": "exit.retroarch",
+      "result": "skip",
+      "metrics": {},
+      "thresholds": {},
+      "reason": "cannot-sandbox",
+      "evidence": []
+    },
+    {
+      "id": "safety.server-readonly",
+      "result": "pass",
+      "metrics": {
+        "serverWritesAttempted": 0,
+        "deviceIdsRemoved": 0,
+        "deviceIdOnSaveRequests": 0
+      },
+      "thresholds": {
+        "serverWritesAttempted": 0
+      },
+      "reason": null,
+      "evidence": []
+    },
+    {
+      "id": "selftest.complete",
+      "result": "fail",
+      "metrics": {
+        "checks": 10,
+        "notRun": 2,
+        "screenshots": 3,
+        "screenshotsMissing": 0,
+        "screenshotsWithheld": 0
+      },
+      "thresholds": {
+        "notRun": 0,
+        "screenshotsMissing": 0
+      },
+      "reason": "checks-not-run",
+      "evidence": [
+        "shots/settings.png",
+        "shots/bios.png",
+        "shots/emulators.png"
+      ]
+    }
+  ],
+  "notes": []
+}

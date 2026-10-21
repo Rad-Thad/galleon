@@ -1,14 +1,14 @@
 {
   "bridgeVersion": 1,
   "counts": {
-    "error": 0,
-    "fail": 0,
-    "pass": 2,
-    "skip": 0
+    "error": 2,
+    "fail": 3,
+    "pass": 6,
+    "skip": 2
   },
-  "finishedAt": "2026-10-13T07:02:09Z",
-  "path": "results/ebf5100d9ca302579f49147690f4491e3b2245d5/summary.json",
-  "runSeconds": 6,
-  "sha": "ebf5100d9ca302579f49147690f4491e3b2245d5",
+  "finishedAt": "2026-10-21T23:01:30Z",
+  "path": "results/641fa89dc2655b4830cb795b0217cf7441c74c46/summary.json",
+  "runSeconds": 190,
+  "sha": "641fa89dc2655b4830cb795b0217cf7441c74c46",
   "status": "complete"
 }

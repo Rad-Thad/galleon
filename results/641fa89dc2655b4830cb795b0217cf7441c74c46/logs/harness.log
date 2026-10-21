@@ -1,0 +1,18 @@
+shortcut: {"appid": 3815324046, "gameid": 16386692001245954048, "source": "record", "reason": null}
+sign-in: rommix
+muted sink 53
+recorded profile performance
+CProcessEnvironmentManager is ready, 5 preallocated environment variables.
+Steam is already running, exiting (command line was forwarded).
+started through steam
+profile request answered balanced
+app: exited 0
+{"reason": "steam-cef-unavailable", "detail": "no Game Mode window; Steam's windows show ['/routes/apprunning']"}
+CProcessEnvironmentManager is ready, 5 preallocated environment variables.
+Steam is already running, exiting (command line was forwarded).
+{"reason": "steam-cef-unavailable", "detail": "no Game Mode window; Steam's windows show ['/routes/library']"}
+restored profile performance
+restored sink 53
+owner state: pass
+audio: muted and put back
+minimal harness: version 0.20.0, harness.run fail

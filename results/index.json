@@ -2,6 +2,20 @@
   {
     "bridgeVersion": 1,
     "counts": {
+      "error": 2,
+      "fail": 3,
+      "pass": 6,
+      "skip": 2
+    },
+    "finishedAt": "2026-10-21T23:01:30Z",
+    "path": "results/641fa89dc2655b4830cb795b0217cf7441c74c46/summary.json",
+    "runSeconds": 190,
+    "sha": "641fa89dc2655b4830cb795b0217cf7441c74c46",
+    "status": "complete"
+  },
+  {
+    "bridgeVersion": 1,
+    "counts": {
       "error": 0,
       "fail": 0,
       "pass": 2,
