@@ -318,8 +318,8 @@ class SteamCefTest(unittest.TestCase):
             steamcef.screen("http://127.0.0.1:1")
 
     def test_a_game_mode_window_under_another_title_is_read_when_it_is_the_only_one(self):
-        # As on the Nova (device run 641fa89): one window of Steam's UI host
-        # under /routes, titled neither way Steam has titled it before.
+        # The Nova's case (docs/DEVICE-FACTS.md): Steam's UI host under /routes
+        # shows one route, in a window under neither known title.
         server = self.cef(lambda expression: value(1))
         server.quick_access = False
         server.big_picture = "Steam"
