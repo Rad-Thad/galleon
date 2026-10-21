@@ -2588,3 +2588,19 @@ Lines the tooling reads (exact forms):
 
 - M1-17 part 4, PR #227, merged at a784d51; CI x64 9:01, arm64 0:57. M1-17 passes (ci); #222 closed.
 - Stopped: nothing eligible. M0-13 and M0-21 wait on device results (the bridge skips with "not on the charger"); M2-08 waits on M1-03 to M1-06, which wait on M0-22's device run; M4 waits on Gate 1; Electron #214 waits on a nightly device run. No `needs-human` issue is open.
+
+## 2026-10-21 23:27 UTC session 01N9Y1Pkw2RtybHGspnsr9HP (hourly heartbeat)
+
+- Device results: the bridge ran nightly 641fa89 (status complete).
+  - DEVICE-RESULTS 641fa89dc2655b4830cb795b0217cf7441c74c46 complete
+  - PASSES M0-13 device:641fa89dc2655b4830cb795b0217cf7441c74c46
+  - Passing for the first time: `build.identity`, `update.verify`, `server.heartbeat`, `download.small`, `safety.server-readonly`, `safety.owner-state`. No safety failures.
+  - Failing: `harness.run` ("Steam was not left at its library", M0-22), `startup.cold` (`home-not-reached`), `grid.scroll@performance` and `@balanced` (error, `grid-did-not-scroll`) and so `selftest.complete` (`checks-not-run`, M0-21). `launch.retroarch` and `exit.retroarch` skip with `cannot-sandbox`.
+- Worked on: M0-22's `harness.run` failure (tracking issue #191).
+- Cause: the harness log shows Steam's windows at `/routes/apprunning` and then, after `steam://open/games`, at `/routes/library`, but `steamcef.py screen` only read a window titled "Steam Big Picture Mode" or "SP", and the Nova's Game Mode window is titled neither. So Steam was at its library and the check could not see it.
+- Result: PR (this one). `screen` still prefers the known titles; otherwise it reads the windows of Steam's UI host under `/routes` when they all show one route, and stays unavailable when they disagree. `docs/DEVICE-FACTS.md` records the title fact. M0-22 stays false until two consecutive nightlies pass both checks.
+- Evaluator: PASS. Its note that the log proves every UI-host window showed one route, not that there was only one, is taken in DEVICE-FACTS.md.
+- Evidence: `test_steamcef.py` "a game mode window under another title is read when it is the only one" (the device's case, `/apprunning` then `/library/home`, through `wait_library`) and "windows under another title that disagree leave the screen unknown"; both failed before the fix. `python3 -B -m unittest discover -s test/device` 178/178.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: READY-FOR-DEVICE M0-22 (the next nightly reruns `harness.run`).
+- Next: M0-21's `startup.cold` `home-not-reached` and the grid scroll that did not scroll.

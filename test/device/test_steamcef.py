@@ -29,6 +29,8 @@ class FakeCef(socketserver.ThreadingTCPServer):
         # The Game Mode window's route; None leaves its address out.
         self.route = "/library/home"
         self.big_picture = "Steam Big Picture Mode"
+        # Quick Access's window, which also lives under /routes.
+        self.quick_access = True
         self.expressions = []
         self.url = f"http://127.0.0.1:{self.server_address[1]}"
         threading.Thread(target=self.serve_forever, args=(0.05,), daemon=True).start()
@@ -56,11 +58,12 @@ class FakeCefHandler(socketserver.StreamRequestHandler):
             if self.server.route is not None:
                 big_picture["url"] = f"https://steamloopback.host/routes{self.server.route}?x=1"
             pages = [
-                {"title": "QuickAccess", "url": "https://steamloopback.host/routes/quickaccess"},
                 {"title": "Owner Persona", "url": "https://steamcommunity.com/profiles/76561198000000001/"},
                 big_picture,
                 {"title": self.server.title, "webSocketDebuggerUrl": f"ws://127.0.0.1:{port}/devtools/page/SHARED"},
             ]
+            if self.server.quick_access:
+                pages.insert(0, {"title": "QuickAccess", "url": "https://steamloopback.host/routes/quickaccess"})
             body = json.dumps(pages).encode()
             self.wfile.write(b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: "
                              + str(len(body)).encode() + b"\r\n\r\n" + body)
@@ -296,17 +299,53 @@ class SteamCefTest(unittest.TestCase):
     def test_no_game_mode_window_is_unavailable_and_says_what_there_was(self):
         server = self.cef(lambda expression: value(1))
         server.route = None
+        server.quick_access = False
+        with self.assertRaises(steamcef.CefUnavailable) as raised:
+            steamcef.screen(server.url)
+        self.assertIn("Steam's windows show []", str(raised.exception))
+        server.big_picture = "Steam"
+        server.route = "/library"
+        server.quick_access = True
         with self.assertRaises(steamcef.CefUnavailable) as raised:
             steamcef.screen(server.url)
         self.assertIn("'/routes/quickaccess'", str(raised.exception))
         for private in ("Owner Persona", "76561198000000001", "steamcommunity", "QuickAccess"):
             self.assertNotIn(private, str(raised.exception))
-        server.route = "/library"
+        # A side window left alone is read as the screen, and is never the library.
+        server.route = None
+        self.assertFalse(steamcef.at_library(steamcef.screen(server.url)))
+        with self.assertRaises(steamcef.CefUnavailable):
+            steamcef.screen("http://127.0.0.1:1")
+
+    def test_a_game_mode_window_under_another_title_is_read_when_it_is_the_only_one(self):
+        # The Nova's case (docs/DEVICE-FACTS.md): Steam's UI host under /routes
+        # shows one route, in a window under neither known title.
+        server = self.cef(lambda expression: value(1))
+        server.quick_access = False
+        server.big_picture = "Steam"
+        server.route = "/apprunning"
+        self.assertEqual(steamcef.screen(server.url), "/apprunning")
+        server.route = "/library/home"
+        self.assertEqual(steamcef.screen(server.url), "/library/home")
+        now = [0.0]
+        self.assertEqual(steamcef.wait_library(server.url, 1, lambda: now[0], lambda s: now.__setitem__(0, now[0] + s)),
+                         "/library/home")
+        # A web page is never the window, whatever its path.
+        server.route = None
         server.big_picture = "Steam"
         with self.assertRaises(steamcef.CefUnavailable):
             steamcef.screen(server.url)
-        with self.assertRaises(steamcef.CefUnavailable):
-            steamcef.screen("http://127.0.0.1:1")
+
+    def test_windows_under_another_title_that_disagree_leave_the_screen_unknown(self):
+        server = self.cef(lambda expression: value(1))
+        server.big_picture = "Steam"
+        server.route = "/library/home"
+        with self.assertRaises(steamcef.CefUnavailable) as raised:
+            steamcef.screen(server.url)
+        self.assertIn("'/routes/library'", str(raised.exception))
+        self.assertIn("'/routes/quickaccess'", str(raised.exception))
+        server.big_picture = "SP"
+        self.assertEqual(steamcef.screen(server.url), "/library/home", "a known title still decides")
 
     def test_the_library_is_its_own_screens_not_a_games_page(self):
         for route in ("/library", "/library/home", "/library/collections"):
@@ -342,6 +381,7 @@ class SteamCefTest(unittest.TestCase):
 
         self.assertEqual(steamcef.wait_library(server.url, 5, lambda: now[0], sleep), "/library/home")
         server.route = None
+        server.quick_access = False
         now[0] = 0.0
         with self.assertRaises(steamcef.CefUnavailable):
             steamcef.wait_library(server.url, 1, lambda: now[0], lambda s: now.__setitem__(0, now[0] + s))

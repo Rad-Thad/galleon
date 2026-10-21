@@ -125,19 +125,37 @@ def screen(cef, timeout=TIMEOUT):
     listed = pages(cef, timeout)
     for title in BIG_PICTURE:
         for page in listed:
-            url = page.get("url")
-            if page.get("title") == title and isinstance(url, str):
-                path = urllib.parse.urlsplit(url).path
-                if path == ROUTES or path.startswith(ROUTES + "/"):
-                    return path[len(ROUTES):] or "/"
+            route = _route(page)
+            if page.get("title") == title and route is not None:
+                return route
+    # Steam has also named the window something else, so a window of Steam's
+    # UI host under ROUTES counts as well, but only when every such window
+    # shows the same route; side windows that disagree leave it unknown.
+    routes = {_route(page) for page in listed if _ui_host(page)} - {None}
+    if len(routes) == 1:
+        return routes.pop()
     # What Steam's own windows showed instead, so the log tells the next run
     # what to look for. The results are public and the list also holds web
     # pages (a profile's address names the account), so only Steam's UI host
     # counts, by the start of its path, and no title.
-    seen = sorted({_outline(urllib.parse.urlsplit(page["url"]).path) for page in listed
-                   if isinstance(page.get("url"), str)
-                   and urllib.parse.urlsplit(page["url"]).hostname == UI_HOST})
+    seen = sorted({_outline(urllib.parse.urlsplit(page["url"]).path) for page in listed if _ui_host(page)})
     raise CefUnavailable(f"no Game Mode window; Steam's windows show {seen}")
+
+
+def _ui_host(page):
+    url = page.get("url")
+    return isinstance(url, str) and urllib.parse.urlsplit(url).hostname == UI_HOST
+
+
+def _route(page):
+    """The route a window of Steam's UI host shows under ROUTES, else None."""
+    url = page.get("url")
+    if not isinstance(url, str):
+        return None
+    path = urllib.parse.urlsplit(url).path
+    if path == ROUTES or path.startswith(ROUTES + "/"):
+        return path[len(ROUTES):] or "/"
+    return None
 
 
 def _outline(path, depth=2):
