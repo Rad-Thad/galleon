@@ -2583,3 +2583,8 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none.
 - Next: `next.mjs`; M1-17 is done.
+
+## 2026-10-21 18:52 UTC session 01Ld2wR124kqNbb9VcHsWdj2 (hourly heartbeat, stop)
+
+- M1-17 part 4, PR #227, merged at a784d51; CI x64 9:01, arm64 0:57. M1-17 passes (ci); #222 closed.
+- Stopped: nothing eligible. M0-13 and M0-21 wait on device results (the bridge skips with "not on the charger"); M2-08 waits on M1-03 to M1-06, which wait on M0-22's device run; M4 waits on Gate 1; Electron #214 waits on a nightly device run. No `needs-human` issue is open.
