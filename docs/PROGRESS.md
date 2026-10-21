@@ -2566,3 +2566,20 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none.
 - Next: the M1-17 peer check.
+
+## 2026-10-21 18:26 UTC session 01Ld2wR124kqNbb9VcHsWdj2 (hourly heartbeat)
+
+- Device results: nothing new (bridge last seen 2026-10-21 08:42 UTC, "not on the charger"); no safety failures, no regressions. M1-17 part 3, PR #226, merged at f1a6a04.
+- Worked on: M1-17's last acceptance line (tracking issue #222): the SO_PEERCRED peer check.
+- Result: PR (this one). PASSES M1-17 (ci): lines 1, 3, 4 and 5 by #223-#226, line 2 here.
+- Evidence:
+  - `docs/decisions/0006-core-socket-peer-check.md`: Node has no getsockopt, so each accepted connection is paused and lent to the system `python3 -I -S` as a descriptor, which reads SO_PEERCRED and prints the user id. Nothing is bundled.
+  - `src/main/core-socket/peercred.ts`: `peerUid` never throws; no Python, a failing, hanging (`PEER_CHECK_TIMEOUT_MS`) or garbled helper, or a socket already gone is `null`. The helper runs with `childEnvironment`.
+  - `server.ts`: a connection is served only when its user is Galleon's own; anything else (root included, unknown, a check that throws) is closed before a byte is read, and a connection still being checked is dropped by `close()`.
+  - Tests: `peercred.test.ts` 5/5 over a real socket (the kernel's answer, the connection usable after it, each failure); `server.test.ts` 17/17 (five new under "who may connect"); `service.test.ts` 18/18. `npm run test:app` 242/242 (`--no-sandbox` wrapper), the socket's own scenario included.
+  - `docs/core-socket.md` says who may connect.
+- Evaluator: PASS. Its note that a synchronous `spawn` failure reached the timer before it existed (so `peerUid` could reject) is fixed, with a test that failed first.
+- Notes: Docker Hub answered 429 to init.sh's image pull; nothing in this unit needed RomM. `npx install-electron` hit the undici assertion once more; a retry fetched it.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none.
+- Next: `next.mjs`; M1-17 is done.

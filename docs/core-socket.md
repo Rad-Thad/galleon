@@ -14,6 +14,8 @@ Without an absolute `XDG_RUNTIME_DIR`, Galleon starts neither. It never falls ba
 
 Both files are removed when Galleon quits, after its shutdown has finished. A socket file left by a Galleon that crashed is replaced at the next start only if nothing is listening on it. If another Galleon is listening (a second instance with a different home), the new one starts no socket and writes no state file.
 
+Only the user Galleon runs as may talk to it. The modes keep other users out, and each connection is also asked who made it (SO_PEERCRED, read through the system `python3`, see [ADR 0006](decisions/0006-core-socket-peer-check.md)). A connection from any other user, root included, or one whose user cannot be learnt, is closed without an answer and nothing it sent is read. Without `python3` the socket refuses every connection.
+
 A self-test run never starts either one, so a test instance can never answer for the owner's Galleon.
 
 ## Protocol
