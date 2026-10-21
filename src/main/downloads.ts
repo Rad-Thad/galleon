@@ -340,6 +340,49 @@ export class DownloadManager extends EventEmitter {
   }
 
   /**
+   * Pause every transfer still waiting or on the wire, and say how many.
+   *
+   * What the Decky panel's one button asks for: the network back for whatever
+   * the player is about to do, without losing anything already fetched. Each
+   * row goes through `pause`, so it is the same stop a press on the Downloads
+   * screen makes.
+   */
+  pauseAll(): number {
+    const moving = this.queue.filter(
+      (item) => item.state === 'downloading' || item.state === 'queued'
+    )
+    for (const item of moving) this.pause(item.romId)
+    return moving.length
+  }
+
+  /**
+   * Start every paused transfer again, in the order they sit, and say how many.
+   *
+   * The other half of `pauseAll`. In queue order, because each one goes to the
+   * back as it is resumed (see `enqueue`), so the list comes out as it went in.
+   * Stalled rows are the network's to resume, not this; see
+   * `resumeAfterOutage`. A game the server no longer answers for is left
+   * paused rather than failing the rest.
+   */
+  async resumePaused(): Promise<number> {
+    const paused = this.queue.filter((item) => item.state === 'paused')
+    let resumed = 0
+    for (const item of paused) {
+      try {
+        await this.enqueue(await this.client.rom(item.romId))
+        resumed += 1
+      } catch (cause) {
+        log.warn('download', 'could not resume a paused transfer', {
+          romId: item.romId,
+          name: item.name,
+          reason: (cause as Error).message
+        })
+      }
+    }
+    return resumed
+  }
+
+  /**
    * Where a row sits in the array is the order it will be run in.
    *
    * `pump` takes the first row still queued, so the two are the same list and

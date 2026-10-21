@@ -115,3 +115,18 @@ export interface CoreStatus {
   /** Why it is not idle, or null when it is. */
   busy: QuitRefusal | null
 }
+
+/** The answer to `quit-emulator`: whether there was anything to ask to quit. */
+export interface CoreQuitEmulatorResult {
+  stopping: boolean
+}
+
+/** The answer to `pause-downloads`: how many transfers were paused. */
+export interface CorePauseResult {
+  paused: number
+}
+
+/** The answer to `resume-downloads`: how many paused transfers were started again. */
+export interface CoreResumeResult {
+  resumed: number
+}

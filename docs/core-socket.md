@@ -73,7 +73,11 @@ A complete line that is too long is answered `too-long` and the connection stays
 
 `quit-app`: quit Galleon, only when it is idle. The answer is `{ "quitting": true }`, and Galleon then quits normally. Otherwise it is refused with the `busy` reason.
 
-`quit-emulator`, `pause-downloads`, `resume-downloads`: accepted, and answered `failed` until they are wired to the emulator and the download queue.
+`quit-emulator`: ask the running game's emulator (or an emulator opened on its own) to quit, through the same path as holding Start or the close button on the running screen (`Launcher.stop`). It is never forced, because an emulator writes its save as it closes. The answer is `{ "stopping": true }`, or `{ "stopping": false }` when nothing was running. The session then ends as it does after any other stop: saves are sent up and RomM is told the game stopped. Poll `status` to see `playing` turn `null`.
+
+`pause-downloads`: pause every transfer that is queued or downloading, as the pause button on the Downloads screen does, keeping what has arrived. The answer is `{ "paused": n }`.
+
+`resume-downloads`: start every paused transfer again, in the order they were in, behind anything already queued. Stalled transfers (stopped by the network) are left to Galleon, which resumes them when the server answers again. The answer is `{ "resumed": n }`; a game the server no longer answers for stays paused and is not counted. A transfer on the wire takes a moment to stop after `pause-downloads`: it is counted at once, and until it has stopped it is still `downloading` and a `resume-downloads` leaves it out, so poll `status` before resuming. If it finishes in that moment it ends as done.
 
 ## Idle
 

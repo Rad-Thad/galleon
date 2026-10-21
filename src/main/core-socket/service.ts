@@ -7,7 +7,15 @@
  * Galleon is idle. See `busyReason` for the rule itself.
  */
 
-import { isInProgress, type CoreDownload, type CoreStatus, type QuitRefusal } from '@shared/types'
+import {
+  isInProgress,
+  type CoreDownload,
+  type CorePauseResult,
+  type CoreQuitEmulatorResult,
+  type CoreResumeResult,
+  type CoreStatus,
+  type QuitRefusal
+} from '@shared/types'
 import { log } from '../log.ts'
 import {
   busyReason,
@@ -53,6 +61,15 @@ export interface CoreHandlerDeps {
   observe: () => CoreObservation
   /** Start quitting Galleon. Called only once the answer has been given. */
   quitApp: () => void
+  /**
+   * Ask the running emulator to quit, the way holding Start does, and say
+   * whether anything was running. See `Launcher.stop`.
+   */
+  quitEmulator: () => boolean
+  /** Pause every transfer still moving; how many. See `DownloadManager.pauseAll`. */
+  pauseDownloads: () => number
+  /** Start every paused transfer again; how many. See `DownloadManager.resumePaused`. */
+  resumeDownloads: () => Promise<number>
 }
 
 /**
@@ -63,8 +80,10 @@ export interface CoreHandlerDeps {
  * still on its way up is never theirs to end. The quit itself waits a turn so
  * the client hears yes before the socket closes under it.
  *
- * The emulator and the queue are not reachable from here yet, so their
- * commands are answered `failed` rather than pretended.
+ * `quit-emulator` is never forced: an emulator writes its save as it closes,
+ * and a panel asking from outside cannot see whether it has finished. The
+ * overlay's force button stays the person's to press. Nothing running is an
+ * answer rather than an error, so a panel can ask without checking first.
  */
 export function coreHandler(deps: CoreHandlerDeps): CoreHandler {
   return (request) => {
@@ -77,10 +96,19 @@ export function coreHandler(deps: CoreHandlerDeps): CoreHandler {
         setImmediate(deps.quitApp)
         return { ok: true, result: { quitting: true } }
       }
-      case 'quit-emulator':
-      case 'pause-downloads':
+      case 'quit-emulator': {
+        const result: CoreQuitEmulatorResult = { stopping: deps.quitEmulator() }
+        return { ok: true, result }
+      }
+      case 'pause-downloads': {
+        const result: CorePauseResult = { paused: deps.pauseDownloads() }
+        return { ok: true, result }
+      }
       case 'resume-downloads':
-        return { ok: false, error: 'failed' }
+        return deps.resumeDownloads().then((resumed): { ok: true; result: CoreResumeResult } => ({
+          ok: true,
+          result: { resumed }
+        }))
     }
   }
 }
