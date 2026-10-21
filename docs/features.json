@@ -236,7 +236,7 @@
     ],
     "verification": "device",
     "depends_on": ["M0-04", "M0-05"],
-    "passes": false
+    "passes": true
   },
   {
     "id": "M0-14",
