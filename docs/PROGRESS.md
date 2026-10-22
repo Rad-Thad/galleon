@@ -2702,3 +2702,4 @@ Lines the tooling reads (exact forms):
 - CI wall time: as in Evidence.
 - Device / acceptance: the next nightly is the Electron 44.9.0 check, beside M0-22's `harness.run` and G1-4's scroll metrics.
 - Stopped: nothing else eligible. M0-22, M2-02, M2-20 and M6-08 wait on M0-22's device run; M2-08 waits on M1-03 to M1-06; M4 and M6 wait on Gate 1; M7 waits on M1 descriptors. No `needs-human` issue is open.
+- Notes: open a pull request with its final body. `pr-body` reads the body from the event, and editing a body does not re-run CI (`release.yml` takes the default `pull_request` types), so #243's first x64 leg failed on a placeholder body and passed only with the next commit. The commit hook runs the checks, so a commit takes minutes.
