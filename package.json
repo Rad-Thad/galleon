@@ -41,7 +41,7 @@
     "smoke:app": "./scripts/smoke-app.sh"
   },
   "dependencies": {
-    "lucide-react": "^1.55.0",
+    "lucide-react": "^1.59.0",
     "qrcode-generator": "^2.0.4",
     "yauzl": "^3.4.0"
   },
@@ -59,8 +59,8 @@
     "husky": "^9.1.7",
     "oxlint": "^1.88.0",
     "prettier": "^3.9.10",
-    "react": "^19.3.0",
-    "react-dom": "^19.3.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
     "release-it": "^21.1.1",
     "typescript": "^7.0.2",
     "vite": "^7.3.7"
