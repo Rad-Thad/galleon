@@ -102,6 +102,7 @@ if (!app.requestSingleInstanceLock()) {
     rommix.readOnly(guard)
     // Before the window, so not one frame names the server or the account.
     rommix.hideIdentity()
+    rommix.dismissNotices()
   }
   /** Set by the first quit, so the second one is let through. See below. */
   let quitting = false

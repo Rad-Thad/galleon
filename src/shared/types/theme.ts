@@ -64,3 +64,10 @@ export const DEFAULT_THEME: Theme = 'midnight'
  * process to put the key there for an installation that has nothing to be told.
  */
 export const THEMES_NOTICE = 'themes'
+
+/**
+ * Every notice key there is. A self-test home has all of them dismissed: a
+ * notice opens over Home and takes the focus the scenarios measure. See
+ * `RomMixApp.dismissNotices`.
+ */
+export const NOTICES: readonly string[] = [THEMES_NOTICE]
