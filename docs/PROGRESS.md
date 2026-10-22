@@ -2679,3 +2679,15 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: READY-FOR-DEVICE M0-22 (the next nightly either starts the app or skips with the debugger's detail in its log).
 - Next: the next nightly's results; the grid scroll's metrics (G1-4).
+
+## 2026-10-22 05:10 UTC session 01NXWukU282uKT274ZLuU3aW (hourly heartbeat)
+
+- Device results: nothing new since 085436e (bridge last seen 2026-10-22 03:05 UTC, "not on the charger"); no safety failures, no regressions. PR #240 (M0-22 debugger check) merged at c6c14e5; CI x64 8:52, arm64 1:03.
+- Worked on: Dependabot triage (CLAUDE.md rule 8, docs/MAINTENANCE.md; tracking issue #241).
+- Result: merged #239 (happy-dom 21.0.1 -> 21.0.3) at 04edeed and #236 (tooling: oxlint 1.87.0 -> 1.88.0) after its head was brought onto `main`. #238 (runtime: lucide-react 1.59.0, react and react-dom 19.3.1) and #237 (Electron 44.6.0 -> 44.9.0, electron-vite 5.0.0 -> 6.0.0) are parked: each needs `update-branch` and fresh green legs after the merges before it, which did not fit this run.
+- Evidence: CI on the original heads, x64 / arm64: #236 8:56 / 1:08, #237 7:55 / 1:01, #238 9:22 / 1:14, #239 9:20 / 1:11; `test:app` 243/243 on each x64 leg, and on #237 with Electron 44.9.0 (electron-builder logged `electron=44.9.0` on both legs). Every new or changed package is MIT or ISC; the production tree changes only in #238 (lucide-react ISC, react MIT), licence guard exit 0. electron-vite 6 needs no config change (it maps `rollupOptions` to `rolldownOptions`; the build output matched `main`'s byte sizes and hashed renderer assets). `docs/DEPENDENCIES.md` records none of these versions.
+- Evaluator: PASS for #236, #237, #238, #239. For #237 on the diff; the Electron device baseline exists (run 4b4346b, complete, built on 44.6.0, which already fails `harness.run` and both `grid.scroll` checks and skips launch/exit.retroarch, so step 6 compares against those).
+- CI wall time: as in Evidence.
+- Device / acceptance: none.
+- Next: #238, then #237 (`update-branch`, both legs green, merge; write `ELECTRON 44.6.0 -> 44.9.0 merged at <sha>, waiting for device`). Then the next nightly's results (M0-22, G1-4).
+- Notes: `dockerd` was not running at session start; started by hand. The evaluator saw the `shots:nova` setup screen show "No RomM server configured" on #238 and on `main` 085436e alike: an existing race, worth a look if it recurs.
