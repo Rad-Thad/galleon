@@ -55,6 +55,8 @@ BIG_PICTURE = ("Steam Big Picture Mode", "SP")
 ROUTES = "/routes"
 UI_HOST = "steamloopback.host"
 POLL_SECONDS = 0.5
+# The least time a request for the page list is given, however little of a wait is left.
+ANSWER_SECONDS = 2
 ARMADA_LAUNCH = "/usr/libexec/armada/armada-game-launch"
 RECORD = "shortcut.json"
 TIMEOUT = 15
@@ -176,15 +178,24 @@ def at_library(route):
     return not route.startswith("/library/app/")
 
 
-def wait_library(cef, seconds, clock=time.monotonic, sleep=time.sleep):
-    """The route once Steam shows its library, or the last one seen when it does not in time."""
-    end = clock() + seconds
+def wait_library(cef, seconds, clock=time.monotonic, sleep=time.sleep, timeout=TIMEOUT):
+    """The route once Steam shows its library, or the last one seen when it does not in time.
+
+    Steam's debugger can leave a request unanswered for longer than the whole
+    wait (docs/DEVICE-FACTS.md), so no request is let run past the wait's end
+    (beyond ANSWER_SECONDS, the least a request is given) and one that goes
+    unanswered is asked again on a new connection while time is left.
+    """
+    start = clock()
+    end = start + seconds
+    tries = 0
     while True:
+        tries += 1
         try:
-            route = screen(cef)
-        except CefUnavailable:
+            route = screen(cef, min(timeout, max(end - clock(), ANSWER_SECONDS)))
+        except CefUnavailable as error:
             if clock() >= end:
-                raise
+                raise CefUnavailable(f"{error}; {tries} tries over {clock() - start:.0f} s") from None
             route = None
         if route is not None and (at_library(route) or clock() >= end):
             return route

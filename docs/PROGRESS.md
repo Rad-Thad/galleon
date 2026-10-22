@@ -2635,3 +2635,19 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none here. The informational `install.script` device check is M0-22's run.sh step, now unblocked.
 - Next: M0-22's `install.script` step, or `next.mjs`.
+
+## 2026-10-22 01:27 UTC session 01XzS2BVW4PwXTAZvQKYcLAW (hourly heartbeat)
+
+- Device results: the bridge ran nightly 4b4346b (status complete). No safety failures, no regressions.
+  - DEVICE-RESULTS 4b4346b8ff522d746776761061ad3f163863900f complete
+  - PASSES M0-21 device:4b4346b8ff522d746776761061ad3f163863900f
+  - Passing for the first time: `startup.cold`, `selftest.complete` (the notices fix, #230, worked).
+  - Failing: `harness.run` ("Steam was not left at its library", M0-22); `grid.scroll@performance` (p95 33.3 ms, 54.2% dropped, 120 Hz display) and `@balanced` (p95 50.2 ms, 86.1% dropped), both `over-threshold`: the scroll now runs and measures, and misses G1-4 / M4-04 / M4-34. `launch.retroarch` and `exit.retroarch` skip with `cannot-sandbox`.
+- Worked on: M0-22's `harness.run` failure (tracking issue #191).
+- Cause: the harness log shows the debugger answering `/apprunning` before `steam://open/games`, then `steam-cef-unavailable`, "no debugger: timed out". The page-list request after the command went unanswered for its whole 15 s timeout, which was longer than the 10 s library wait, so the wait ended on its first request and never asked again.
+- Result: PR (this one). `steamcef.wait_library` gives each request at most what is left of the wait (at least `ANSWER_SECONDS`) and asks again on a new connection while time is left; when it gives up, the log says how many tries over how long. run.sh's library wait now covers a stalled request and a retry. DEVICE-FACTS.md records the stall; TESTING.md describes both the lone-window rule (from #229) and the retry.
+- Evidence: `test_steamcef.py` "a debugger that stalls is asked again within the wait" and "no request outlasts the wait" (before the fix: a 1 s wait held 15.0 s by one stalled request, and no `timeout` to bound it); `python3 -B -m unittest discover -s test/device` 180/180; `scripts/agent/check.sh` green.
+- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: READY-FOR-DEVICE M0-22 (the next nightly reruns `harness.run`).
+- Next: the grid scroll misses its frame-time thresholds on the device; Gate 1 (G1-4) depends on it.
