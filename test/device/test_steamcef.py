@@ -293,7 +293,11 @@ class SteamCefTest(unittest.TestCase):
             with contextlib.redirect_stdout(out):
                 code = steamcef.main(["--home", self.home, "--cef", "http://127.0.0.1:1"] + argv)
             self.assertEqual(code, steamcef.EXIT_SKIPPED)
-            self.assertEqual(json.loads(out.getvalue()), {"reason": "steam-cef-unavailable"})
+            printed = json.loads(out.getvalue())
+            self.assertEqual(printed["reason"], "steam-cef-unavailable")
+            # Device run 085436e logged the bare reason, which could not tell
+            # a debugger that is gone from one that stalls.
+            self.assertTrue(printed["detail"].startswith("no debugger: "), printed)
 
     def test_the_screen_is_read_from_the_game_mode_windows_address(self):
         server = self.cef(lambda expression: value(1))
@@ -414,6 +418,37 @@ class SteamCefTest(unittest.TestCase):
         self.assertLess(time.monotonic() - started, 3)
         # The log says how hard the wait tried.
         self.assertRegex(str(raised.exception), r"timed out; \d+ tries over \d+ s$")
+
+    def test_a_debugger_that_answers_is_ready_and_one_that_stalls_is_asked_again(self):
+        server = self.cef(lambda expression: value(1))
+        server.stalls = 2
+        with mock.patch.object(steamcef, "ANSWER_SECONDS", 0.2), mock.patch.object(steamcef, "POLL_SECONDS", 0.01):
+            self.assertTrue(steamcef.wait_pages(server.url, 5, timeout=0.2))
+        self.assertEqual(server.stalls, 0)
+
+    def test_a_debugger_that_never_answers_is_not_ready_within_the_wait(self):
+        server = self.cef(lambda expression: value(1))
+        server.stalls = 1000
+        started = time.monotonic()
+        with mock.patch.object(steamcef, "ANSWER_SECONDS", 0.2), mock.patch.object(steamcef, "POLL_SECONDS", 0.01):
+            with self.assertRaises(steamcef.CefUnavailable) as raised:
+                steamcef.wait_pages(server.url, 1)
+        self.assertLess(time.monotonic() - started, 3)
+        self.assertRegex(str(raised.exception), r"timed out; \d+ tries over \d+ s$")
+
+    def test_cli_ready(self):
+        server = self.cef(lambda expression: value(1))
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.assertEqual(steamcef.main(["--cef", server.url, "ready"]), 0)
+        self.assertGreater(json.loads(out.getvalue())["pages"], 0)
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = steamcef.main(["--cef", "http://127.0.0.1:1", "ready", "--wait", "0"])
+        self.assertEqual(code, steamcef.EXIT_SKIPPED)
+        printed = json.loads(out.getvalue())
+        self.assertEqual(printed["reason"], "steam-cef-unavailable")
+        self.assertRegex(printed["detail"], r"^no debugger: .*; 1 tries over 0 s$")
 
     def test_cli_library(self):
         server = self.cef(lambda expression: value(1))

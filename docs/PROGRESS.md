@@ -2662,3 +2662,20 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: the next nightly's `grid.scroll@*` carry the new metrics. If idle frames already come every other refresh, the first optimisation round is pacing (frame-rate cap under gamescope, M6-15's backends); if idle is clean and `moves` is low, it is the cost of a move (windowed grid, PLAN.md section 9).
 - Next: read the next nightly's scroll metrics and run the first documented optimisation round.
+
+## 2026-10-22 03:27 UTC session 01GNAmieoM32bimGF8fE9a5w (hourly heartbeat)
+
+- Device results: the bridge ran nightly 085436e (the #233 library-wait build). No safety failures, no regressions.
+  - DEVICE-RESULTS 085436e194f9a4f9d9b34f69ebd0b9d47988e078 complete
+  - `harness.run` failed "neither route started the app"; `safety.owner-state` passed; the app never started, so none of its checks ran (M0-21 stays passed on 4b4346b).
+- Worked on: M0-22, that start failure (tracking issue #191).
+- Cause: `steam steam://rungameid/` was forwarded and started nothing in the start wait, and `steamcef.py run` then exited `steam-cef-unavailable` without a detail. The shortcut came from its record, so nothing in the run had reached Steam's client before the start, and the skip run.sh means to take when the debugger does not answer (the shortcut step's rule) never applied. Whether the client stalled or its debugger was gone cannot be told from this log.
+- Result: PR (this one). `steamcef.py ready [--wait]` reads the page list, asking again on a new connection while its wait lasts (`wait_pages`). run.sh runs it after the late session check, up to `READY_WAIT_SECONDS`; a debugger that does not answer skips the run with `steam-cef-unavailable` before anything is started, a `ready` that cannot run fails `harness.run`. Every `steam-cef-unavailable` line now carries its `detail`. DEVICE-FACTS.md records the run; TESTING.md describes `ready` and the skip.
+- Evidence:
+  - `test_steamcef.py` "a debugger that answers is ready and one that stalls is asked again", "... never answers is not ready within the wait", `test_cli_ready`, and the CLI skip test now requires the detail; the four fail against the old `steamcef.py`. `python3 -B -m unittest discover -s test/device` 183/183.
+  - `scripts/device-bundle.test.ts` 62/62, new: "run.sh skips before the start when Steam's debugger does not answer, and starts nothing" (fails against the old run.sh: it tried both routes). The neither-route and late-start tests now use a debugger that answers the check (the default fake, or one that answers once then stalls).
+  - `scripts/agent/check.sh` green.
+- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: READY-FOR-DEVICE M0-22 (the next nightly either starts the app or skips with the debugger's detail in its log).
+- Next: the next nightly's results; the grid scroll's metrics (G1-4).
