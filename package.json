@@ -57,7 +57,7 @@
     "esbuild": "^0.28.2",
     "happy-dom": "^21.0.1",
     "husky": "^9.1.7",
-    "oxlint": "^1.87.0",
+    "oxlint": "^1.88.0",
     "prettier": "^3.9.10",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
