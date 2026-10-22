@@ -10,6 +10,7 @@ import tempfile
 import threading
 import time
 import unittest
+from unittest import mock
 
 import shortcuts
 import steamcef
@@ -31,6 +32,9 @@ class FakeCef(socketserver.ThreadingTCPServer):
         self.big_picture = "Steam Big Picture Mode"
         # Quick Access's window, which also lives under /routes.
         self.quick_access = True
+        # How many page-list requests go unanswered until the client gives up.
+        self.stalls = 0
+        self.released = threading.Event()
         self.expressions = []
         self.url = f"http://127.0.0.1:{self.server_address[1]}"
         threading.Thread(target=self.serve_forever, args=(0.05,), daemon=True).start()
@@ -52,6 +56,10 @@ class FakeCefHandler(socketserver.StreamRequestHandler):
         while self.rfile.readline() not in (b"\r\n", b""):
             pass
         port = self.server.server_address[1]
+        if request.startswith("GET /json ") and self.server.stalls:
+            self.server.stalls -= 1
+            self.server.released.wait(30)
+            return
         if request.startswith("GET /json "):
             big_picture = {"title": self.server.big_picture,
                            "webSocketDebuggerUrl": f"ws://127.0.0.1:{port}/devtools/page/BPM"}
@@ -113,6 +121,7 @@ class SteamCefTest(unittest.TestCase):
 
     def tearDown(self):
         for server in self.servers:
+            server.released.set()
             server.shutdown()
             server.server_close()
         self.tmp.cleanup()
@@ -385,6 +394,26 @@ class SteamCefTest(unittest.TestCase):
         now[0] = 0.0
         with self.assertRaises(steamcef.CefUnavailable):
             steamcef.wait_library(server.url, 1, lambda: now[0], lambda s: now.__setitem__(0, now[0] + s))
+
+    def test_a_debugger_that_stalls_is_asked_again_within_the_wait(self):
+        # Device run 4b4346b: right after steam://open/games one request for
+        # the page list went unanswered for longer than the whole wait.
+        server = self.cef(lambda expression: value(1))
+        server.stalls = 2
+        with mock.patch.object(steamcef, "ANSWER_SECONDS", 0.2), mock.patch.object(steamcef, "POLL_SECONDS", 0.01):
+            self.assertEqual(steamcef.wait_library(server.url, 5, timeout=0.2), "/library/home")
+        self.assertEqual(server.stalls, 0)
+
+    def test_no_request_outlasts_the_wait(self):
+        server = self.cef(lambda expression: value(1))
+        server.stalls = 1000
+        started = time.monotonic()
+        with mock.patch.object(steamcef, "ANSWER_SECONDS", 0.2), mock.patch.object(steamcef, "POLL_SECONDS", 0.01):
+            with self.assertRaises(steamcef.CefUnavailable) as raised:
+                steamcef.wait_library(server.url, 1)
+        self.assertLess(time.monotonic() - started, 3)
+        # The log says how hard the wait tried.
+        self.assertRegex(str(raised.exception), r"timed out; \d+ tries over \d+ s$")
 
     def test_cli_library(self):
         server = self.cef(lambda expression: value(1))

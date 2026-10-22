@@ -325,7 +325,7 @@ fact_command() {
 # debugger only when that has not marked a start. Tests shorten the waits.
 START_WAIT_SECONDS=${GALLEON_START_WAIT_SECONDS:-60}
 STOP_WAIT_SECONDS=${GALLEON_STOP_WAIT_SECONDS:-30}
-LIBRARY_WAIT_SECONDS=${GALLEON_LIBRARY_WAIT_SECONDS:-10}
+LIBRARY_WAIT_SECONDS=${GALLEON_LIBRARY_WAIT_SECONDS:-60}
 launched="$GALLEON_HOME/launch"
 gameid=$(printf '%s' "$shortcut" | sed -n 's/.*"gameid": *\([0-9][0-9]*\).*/\1/p')
 started_by=
