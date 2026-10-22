@@ -360,15 +360,18 @@ function pythonServer(script: string, ...args: string[]) {
 }
 
 /**
- * A loopback server that takes connections and answers none of them for a
- * while, in a process of its own since the run blocks this one.
+ * A loopback server that answers its first request with a window list and
+ * then none for a while, in a process of its own since the run blocks this one.
  */
-function silentServer() {
+function answersOnceServer() {
   return pythonServer(
     'import os, socket, sys, time\n' +
       's = socket.socket(); s.bind(("127.0.0.1", 0)); s.listen(4)\n' +
       'open(sys.argv[1] + ".tmp", "w").write(str(s.getsockname()[1]))\n' +
       'os.rename(sys.argv[1] + ".tmp", sys.argv[1])\n' +
+      'c, _ = s.accept(); c.recv(65536)\n' +
+      'body = b\'[{"title": "Steam Big Picture Mode", "url": "https://steamloopback.host/routes/library/home"}]\'\n' +
+      'c.sendall(b"HTTP/1.0 200 OK\\r\\nContent-Length: %d\\r\\n\\r\\n" % len(body) + body); c.close()\n' +
       'while True:\n' +
       '    c, _ = s.accept(); time.sleep(2); c.close()\n'
   )
@@ -1253,12 +1256,9 @@ describe('device-bundle', () => {
       unpackLikeTheBridge(built()),
       SHA,
       true,
-      // Nothing listens here, so the debugger's RunGame cannot be asked.
-      {
-        GALLEON_START_WAIT_SECONDS: '1',
-        GALLEON_STEAM_CEF: 'http://127.0.0.1:9',
-        HOME: withShortcut(mkdtempSync(join(tmpdir(), 'bundle-home-')))
-      },
+      // The debugger lists windows but no shared context, so its RunGame
+      // cannot be asked.
+      { GALLEON_START_WAIT_SECONDS: '1' },
       session
     )
     assert.equal(run.status, 0, run.stderr)
@@ -1271,13 +1271,50 @@ describe('device-bundle', () => {
     assert.ok(!existsSync(join(session, 'muted')))
   })
 
+  test("run.sh skips before the start when Steam's debugger does not answer, and starts nothing", () => {
+    // Device run 085436e: the shortcut came from its record, so nothing had
+    // asked Steam before steam:// went unanswered and the debugger with it.
+    const session = fakeSession()
+    const seen = mkdtempSync(join(tmpdir(), 'bundle-seen-'))
+    const app = `#!/bin/sh\necho ran >'${join(seen, 'ran')}'\n`
+    const { run, results, testRoot } = runHarness(
+      unpackLikeTheBridge(built()),
+      SHA,
+      app,
+      {
+        GALLEON_READY_WAIT_SECONDS: '0',
+        GALLEON_STEAM_CEF: 'http://127.0.0.1:9',
+        HOME: withShortcut(mkdtempSync(join(tmpdir(), 'bundle-home-')))
+      },
+      session
+    )
+    assert.equal(run.status, 10, run.stderr)
+    const summary = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8'))
+    assert.deepEqual([summary.status, summary.reason], ['skipped', 'steam-cef-unavailable'])
+    assert.deepEqual(
+      summary.checks.map((check: { id: string; result: string }) => [check.id, check.result]),
+      [
+        ['harness.run', 'pass'],
+        ['safety.owner-state', 'pass']
+      ]
+    )
+    assert.ok(summary.notes.includes('app: not started'), summary.notes.join('; '))
+    assert.ok(summary.notes.includes('audio: muted and put back'), summary.notes.join('; '))
+    const log = readFileSync(join(results, 'logs/harness.log'), 'utf8')
+    assert.match(log, /skipped before the start: .*"detail": "no debugger: /)
+    assert.ok(!existsSync(join(session, 'steam.log')))
+    assert.ok(!existsSync(join(seen, 'ran')))
+    assert.ok(!existsSync(join(session, 'muted')))
+    assert.ok(!existsSync(join(testRoot, 'current.json')))
+  })
+
   test('run.sh stops a start it gave up on that happens before the request is withdrawn', () => {
     const session = fakeSession()
     // Steam starts the shortcut only after run.sh stops waiting for it, and
     // the debugger cannot be asked, so the start is given up on.
     writeFileSync(join(session, 'steam.late'), '0.5')
     const seen = mkdtempSync(join(tmpdir(), 'bundle-seen-'))
-    const cef = silentServer()
+    const cef = answersOnceServer()
     const app =
       '#!/bin/sh\n' +
       `[ -e '${join(session, 'muted')}' ] || echo unmuted >>'${join(seen, 'sound')}'\n` +
@@ -1289,8 +1326,9 @@ describe('device-bundle', () => {
       app,
       {
         GALLEON_START_WAIT_SECONDS: '0',
-        // A debugger that answers nothing for a while, so the late start
-        // lands after run.sh gave up and before it withdraws the request.
+        // A debugger that answers the check before the start and then
+        // nothing for a while, so the late start lands after run.sh gave up
+        // and before it withdraws the request.
         GALLEON_STEAM_CEF: `http://127.0.0.1:${cef.port}`,
         // The same debugger cannot show Steam's screen; nothing waits on it.
         GALLEON_LIBRARY_WAIT_SECONDS: '0',
@@ -1320,11 +1358,7 @@ describe('device-bundle', () => {
       unpackLikeTheBridge(built()),
       SHA,
       app,
-      {
-        GALLEON_START_WAIT_SECONDS: '1',
-        GALLEON_STEAM_CEF: 'http://127.0.0.1:9',
-        HOME: withShortcut(mkdtempSync(join(tmpdir(), 'bundle-home-')))
-      },
+      { GALLEON_START_WAIT_SECONDS: '1' },
       session
     )
     assert.equal(run.status, 0, run.stderr)

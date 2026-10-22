@@ -20,9 +20,11 @@ address.
   steamcef.py run GAMEID               starts a shortcut through Steam
   steamcef.py library [--wait SECONDS] prints {"route", "library"}; exits 1
                                        unless Steam shows its library
+  steamcef.py ready [--wait SECONDS]   prints {"pages"} once the debugger answers
 
-All exit 10 with reason `steam-cef-unavailable` when the debugger does not
-answer, so run.sh can skip the Steam route rather than fail the run.
+All exit 10 with reason `steam-cef-unavailable`, and a detail, when the
+debugger does not answer, so run.sh can skip the Steam route rather than
+fail the run.
 
 shortcuts.vdf is part of the owner state run.sh holds, and Steam saves it
 when it chooses. With `--saved-within`, `ensure` waits that long for the
@@ -199,6 +201,26 @@ def wait_library(cef, seconds, clock=time.monotonic, sleep=time.sleep, timeout=T
             route = None
         if route is not None and (at_library(route) or clock() >= end):
             return route
+        sleep(POLL_SECONDS)
+
+
+def wait_pages(cef, seconds, clock=time.monotonic, sleep=time.sleep, timeout=TIMEOUT):
+    """The page list once Steam's debugger answers, asked again on a new connection while the wait lasts.
+
+    A reused shortcut record is the only part of a run that needs nothing
+    from Steam, so this is how run.sh learns, before it starts anything, that
+    the client the start goes through is answering at all.
+    """
+    start = clock()
+    end = start + seconds
+    tries = 0
+    while True:
+        tries += 1
+        try:
+            return pages(cef, min(timeout, max(end - clock(), ANSWER_SECONDS)))
+        except CefUnavailable as error:
+            if clock() >= end:
+                raise CefUnavailable(f"{error}; {tries} tries over {clock() - start:.0f} s") from None
         sleep(POLL_SECONDS)
 
 
@@ -485,16 +507,15 @@ def main(argv=None):
     add.add_argument("--saved-within", type=float)
     commands.add_parser("run").add_argument("gameid", type=int)
     commands.add_parser("library").add_argument("--wait", type=float, default=0.0)
+    commands.add_parser("ready").add_argument("--wait", type=float, default=0.0)
     args = parser.parse_args(argv)
 
     try:
+        if args.command == "ready":
+            print(json.dumps({"pages": len(wait_pages(args.cef, args.wait))}))
+            return 0
         if args.command == "library":
-            try:
-                route = wait_library(args.cef, args.wait)
-            except CefUnavailable as error:
-                # run.sh logs this; the detail is how a new Steam build shows itself.
-                print(json.dumps({"reason": CEF_UNAVAILABLE, "detail": str(error)}))
-                return EXIT_SKIPPED
+            route = wait_library(args.cef, args.wait)
             print(json.dumps({"route": shown(route), "library": at_library(route)}))
             return 0 if at_library(route) else 1
         if args.command == "run":
@@ -504,8 +525,10 @@ def main(argv=None):
         test_root = os.path.abspath(args.test_root)
         appid, source = ensure(test_root, os.path.abspath(args.home), args.cef, args.name,
                                args.exe, args.record, args.root)
-    except CefUnavailable:
-        print(json.dumps({"reason": CEF_UNAVAILABLE}))
+    except CefUnavailable as error:
+        # run.sh logs this; the detail tells a stalled debugger from one that
+        # is gone, and is how a new Steam build shows itself.
+        print(json.dumps({"reason": CEF_UNAVAILABLE, "detail": str(error)}))
         return EXIT_SKIPPED
     except CefError as error:
         print(json.dumps({"reason": "steam-cef-error", "detail": str(error)}))

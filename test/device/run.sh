@@ -326,6 +326,7 @@ fact_command() {
 START_WAIT_SECONDS=${GALLEON_START_WAIT_SECONDS:-60}
 STOP_WAIT_SECONDS=${GALLEON_STOP_WAIT_SECONDS:-30}
 LIBRARY_WAIT_SECONDS=${GALLEON_LIBRARY_WAIT_SECONDS:-60}
+READY_WAIT_SECONDS=${GALLEON_READY_WAIT_SECONDS:-30}
 launched="$GALLEON_HOME/launch"
 gameid=$(printf '%s' "$shortcut" | sed -n 's/.*"gameid": *\([0-9][0-9]*\).*/\1/p')
 started_by=
@@ -381,6 +382,27 @@ if [ -n "$request_ok" ] && [ -n "$muted" ]; then
       echo "skipped before the start: $why" >>"$log"
       ;;
     *) session_ok= ;;
+  esac
+fi
+# Both routes go through Steam's client, and a shortcut reused from its
+# record asked it nothing, so its debugger must answer before the start: a
+# client that does not cannot start the app either way, and the run is
+# skipped and tried again rather than failed (docs/DEVICE-FACTS.md).
+if [ -n "$ready" ]; then
+  why=$(python3 "$here/steamcef.py" ${GALLEON_STEAM_CEF:+--cef "$GALLEON_STEAM_CEF"} \
+    ready --wait "$READY_WAIT_SECONDS" 2>>"$log")
+  case $? in
+    0) ;;
+    10)
+      ready=
+      late_skip=steam-cef-unavailable
+      echo "skipped before the start: $why" >>"$log"
+      ;;
+    *)
+      ready=
+      start_failed=1
+      echo "start: Steam's debugger could not be asked" >>"$log"
+      ;;
   esac
 fi
 if [ -n "$ready" ] && [ -z "$gameid" ]; then
