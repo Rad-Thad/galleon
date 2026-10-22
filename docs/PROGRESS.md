@@ -2619,3 +2619,19 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: READY-FOR-DEVICE M0-21 (the next nightly reruns `startup.cold`, `grid.scroll@*` and `selftest.complete`).
 - Next: the next nightly's results; `next.mjs`.
+
+## 2026-10-22 00:30 UTC session 01Xxs9sG6hzrMqZuAYMiNzPr (hourly heartbeat)
+
+- Device results: nothing new since 641fa89 (bridge last seen 2026-10-21 23:01 UTC, "not on the charger"); no safety failures, no regressions. PR #230 (M0-21 notices) merged at 9a35e1c before this run.
+- Worked on: M0-17, one-line install and update (tracking issue #231). Eligible now that M0-13 passes.
+- Result: PR (this one). PASSES M0-17 (ci).
+  - `install.sh` at the root: `--stable` (default, `releases/latest/download/`) or `--nightly` (`releases/download/nightly/`), the direct download URLs, so no JSON parser is needed. Refuses a non-aarch64 machine without `--arch x86_64`, and any file whose sum is wrong or missing from `SHA256SUMS`. Downloads are staged in a temporary folder inside `~/Applications` and moved into place only after both verify, so a failed run leaves the installed copy untouched and nothing is written outside the two allowed folders. Writes `io.github.Rad-Thad.Galleon.desktop` (Exec = `galleon-steam.sh`, `Categories=Game;`) and its icon, `packaging/icon.svg` carried inside the script, beside it. The printed steps tick Galleon in Steam's list and never use Browse.
+  - The whole script is one `main "$@"` call at the end, so a download cut short while piped into bash runs nothing.
+- Evidence:
+  - `test/install/install.test.ts` (`npm run test:install`) 9/9: run as `curl … | bash -s --` against a local fake of the release download URLs (with GitHub's `latest` redirect), a throw-away HOME, an empty TMPDIR that stays empty, a recording `sudo` that is never called, and a PATH of only bash, curl and coreutils. Files and modes, `desktop-file-validate`, an idempotent second run, the stable redirect, no stable release yet, the arch refusal, a tampered file, an unlisted file, a HOME holding `"$\`%\` characters.
+  - That last test found a real bug first: `sha256sum` escapes its output line for a path with a backslash; the sum is now read from standard input.
+  - `shellcheck install.sh` clean. CI: a new "Install script" step inside `build` (x64), after `desktop-file-utils` is installed with Xvfb. `scripts/agent/check.sh` runs the same two lines.
+- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none here. The informational `install.script` device check is M0-22's run.sh step, now unblocked.
+- Next: M0-22's `install.script` step, or `next.mjs`.

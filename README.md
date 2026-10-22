@@ -102,6 +102,22 @@ website is https://leclercb.github.io/rommix/.
 
 ## 📥 Install
 
+On the handheld, in Desktop Mode, one line installs Galleon and adds it to the
+list Steam's **Add a Non-Steam Game** dialog offers; running it again updates
+it:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Rad-Thad/galleon/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Rad-Thad/galleon/main/install.sh | bash -s -- --nightly
+```
+
+It puts the AppImage and `galleon-steam.sh` in `~/Applications`, checked
+against the release's `SHA256SUMS`, and a desktop entry in
+`~/.local/share/applications`, then prints the steps to add it to Steam. It
+installs the aarch64 build; elsewhere, pass `--arch x86_64`.
+
+### By hand
+
 Download the AppImage from
 [Releases](https://github.com/Rad-Thad/galleon/releases) and choose `x86_64` or
 `arm64` depending on your machine's architecture.

@@ -268,8 +268,19 @@ jobs:
       # The runner has no screen. Installed rather than wrapped around the
       # command: `npm run test:app` finds Xvfb for itself and asks it for the
       # size the suite needs — see scripts/test-app.sh — so this job runs the
-      # same line a contributor does.
-      - run: sudo apt-get update && sudo apt-get install -y xvfb
+      # same line a contributor does. desktop-file-utils is for the install
+      # script's step below.
+      - run: sudo apt-get update && sudo apt-get install -y xvfb desktop-file-utils
+
+      # install.sh is what a person pipes into bash on the handheld, so it is
+      # run here the same way: fetched with curl, against a stand-in for the
+      # release downloads, with a throw-away HOME and only bash, curl and
+      # coreutils on PATH — see test/install/install.test.ts.
+      - name: Install script
+        if: matrix.arch == 'x64'
+        run: |
+          shellcheck install.sh
+          npm run test:install
       - if: matrix.arch == 'x64'
         run: npm run test:app
 

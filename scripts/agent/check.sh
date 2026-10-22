@@ -3,8 +3,8 @@
 # Everything a push has to pass, run on the VM before every push (CLAUDE.md,
 # "Definition of done"): the upstream checks in upstream's order, then the unit
 # tests under coverage, which runs them once and holds them to the floors in
-# package.json, then the feature list guard, the device bridge's own tests and
-# the licence guard.
+# package.json, then the feature list guard, the device bridge's own tests, the
+# install script and the licence guard.
 #
 # Stops at the first failure, so the last thing printed is what to fix.
 set -euo pipefail
@@ -38,6 +38,9 @@ step 'device bundle helper tests'
 python3 -B -m unittest discover -s test/device
 step 'device shell scripts (shellcheck)'
 shellcheck test/device/*.sh
+step 'install script (shellcheck, then against a fake releases server)'
+shellcheck install.sh
+npm run --silent test:install
 step 'licence and dependency guard'
 node scripts/agent/licence-guard.mjs >/dev/null
 
