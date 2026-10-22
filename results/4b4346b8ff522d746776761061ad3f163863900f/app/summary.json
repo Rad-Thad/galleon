@@ -1,0 +1,191 @@
+{
+  "schema": 1,
+  "sha": "4b4346b8ff522d746776761061ad3f163863900f",
+  "version": "0.20.0",
+  "status": "complete",
+  "reason": null,
+  "startedAt": "2026-10-22T01:03:38Z",
+  "finishedAt": "2026-10-22T01:05:29Z",
+  "device": {},
+  "power": {},
+  "safety": {
+    "serverWritesAttempted": 0,
+    "deviceIdOnSaveRequests": 0,
+    "ownerStateChanged": [],
+    "romsDownloadedBytes": 262144,
+    "romsLeft": 0
+  },
+  "checks": [
+    {
+      "id": "build.identity",
+      "result": "pass",
+      "metrics": {
+        "version": "0.20.0",
+        "commit": "4b4346b8ff522d746776761061ad3f163863900f",
+        "expectedVersion": "0.20.0",
+        "expectedCommit": "4b4346b8ff522d746776761061ad3f163863900f"
+      },
+      "thresholds": {},
+      "reason": null,
+      "evidence": []
+    },
+    {
+      "id": "startup.cold",
+      "result": "pass",
+      "metrics": {
+        "measuredFrom": "process",
+        "profileObserved": "Performance",
+        "cpuGovernor": "performance",
+        "startupMs": 2999
+      },
+      "thresholds": {
+        "startupMs": 4000
+      },
+      "reason": null,
+      "evidence": []
+    },
+    {
+      "id": "grid.scroll@performance",
+      "result": "fail",
+      "metrics": {
+        "platform": "psp",
+        "games": 1292,
+        "profileObserved": "performance",
+        "governor": "performance",
+        "policy7MaxKHz": 2956800,
+        "gpuMHz": 680,
+        "samples": 7,
+        "visited": 40,
+        "frames": 1859,
+        "p50Ms": 16.6,
+        "p95Ms": 33.3,
+        "p99Ms": 41.6,
+        "droppedPct": 54.2,
+        "displayHz": 119.88526153564453
+      },
+      "thresholds": {
+        "p95Ms": 16.7,
+        "droppedPct": 3
+      },
+      "reason": "over-threshold",
+      "evidence": []
+    },
+    {
+      "id": "grid.scroll@balanced",
+      "result": "fail",
+      "metrics": {
+        "platform": "psp",
+        "games": 1292,
+        "profileObserved": "balanced",
+        "governor": "conservative",
+        "policy7MaxKHz": 2092800,
+        "gpuMHz": 680,
+        "samples": 7,
+        "visited": 60,
+        "frames": 1054,
+        "p50Ms": 25.1,
+        "p95Ms": 50.2,
+        "p99Ms": 75,
+        "droppedPct": 86.1,
+        "displayHz": 119.88526153564453
+      },
+      "thresholds": {
+        "p95Ms": 16.7,
+        "droppedPct": 5
+      },
+      "reason": "over-threshold",
+      "evidence": []
+    },
+    {
+      "id": "server.heartbeat",
+      "result": "pass",
+      "metrics": {
+        "serverVersion": "5.2.0",
+        "heartbeatMs": 60,
+        "meMs": 19
+      },
+      "thresholds": {},
+      "reason": null,
+      "evidence": []
+    },
+    {
+      "id": "download.small",
+      "result": "pass",
+      "metrics": {
+        "platform": "snes",
+        "bytes": 262144,
+        "downloadMs": 187,
+        "progressEvents": 3,
+        "hashAlgorithm": "md5"
+      },
+      "thresholds": {
+        "maxBytes": 16777216
+      },
+      "reason": null,
+      "evidence": []
+    },
+    {
+      "id": "update.verify",
+      "result": "pass",
+      "metrics": {
+        "image": "Galleon-arm64.AppImage",
+        "bytes": 120072055
+      },
+      "thresholds": {},
+      "reason": null,
+      "evidence": []
+    },
+    {
+      "id": "launch.retroarch",
+      "result": "skip",
+      "metrics": {},
+      "thresholds": {},
+      "reason": "cannot-sandbox",
+      "evidence": []
+    },
+    {
+      "id": "exit.retroarch",
+      "result": "skip",
+      "metrics": {},
+      "thresholds": {},
+      "reason": "cannot-sandbox",
+      "evidence": []
+    },
+    {
+      "id": "safety.server-readonly",
+      "result": "pass",
+      "metrics": {
+        "serverWritesAttempted": 0,
+        "deviceIdsRemoved": 0,
+        "deviceIdOnSaveRequests": 0
+      },
+      "thresholds": {
+        "serverWritesAttempted": 0
+      },
+      "reason": null,
+      "evidence": []
+    },
+    {
+      "id": "selftest.complete",
+      "result": "pass",
+      "metrics": {
+        "checks": 10,
+        "notRun": 0,
+        "screenshots": 3,
+        "screenshotsMissing": 0,
+        "screenshotsWithheld": 0
+      },
+      "thresholds": {
+        "notRun": 0,
+        "screenshotsMissing": 0
+      },
+      "reason": null,
+      "evidence": [
+        "shots/settings.png",
+        "shots/bios.png",
+        "shots/emulators.png"
+      ]
+    }
+  ],
+  "notes": []
+}
