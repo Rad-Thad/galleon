@@ -157,14 +157,23 @@ export function scrollProbe(
     const focused = () => document.querySelector('[data-rom][data-focused="true"]')?.dataset.rom ?? null
     if (!(await waitFor(focused))) return failed('no-highlight')
 
+    // Ended by the clock too, so a page that stops drawing does not start its
+    // keys long after the main process has given up on it.
     const resting = []
     await new Promise((resolve) => {
+      let timing = true
+      const stop = () => {
+        timing = false
+        resolve()
+      }
       const rest = (at) => {
+        if (!timing) return
         resting.push(at)
         if (at - resting[0] < ${Math.round(idleMs)}) requestAnimationFrame(rest)
-        else resolve()
+        else stop()
       }
       requestAnimationFrame(rest)
+      setTimeout(stop, ${Math.round(idleMs)})
     })
 
     const stamps = []
