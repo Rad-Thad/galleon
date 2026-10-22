@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
+import { NOTICES, type Settings } from '@shared/types'
 import { RomMixApp, isAssetPath } from './app.ts'
 import { ReadOnlyGuard } from './romm/guard.ts'
 
@@ -45,6 +46,28 @@ test('under the read-only guard the catch-up sends nothing', async () => {
   assert.equal(guarded, guard)
   await held.catchUp()
   assert.equal(guard.serverWritesAttempted, 0)
+})
+
+test('a self-test home has every notice dismissed, keeping what was already there', () => {
+  const app = Object.create(RomMixApp.prototype) as RomMixApp
+  let settings = { dismissedNotices: ['earlier'] } as Settings
+  let writes = 0
+  Object.assign(app, {
+    store: {
+      get settings() {
+        return settings
+      },
+      updateSettings(patch: Partial<Settings>) {
+        writes++
+        settings = { ...settings, ...patch }
+        return settings
+      }
+    }
+  })
+  app.dismissNotices()
+  assert.deepEqual(settings.dismissedNotices, ['earlier', ...NOTICES])
+  app.dismissNotices()
+  assert.equal(writes, 1, 'nothing is written when every notice is already dismissed')
 })
 
 test('the core socket sees the game, the live queue and the saves owed', () => {

@@ -36,7 +36,7 @@ after(() => {
 
 async function runWithRequest(
   request: Record<string, unknown>,
-  server?: { baseUrl: string; token: string },
+  server?: { baseUrl: string; token: string; settings?: Record<string, unknown> },
   timeoutMs = EXIT_TIMEOUT_MS
 ): Promise<{
   code: number | null
@@ -46,7 +46,8 @@ async function runWithRequest(
   const home = mkdtempSync(join(tmpdir(), 'galleon-selftest-app-'))
   homes.push(home)
   const results = join(home, 'results')
-  if (server) seed(home, { baseUrl: server.baseUrl, token: server.token })
+  if (server)
+    seed(home, { baseUrl: server.baseUrl, token: server.token, settings: server.settings })
   writeFileSync(join(home, REQUEST_FILE), JSON.stringify({ ...request, resultsDir: results }))
   const child = spawn(electronBinary(), ['.'], {
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -124,6 +125,26 @@ test('signed in, startup.cold times the start to an interactive Home', async () 
     assert.equal(startup.metrics.measuredFrom, 'process')
     assert.ok(typeof startup.metrics.startupMs === 'number' && startup.metrics.startupMs > 0)
     assert.equal(summary.checks.find((c) => c.id === RUN_CHECKS.complete)?.result, 'pass')
+  } finally {
+    await server.close()
+  }
+})
+
+test('a test home with no notices dismissed, as run.sh makes it, still reaches Home', async () => {
+  // signin.py writes setup as done and nothing about notices, which is what an
+  // installation from before a notice looks like.
+  const server = await startFakeRomm()
+  try {
+    const { code, results } = await runWithRequest(
+      { ...REQUEST, checks: [RUN_CHECKS.complete, 'startup.cold'] },
+      { ...server, settings: { dismissedNotices: [] } }
+    )
+    assert.equal(code, 0)
+    const summary = JSON.parse(readFileSync(join(results, SUMMARY_FILE), 'utf8')) as Summary
+    const startup = summary.checks.find((c) => c.id === 'startup.cold')
+    assert.ok(startup && startup.result !== 'error', JSON.stringify(startup))
+    assert.notEqual(startup.reason, 'home-not-reached')
+    assert.ok(typeof startup.metrics.startupMs === 'number', 'Home was reached and timed')
   } finally {
     await server.close()
   }

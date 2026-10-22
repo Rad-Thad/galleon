@@ -24,7 +24,13 @@ import { Updater } from './update.ts'
 import { isWebAddress } from './weblink.ts'
 import { saveContext } from './gamecontext.ts'
 import { realHome } from './xdg.ts'
-import { isInProgress, isStopped, type EmulatorState, type SavesWaiting } from '@shared/types'
+import {
+  isInProgress,
+  isStopped,
+  NOTICES,
+  type EmulatorState,
+  type SavesWaiting
+} from '@shared/types'
 import type { CoreObservation } from './core-socket/service.ts'
 
 export const IMAGE_SCHEME = 'rommix-img'
@@ -203,6 +209,20 @@ export class RomMixApp {
    */
   hideIdentity(): void {
     this.privacy = new Privacy(() => this.store.server)
+  }
+
+  /**
+   * Mark every notice as seen, so none opens over the screens a self-test
+   * drives. Its home is made for the run with setup already done, which is
+   * what an installation from before a notice looks like, and the migration
+   * that would tell a fresh folder apart is held back with the catch-up.
+   */
+  dismissNotices(): void {
+    const { dismissedNotices } = this.store.settings
+    const missing = NOTICES.filter((key) => !dismissedNotices.includes(key))
+    if (missing.length > 0) {
+      this.store.updateSettings({ dismissedNotices: [...dismissedNotices, ...missing] })
+    }
   }
 
   /** What the page may be given of a value: all of it, unless `hideIdentity` was called. */

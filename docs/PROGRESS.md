@@ -2604,3 +2604,18 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: READY-FOR-DEVICE M0-22 (the next nightly reruns `harness.run`).
 - Next: M0-21's `startup.cold` `home-not-reached` and the grid scroll that did not scroll.
+
+## 2026-10-22 00:00 UTC session 01N9Y1Pkw2RtybHGspnsr9HP (hourly heartbeat, second unit)
+
+- M0-22 `harness.run` fix, PR #229, merged at e24bb00. CI x64 8:03, arm64 0:52.
+- Worked on: M0-21's failing device checks from run 641fa89 (tracking issue #155): `startup.cold` (`home-not-reached`), both `grid.scroll` checks (`grid-did-not-scroll`) and so `selftest.complete`.
+- Cause: every screenshot of the run shows the one-off "Galleon has themes now" notice over the app, holding the focus. `signin.py` writes the test home with setup done and no notices dismissed, which looks like an installation from before themes. The `announce-themes` migration leaves such a folder alone, and it runs inside the catch-up, which the self-test holds back anyway. `test/app/driver.ts` `seed` always pre-dismisses the notice, so CI never saw it.
+- Result: PR (this one). `RomMixApp.dismissNotices()` marks every key in `NOTICES` as seen. `index.ts` calls it in self-test mode beside `hideIdentity()`, before the window exists. The self-test home is always a separate GALLEON_HOME (`takeRequest` requires one).
+- Evidence:
+  - `test/app/selftest.test.ts` "a test home with no notices dismissed, as run.sh makes it, still reaches Home". With `index.ts` reverted the run never quit within 60 s; with the fix the file is 12/12.
+  - `app.test.ts` "a self-test home has every notice dismissed, keeping what was already there".
+  - `npm run test:app` 243/243 (`--no-sandbox` wrapper, as root). `scripts/agent/check.sh` green.
+- Evaluator: PASS. Its note that the new app test's assertion was loose is taken: the test now requires a timed start and no error. The grid scroll's recovery is inferred from the same cause; the next nightly confirms it.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: READY-FOR-DEVICE M0-21 (the next nightly reruns `startup.cold`, `grid.scroll@*` and `selftest.complete`).
+- Next: the next nightly's results; `next.mjs`.
