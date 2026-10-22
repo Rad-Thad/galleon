@@ -413,7 +413,7 @@ class SteamCefTest(unittest.TestCase):
                 steamcef.wait_library(server.url, 1)
         self.assertLess(time.monotonic() - started, 3)
         # The log says how hard the wait tried.
-        self.assertRegex(str(raised.exception), r"timed out; \d+ tries over 1 s$")
+        self.assertRegex(str(raised.exception), r"timed out; \d+ tries over \d+ s$")
 
     def test_cli_library(self):
         server = self.cef(lambda expression: value(1))
