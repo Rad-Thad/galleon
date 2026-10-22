@@ -23,6 +23,13 @@ export const GRID_CHECK = 'grid.scroll'
 /** How long one profile's scroll is measured for. */
 export const SCROLL_MS = 30_000
 
+/**
+ * How long the page is timed at rest, before the first key. A page that
+ * already misses refreshes while idle is held back by how its frames are
+ * paced, not by what a move costs.
+ */
+export const IDLE_MS = 2_000
+
 /** The smallest platform worth measuring: the size of a real library's largest. */
 export const MIN_GAMES = 1000
 
@@ -63,8 +70,16 @@ export const PROFILE_SET = 'profile-set'
 export interface ScrollRun {
   /** Milliseconds between consecutive animation frames while scrolling. */
   intervals: number[]
+  /** The same, with the highlight standing still before the first key. */
+  idle: number[]
   /** How many different games held the highlight: proof the grid moved. */
   visited: number
+  /** How many keys moved the highlight, out of all those sent. */
+  moves: number
+  /** How many times the scroll turned back at an end it could not pass. */
+  turns: number
+  /** How many covers the grid held when the scroll ended: how far it paged. */
+  cards: number
   /** Why the scroll could not start, or null. */
   failed: string | null
 }
@@ -97,7 +112,8 @@ export function scrollProbe(
   scrollMs: number,
   repeatMs = REPEAT_MS,
   timeoutMs = GRID_TIMEOUT_MS,
-  turnMs = TURN_MS
+  turnMs = TURN_MS,
+  idleMs = IDLE_MS
 ): string {
   return `(async () => {
     const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
@@ -110,7 +126,8 @@ export function scrollProbe(
       }
       return null
     }
-    const failed = (why) => ({ intervals: [], visited: 0, failed: why })
+    const failed = (why) => ({ intervals: [], idle: [], visited: 0, moves: 0, turns: 0, cards: 0, failed: why })
+    const gaps = (stamps) => stamps.slice(1).map((at, i) => at - stamps[i])
     const menu = await waitFor(() => document.querySelector('.topbar__nav [data-route="library"]'))
     if (!menu) return failed('no-library-menu')
     menu.click()
@@ -140,6 +157,16 @@ export function scrollProbe(
     const focused = () => document.querySelector('[data-rom][data-focused="true"]')?.dataset.rom ?? null
     if (!(await waitFor(focused))) return failed('no-highlight')
 
+    const resting = []
+    await new Promise((resolve) => {
+      const rest = (at) => {
+        resting.push(at)
+        if (at - resting[0] < ${Math.round(idleMs)}) requestAnimationFrame(rest)
+        else resolve()
+      }
+      requestAnimationFrame(rest)
+    })
+
     const stamps = []
     let drawing = true
     const frame = (at) => {
@@ -149,6 +176,8 @@ export function scrollProbe(
     requestAnimationFrame(frame)
     const visited = new Set([focused()])
     let key = 'ArrowDown'
+    let moves = 0
+    let turns = 0
     let movedAt = Date.now()
     const end = Date.now() + ${Math.round(scrollMs)}
     while (Date.now() < end) {
@@ -157,18 +186,29 @@ export function scrollProbe(
       await sleep(${Math.round(repeatMs)})
       const after = focused()
       if (after !== null) visited.add(after)
-      if (after !== before) movedAt = Date.now()
+      if (after !== before) {
+        moves += 1
+        movedAt = Date.now()
+      }
       // Nothing has moved for a while: the end of the grid, since a page still
       // loading below the last row arrives well within it.
       else if (Date.now() - movedAt >= ${Math.round(turnMs)}) {
         key = key === 'ArrowDown' ? 'ArrowUp' : 'ArrowDown'
+        turns += 1
         movedAt = Date.now()
       }
     }
     drawing = false
-    const intervals = []
-    for (let i = 1; i < stamps.length; i += 1) intervals.push(stamps[i] - stamps[i - 1])
-    return { intervals, visited: visited.size, failed: null }
+    const cards = document.querySelectorAll('[data-screen="library"] [data-rom]').length
+    return {
+      intervals: gaps(stamps),
+      idle: gaps(resting),
+      visited: visited.size,
+      moves,
+      turns,
+      cards,
+      failed: null
+    }
   })()`
 }
 
@@ -193,7 +233,7 @@ export function runScroll(
   let timer: NodeJS.Timeout | undefined
   let onAbort: (() => void) | undefined
   const gaveUp = new Promise<null>((resolve) => {
-    timer = setTimeout(() => resolve(null), scrollMs + 2 * GRID_TIMEOUT_MS)
+    timer = setTimeout(() => resolve(null), IDLE_MS + scrollMs + 2 * GRID_TIMEOUT_MS)
     timer.unref()
     onAbort = () => resolve(null)
     signal.addEventListener('abort', onAbort, { once: true })
@@ -206,12 +246,14 @@ export function runScroll(
 
 function isScrollRun(value: unknown): value is ScrollRun {
   const run = value as ScrollRun | null
+  const times = (list: unknown): boolean =>
+    Array.isArray(list) && list.every((ms) => typeof ms === 'number')
   return (
     typeof run === 'object' &&
     run !== null &&
-    Array.isArray(run.intervals) &&
-    run.intervals.every((ms) => typeof ms === 'number') &&
-    typeof run.visited === 'number' &&
+    times(run.intervals) &&
+    times(run.idle) &&
+    [run.visited, run.moves, run.turns, run.cards].every((n) => typeof n === 'number') &&
     (run.failed === null || typeof run.failed === 'string')
   )
 }
@@ -366,27 +408,57 @@ async function measure(
   if (signal.aborted) return outcome(id, 'skip', 'aborted-by-user', metrics, profile)
   if (!run) return outcome(id, 'error', 'scroll-did-not-finish', metrics, profile)
   if (run.failed) return outcome(id, 'error', run.failed, metrics, profile)
-  metrics.visited = run.visited
-  const valid = run.intervals.filter((ms) => Number.isFinite(ms) && ms > 0)
-  if (run.visited < 2 || valid.length === 0) {
+  Object.assign(metrics, {
+    visited: run.visited,
+    moves: run.moves,
+    turns: run.turns,
+    cards: run.cards
+  })
+  const hz = deps.displayHz()
+  const moving = frameStats(run.intervals, hz)
+  if (run.visited < 2 || !moving) {
     return outcome(id, 'error', 'grid-did-not-scroll', metrics, profile)
   }
-  const sorted = valid.toSorted((a, b) => a - b)
-  const hz = deps.displayHz()
-  const dropped = sorted.filter((ms) => ms > jankyThresholdMs(hz)).length
-  const round = (ms: number): number => Math.round(ms * 10) / 10
+  const idle = frameStats(run.idle, hz)
   Object.assign(metrics, {
-    frames: sorted.length,
-    p50Ms: round(percentile(sorted, 50)),
-    p95Ms: round(percentile(sorted, 95)),
-    p99Ms: round(percentile(sorted, 99)),
-    droppedPct: round((dropped / sorted.length) * 100),
-    displayHz: hz
+    frames: moving.frames,
+    p50Ms: moving.p50Ms,
+    p95Ms: moving.p95Ms,
+    p99Ms: moving.p99Ms,
+    droppedPct: moving.droppedPct,
+    displayHz: hz,
+    idleFrames: idle?.frames ?? 0,
+    idleP50Ms: idle?.p50Ms ?? null,
+    idleP95Ms: idle?.p95Ms ?? null,
+    idleDroppedPct: idle?.droppedPct ?? null
   })
   const limit = thresholdsFor(profile)
   const ok =
     (metrics.p95Ms as number) <= limit.p95Ms && (metrics.droppedPct as number) <= limit.droppedPct
   return outcome(id, ok ? 'pass' : 'fail', ok ? null : 'over-threshold', metrics, profile)
+}
+
+interface FrameStats {
+  frames: number
+  p50Ms: number
+  p95Ms: number
+  p99Ms: number
+  droppedPct: number
+}
+
+/** Percentiles and the dropped share of some frame intervals; null for none. */
+export function frameStats(intervals: readonly number[], hz: number): FrameStats | null {
+  const sorted = intervals.filter((ms) => Number.isFinite(ms) && ms > 0).toSorted((a, b) => a - b)
+  if (sorted.length === 0) return null
+  const dropped = sorted.filter((ms) => ms > jankyThresholdMs(hz)).length
+  const round = (ms: number): number => Math.round(ms * 10) / 10
+  return {
+    frames: sorted.length,
+    p50Ms: round(percentile(sorted, 50)),
+    p95Ms: round(percentile(sorted, 95)),
+    p99Ms: round(percentile(sorted, 99)),
+    droppedPct: round((dropped / sorted.length) * 100)
+  }
 }
 
 function thresholdsFor(profile: string | null): { p95Ms: number; droppedPct: number } {

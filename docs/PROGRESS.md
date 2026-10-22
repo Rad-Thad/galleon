@@ -2651,3 +2651,14 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: READY-FOR-DEVICE M0-22 (the next nightly reruns `harness.run`).
 - Next: the grid scroll misses its frame-time thresholds on the device; Gate 1 (G1-4) depends on it.
+
+## 2026-10-22 02:27 UTC session 01R9haBqnxPvNRScyDbqkdMt (hourly heartbeat)
+
+- Device results: nothing new since 4b4346b (bridge last seen 2026-10-22 01:05 UTC, "not on the charger"); no safety failures, no regressions. PR #233 (M0-22 library wait) merged at 085436e; CI x64 8:52, arm64 1:13.
+- Worked on: G1-4, the grid scroll that misses its thresholds on the Nova (tracking issue #234). Run 4b4346b: Performance p50 16.6 ms, p95 33.3 ms, 54.2% dropped at 120 Hz; Balanced p95 50.2 ms, 86.1%. The highlight visited only 40 and 60 of 1,292 games in 30 s, where CI visits about 200. The numbers cannot yet say whether the page is held to every other refresh by how its frames are paced (p50 16.6 ms is two refreshes at 120 Hz) or by what each move costs, nor how far the grid paged, so no optimisation round can be chosen on evidence.
+- Result: PR (this one), diagnostics only; thresholds and verdicts are unchanged. Before the first key the probe times the page at rest for `IDLE_MS` (`idleFrames`, `idleP50Ms`, `idleP95Ms`, `idleDroppedPct`, reported, never judged), and reports `moves` (keys that moved the highlight), `turns` (times it turned back at an end) and `cards` (covers held at the end). `frameStats` is the shared arithmetic. TESTING.md lists the new metrics.
+- Evidence: `selftestscroll.test.ts` 30/30, new: "the page at rest is reported beside the scroll, and never judged" (idle at every other refresh, scroll passing), "no frames at rest: the idle numbers are unknown", `frameStats` at 60 Hz and 120 Hz, and an answer without `idle` refused. `test/app/selftest.test.ts` 12/12 (`--no-sandbox` wrapper, as root): Xvfb 60 Hz, `visited` 194, `moves` 193, `turns` 0, `cards` 1200, idle p50 16.7 ms, 0% dropped at rest. `scripts/agent/check.sh` green.
+- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: the next nightly's `grid.scroll@*` carry the new metrics. If idle frames already come every other refresh, the first optimisation round is pacing (frame-rate cap under gamescope, M6-15's backends); if idle is clean and `moves` is low, it is the cost of a move (windowed grid, PLAN.md section 9).
+- Next: read the next nightly's scroll metrics and run the first documented optimisation round.

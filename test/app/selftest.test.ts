@@ -7,7 +7,7 @@ import { after, test } from 'node:test'
 import { SETTLE_TIMEOUT_MS, atHome, electronBinary, seed, startApp } from './driver.ts'
 import { GBA_ROM, startFakeRomm } from './server.ts'
 import { SYNTHETIC_GAMES } from '../../src/main/selftestlibrary.ts'
-import { SCROLL_MS } from '../../src/main/selftestscroll.ts'
+import { IDLE_MS, SCROLL_MS } from '../../src/main/selftestscroll.ts'
 import {
   REQUEST_FILE,
   RUN_CHECKS,
@@ -26,6 +26,9 @@ import {
 
 /** Start-up, the run and the quit together, on a slow CI runner. */
 const EXIT_TIMEOUT_MS = 60_000
+/** One page of the grid, which the renderer's build owns (see `PAGE_SIZE` in paging.ts). */
+const PAGE_SIZE = 60
+
 /** The grid scroll's platform: past `MIN_GAMES`, the size of a real library's largest. */
 const GAMES = 1300
 
@@ -212,8 +215,12 @@ test(`signed in, grid.scroll scrolls the ${GAMES}-game platform and times its fr
     // Far more games than one screen holds: the grid really moved.
     assert.ok((scroll.metrics.visited as number) > 50, JSON.stringify(scroll.metrics))
     assert.ok((scroll.metrics.frames as number) > (SCROLL_MS / 1000) * 10)
-    for (const key of ['p50Ms', 'p95Ms', 'p99Ms', 'droppedPct'])
+    for (const key of ['p50Ms', 'p95Ms', 'p99Ms', 'droppedPct', 'idleP50Ms', 'idleP95Ms'])
       assert.equal(typeof scroll.metrics[key], 'number', key)
+    // At rest before the first key, then moved by most keys, paging past the first page.
+    assert.ok((scroll.metrics.idleFrames as number) > (IDLE_MS / 1000) * 10)
+    assert.ok((scroll.metrics.moves as number) >= (scroll.metrics.visited as number) - 1)
+    assert.ok((scroll.metrics.cards as number) > PAGE_SIZE, JSON.stringify(scroll.metrics))
     assert.equal(summary.status, 'complete')
     assert.equal(summary.checks.find((c) => c.id === RUN_CHECKS.complete)?.result, 'pass')
     assert.equal(summary.checks.find((c) => c.id === RUN_CHECKS.serverReadOnly)?.result, 'pass')
