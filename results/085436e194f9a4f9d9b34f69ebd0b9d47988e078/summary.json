@@ -1,0 +1,38 @@
+{
+  "checks": [
+    {
+      "evidence": [
+        "logs/harness.log",
+        "logs/power-facts.txt"
+      ],
+      "id": "harness.run",
+      "metrics": {},
+      "reason": "neither route started the app",
+      "result": "fail",
+      "thresholds": {}
+    },
+    {
+      "evidence": [
+        "logs/owner-state.txt"
+      ],
+      "id": "safety.owner-state",
+      "metrics": {},
+      "reason": null,
+      "result": "pass",
+      "thresholds": {}
+    }
+  ],
+  "finishedAt": "2026-10-22T03:05:48Z",
+  "notes": [
+    "harness checks: harness.run and safety.owner-state; the app's follow once it has started",
+    "sign-in: rommix",
+    "audio: muted and put back",
+    "app: not started"
+  ],
+  "reason": null,
+  "schema": 1,
+  "sha": "085436e194f9a4f9d9b34f69ebd0b9d47988e078",
+  "startedAt": "2026-10-22T03:04:30Z",
+  "status": "complete",
+  "version": "0.20.0"
+}
