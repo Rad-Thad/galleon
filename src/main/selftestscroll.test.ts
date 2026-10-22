@@ -12,6 +12,7 @@ import {
   THRESHOLDS,
   WANT_PROFILE,
   askForProfile,
+  frameStats,
   largestPlatform,
   powerMetrics,
   runScroll,
@@ -66,7 +67,12 @@ function power(profile: string, extra: Partial<PowerState> = {}): PowerState {
 /** A scroll at 120 Hz with `slow` frames of 20 ms among `frames`. */
 function scrolled(frames: number, slow = 0, visited = 50): ScrollRun {
   const intervals = Array.from({ length: frames }, (_, i) => (i < slow ? 20 : 8.3))
-  return { intervals, visited, failed: null }
+  return { intervals, idle: [8.3, 8.4], visited, moves: visited, turns: 0, cards: 60, failed: null }
+}
+
+/** A run that never got going, for the answers that are not a scroll. */
+function stalled(failed: string | null, intervals: number[] = [], visited = 0): ScrollRun {
+  return { intervals, idle: [], visited, moves: 0, turns: 0, cards: 0, failed }
 }
 
 function context(profiles: string[], signal = new AbortController().signal) {
@@ -130,11 +136,31 @@ describe('largestPlatform', () => {
 
 describe('scrollProbe', () => {
   test('is a script the page can parse, naming the platform and the times', () => {
-    const script = scrollProbe(42, 1234, 90, 5678)
+    const script = scrollProbe(42, 1234, 90, 5678, 1500, 2345)
     assert.doesNotThrow(() => new Function(`return ${script}`))
     assert.match(script, /\[data-platform="42"\]/)
     assert.match(script, /1234/)
     assert.match(script, /5678/)
+    assert.match(script, /2345/)
+  })
+})
+
+describe('frameStats', () => {
+  test('percentiles and the share over one and a half refreshes, at 60 Hz and 120 Hz', () => {
+    const intervals = [...Array(90).fill(8.3), ...Array(10).fill(16.7)]
+    assert.deepEqual(frameStats(intervals, 120), {
+      frames: 100,
+      p50Ms: 8.3,
+      p95Ms: 16.7,
+      p99Ms: 16.7,
+      droppedPct: 10
+    })
+    assert.equal(frameStats(intervals, 60)?.droppedPct, 0)
+  })
+
+  test('nothing measurable is null', () => {
+    assert.equal(frameStats([], 120), null)
+    assert.equal(frameStats([0, -1, Number.NaN, Infinity], 120), null)
   })
 })
 
@@ -149,6 +175,8 @@ describe('runScroll', () => {
 
   test('null for an answer that is not a scroll, or a page that threw', async () => {
     assert.equal(await runScroll({ executeJavaScript: async () => 'nope' }, 5, live, 10), null)
+    const { idle: _idle, ...unpaced } = scrolled(10)
+    assert.equal(await runScroll({ executeJavaScript: async () => unpaced }, 5, live, 10), null)
     const threw = { executeJavaScript: async () => Promise.reject(new Error('gone')) }
     assert.equal(await runScroll(threw, 5, live, 10), null)
   })
@@ -291,6 +319,26 @@ describe('scrollScenario', () => {
     assert.equal(bal.result, 'pass')
   })
 
+  test('the page at rest is reported beside the scroll, and never judged', async () => {
+    // Every other refresh at rest: the pacing, not the moves, holds it back.
+    const paced: ScrollRun = { ...scrolled(1000, 0, 40), idle: Array(240).fill(16.7), turns: 2 }
+    const [result] = await run(fake({ run: paced }), [])
+    assert.equal(result.result, 'pass')
+    assert.equal(result.metrics.idleFrames, 240)
+    assert.equal(result.metrics.idleP50Ms, 16.7)
+    assert.equal(result.metrics.idleDroppedPct, 100)
+    assert.equal(result.metrics.moves, 40)
+    assert.equal(result.metrics.turns, 2)
+    assert.equal(result.metrics.cards, 60)
+  })
+
+  test('no frames at rest: the idle numbers are unknown', async () => {
+    const [result] = await run(fake({ run: { ...scrolled(100), idle: [] } }), [])
+    assert.equal(result.result, 'pass')
+    assert.equal(result.metrics.idleFrames, 0)
+    assert.equal(result.metrics.idleP95Ms, null)
+  })
+
   test('a slow p95 fails', async () => {
     const [result] = await run(fake({ run: scrolled(100, 10) }), [])
     assert.equal(result.metrics.p95Ms, 20)
@@ -382,20 +430,14 @@ describe('scrollScenario', () => {
   })
 
   test('a scroll that could not start, finish or move is an error', async () => {
-    const failed = await run(
-      fake({ run: { intervals: [], visited: 0, failed: 'no-platform-chip' } }),
-      []
-    )
+    const failed = await run(fake({ run: stalled('no-platform-chip') }), [])
     assert.equal(failed[0].result, 'error')
     assert.equal(failed[0].reason, 'no-platform-chip')
     const unfinished = await run(fake({ run: null }), [])
     assert.equal(unfinished[0].reason, 'scroll-did-not-finish')
     const still = await run(fake({ run: scrolled(100, 0, 1) }), [])
     assert.equal(still[0].reason, 'grid-did-not-scroll')
-    const empty = await run(
-      fake({ run: { intervals: [0, Number.NaN], visited: 9, failed: null } }),
-      []
-    )
+    const empty = await run(fake({ run: stalled(null, [0, Number.NaN], 9) }), [])
     assert.equal(empty[0].reason, 'grid-did-not-scroll')
   })
 
