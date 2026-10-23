@@ -2706,10 +2706,10 @@ Lines the tooling reads (exact forms):
 
 ## 2026-10-23 03:27 UTC session 017uWkNVNJmRpK9hBEhqppvg (hourly heartbeat)
 
-- Device results: nothing new since 085436e. The bridge was last seen 2026-10-23 03:09 UTC and skipped nine times as "busy: reaper running" (a Steam game held open on the Nova), so nightly 7d0e22b (Electron 44.9.0, M0-22's debugger check, G1-4's scroll metrics) has not run. No safety failures, no regressions; Nightly on 7d0e22b green.
+- Device results: nothing new since 085436e. The bridge was last seen 2026-10-23 03:09 UTC. Its last skip was "busy: reaper running": Steam's `reaper` was running for something other than an idle Galleon. The log cannot say whether that was a game, another shortcut, or a Galleon that was not idle. Since it last published (2026-10-21 08:42 UTC) it has skipped that way nine times, so nightly 7d0e22b (Electron 44.9.0, M0-22's debugger check, G1-4's scroll metrics) has not run. No safety failures, no regressions; Nightly on 7d0e22b green.
 - Worked on: reading the upstream issue #89 (15 commits since the base; docs/MAINTENANCE.md, "Upstream ports"). Nothing is ported now, because no feature in progress needs any of them:
-  - 68697e0, 990e55e, 355061f (controllers): for M3-08, as docs/UPSTREAM.md says.
-  - 15c0930 (PS2 disc image), 3eacaa5 and e6cf36e (Dreamcast saves): for M1-04 and M1-06, which wait on M0-22's device run.
+  - 68697e0, 990e55e (controllers): for M3-08, as docs/UPSTREAM.md says. 355061f follows them in the same gamepad code.
+  - 15c0930 (a PS2 cue/bin launches the .bin): for M1-03. 3eacaa5 and e6cf36e (Dreamcast VMU saves): for M1-06 and M2-14. All three wait on M0-22's device run.
   - 2bbd93d (highlight returns to its card): M4 UI work, after Gate 1.
   - 481f2ab (save folders of niche cores), b3c8cf7 (EmuDeck), f5b25b7, 7d2bf49, a82542c (Xbox), 2b38d66 (upstream's bug form), cf56f66 (dependencies, Dependabot's job), c1725b5 (a test helper; no flaky issue here): no feature or bug names them.
 - Stopped: nothing else eligible, for the reasons in the 2026-10-22 05:27 entry. No `needs-human` issue is open.
