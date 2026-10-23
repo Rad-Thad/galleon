@@ -1,11 +1,12 @@
 {
   "bridgeVersion": 1,
-  "lastPublished": "2026-10-13T08:03:02Z",
-  "lastSeen": "2026-10-21T08:42:05Z",
-  "lastSkip": "not on the charger",
-  "lastTested": "ebf5100d9ca302579f49147690f4491e3b2245d5",
+  "lastPublished": "2026-10-21T08:42:07Z",
+  "lastSeen": "2026-10-23T03:09:03Z",
+  "lastSkip": "busy: reaper running",
+  "lastTested": "085436e194f9a4f9d9b34f69ebd0b9d47988e078",
   "skipReasons": {
-    "network unavailable (URLError)": 2,
-    "not on the charger": 12
+    "busy: reaper running": 9,
+    "no new nightly": 3,
+    "not on the charger": 4
   }
 }
