@@ -2712,5 +2712,6 @@ Lines the tooling reads (exact forms):
   - 15c0930 (a PS2 cue/bin launches the .bin): for M1-03. 3eacaa5 and e6cf36e (Dreamcast VMU saves): for M1-06 and M2-14. All three wait on M0-22's device run.
   - 2bbd93d (highlight returns to its card): M4 UI work, after Gate 1.
   - 481f2ab (save folders of niche cores), b3c8cf7 (EmuDeck), f5b25b7, 7d2bf49, a82542c (Xbox), 2b38d66 (upstream's bug form), cf56f66 (dependencies, Dependabot's job), c1725b5 (a test helper; no flaky issue here): no feature or bug names them.
+- Evaluator: PASS on the second pass. The first failed on two wording points (15c0930's feature; what a `reaper` skip says), both fixed.
 - Stopped: nothing else eligible, for the reasons in the 2026-10-22 05:27 entry. No `needs-human` issue is open.
 - Notes: `npx install-electron` died once on a cut-off download (undici `assert(!this.paused)`); a retry worked. `dockerd` again had to be started by hand.
