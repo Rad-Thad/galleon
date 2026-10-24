@@ -86,8 +86,9 @@ export interface ScrollRun {
   /** How many times the scroll turned back at an end it could not pass. */
   turns: number
   /**
-   * Milliseconds the highlight stood at the bottom of what was drawn while
-   * the next page was still to come: what a player holding Down waits.
+   * Milliseconds a held Down left the highlight standing before the grid
+   * drew its end: mostly a page still to come, what a player holding Down
+   * waits.
    */
   waitedMs: number
   /** How many covers the grid held when the scroll ended: how far it paged. */
