@@ -2715,3 +2715,18 @@ Lines the tooling reads (exact forms):
 - Evaluator: PASS on the second pass. The first failed on two wording points (15c0930's feature; what a `reaper` skip says), both fixed.
 - Stopped: nothing else eligible, for the reasons in the 2026-10-22 05:27 entry. No `needs-human` issue is open.
 - Notes: `npx install-electron` died once on a cut-off download (undici `assert(!this.paused)`); a retry worked. `dockerd` again had to be started by hand.
+
+## 2026-10-24 00:26 UTC session 01Xjmugq3qfx94K2oJt6R5Tz (hourly heartbeat)
+
+- Device results: the bridge ran nightly b63deb9 (Electron 44.9.0, M0-22's debugger check, G1-4's scroll metrics). No safety failures, no regressions.
+  - DEVICE-RESULTS b63deb9f6d6a126735bdce64751d6bcf1a59e16d complete
+  - `harness.run` passed: the app started, ran its self-test and exited 0. `startup.cold` 3966 ms (threshold 4000, Eco profile).
+  - Electron 44.9.0 (#237): every check that passed on the baseline 4b4346b passes again, so the update stays.
+  - `grid.scroll@performance`: p50 16.6 ms, p95 33.3 ms, 56.2% dropped; at rest p50 8.3 ms, 1.3% dropped; `moves` 190, `turns` 7, `visited` 40, `cards` 300. `@balanced`: p95 50.2 ms, 88.5% dropped; at rest p95 41.6 ms, 17% dropped; `moves` 248, `turns` 4, `visited` 60. `launch/exit.retroarch` skip `cannot-sandbox`.
+- Worked on: ingesting b63deb9 (tracking issue #191).
+- Result: PR (this one), PROGRESS only. `device-results.mjs --apply` would flip M0-22, and its one-summary rule is met, but M0-22's last acceptance line asks for both checks passing in two consecutive nightly runs, and b63deb9 is the first (085436e failed `harness.run`). `passes` stays false until the next nightly with c6c14e5 in it passes `harness.run` and `safety.owner-state` too. "The shortcut does nothing when started by hand" is shown only against fakes (`scripts/device-bundle.test.ts`); the entry that flips M0-22 should say so.
+- Evidence: `node scripts/agent/device-results.mjs --summary`; `results/b63deb9.../summary.json` and `results/085436e.../summary.json` on `device-results`.
+- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none new.
+- Next: the next nightly (M0-22's second run); once M0-22 passes, M0-12 and the M1 descriptors are eligible. The scroll: at rest the page holds 120 Hz under Performance, so frames are not paced to every other refresh; the cost is in the move. The highlight moved 190 times but visited only 40 games and turned 7 times, so it is bouncing between ends that are 40 games apart, not paging through 1,292: worth reading in the probe before any optimisation round.
