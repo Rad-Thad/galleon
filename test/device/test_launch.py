@@ -19,12 +19,15 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SHA = "b" * 40
 
 # A stand-in AppImage: it records what it was started with, and stays up
-# until told to stop when asked to. Its sleep runs in the background so a
-# stop is answered at once, as the app answers one.
+# until told to stop when asked to. Its trap is set before it says it has
+# started, and its sleep runs in the background, so a stop is answered at
+# once, as the app answers one.
 FAKE_APP = """#!/bin/sh
-echo "GALLEON_HOME=$GALLEON_HOME" >>"$GALLEON_HOME/started-with"
 if [ -e "$GALLEON_HOME/stay" ]; then
   trap 'echo terminated >>"$GALLEON_HOME/started-with"; exit 0' TERM
+fi
+echo "GALLEON_HOME=$GALLEON_HOME" >>"$GALLEON_HOME/started-with"
+if [ -e "$GALLEON_HOME/stay" ]; then
   while :; do sleep 0.05 & wait $!; done
 fi
 exit 3
@@ -125,6 +128,8 @@ class LaunchTest(unittest.TestCase):
             for attempt in range(10):
                 with self.subTest(shell=shell, attempt=attempt):
                     shutil.rmtree(os.path.join(self.home, "launch"), ignore_errors=True)
+                    with contextlib.suppress(FileNotFoundError):
+                        os.remove(os.path.join(self.home, "started-with"))
                     self.request()
                     open(os.path.join(self.home, "stay"), "w").close()
                     process = subprocess.Popen([shell, os.path.join(self.root, "launch.sh")],
