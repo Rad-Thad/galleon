@@ -7,8 +7,8 @@
 # current.json, which run.sh writes just before the start. Without a current,
 # unexpired request it starts nothing, which is what a hand on the shortcut
 # gets. It marks the start and records the pids run.sh may signal in
-# $GALLEON_HOME/launch/, with launched.py beside it, and starts once per run
-# however many routes asked.
+# $GALLEON_HOME/launch/, through launched.py beside it, and starts once per
+# run however many routes asked.
 set -u
 
 here=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
@@ -30,25 +30,9 @@ echo "$$" >"$state/launch.pid"
 date -u +%Y-%m-%dT%H:%M:%SZ >"$state/started"
 
 # Steam, or run.sh at the end of the budget, stops the shortcut through this
-# process; the app is the one process it passes the signal on to. The trap is
-# set before the start, so a stop that arrives while it starts is kept.
-app=
-stopped=
-trap 'stopped=1; [ -z "$app" ] || kill -TERM "$app" 2>/dev/null' TERM INT HUP
-
+# process, so launched.py takes it over under the same pid and start time: it
+# starts the app, records it, passes a stop on to it alone and writes `exit`
+# (launched.run). A stop before it is in place finds nothing started yet.
 GALLEON_HOME=$home
 export GALLEON_HOME
-"$appimage" >"$state/app.log" 2>&1 &
-app=$!
-python3 -I "$here/launched.py" record --state "$state" --name app --pid "$app" 2>/dev/null || :
-echo "$app" >"$state/app.pid"
-[ -z "$stopped" ] || kill -TERM "$app" 2>/dev/null
-
-while :; do
-  wait "$app"
-  code=$?
-  # A trapped signal interrupts wait before the app has gone.
-  kill -0 "$app" 2>/dev/null || break
-done
-echo "$code" >"$state/exit"
-exit "$code"
+exec python3 -I "$here/launched.py" run --state "$state" -- "$appimage"

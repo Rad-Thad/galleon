@@ -1,6 +1,7 @@
 """Unit tests for launched.py: python3 -m unittest discover -s test/device"""
 
 import os
+import signal
 import subprocess
 import tempfile
 import time
@@ -132,6 +133,53 @@ class LaunchedTest(unittest.TestCase):
         subprocess.run(["python3", "-I", script, "stop", "--state", self.state], check=True,
                        timeout=30)
         self.assertIsNotNone(app.wait(timeout=5))
+
+    def launch(self, script, wait_for=None):
+        """launched.py run, started as launch.sh starts it, on `script` as the app."""
+        app = os.path.join(self.tmp.name, "app")
+        with open(app, "w", encoding="utf-8") as handle:
+            handle.write("#!/bin/sh\n" + script)
+        os.chmod(app, 0o755)
+        child = subprocess.Popen(["python3", "-I", os.path.join(HERE, "launched.py"), "run",
+                                  "--state", self.state, "--", app])
+        self.children.append(child)
+        deadline = time.monotonic() + 10
+        while wait_for and not os.path.exists(wait_for) and time.monotonic() < deadline:
+            time.sleep(0.02)
+        return child
+
+    def written(self, name):
+        with open(os.path.join(self.state, name), encoding="utf-8") as handle:
+            return handle.read()
+
+    def test_run_records_the_app_and_its_exit(self):
+        child = self.launch("echo said\nexit 3\n")
+        self.assertEqual(child.wait(timeout=10), 3)
+        self.assertEqual(self.written("exit"), "3\n")
+        self.assertEqual(self.written("app.log"), "said\n")
+        self.assertRegex(self.written("app.pid"), r"^[0-9]+\n$")
+
+    def test_run_passes_a_stop_on_to_the_app(self):
+        ready = os.path.join(self.tmp.name, "ready")
+        child = self.launch(f"trap 'echo stopped; exit 0' TERM\n: >'{ready}'\n"
+                         "while :; do sleep 0.05 & wait $!; done\n", wait_for=ready)
+        child.send_signal(signal.SIGHUP)
+        self.assertEqual(child.wait(timeout=10), 0)
+        self.assertEqual(self.written("exit"), "0\n")
+        self.assertEqual(self.written("app.log"), "stopped\n")
+
+    def test_run_gives_an_app_ended_by_a_signal_as_a_shell_does(self):
+        child = self.launch("kill -TERM $$\n")
+        self.assertEqual(child.wait(timeout=10), 143)
+        self.assertEqual(self.written("exit"), "143\n")
+
+    def test_run_of_an_app_that_cannot_start_records_why(self):
+        app = os.path.join(self.tmp.name, "app")
+        open(app, "w").close()
+        code = launched.run(self.state, [app])
+        self.assertEqual(code, 126)
+        self.assertEqual(self.written("exit"), "126\n")
+        self.assertFalse(os.path.exists(os.path.join(self.state, "app.pid")))
 
 
 if __name__ == "__main__":
