@@ -25,6 +25,26 @@ export const PAGE_SIZE = 60
  */
 const LOOKAHEAD = '600px 0px'
 
+/**
+ * The element the grid scrolls in, or null where that is the page itself.
+ *
+ * What the sentinel is watched against. Left to the viewport, the margin above
+ * would do nothing: an observer clips its target by every scrolling element it
+ * sits in before the margin is applied, so a sentinel below the fold of the
+ * screen's own scroll box only counts once it is on screen, and the next page
+ * is asked for no earlier than the end of the grid is reached.
+ */
+export function scrollingAncestor(
+  element: Element,
+  style: (element: Element) => Pick<CSSStyleDeclaration, 'overflowY'> = getComputedStyle
+): Element | null {
+  for (let at = element.parentElement; at; at = at.parentElement) {
+    const { overflowY } = style(at)
+    if (overflowY === 'auto' || overflowY === 'scroll') return at
+  }
+  return null
+}
+
 /** What the shared core answers with. See `useRomPages`. */
 export interface RomPages {
   /** Every page fetched so far, in the order they came. */
@@ -253,7 +273,7 @@ export function usePagedRoms(
       (entries) => {
         if (entries.some((entry) => entry.isIntersecting)) loadMore()
       },
-      { rootMargin: LOOKAHEAD }
+      { root: scrollingAncestor(element), rootMargin: LOOKAHEAD }
     )
     observer.observe(element)
     return () => observer.disconnect()

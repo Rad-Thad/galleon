@@ -12,7 +12,7 @@ const window = installDom()
 
 const { act, useEffect, useState } = await import('react')
 const { createRoot } = await import('react-dom/client')
-const { useRomPages } = await import('./paging.ts')
+const { PAGE_SIZE, scrollingAncestor, usePagedRoms, useRomPages } = await import('./paging.ts')
 
 /**
  * What paging does while the answers are still out.
@@ -31,9 +31,10 @@ const { useRomPages } = await import('./paging.ts')
  * the reason this file renders rather than testing rules in the abstract: what
  * went wrong was the order effects and answers arrived in.
  *
- * The sentinel is not here. `usePagedRoms` watches an element for coming into
- * view, and happy-dom gives nothing a box — that a real grid fetches when it is
- * walked to the bottom is `test/app/`'s to prove.
+ * Most of the sentinel is not here. `usePagedRoms` watches an element for
+ * coming into view, and happy-dom gives nothing a box — that a real grid
+ * fetches when it is walked to the bottom is `test/app/`'s to prove. What is
+ * here is what the sentinel is watched against, which needs no box.
  */
 
 /** How many games a page is here. Small, so a full page is two answers away. */
@@ -414,5 +415,61 @@ describe('a page that failed', () => {
 
     assert.deepEqual(held(screen), [1, 2])
     assert.equal(screen.errors.at(-1), null)
+  })
+})
+
+describe('what the sentinel is watched against', () => {
+  /** A style lookup that says which elements scroll. */
+  const scrolls =
+    (...boxes: Element[]) =>
+    (element: Element): Pick<CSSStyleDeclaration, 'overflowY'> => ({
+      overflowY: boxes.includes(element) ? 'auto' : 'visible'
+    })
+
+  test('is the nearest element that scrolls, not the page', () => {
+    const outer = window.document.createElement('div')
+    const inner = window.document.createElement('div')
+    const sentinel = window.document.createElement('div')
+    outer.appendChild(inner)
+    inner.appendChild(sentinel)
+    const at = (e: unknown): Element => e as Element
+
+    assert.equal(scrollingAncestor(at(sentinel), scrolls(at(outer), at(inner))), inner)
+    assert.equal(scrollingAncestor(at(sentinel), scrolls(at(outer))), outer)
+    assert.equal(scrollingAncestor(at(sentinel), scrolls()), null)
+  })
+
+  test("and the grid's observer is given it, so the lookahead reaches below the fold", async () => {
+    const calls = serve()
+    const watched: IntersectionObserverInit[] = []
+    const real = globalThis.IntersectionObserver
+    // Records what it was asked to watch against; nothing ever intersects.
+    globalThis.IntersectionObserver = class {
+      constructor(_callback: IntersectionObserverCallback, init: IntersectionObserverInit = {}) {
+        watched.push(init)
+      }
+      observe(): void {}
+      disconnect(): void {}
+    } as unknown as typeof IntersectionObserver
+    try {
+      function Library(): JSX.Element {
+        const { sentinel } = usePagedRoms({}, { onError: () => undefined })
+        return <div ref={sentinel} />
+      }
+      // The screen's own scroll box, as `.content` is in the app.
+      const content = window.document.createElement('div')
+      content.style.overflowY = 'auto'
+      window.document.body.appendChild(content)
+      const root = createRoot(content as unknown as HTMLElement)
+      roots.push(root)
+      act(() => root.render(<Library />))
+
+      await calls[0].answer(Array.from({ length: PAGE_SIZE }, (_, i) => i + 1))
+
+      assert.ok(watched.length > 0, 'a full first page leaves the sentinel watched')
+      assert.equal(watched.at(-1)?.root, content)
+    } finally {
+      globalThis.IntersectionObserver = real
+    }
   })
 })
