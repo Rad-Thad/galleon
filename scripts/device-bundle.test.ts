@@ -250,6 +250,21 @@ function fakeArmadaPower(profile = 'balanced') {
 }
 
 /**
+ * The pid launch.sh wrote to `file`, once it is there in full. `echo >`
+ * creates the file before it writes the number, and an empty read would be
+ * pid 0, which `process.kill` takes for the whole process group.
+ */
+function writtenPid(file: string, timeoutMs = 10_000) {
+  const by = Date.now() + timeoutMs
+  for (;;) {
+    const line = existsSync(file) ? readFileSync(file, 'utf8') : ''
+    if (/^[1-9][0-9]*\n/.test(line)) return Number(line.split('\n')[0])
+    assert.ok(Date.now() < by, `a pid in ${file}`)
+    execFileSync('sleep', ['0.05'])
+  }
+}
+
+/**
  * An app that asks the harness for each profile in turn, through its
  * request's handshake folder as the real one does (askForProfile), and
  * writes the answers to `seen`.
@@ -1577,6 +1592,17 @@ describe('device-bundle', () => {
     assert.ok(!existsSync(join(testRoot, 'profile.json')))
   })
 
+  test('a pid file launch.sh has created but not yet written is waited out', () => {
+    const file = join(mkdtempSync(join(tmpdir(), 'bundle-pid-')), 'app.pid')
+    writeFileSync(file, '')
+    const writer = spawn('/bin/sh', ['-c', `sleep 0.3; echo 4242 >"${file}"`], { stdio: 'ignore' })
+    try {
+      assert.equal(writtenPid(file), 4242)
+    } finally {
+      writer.kill()
+    }
+  })
+
   test('run.sh --cleanup stops an app a killed run left running, before the sound comes back', () => {
     const bundle = unpackLikeTheBridge(built())
     const session = fakeSession()
@@ -1627,12 +1653,7 @@ describe('device-bundle', () => {
     })
     launcher.unref()
     const launched = join(home, 'launch')
-    const by = Date.now() + 10_000
-    while (!existsSync(join(launched, 'app.pid'))) {
-      assert.ok(Date.now() < by, 'launch.sh started the app')
-      execFileSync('sleep', ['0.05'])
-    }
-    const pid = Number(readFileSync(join(launched, 'app.pid'), 'utf8'))
+    const pid = writtenPid(join(launched, 'app.pid'))
     const run = spawnSync('/bin/sh', [join(bundle, 'run.sh'), '--cleanup'], {
       env: { ...env, GALLEON_TEST_DIR: testDir }
     })

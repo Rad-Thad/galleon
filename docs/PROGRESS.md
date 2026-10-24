@@ -2762,3 +2762,15 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none new. The next nightly's `waitedMs` is the first on the Nova with the lookahead in effect.
 - Next: time one page from request to drawn cards (main-process fetch versus render of 60 more cards into a grid that is never windowed) before any change to paging; that decides between more than one page in flight, larger pages, or a windowed grid (a G1-4 optimisation round, PLAN.md section 9). M0-22 still needs its second passing nightly.
+
+## 2026-10-24 03:27 UTC session 011fpq78FEkaucTz8dwha7et (hourly heartbeat)
+
+- Device results: nothing new since b63deb9 (bridge last seen 2026-10-24 00:10 UTC, "busy: reaper running"); no safety failures, no regressions. #251 (the grid's sentinel against its scroll box) merged at cbb2c58.
+- Worked on: the flaky `run.sh --cleanup stops an app a killed run left running` (issue #250).
+- Root cause: the test waited for `app.pid` to exist and then read it. launch.sh writes it with `echo >`, which creates the file before the number is in it, so a read in between gave `Number('')`, pid 0, and `process.kill(0, 0)` signals the test's own process group and succeeds: "Missing expected exception". The issue's zombie guess does not hold: `launched.py stop` returns 0 only once launch.sh is gone (or a zombie), and launch.sh reaps the app before it writes `exit` and exits. run.sh's cleanup was never affected: `launched.py stop` (`_pid`) takes only a first line of digits.
+- Result: PR (this one), test only. `writtenPid` in scripts/device-bundle.test.ts waits for a whole pid line, and the cleanup test reads the pid through it.
+- Evidence: the old read on an empty `app.pid` gives pid 0 and `kill(0, 0)` does not throw (shown on this VM). New test "a pid file launch.sh has created but not yet written is waited out" passes. The cleanup test passed 15 of 15 runs started at once. `scripts/agent/check.sh` green.
+- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none.
+- Next: G1-4, timing one page from request to drawn cards (02:27 entry). M0-22 still needs its second passing nightly.
