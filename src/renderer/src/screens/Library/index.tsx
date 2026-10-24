@@ -389,8 +389,10 @@ export function LibraryScreen({ view }: { view?: LibraryView }): JSX.Element {
         </div>
       ) : null}
 
+      {/* Also how the grid-scroll self-test tells the end from a page still
+          on its way. See `GRID_END`. */}
       {!busy && scope === 'all' && roms.length > 0 && !more ? (
-        <div className="empty" style={{ padding: '28px 0' }}>
+        <div className="empty" style={{ padding: '28px 0' }} data-grid-end>
           {t('library.thatIsAll', { count })}
         </div>
       ) : null}
