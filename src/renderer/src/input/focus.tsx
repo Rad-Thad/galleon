@@ -71,7 +71,8 @@ interface FocusContextValue {
   isFocused(id: string): boolean
   subscribeFocus(listener: () => void): () => void
   setFocus(id: string): void
-  move(direction: Direction): void
+  /** `held` for a repeat of a direction held down. See `revealElement`. */
+  move(direction: Direction, held?: boolean): void
   /**
    * Send focus into a zone by name, as `move` cannot: a button that says "go to
    * the menu" is not a direction, and from the middle of a library the menu is
@@ -346,7 +347,7 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
 
   /** Focus an element without disturbing a run in progress. */
   const applyFocus = useCallback(
-    (id: string): void => {
+    (id: string, held = false): void => {
       const entry = entries.current.get(id)
       if (!entry) return
       /**
@@ -377,7 +378,7 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
       )
       if (entry.group) groupMemory.current.set(entry.group, id)
       publishFocus(id)
-      revealElement(entry.element)
+      revealElement(entry.element, held)
     },
     [publishFocus, visibleEntries]
   )
@@ -495,7 +496,7 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
   )
 
   const move = useCallback(
-    (direction: Direction): void => {
+    (direction: Direction, held = false): void => {
       const candidates = visibleEntries()
       if (candidates.length === 0) return
 
@@ -518,8 +519,8 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
        */
       const rects = new Map<HTMLElement, Rect>()
       const rectFor = (element: HTMLElement): Rect => {
-        const held = rects.get(element)
-        if (held) return held
+        const measured = rects.get(element)
+        if (measured) return measured
         const rect = rectOf(element)
         rects.set(element, rect)
         return rect
@@ -691,14 +692,14 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
         // is also what keeps the bar out of the way — the page is left for it
         // only from the very top, never from the middle of a list that still
         // scrolls.
-        if (scrollToEnd(current.element, direction)) return
+        if (scrollToEnd(current.element, direction, held)) return
         target = cross()
       }
 
       if (!target) return
 
       const arrived = landing(target)
-      applyFocus(arrived)
+      applyFocus(arrived, held)
       // Only where a press actually moved: every return above is a press that
       // found nothing, and a click for those would say the opposite.
       playCue('move')

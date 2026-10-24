@@ -96,6 +96,8 @@ const R3 = 11
 /** Everything the hook reported, in order. */
 interface Heard {
   moves: Direction[]
+  /** For each move, whether it was a repeat of a direction held down. */
+  held: boolean[]
   actions: Action[]
   activations: number
   kinds: InputKind[]
@@ -107,7 +109,10 @@ let setSuspended: (suspended: boolean) => void = () => undefined
 
 function Pad({ suspended }: { suspended: boolean }): null {
   useGamepad(
-    (direction) => heard.moves.push(direction),
+    (direction, held) => {
+      heard.moves.push(direction)
+      heard.held.push(held)
+    },
     (action) => heard.actions.push(action),
     () => {
       heard.activations += 1
@@ -131,7 +136,7 @@ beforeEach(() => {
   clock = 0
   frames = []
   pads = []
-  heard = { moves: [], actions: [], activations: 0, kinds: [] }
+  heard = { moves: [], held: [], actions: [], activations: 0, kinds: [] }
   const root = mount(<Pad suspended={false} />)
   setSuspended = (suspended) => act(() => root.render(<Pad suspended={suspended} />))
 })
@@ -204,6 +209,17 @@ describe('a held direction', () => {
     hold(1000)
     assert.ok(heard.moves.length > 3, `it should repeat while held, moved ${heard.moves.length}`)
     assert.ok(heard.moves.every((direction) => direction === 'down'))
+  })
+
+  test('says which moves are its repeats, so the page can keep up with them', () => {
+    pads = [pad({ pressed: [DOWN] })]
+
+    step()
+    hold(1000)
+
+    assert.equal(heard.held[0], false, 'the first move is a press')
+    assert.ok(heard.held.length > 3)
+    assert.ok(heard.held.slice(1).every(Boolean), 'every move after it is a repeat')
   })
 
   test('comes from the stick past its dead zone, and not from a stick at rest', () => {

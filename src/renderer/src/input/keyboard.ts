@@ -80,7 +80,8 @@ export function intentOf(
 }
 
 export function useKeyboard(
-  move: (direction: Direction) => void,
+  /** See `useGamepad`: a key held down repeats, and says so. */
+  move: (direction: Direction, held: boolean) => void,
   fireAction: (action: Action) => void,
   activate: () => void,
   noteInput: (kind: InputKind) => void
@@ -98,7 +99,7 @@ export function useKeyboard(
       // the keyboard is now driving the UI.
       if (!intent) return
 
-      if ('move' in intent) move(intent.move)
+      if ('move' in intent) move(intent.move, event.repeat)
       else if ('activate' in intent) activate()
       else fireAction(intent.action)
 

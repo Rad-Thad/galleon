@@ -94,6 +94,12 @@ export interface ScrollRun {
   /** How many covers the grid held when the scroll ended: how far it paged. */
   cards: number
   /**
+   * The furthest the highlight sat below the bottom of the box the grid
+   * scrolls in, in pixels, read a key after each move: how far the page fell
+   * behind a held Down. Zero where it kept up.
+   */
+  trailMaxPx: number
+  /**
    * Milliseconds the library showed its spinner, once per page asked for
    * during the scroll: from the request going out to its covers drawn, since
    * the answer and the spinner going away are one render.
@@ -153,7 +159,7 @@ export function scrollProbe(
       }
       return null
     }
-    const failed = (why) => ({ intervals: [], idle: [], visited: 0, moves: 0, turns: 0, waitedMs: 0, cards: 0, pageMs: [], gapMs: [], failed: why })
+    const failed = (why) => ({ intervals: [], idle: [], visited: 0, moves: 0, turns: 0, waitedMs: 0, cards: 0, trailMaxPx: 0, pageMs: [], gapMs: [], failed: why })
     const gaps = (stamps) => stamps.slice(1).map((at, i) => at - stamps[i])
     const menu = await waitFor(() => document.querySelector('.topbar__nav [data-route="library"]'))
     if (!menu) return failed('no-library-menu')
@@ -182,6 +188,8 @@ export function scrollProbe(
       clientY: Math.round(box.top + box.height / 2)
     }))
     const focused = () => document.querySelector('[data-rom][data-focused="true"]')?.dataset.rom ?? null
+    let scroller = first.parentElement
+    while (scroller && !['auto', 'scroll'].includes(window.getComputedStyle(scroller).overflowY)) scroller = scroller.parentElement
     if (!(await waitFor(focused))) return failed('no-highlight')
 
     // Ended by the clock too, so a page that stops drawing does not start its
@@ -233,6 +241,10 @@ export function scrollProbe(
     requestAnimationFrame(frame)
     const visited = new Set([focused()])
     let key = 'ArrowDown'
+    // Every key after the first in one direction is a repeat, as a key held
+    // down sends, since the page scrolls a held direction differently.
+    let repeat = false
+    let trailMaxPx = 0
     let moves = 0
     let turns = 0
     let waitedMs = 0
@@ -241,11 +253,17 @@ export function scrollProbe(
     while (Date.now() < end) {
       const before = focused()
       const sentAt = Date.now()
-      window.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }))
+      window.dispatchEvent(new KeyboardEvent('keydown', { key, repeat, bubbles: true }))
+      repeat = true
       await sleep(${Math.round(repeatMs)})
       const after = focused()
       if (after !== null) visited.add(after)
       if (after !== before) {
+        const card = document.querySelector('[data-rom][data-focused="true"]')
+        if (card && scroller) {
+          const below = card.getBoundingClientRect().bottom - scroller.getBoundingClientRect().bottom
+          trailMaxPx = Math.max(trailMaxPx, below)
+        }
         moves += 1
         movedAt = Date.now()
         continue
@@ -255,6 +273,7 @@ export function scrollProbe(
       const patience = atEnd ? ${Math.round(turnMs)} : ${Math.round(timeoutMs)}
       if (Date.now() - movedAt >= patience) {
         key = key === 'ArrowDown' ? 'ArrowUp' : 'ArrowDown'
+        repeat = false
         turns += 1
         movedAt = Date.now()
       }
@@ -270,6 +289,7 @@ export function scrollProbe(
       turns,
       waitedMs,
       cards,
+      trailMaxPx,
       pageMs,
       gapMs,
       failed: null
@@ -320,7 +340,7 @@ function isScrollRun(value: unknown): value is ScrollRun {
     times(run.idle) &&
     times(run.pageMs) &&
     times(run.gapMs) &&
-    [run.visited, run.moves, run.turns, run.waitedMs, run.cards].every(
+    [run.visited, run.moves, run.turns, run.waitedMs, run.cards, run.trailMaxPx].every(
       (n) => typeof n === 'number'
     ) &&
     (run.failed === null || typeof run.failed === 'string')
@@ -483,6 +503,7 @@ async function measure(
     turns: run.turns,
     waitedMs: Math.round(run.waitedMs),
     cards: run.cards,
+    trailMaxPx: Math.round(run.trailMaxPx),
     pages: run.pageMs.length,
     pageP50Ms: median(run.pageMs),
     pageMaxMs: run.pageMs.length ? Math.round(Math.max(...run.pageMs)) : null,

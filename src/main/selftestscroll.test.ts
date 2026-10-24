@@ -77,6 +77,7 @@ function scrolled(frames: number, slow = 0, visited = 50): ScrollRun {
     turns: 0,
     waitedMs: 0,
     cards: 60,
+    trailMaxPx: 0,
     pageMs: [],
     gapMs: [],
     failed: null
@@ -93,6 +94,7 @@ function stalled(failed: string | null, intervals: number[] = [], visited = 0): 
     turns: 0,
     waitedMs: 0,
     cards: 0,
+    trailMaxPx: 0,
     pageMs: [],
     gapMs: [],
     failed
@@ -174,7 +176,13 @@ describe('scrollProbe', () => {
  * a column of cards the arrow keys walk, and a page that lands `pageMs` after
  * the highlight first reaches the bottom (never, for null), with the end
  * marker drawn beneath it. The spinner is up while that page is out.
+ *
+ * The grid is the box the cards scroll in, and it never scrolls: card `i`
+ * ends `CARD_PX` × (i + 1) down a box `CARD_PX` × 2 tall, so the highlight
+ * trails the box's bottom by every card past the second.
  */
+const CARD_PX = 50
+
 function library(firstPage: number, nextPage: number, pageMs: number | null) {
   const window = new Window({ url: 'http://localhost/' })
   const { document } = window
@@ -182,15 +190,19 @@ function library(firstPage: number, nextPage: number, pageMs: number | null) {
     <nav class="topbar__nav"><button data-route="library"></button></nav>
     <div data-screen="library">
       <button data-platform="42" data-active="true"></button>
-      <div class="grid"></div>
+      <div class="grid" style="overflow-y: auto"></div>
     </div>`
   const grid = document.querySelector('.grid')!
+  grid.getBoundingClientRect = () =>
+    ({ bottom: CARD_PX * 2 }) as ReturnType<typeof grid.getBoundingClientRect>
   const add = (count: number): void => {
     const from = grid.children.length
     for (let i = 0; i < count; i++) {
       const card = document.createElement('div')
       card.dataset.rom = String(from + i)
       card.addEventListener('mousemove', () => focus(from + i))
+      card.getBoundingClientRect = () =>
+        ({ bottom: CARD_PX * (from + i + 1) }) as ReturnType<typeof grid.getBoundingClientRect>
       grid.appendChild(card)
     }
   }
@@ -200,11 +212,11 @@ function library(firstPage: number, nextPage: number, pageMs: number | null) {
     at = index
     grid.children[at].setAttribute('data-focused', 'true')
   }
-  const keys: { key: string; cards: number }[] = []
+  const keys: { key: string; repeat: boolean; cards: number }[] = []
   let asked = false
   window.addEventListener('keydown', (event) => {
-    const { key } = event as unknown as { key: string }
-    keys.push({ key, cards: grid.children.length })
+    const { key, repeat } = event as unknown as { key: string; repeat: boolean }
+    keys.push({ key, repeat, cards: grid.children.length })
     const next = key === 'ArrowDown' ? at + 1 : at - 1
     if (next >= 0 && next < grid.children.length) focus(next)
     if (at === grid.children.length - 1 && !asked && pageMs !== null) {
@@ -260,6 +272,25 @@ describe('scrollProbe in a page', () => {
       const firstUp = page.keys.findIndex((k) => k.key === 'ArrowUp')
       assert.ok(firstUp > 0)
       assert.equal(page.keys[firstUp].cards, 20)
+    } finally {
+      await page.close()
+    }
+  })
+
+  test('holds Down as a held key does, and reports how far the highlight trails the box', async () => {
+    const page = library(10, 0, null)
+    try {
+      const scroll = await page.probe(scrollProbe(42, 800, 10, 300, 50, 20))
+      assert.equal(scroll.failed, null)
+      assert.ok(scroll.turns >= 1, JSON.stringify(scroll))
+      // A press, then repeats, and a press again each way the scroll turns.
+      const firstUp = page.keys.findIndex((k) => k.key === 'ArrowUp')
+      assert.equal(page.keys[0].repeat, false)
+      assert.ok(page.keys.slice(1, firstUp).every((k) => k.repeat))
+      assert.equal(page.keys[firstUp].repeat, false)
+      assert.ok(page.keys[firstUp + 1].repeat)
+      // The last of the ten cards ends eight cards below the box.
+      assert.equal(scroll.trailMaxPx, CARD_PX * 8)
     } finally {
       await page.close()
     }
