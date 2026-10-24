@@ -3,10 +3,12 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { after, describe, test } from 'node:test'
+import { Window } from 'happy-dom'
 import type { PowerState, RommPlatform } from '@shared/types'
 import type { CheckResult, Safety, SelfTestRequest } from './selftest.ts'
 import {
   GRID_CHECK,
+  GRID_END,
   MIN_GAMES,
   PROFILE_SET,
   THRESHOLDS,
@@ -67,12 +69,21 @@ function power(profile: string, extra: Partial<PowerState> = {}): PowerState {
 /** A scroll at 120 Hz with `slow` frames of 20 ms among `frames`. */
 function scrolled(frames: number, slow = 0, visited = 50): ScrollRun {
   const intervals = Array.from({ length: frames }, (_, i) => (i < slow ? 20 : 8.3))
-  return { intervals, idle: [8.3, 8.4], visited, moves: visited, turns: 0, cards: 60, failed: null }
+  return {
+    intervals,
+    idle: [8.3, 8.4],
+    visited,
+    moves: visited,
+    turns: 0,
+    waitedMs: 0,
+    cards: 60,
+    failed: null
+  }
 }
 
 /** A run that never got going, for the answers that are not a scroll. */
 function stalled(failed: string | null, intervals: number[] = [], visited = 0): ScrollRun {
-  return { intervals, idle: [], visited, moves: 0, turns: 0, cards: 0, failed }
+  return { intervals, idle: [], visited, moves: 0, turns: 0, waitedMs: 0, cards: 0, failed }
 }
 
 function context(profiles: string[], signal = new AbortController().signal) {
@@ -142,6 +153,106 @@ describe('scrollProbe', () => {
     assert.match(script, /1234/)
     assert.match(script, /5678/)
     assert.match(script, /2345/)
+  })
+})
+
+/**
+ * A library screen with just what the probe reaches for: the menu, the chip,
+ * a column of cards the arrow keys walk, and a page that lands `pageMs` after
+ * the highlight first reaches the bottom (never, for null), with the end
+ * marker drawn beneath it.
+ */
+function library(firstPage: number, nextPage: number, pageMs: number | null) {
+  const window = new Window({ url: 'http://localhost/' })
+  const { document } = window
+  document.body.innerHTML = `
+    <nav class="topbar__nav"><button data-route="library"></button></nav>
+    <div data-screen="library">
+      <button data-platform="42" data-active="true"></button>
+      <div class="grid"></div>
+    </div>`
+  const grid = document.querySelector('.grid')!
+  const add = (count: number): void => {
+    const from = grid.children.length
+    for (let i = 0; i < count; i++) {
+      const card = document.createElement('div')
+      card.dataset.rom = String(from + i)
+      card.addEventListener('mousemove', () => focus(from + i))
+      grid.appendChild(card)
+    }
+  }
+  let at = -1
+  const focus = (index: number): void => {
+    grid.children[at]?.removeAttribute('data-focused')
+    at = index
+    grid.children[at].setAttribute('data-focused', 'true')
+  }
+  const keys: { key: string; cards: number }[] = []
+  let asked = false
+  window.addEventListener('keydown', (event) => {
+    const { key } = event as unknown as { key: string }
+    keys.push({ key, cards: grid.children.length })
+    const next = key === 'ArrowDown' ? at + 1 : at - 1
+    if (next >= 0 && next < grid.children.length) focus(next)
+    if (at === grid.children.length - 1 && !asked && pageMs !== null) {
+      asked = true
+      setTimeout(() => {
+        add(nextPage)
+        const end = document.createElement('div')
+        end.setAttribute(GRID_END.slice(1, -1), '')
+        grid.parentElement!.appendChild(end)
+      }, pageMs)
+    }
+  })
+  add(firstPage)
+  const probe = (script: string): Promise<ScrollRun> =>
+    new Function(
+      'window',
+      'document',
+      'requestAnimationFrame',
+      'KeyboardEvent',
+      'MouseEvent',
+      `return ${script}`
+    )(
+      window,
+      document,
+      window.requestAnimationFrame.bind(window),
+      window.KeyboardEvent,
+      window.MouseEvent
+    )
+  return { probe, keys, close: () => window.happyDOM.close() }
+}
+
+describe('scrollProbe in a page', () => {
+  test('holds Down through a page slower than TURN_MS, and turns at the end the grid draws', async () => {
+    const page = library(10, 10, 300)
+    try {
+      const scroll = await page.probe(scrollProbe(42, 1500, 10, 2000, 100, 20))
+      assert.equal(scroll.failed, null)
+      assert.equal(scroll.cards, 20)
+      assert.equal(scroll.visited, 20)
+      assert.ok(scroll.turns >= 1, JSON.stringify(scroll))
+      // Waiting at the loading edge is reported, not turned from.
+      assert.ok(scroll.waitedMs >= 200, JSON.stringify(scroll))
+      const firstUp = page.keys.findIndex((k) => k.key === 'ArrowUp')
+      assert.ok(firstUp > 0)
+      assert.equal(page.keys[firstUp].cards, 20)
+    } finally {
+      await page.close()
+    }
+  })
+
+  test('a page that never comes is turned from once the grid has had its time', async () => {
+    const page = library(10, 0, null)
+    try {
+      const scroll = await page.probe(scrollProbe(42, 800, 10, 300, 50, 20))
+      assert.equal(scroll.failed, null)
+      assert.equal(scroll.cards, 10)
+      assert.ok(scroll.turns >= 1, JSON.stringify(scroll))
+      assert.ok(scroll.waitedMs >= 250, JSON.stringify(scroll))
+    } finally {
+      await page.close()
+    }
   })
 })
 

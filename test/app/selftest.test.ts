@@ -215,7 +215,15 @@ test(`signed in, grid.scroll scrolls the ${GAMES}-game platform and times its fr
     // Far more games than one screen holds: the grid really moved.
     assert.ok((scroll.metrics.visited as number) > 50, JSON.stringify(scroll.metrics))
     assert.ok((scroll.metrics.frames as number) > (SCROLL_MS / 1000) * 10)
-    for (const key of ['p50Ms', 'p95Ms', 'p99Ms', 'droppedPct', 'idleP50Ms', 'idleP95Ms'])
+    for (const key of [
+      'p50Ms',
+      'p95Ms',
+      'p99Ms',
+      'droppedPct',
+      'idleP50Ms',
+      'idleP95Ms',
+      'waitedMs'
+    ])
       assert.equal(typeof scroll.metrics[key], 'number', key)
     // At rest before the first key, then moved by most keys, paging past the first page.
     assert.ok((scroll.metrics.idleFrames as number) > (IDLE_MS / 1000) * 10)

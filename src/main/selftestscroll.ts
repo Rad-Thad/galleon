@@ -49,8 +49,15 @@ const STRICTEST = THRESHOLDS.performance
  */
 export const REPEAT_MS = 90
 
-/** How long the highlight may stand still before the scroll turns back. */
+/** How long the highlight may stand still at an end before the scroll turns back. */
 export const TURN_MS = 1_500
+
+/**
+ * What the library draws below its last row once the server has no more
+ * pages: without it, a highlight standing still at the bottom is waiting for
+ * a page, not at the end. See `Library`.
+ */
+export const GRID_END = '[data-grid-end]'
 
 /** How often the clocks are read during a scroll. */
 export const SAMPLE_MS = 5_000
@@ -78,6 +85,11 @@ export interface ScrollRun {
   moves: number
   /** How many times the scroll turned back at an end it could not pass. */
   turns: number
+  /**
+   * Milliseconds the highlight stood at the bottom of what was drawn while
+   * the next page was still to come: what a player holding Down waits.
+   */
+  waitedMs: number
   /** How many covers the grid held when the scroll ended: how far it paged. */
   cards: number
   /** Why the scroll could not start, or null. */
@@ -102,6 +114,9 @@ export function largestPlatform(
  * Run in the page: open the library on one platform, put the highlight on its
  * first game and hold a direction for `scrollMs`, turning back at either end so
  * the whole time is spent moving rather than resting against the last row.
+ * The bottom is an end only once the grid says so (`GRID_END`); short of it
+ * the scroll holds Down for as long as the grid is given to draw at all, so a
+ * slow page is measured as the wait it is rather than taken for the end.
  *
  * Clicks reach the menu and the chip the way their own `onSelect` does; a
  * pointer move is what puts the highlight on a game without opening it (see
@@ -126,7 +141,7 @@ export function scrollProbe(
       }
       return null
     }
-    const failed = (why) => ({ intervals: [], idle: [], visited: 0, moves: 0, turns: 0, cards: 0, failed: why })
+    const failed = (why) => ({ intervals: [], idle: [], visited: 0, moves: 0, turns: 0, waitedMs: 0, cards: 0, failed: why })
     const gaps = (stamps) => stamps.slice(1).map((at, i) => at - stamps[i])
     const menu = await waitFor(() => document.querySelector('.topbar__nav [data-route="library"]'))
     if (!menu) return failed('no-library-menu')
@@ -187,10 +202,12 @@ export function scrollProbe(
     let key = 'ArrowDown'
     let moves = 0
     let turns = 0
+    let waitedMs = 0
     let movedAt = Date.now()
     const end = Date.now() + ${Math.round(scrollMs)}
     while (Date.now() < end) {
       const before = focused()
+      const sentAt = Date.now()
       window.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }))
       await sleep(${Math.round(repeatMs)})
       const after = focused()
@@ -198,10 +215,12 @@ export function scrollProbe(
       if (after !== before) {
         moves += 1
         movedAt = Date.now()
+        continue
       }
-      // Nothing has moved for a while: the end of the grid, since a page still
-      // loading below the last row arrives well within it.
-      else if (Date.now() - movedAt >= ${Math.round(turnMs)}) {
+      const atEnd = key === 'ArrowUp' || document.querySelector('[data-screen="library"] ${GRID_END}') !== null
+      if (!atEnd) waitedMs += Date.now() - sentAt
+      const patience = atEnd ? ${Math.round(turnMs)} : ${Math.round(timeoutMs)}
+      if (Date.now() - movedAt >= patience) {
         key = key === 'ArrowDown' ? 'ArrowUp' : 'ArrowDown'
         turns += 1
         movedAt = Date.now()
@@ -215,6 +234,7 @@ export function scrollProbe(
       visited: visited.size,
       moves,
       turns,
+      waitedMs,
       cards,
       failed: null
     }
@@ -262,7 +282,9 @@ function isScrollRun(value: unknown): value is ScrollRun {
     run !== null &&
     times(run.intervals) &&
     times(run.idle) &&
-    [run.visited, run.moves, run.turns, run.cards].every((n) => typeof n === 'number') &&
+    [run.visited, run.moves, run.turns, run.waitedMs, run.cards].every(
+      (n) => typeof n === 'number'
+    ) &&
     (run.failed === null || typeof run.failed === 'string')
   )
 }
@@ -421,6 +443,7 @@ async function measure(
     visited: run.visited,
     moves: run.moves,
     turns: run.turns,
+    waitedMs: Math.round(run.waitedMs),
     cards: run.cards
   })
   const hz = deps.displayHz()
