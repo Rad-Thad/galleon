@@ -79,6 +79,11 @@ export interface ScrollRun {
   intervals: number[]
   /** The same, with the highlight standing still before the first key. */
   idle: number[]
+  /**
+   * Milliseconds from the highlight landing to the first frame drawn after
+   * it, where the timing at rest begins: how long the page took to draw again.
+   */
+  idleWaitMs: number
   /** How many different games held the highlight: proof the grid moved. */
   visited: number
   /** How many keys moved the highlight, out of all those sent. */
@@ -159,7 +164,7 @@ export function scrollProbe(
       }
       return null
     }
-    const failed = (why) => ({ intervals: [], idle: [], visited: 0, moves: 0, turns: 0, waitedMs: 0, cards: 0, trailMaxPx: 0, pageMs: [], gapMs: [], failed: why })
+    const failed = (why) => ({ intervals: [], idle: [], idleWaitMs: 0, visited: 0, moves: 0, turns: 0, waitedMs: 0, cards: 0, trailMaxPx: 0, pageMs: [], gapMs: [], failed: why })
     const gaps = (stamps) => stamps.slice(1).map((at, i) => at - stamps[i])
     const menu = await waitFor(() => document.querySelector('.topbar__nav [data-route="library"]'))
     if (!menu) return failed('no-library-menu')
@@ -192,9 +197,20 @@ export function scrollProbe(
     while (scroller && !['auto', 'scroll'].includes(window.getComputedStyle(scroller).overflowY)) scroller = scroller.parentElement
     if (!(await waitFor(focused))) return failed('no-highlight')
 
+    // Timed from the first frame, not from the highlight: a page not yet
+    // drawing is not at rest, and a window that opened on it would end on the
+    // clock below with no frames to show.
+    const highlightedAt = performance.now()
+    const firstFrame = await Promise.race([
+      new Promise((resolve) => requestAnimationFrame(resolve)),
+      sleep(Math.max(0, until - Date.now())).then(() => null)
+    ])
+    if (firstFrame === null) return failed('no-frames')
+    const idleWaitMs = Math.max(0, firstFrame - highlightedAt)
+
     // Ended by the clock too, so a page that stops drawing does not start its
     // keys long after the main process has given up on it.
-    const resting = []
+    const resting = [firstFrame]
     await new Promise((resolve) => {
       let timing = true
       const stop = () => {
@@ -284,6 +300,7 @@ export function scrollProbe(
     return {
       intervals: gaps(stamps),
       idle: gaps(resting),
+      idleWaitMs,
       visited: visited.size,
       moves,
       turns,
@@ -340,9 +357,15 @@ function isScrollRun(value: unknown): value is ScrollRun {
     times(run.idle) &&
     times(run.pageMs) &&
     times(run.gapMs) &&
-    [run.visited, run.moves, run.turns, run.waitedMs, run.cards, run.trailMaxPx].every(
-      (n) => typeof n === 'number'
-    ) &&
+    [
+      run.idleWaitMs,
+      run.visited,
+      run.moves,
+      run.turns,
+      run.waitedMs,
+      run.cards,
+      run.trailMaxPx
+    ].every((n) => typeof n === 'number') &&
     (run.failed === null || typeof run.failed === 'string')
   )
 }
@@ -525,7 +548,8 @@ async function measure(
     idleFrames: idle?.frames ?? 0,
     idleP50Ms: idle?.p50Ms ?? null,
     idleP95Ms: idle?.p95Ms ?? null,
-    idleDroppedPct: idle?.droppedPct ?? null
+    idleDroppedPct: idle?.droppedPct ?? null,
+    idleWaitMs: Math.round(run.idleWaitMs)
   })
   const limit = thresholdsFor(profile)
   const ok =
