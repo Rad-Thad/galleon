@@ -2825,3 +2825,8 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: the next nightly reports `idleWaitMs` on the Nova.
 - Next: M0-22 still needs its second passing nightly; nothing else open is eligible.
+
+## 2026-10-24 09:26 UTC session 01KAve711QyooBvfV9giSmMr (hourly heartbeat)
+
+- Device results: nothing new since b63deb9 (bridge last seen 2026-10-24 00:10 UTC, "busy: reaper running"); no safety failures, no regressions. #260 (grid rest timed from its first frame) merged at 4e99187; CI x64 8:59, arm64 1:13.
+- Stopped: nothing eligible. M0-22 waits on its second passing nightly; M2-08 waits on M1-03 to M1-06, which wait on M0-22; M4 waits on Gate 1. No `needs-human` issue is open.
