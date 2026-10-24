@@ -107,7 +107,8 @@ const SUSPENDED_HOLD_MS = 1500
 export const PERF_CHORD_MS = 2000
 
 export function useGamepad(
-  move: (direction: Direction) => void,
+  /** `held` is true for a repeat of a direction held down, false for the press. */
+  move: (direction: Direction, held: boolean) => void,
   fireAction: (action: Action) => void,
   activate: () => void,
   noteInput: (kind: InputKind) => void,
@@ -137,13 +138,18 @@ export function useGamepad(
     let chordSince: number | null = null
     let chordFired = false
 
-    const edge = (key: string, pressed: boolean, rawFire: () => void, repeats: boolean): void => {
+    const edge = (
+      key: string,
+      pressed: boolean,
+      rawFire: (repeat: boolean) => void,
+      repeats: boolean
+    ): void => {
       // Reported here rather than at each call site: every path that reaches a
       // fire is a button someone pressed, and the poll runs sixty times a
       // second whether or not anything is held.
-      const fire = (): void => {
+      const fire = (repeat: boolean): void => {
         noteRef.current('gamepad')
-        rawFire()
+        rawFire(repeat)
       }
       const now = performance.now()
       const state = held.get(key)
@@ -154,14 +160,14 @@ export function useGamepad(
       }
       if (!state) {
         held.set(key, { since: now, last: now })
-        fire()
+        fire(false)
         return
       }
       if (!repeats) return
       if (now - state.since < REPEAT_DELAY_MS) return
       if (now - state.last < REPEAT_INTERVAL_MS) return
       state.last = now
-      fire()
+      fire(true)
     }
 
     const poll = (): void => {
@@ -232,25 +238,25 @@ export function useGamepad(
         edge(
           'up',
           button(BUTTON.DPAD_UP) || axisY < -AXIS_DEADZONE || hatY < -AXIS_DEADZONE,
-          () => moveRef.current('up'),
+          (repeat) => moveRef.current('up', repeat),
           true
         )
         edge(
           'down',
           button(BUTTON.DPAD_DOWN) || axisY > AXIS_DEADZONE || hatY > AXIS_DEADZONE,
-          () => moveRef.current('down'),
+          (repeat) => moveRef.current('down', repeat),
           true
         )
         edge(
           'left',
           button(BUTTON.DPAD_LEFT) || axisX < -AXIS_DEADZONE || hatX < -AXIS_DEADZONE,
-          () => moveRef.current('left'),
+          (repeat) => moveRef.current('left', repeat),
           true
         )
         edge(
           'right',
           button(BUTTON.DPAD_RIGHT) || axisX > AXIS_DEADZONE || hatX > AXIS_DEADZONE,
-          () => moveRef.current('right'),
+          (repeat) => moveRef.current('right', repeat),
           true
         )
 

@@ -18,18 +18,24 @@
 const SNAP_TO_EDGE_PX = 260
 
 /**
- * How this page is allowed to scroll.
+ * How this page is allowed to scroll, for a press or for a direction `held` down.
  *
  * Every focus move scrolls something, and on a grid of covers that is one
- * animated slide per press of a held direction. For someone who has asked their
- * system for reduced motion that is precisely the effect the setting exists to
- * turn off — so the scrolling still happens, it simply arrives rather than
- * travels.
+ * animated slide per press. For someone who has asked their system for reduced
+ * motion that is precisely the effect the setting exists to turn off — so the
+ * scrolling still happens, it simply arrives rather than travels.
+ *
+ * A held direction arrives too. Its repeats come faster than a slide finishes,
+ * and each new slide starts from wherever the last was cut off, slowly, so the
+ * page falls further behind with every repeat: down a long grid the highlight
+ * ran rows below the bottom of the screen, and the grid's next page, asked for
+ * by how far the page has scrolled, waited until the highlight stopped.
  *
  * Read per call rather than cached: the preference can change while the app is
  * open, and `matchMedia` is a property lookup.
  */
-function scrollBehavior(): ScrollBehavior {
+function scrollBehavior(held: boolean): ScrollBehavior {
+  if (held) return 'auto'
   return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
 }
 
@@ -84,7 +90,7 @@ function scrollParentOf(element: HTMLElement): HTMLElement | null {
  * them then moved the highlight onto cards off the right-hand edge and never
  * scrolled to them, which reads as focus simply disappearing.
  */
-function revealAcross(element: HTMLElement, shelf: HTMLElement | null): void {
+function revealAcross(element: HTMLElement, shelf: HTMLElement | null, held: boolean): void {
   if (!shelf) return
 
   const card = element.getBoundingClientRect()
@@ -93,9 +99,9 @@ function revealAcross(element: HTMLElement, shelf: HTMLElement | null): void {
   // against the edge gives no sense of what walking further would reach.
   const margin = card.width * 0.75
   if (card.left - margin < view.left) {
-    shelf.scrollBy({ left: card.left - margin - view.left, behavior: scrollBehavior() })
+    shelf.scrollBy({ left: card.left - margin - view.left, behavior: scrollBehavior(held) })
   } else if (card.right + margin > view.right) {
-    shelf.scrollBy({ left: card.right + margin - view.right, behavior: scrollBehavior() })
+    shelf.scrollBy({ left: card.right + margin - view.right, behavior: scrollBehavior(held) })
   }
 }
 
@@ -103,12 +109,13 @@ function revealAcross(element: HTMLElement, shelf: HTMLElement | null): void {
  * Bring a newly focused element into view, snapping to the ends of the page.
  *
  * Only the focused element is measured — the registry can hold a couple of
- * thousand rows, and this runs on every press of a held direction.
+ * thousand rows, and this runs on every press of a held direction. `held` says
+ * this is one of those repeats: see `scrollBehavior`.
  */
-export function revealElement(element: HTMLElement): void {
+export function revealElement(element: HTMLElement, held = false): void {
   // One walk for both axes, this being the caller that wants both.
   const { vertical: scroller, horizontal: shelf } = scrollParentsOf(element)
-  revealAcross(element, shelf)
+  revealAcross(element, shelf, held)
 
   if (scroller) {
     // Where the element sits inside the scrolled content, not the viewport.
@@ -118,18 +125,18 @@ export function revealElement(element: HTMLElement): void {
     const bottom = top + element.offsetHeight
 
     if (top <= SNAP_TO_EDGE_PX) {
-      scroller.scrollTo({ top: 0, behavior: scrollBehavior() })
+      scroller.scrollTo({ top: 0, behavior: scrollBehavior(held) })
       return
     }
     if (bottom >= scroller.scrollHeight - SNAP_TO_EDGE_PX) {
-      scroller.scrollTo({ top: scroller.scrollHeight, behavior: scrollBehavior() })
+      scroller.scrollTo({ top: scroller.scrollHeight, behavior: scrollBehavior(held) })
       return
     }
   }
   // `inline: 'nearest'` because the sideways axis was settled above, and
   // 'center' would fight it — re-centring every card of a shelf as focus walks
   // along it, which slides the whole row under a highlight that never moves.
-  element.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: scrollBehavior() })
+  element.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: scrollBehavior(held) })
 }
 
 /**
@@ -144,8 +151,9 @@ export function revealElement(element: HTMLElement): void {
  *
  * Returns false when the page is already at that end, which leaves the press
  * genuinely inert — the honest answer when there is nothing more to show.
+ * `held` is as for `revealElement`.
  */
-export function scrollToEnd(element: HTMLElement, direction: 'up' | 'down'): boolean {
+export function scrollToEnd(element: HTMLElement, direction: 'up' | 'down', held = false): boolean {
   const scroller = scrollParentOf(element)
   if (!scroller) return false
 
@@ -157,7 +165,7 @@ export function scrollToEnd(element: HTMLElement, direction: 'up' | 'down'): boo
 
   scroller.scrollTo({
     top: direction === 'up' ? 0 : scroller.scrollHeight,
-    behavior: scrollBehavior()
+    behavior: scrollBehavior(held)
   })
   return true
 }

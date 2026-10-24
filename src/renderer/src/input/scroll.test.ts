@@ -197,6 +197,35 @@ describe('a newly focused element', () => {
     assert.equal(scroller.asked[0].options.behavior, 'auto')
   })
 
+  test('on a held direction arrives, so the page keeps up with the highlight', () => {
+    // A held direction repeats faster than a slide finishes, and each one
+    // started from where the last was cut off leaves the page further behind:
+    // on a long grid the highlight ran rows below the bottom of the screen.
+    const middle = page(1000)
+    const card = fake({ parentElement: middle, box: box(400, 200) })
+    revealElement(el(card), true)
+    assert.equal(card.asked[0].options.behavior, 'auto')
+
+    const nearBottom = page(3900)
+    const last = fake({ parentElement: nearBottom, box: box(950, 100), offsetHeight: 100 })
+    revealElement(el(last), true)
+    assert.equal(nearBottom.asked[0].options.behavior, 'auto')
+
+    const row = shelf(page(1000))
+    const offRight = fake({ parentElement: row, box: box(400, 200, 950, 100) })
+    revealElement(el(offRight), true)
+    assert.equal(row.asked[0].options.behavior, 'auto')
+  })
+
+  test('on a single press still slides', () => {
+    const scroller = page(1000)
+    const card = fake({ parentElement: scroller, box: box(400, 200) })
+
+    revealElement(el(card))
+
+    assert.equal(card.asked[0].options.behavior, 'smooth')
+  })
+
   test('with nothing scrolling above it is simply scrolled into view', () => {
     const card = fake({ parentElement: fake() })
 
@@ -223,6 +252,14 @@ describe('a press past the last thing to focus', () => {
 
     assert.equal(scrollToEnd(el(first), 'up'), true)
     assert.equal(scroller.asked[0].options.top, 0)
+  })
+
+  test('on a held direction arrives there', () => {
+    const scroller = page(1000)
+    const last = fake({ parentElement: scroller })
+
+    assert.equal(scrollToEnd(el(last), 'down', true), true)
+    assert.equal(scroller.asked[0].options.behavior, 'auto')
   })
 
   test('does nothing, and says so, when the page is already at that end', () => {
