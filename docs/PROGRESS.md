@@ -2774,3 +2774,16 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none.
 - Next: G1-4, timing one page from request to drawn cards (02:27 entry). M0-22 still needs its second passing nightly.
+
+## 2026-10-24 04:26 UTC session 019ekwrVZxhM7Ttn6rhusvfj (hourly heartbeat)
+
+- Device results: nothing new since b63deb9 (bridge last seen 2026-10-24 00:10 UTC, "busy: reaper running"); no safety failures, no regressions. #252 merged at f15096e.
+- Worked on: G1-4, timing one page of the grid scroll (tracking issue #253).
+- Result: PR (this one). The scroll probe watches the library's spinner with a MutationObserver and reports `pages`, `pageP50Ms`, `pageMaxMs` (spinner up to covers drawn: the answer and the spinner going away are one render) and `gapP50Ms` (one page drawn to the next asked for) as `grid.scroll` metrics (docs/TESTING.md). Reported, never judged.
+- Evidence: `src/main/selftestscroll.test.ts` "holds Down through a page slower than TURN_MS…" now also asserts the one page is timed (≥ 250 ms for a 300 ms page) and "the pages asked for during the scroll are counted and timed, never judged". test:app's two grid.scroll tests on this VM: nes `pages` 21, `pageP50Ms` 89, `pageMaxMs` 151, `gapP50Ms` 1244, `waitedMs` 8587; synthetic `pages` 21, `pageP50Ms` 9, `gapP50Ms` 1274, `waitedMs` 7186. A throwaway timer in the `library:roms` handler (not committed) put the fake server's fetch at 2-11 ms and `library.adopt` at 45-99 ms per page. `scripts/agent/check.sh` green.
+- Finding: the 02:27 entry's "pages arriving one at a time, slower than a held Down crosses one" is not the answer either. A page takes under 100 ms at the median (151 at most) from request to drawn; the grid then goes about 1.25 s before it asks for the next, while the highlight crosses the page and stands at its end (`waitedMs` about 400 ms a page). So the sentinel calls late, despite `LOOKAHEAD` and `scrollingAncestor`: that is the next unit, before more than one page in flight, larger pages or windowing.
+- Noticed: in one test:app run (with the throwaway timer in), the nes grid.scroll test failed `idleP50Ms` on `idleFrames` 0, then passed on the next run: issue #254 (`flaky`).
+- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: the next nightly reports `pageP50Ms` and `gapP50Ms` on the Nova.
+- Next: why the sentinel asks about 1.25 s after a page lands. First lead: every press starts a smooth scroll (`scrollBehavior`, src/renderer/src/input/scroll.ts) and a held Down restarts it every `REPEAT_MS`, so the scroll box may trail the highlight and bring the sentinel into the lookahead late. Measure the box's lag behind the highlight in Electron's Chromium, as in #251, before changing anything. M0-22 still needs its second passing nightly.

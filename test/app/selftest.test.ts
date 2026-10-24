@@ -222,7 +222,9 @@ test(`signed in, grid.scroll scrolls the ${GAMES}-game platform and times its fr
       'droppedPct',
       'idleP50Ms',
       'idleP95Ms',
-      'waitedMs'
+      'waitedMs',
+      'pageP50Ms',
+      'gapP50Ms'
     ])
       assert.equal(typeof scroll.metrics[key], 'number', key)
     // At rest before the first key, then moved by most keys, paging past the first page.
