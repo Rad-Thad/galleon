@@ -2801,3 +2801,15 @@ Lines the tooling reads (exact forms):
 - Device / acceptance: the next nightly reports `trailMaxPx` and `waitedMs` on the Nova with the fix in. Whether an instant scroll per repeat looks right is the owner's call in the acceptance session.
 - Next: merge #257 once both legs are green. Then #258 (launch.sh records the wrong exit on an interrupted `wait`) and #254 (idleFrames 0); both flaky windows are now due. M0-22 still needs its second passing nightly.
 - Stopped: the run's time window ended.
+
+## 2026-10-24 06:27 UTC session 01WSMcsmLeJdj5QE8N6FowYM (hourly heartbeat)
+
+- Device results: nothing new since b63deb9 (bridge last seen 2026-10-24 00:10 UTC, "busy: reaper running"); no safety failures, no regressions. #257 (instant scroll on a held direction) merged at b3e6f1f, both legs green.
+- Worked on: the flaky `run.sh --cleanup stops an app a killed run left running` (issue #258).
+- Root cause: a real launch.sh defect, not only a test race. `launched.py stop` signals the app and launch.sh within microseconds; the TERM interrupts launch.sh's `wait "$app"` (status 143), and when the shell has reaped the app meanwhile, `kill -0` fails and 143 is written as the app's exit. Under bash, which is `/bin/sh` on the device, a second `wait` then gives -1, so no shell-only re-wait is portable.
+- Result: PR (this one). launch.sh execs `launched.py run` past its start mark (same pid and start time, so `launch.id` still matches). `run` starts the app, records it, passes a stop on to it alone, waits without reaping (`waitid` with `WNOWAIT`, so a stop never reaches a reaped pid), reaps with stops blocked and writes `exit` (docs/TESTING.md).
+- Evidence: test_launch.py "a stop sent to both records the app's own exit" (`launched.stop` against launch.sh, ten times each under /bin/sh and bash) failed 6 of 10 under bash on the old launch.sh and passes now; four new `run` tests in test_launched.py. A stress loop sending TERM to both on this VM: old launch.sh 34 of 60 wrong under bash, 4 of 800 under dash with CPU load; new 0 of 640. The new test passed 15 of 15 runs of test_launch.py, and fails 3 of 3 against the old launch.sh. `scripts/agent/check.sh` green.
+- Evaluator: the first round FAILed the new test as flaky (it kept `started-with` across attempts, so it could stop the fake app before its trap was set); fixed, see the PR for the second round.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: the next nightly's `app: exited <code>` note comes from `launched.py run`.
+- Next: #254 (idleFrames 0 in test:app), whose flaky window is due. M0-22 still needs its second passing nightly.

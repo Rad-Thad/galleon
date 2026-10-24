@@ -13,17 +13,22 @@ import time
 import unittest
 
 import current
+import launched
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SHA = "b" * 40
 
 # A stand-in AppImage: it records what it was started with, and stays up
-# until told to stop when asked to.
+# until told to stop when asked to. Its trap is set before it says it has
+# started, and its sleep runs in the background, so a stop is answered at
+# once, as the app answers one.
 FAKE_APP = """#!/bin/sh
-echo "GALLEON_HOME=$GALLEON_HOME" >>"$GALLEON_HOME/started-with"
 if [ -e "$GALLEON_HOME/stay" ]; then
   trap 'echo terminated >>"$GALLEON_HOME/started-with"; exit 0' TERM
-  while :; do sleep 0.05; done
+fi
+echo "GALLEON_HOME=$GALLEON_HOME" >>"$GALLEON_HOME/started-with"
+if [ -e "$GALLEON_HOME/stay" ]; then
+  while :; do sleep 0.05 & wait $!; done
 fi
 exit 3
 """
@@ -38,7 +43,7 @@ class LaunchTest(unittest.TestCase):
         os.makedirs(self.home)
         os.makedirs(self.results)
         # run.sh puts both beside each other in the test root.
-        for name in ("launch.sh", "current.py"):
+        for name in ("launch.sh", "current.py", "launched.py"):
             shutil.copy2(os.path.join(HERE, name), self.root)
         self.appimage = os.path.join(self.root, SHA, "Galleon-arm64.AppImage")
         with open(self.appimage, "w", encoding="utf-8") as handle:
@@ -113,6 +118,31 @@ class LaunchTest(unittest.TestCase):
         self.assertEqual(self.started()[-1], "terminated")
         with open(os.path.join(self.home, "launch", "exit"), encoding="utf-8") as handle:
             self.assertEqual(handle.read().strip(), "0")
+
+    def test_a_stop_sent_to_both_records_the_apps_own_exit(self):
+        # run.sh --cleanup signals the app and launch.sh together. Steam runs
+        # the shortcut with /bin/sh, which is bash on the device, and the stop
+        # to launch.sh can interrupt its wait just as the app goes; the app's
+        # exit is still the one recorded.
+        for shell in ("/bin/sh", "bash"):
+            for attempt in range(10):
+                with self.subTest(shell=shell, attempt=attempt):
+                    shutil.rmtree(os.path.join(self.home, "launch"), ignore_errors=True)
+                    with contextlib.suppress(FileNotFoundError):
+                        os.remove(os.path.join(self.home, "started-with"))
+                    self.request()
+                    open(os.path.join(self.home, "stay"), "w").close()
+                    process = subprocess.Popen([shell, os.path.join(self.root, "launch.sh")],
+                                               env={"PATH": os.environ["PATH"]}, cwd="/")
+                    state = os.path.join(self.home, "launch")
+                    deadline = time.monotonic() + 10
+                    while not (os.path.exists(os.path.join(state, "app.id")) and self.started()) \
+                            and time.monotonic() < deadline:
+                        time.sleep(0.05)
+                    self.assertEqual(launched.stop(state, wait=5), 0)
+                    self.assertEqual(process.wait(timeout=10), 0)
+                    with open(os.path.join(state, "exit"), encoding="utf-8") as handle:
+                        self.assertEqual(handle.read().strip(), "0")
 
 
 class CurrentTest(unittest.TestCase):

@@ -9,16 +9,26 @@ number can belong to anyone. `record` writes, beside launch.sh's pid file,
 the boot id and the process's start time; `stop` signals a recorded pid only
 while both still match.
 
+`run` is where launch.sh hands over: it starts the app, records it, passes a
+stop on to it alone, and writes the app's exit. A shell cannot do the last
+part reliably: a trapped signal interrupts its `wait`, and a shell that reaps
+the app meanwhile may no longer report the app's status, leaving only the
+stop's own.
+
   launched.py record --state DIR --name NAME --pid PID
-  launched.py stop --state DIR     exit 0 when nothing recorded is left running
+  launched.py run --state DIR -- APPIMAGE   exit with the app's exit
+  launched.py stop --state DIR    exit 0 when nothing recorded is left running
 """
 
 import argparse
 import os
 import signal
+import subprocess
 import sys
 import time
 
+# What Steam, or run.sh at the end of the budget, stops the shortcut with.
+STOP_SIGNALS = (signal.SIGTERM, signal.SIGINT, signal.SIGHUP)
 # The app goes first, since launch.sh passes its own stop on to the app.
 NAMES = ("app", "launch")
 # How long each signal is given before the next, and how often to look.
@@ -60,12 +70,7 @@ def record(state, name, pid):
     found = identity(pid)
     if found is None:
         return 1
-    path = os.path.join(state, f"{name}.id")
-    tmp = f"{path}.tmp"
-    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
-    with os.fdopen(fd, "w", encoding="utf-8") as handle:
-        handle.write(f"{pid} {found}\n")
-    os.replace(tmp, path)
+    _write(os.path.join(state, f"{name}.id"), f"{pid} {found}\n")
     return 0
 
 
@@ -77,6 +82,59 @@ def recorded(state, name):
         return None
     now = identity(pid)
     return pid if now is not None and kept.strip() == f"{pid} {now}" else None
+
+
+def _write(path, text):
+    tmp = f"{path}.tmp"
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as handle:
+        handle.write(text)
+    os.replace(tmp, path)
+
+
+def run(state, argv):
+    """Start `argv` as the app and wait for it; its exit as a shell gives it."""
+    app = None
+    reaped = False
+    stopped = []
+
+    # Set before the start, so a stop that arrives while it starts is kept.
+    # Until the app is reaped its pid is still its own, even once it has gone.
+    def stop_app(signum, frame):
+        stopped.append(signum)
+        if app is not None and not reaped:
+            try:
+                os.kill(app.pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+
+    for sig in STOP_SIGNALS:
+        signal.signal(sig, stop_app)
+    try:
+        with open(os.path.join(state, "app.log"), "wb") as log:
+            app = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=log,
+                                   stderr=subprocess.STDOUT)
+    except OSError as error:
+        code = 126 if isinstance(error, PermissionError) else 127
+        _write(os.path.join(state, "exit"), f"{code}\n")
+        return code
+    try:
+        record(state, "app", app.pid)
+        _write(os.path.join(state, "app.pid"), f"{app.pid}\n")
+    except OSError:
+        pass
+    if stopped:
+        stop_app(stopped[0], None)
+    # Waited for without reaping, so a stop in the meantime cannot reach a
+    # process given the same pid later; a stop's handler does not end the wait
+    # (PEP 475). Stops are held off while it is reaped.
+    os.waitid(os.P_PID, app.pid, os.WEXITED | os.WNOWAIT)
+    signal.pthread_sigmask(signal.SIG_BLOCK, STOP_SIGNALS)
+    code = app.wait()
+    reaped = True
+    code = 128 - code if code < 0 else code
+    _write(os.path.join(state, "exit"), f"{code}\n")
+    return code
 
 
 def _gone_by(state, deadline):
@@ -111,11 +169,19 @@ def main(argv=None):
     rec.add_argument("--state", required=True)
     rec.add_argument("--name", required=True, choices=NAMES)
     rec.add_argument("--pid", required=True, type=int)
+    rn = sub.add_parser("run")
+    rn.add_argument("--state", required=True)
+    rn.add_argument("app", nargs=argparse.REMAINDER)
     stp = sub.add_parser("stop")
     stp.add_argument("--state", required=True)
     args = parser.parse_args(argv)
     if args.command == "record":
         return record(args.state, args.name, args.pid)
+    if args.command == "run":
+        app = args.app[1:] if args.app[:1] == ["--"] else args.app
+        if not app:
+            parser.error("run needs the app to start")
+        return run(args.state, app)
     return stop(args.state)
 
 
