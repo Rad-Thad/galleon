@@ -93,6 +93,17 @@ export interface ScrollRun {
   waitedMs: number
   /** How many covers the grid held when the scroll ended: how far it paged. */
   cards: number
+  /**
+   * Milliseconds the library showed its spinner, once per page asked for
+   * during the scroll: from the request going out to its covers drawn, since
+   * the answer and the spinner going away are one render.
+   */
+  pageMs: number[]
+  /**
+   * Milliseconds from one page drawn to the next asked for: how late the
+   * sentinel calls for more, where `pageMs` is how long the answer takes.
+   */
+  gapMs: number[]
   /** Why the scroll could not start, or null. */
   failed: string | null
 }
@@ -142,7 +153,7 @@ export function scrollProbe(
       }
       return null
     }
-    const failed = (why) => ({ intervals: [], idle: [], visited: 0, moves: 0, turns: 0, waitedMs: 0, cards: 0, failed: why })
+    const failed = (why) => ({ intervals: [], idle: [], visited: 0, moves: 0, turns: 0, waitedMs: 0, cards: 0, pageMs: [], gapMs: [], failed: why })
     const gaps = (stamps) => stamps.slice(1).map((at, i) => at - stamps[i])
     const menu = await waitFor(() => document.querySelector('.topbar__nav [data-route="library"]'))
     if (!menu) return failed('no-library-menu')
@@ -192,6 +203,27 @@ export function scrollProbe(
       setTimeout(stop, ${Math.round(idleMs)})
     })
 
+    // Pages are timed by the spinner the library shows while one is out,
+    // read from mutations rather than between keys, which are too far apart.
+    const screen = document.querySelector('[data-screen="library"]')
+    const pageMs = []
+    const gapMs = []
+    let askedAt = screen.querySelector('.spinner') ? performance.now() : null
+    let drawnAt = null
+    const pages = new MutationObserver(() => {
+      const loading = screen.querySelector('.spinner') !== null
+      const now = performance.now()
+      if (loading && askedAt === null) {
+        askedAt = now
+        if (drawnAt !== null) gapMs.push(now - drawnAt)
+      } else if (!loading && askedAt !== null) {
+        pageMs.push(now - askedAt)
+        askedAt = null
+        drawnAt = now
+      }
+    })
+    pages.observe(screen, { childList: true, subtree: true })
+
     const stamps = []
     let drawing = true
     const frame = (at) => {
@@ -228,6 +260,7 @@ export function scrollProbe(
       }
     }
     drawing = false
+    pages.disconnect()
     const cards = document.querySelectorAll('[data-screen="library"] [data-rom]').length
     return {
       intervals: gaps(stamps),
@@ -237,6 +270,8 @@ export function scrollProbe(
       turns,
       waitedMs,
       cards,
+      pageMs,
+      gapMs,
       failed: null
     }
   })()`
@@ -283,6 +318,8 @@ function isScrollRun(value: unknown): value is ScrollRun {
     run !== null &&
     times(run.intervals) &&
     times(run.idle) &&
+    times(run.pageMs) &&
+    times(run.gapMs) &&
     [run.visited, run.moves, run.turns, run.waitedMs, run.cards].every(
       (n) => typeof n === 'number'
     ) &&
@@ -445,7 +482,11 @@ async function measure(
     moves: run.moves,
     turns: run.turns,
     waitedMs: Math.round(run.waitedMs),
-    cards: run.cards
+    cards: run.cards,
+    pages: run.pageMs.length,
+    pageP50Ms: median(run.pageMs),
+    pageMaxMs: run.pageMs.length ? Math.round(Math.max(...run.pageMs)) : null,
+    gapP50Ms: median(run.gapMs)
   })
   const hz = deps.displayHz()
   const moving = frameStats(run.intervals, hz)
@@ -492,6 +533,18 @@ export function frameStats(intervals: readonly number[], hz: number): FrameStats
     p99Ms: round(percentile(sorted, 99)),
     droppedPct: round((dropped / sorted.length) * 100)
   }
+}
+
+/** The middle of some times, to the millisecond; null for none. */
+function median(times: readonly number[]): number | null {
+  return times.length
+    ? Math.round(
+        percentile(
+          times.toSorted((a, b) => a - b),
+          50
+        )
+      )
+    : null
 }
 
 function thresholdsFor(profile: string | null): { p95Ms: number; droppedPct: number } {

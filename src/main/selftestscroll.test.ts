@@ -77,13 +77,26 @@ function scrolled(frames: number, slow = 0, visited = 50): ScrollRun {
     turns: 0,
     waitedMs: 0,
     cards: 60,
+    pageMs: [],
+    gapMs: [],
     failed: null
   }
 }
 
 /** A run that never got going, for the answers that are not a scroll. */
 function stalled(failed: string | null, intervals: number[] = [], visited = 0): ScrollRun {
-  return { intervals, idle: [], visited, moves: 0, turns: 0, waitedMs: 0, cards: 0, failed }
+  return {
+    intervals,
+    idle: [],
+    visited,
+    moves: 0,
+    turns: 0,
+    waitedMs: 0,
+    cards: 0,
+    pageMs: [],
+    gapMs: [],
+    failed
+  }
 }
 
 function context(profiles: string[], signal = new AbortController().signal) {
@@ -160,7 +173,7 @@ describe('scrollProbe', () => {
  * A library screen with just what the probe reaches for: the menu, the chip,
  * a column of cards the arrow keys walk, and a page that lands `pageMs` after
  * the highlight first reaches the bottom (never, for null), with the end
- * marker drawn beneath it.
+ * marker drawn beneath it. The spinner is up while that page is out.
  */
 function library(firstPage: number, nextPage: number, pageMs: number | null) {
   const window = new Window({ url: 'http://localhost/' })
@@ -196,7 +209,11 @@ function library(firstPage: number, nextPage: number, pageMs: number | null) {
     if (next >= 0 && next < grid.children.length) focus(next)
     if (at === grid.children.length - 1 && !asked && pageMs !== null) {
       asked = true
+      const spinner = document.createElement('div')
+      spinner.className = 'spinner'
+      grid.parentElement!.appendChild(spinner)
       setTimeout(() => {
+        spinner.remove()
         add(nextPage)
         const end = document.createElement('div')
         end.setAttribute(GRID_END.slice(1, -1), '')
@@ -212,13 +229,15 @@ function library(firstPage: number, nextPage: number, pageMs: number | null) {
       'requestAnimationFrame',
       'KeyboardEvent',
       'MouseEvent',
+      'MutationObserver',
       `return ${script}`
     )(
       window,
       document,
       window.requestAnimationFrame.bind(window),
       window.KeyboardEvent,
-      window.MouseEvent
+      window.MouseEvent,
+      window.MutationObserver
     )
   return { probe, keys, close: () => window.happyDOM.close() }
 }
@@ -234,6 +253,10 @@ describe('scrollProbe in a page', () => {
       assert.ok(scroll.turns >= 1, JSON.stringify(scroll))
       // Waiting at the loading edge is reported, not turned from.
       assert.ok(scroll.waitedMs >= 200, JSON.stringify(scroll))
+      // The one page asked for, timed from its spinner to its covers.
+      assert.equal(scroll.pageMs.length, 1)
+      assert.ok(scroll.pageMs[0] >= 250 && scroll.pageMs[0] < 1000, JSON.stringify(scroll))
+      assert.deepEqual(scroll.gapMs, [])
       const firstUp = page.keys.findIndex((k) => k.key === 'ArrowUp')
       assert.ok(firstUp > 0)
       assert.equal(page.keys[firstUp].cards, 20)
@@ -250,6 +273,7 @@ describe('scrollProbe in a page', () => {
       assert.equal(scroll.cards, 10)
       assert.ok(scroll.turns >= 1, JSON.stringify(scroll))
       assert.ok(scroll.waitedMs >= 250, JSON.stringify(scroll))
+      assert.deepEqual(scroll.pageMs, [])
     } finally {
       await page.close()
     }
@@ -441,6 +465,21 @@ describe('scrollScenario', () => {
     assert.equal(result.metrics.moves, 40)
     assert.equal(result.metrics.turns, 2)
     assert.equal(result.metrics.cards, 60)
+  })
+
+  test('the pages asked for during the scroll are counted and timed, never judged', async () => {
+    const paged: ScrollRun = { ...scrolled(100), pageMs: [700.4, 90, 1200], gapMs: [400, 600.6] }
+    const [result] = await run(fake({ run: paged }), [])
+    assert.equal(result.result, 'pass')
+    assert.equal(result.metrics.pages, 3)
+    assert.equal(result.metrics.pageP50Ms, 700)
+    assert.equal(result.metrics.pageMaxMs, 1200)
+    assert.equal(result.metrics.gapP50Ms, 400)
+    const [none] = await run(fake({ run: scrolled(100) }), [])
+    assert.equal(none.metrics.pages, 0)
+    assert.equal(none.metrics.pageP50Ms, null)
+    assert.equal(none.metrics.pageMaxMs, null)
+    assert.equal(none.metrics.gapP50Ms, null)
   })
 
   test('no frames at rest: the idle numbers are unknown', async () => {
