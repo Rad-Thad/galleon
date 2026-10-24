@@ -72,6 +72,7 @@ function scrolled(frames: number, slow = 0, visited = 50): ScrollRun {
   return {
     intervals,
     idle: [8.3, 8.4],
+    idleWaitMs: 8,
     visited,
     moves: visited,
     turns: 0,
@@ -89,6 +90,7 @@ function stalled(failed: string | null, intervals: number[] = [], visited = 0): 
   return {
     intervals,
     idle: [],
+    idleWaitMs: 0,
     visited,
     moves: 0,
     turns: 0,
@@ -234,10 +236,14 @@ function library(firstPage: number, nextPage: number, pageMs: number | null) {
     }
   })
   add(firstPage)
-  const probe = (script: string): Promise<ScrollRun> =>
+  const probe = (
+    script: string,
+    frame: (draw: (at: number) => void) => unknown = window.requestAnimationFrame.bind(window)
+  ): Promise<ScrollRun> =>
     new Function(
       'window',
       'document',
+      'performance',
       'requestAnimationFrame',
       'KeyboardEvent',
       'MouseEvent',
@@ -246,12 +252,21 @@ function library(firstPage: number, nextPage: number, pageMs: number | null) {
     )(
       window,
       document,
-      window.requestAnimationFrame.bind(window),
+      window.performance,
+      frame,
       window.KeyboardEvent,
       window.MouseEvent,
       window.MutationObserver
     )
-  return { probe, keys, close: () => window.happyDOM.close() }
+  /** Frames that only start `lateMs` after the first is asked for. */
+  const lateFrames = (lateMs: number) => {
+    let from: number | null = null
+    return (draw: (at: number) => void): void => {
+      from ??= Date.now()
+      setTimeout(() => window.requestAnimationFrame(draw), Math.max(0, from + lateMs - Date.now()))
+    }
+  }
+  return { probe, lateFrames, keys, close: () => window.happyDOM.close() }
 }
 
 describe('scrollProbe in a page', () => {
@@ -291,6 +306,29 @@ describe('scrollProbe in a page', () => {
       assert.ok(page.keys[firstUp + 1].repeat)
       // The last of the ten cards ends eight cards below the box.
       assert.equal(scroll.trailMaxPx, CARD_PX * 8)
+    } finally {
+      await page.close()
+    }
+  })
+
+  test('the page at rest is timed from its first frame, however late that comes', async () => {
+    const page = library(10, 0, null)
+    try {
+      // The first frame comes after a whole rest would have ended on the clock.
+      const scroll = await page.probe(scrollProbe(42, 300, 10, 2000, 50, 100), page.lateFrames(250))
+      assert.equal(scroll.failed, null)
+      assert.ok(scroll.idle.length > 0, JSON.stringify(scroll))
+      assert.ok(scroll.idleWaitMs >= 200 && scroll.idleWaitMs < 1000, JSON.stringify(scroll))
+    } finally {
+      await page.close()
+    }
+  })
+
+  test('a page that draws no frame at all is a failed scroll', async () => {
+    const page = library(10, 0, null)
+    try {
+      const scroll = await page.probe(scrollProbe(42, 300, 10, 300, 50, 100), () => undefined)
+      assert.equal(scroll.failed, 'no-frames')
     } finally {
       await page.close()
     }
@@ -487,12 +525,18 @@ describe('scrollScenario', () => {
 
   test('the page at rest is reported beside the scroll, and never judged', async () => {
     // Every other refresh at rest: the pacing, not the moves, holds it back.
-    const paced: ScrollRun = { ...scrolled(1000, 0, 40), idle: Array(240).fill(16.7), turns: 2 }
+    const paced: ScrollRun = {
+      ...scrolled(1000, 0, 40),
+      idle: Array(240).fill(16.7),
+      idleWaitMs: 1234.4,
+      turns: 2
+    }
     const [result] = await run(fake({ run: paced }), [])
     assert.equal(result.result, 'pass')
     assert.equal(result.metrics.idleFrames, 240)
     assert.equal(result.metrics.idleP50Ms, 16.7)
     assert.equal(result.metrics.idleDroppedPct, 100)
+    assert.equal(result.metrics.idleWaitMs, 1234)
     assert.equal(result.metrics.moves, 40)
     assert.equal(result.metrics.turns, 2)
     assert.equal(result.metrics.cards, 60)

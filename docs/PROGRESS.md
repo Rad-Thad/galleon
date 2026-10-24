@@ -2813,3 +2813,15 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: the next nightly's `app: exited <code>` note comes from `launched.py run`.
 - Next: #254 (idleFrames 0 in test:app), whose flaky window is due. M0-22 still needs its second passing nightly.
+
+## 2026-10-24 07:26 UTC session 01F1hkYMB8pwgxaPXjHRqbA7 (hourly heartbeat)
+
+- Device results: nothing new since b63deb9 (bridge last seen 2026-10-24 00:10 UTC, "busy: reaper running"); no safety failures, no regressions. #259 (`launched.py run`) merged at 33ea71a.
+- Worked on: the flaky `grid.scroll` test:app run with `idleFrames` 0 (issue #254).
+- Root cause: the rest window began when the highlight landed and ended on its `IDLE_MS` clock as well as on frames. `idleFrames` 0 means not two frames in that whole window, so the page was not drawing when it opened, and the clock closed it with nothing timed: a page that has not drawn yet is not at rest. Why that VM held its frames back for 2 s is not shown. Four runs here did not bring it back: plain, every core busy, the window shown 8 s late, and the window shown in the middle of the rest. In each the page drew within milliseconds and was visible before `show()`.
+- Result: PR (this one). The rest is timed from the first frame drawn after the highlight lands, not from the highlight itself. That wait is bounded by the probe's `GRID_TIMEOUT_MS`, and a page that draws no frame at all is a failed scroll (`no-frames`). The time to that first frame is reported as `idleWaitMs`, never judged (docs/TESTING.md), so a recurrence on the Nova or CI says how late the page drew.
+- Evidence: new selftestscroll.test.ts tests: "the page at rest is timed from its first frame, however late that comes" (frames held back past a whole rest) and "a page that draws no frame at all is a failed scroll". Both fail on the old probe and pass now. `test/app/selftest.test.ts` 12/12: nes `idleFrames` 120, `idleWaitMs` 5; synthetic 120, 3. `scripts/agent/check.sh` green.
+- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: the next nightly reports `idleWaitMs` on the Nova.
+- Next: M0-22 still needs its second passing nightly; nothing else open is eligible.
