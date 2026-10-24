@@ -2786,4 +2786,4 @@ Lines the tooling reads (exact forms):
 - Evaluator: see the PR.
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: the next nightly reports `pageP50Ms` and `gapP50Ms` on the Nova.
-- Next: why the sentinel asks about 1.25 s after a page lands (a unit test with a scroll box taller than the lookahead, in Electron's Chromium as in #251). M0-22 still needs its second passing nightly.
+- Next: why the sentinel asks about 1.25 s after a page lands. First lead: every press starts a smooth scroll (`scrollBehavior`, src/renderer/src/input/scroll.ts) and a held Down restarts it every `REPEAT_MS`, so the scroll box may trail the highlight and bring the sentinel into the lookahead late. Measure the box's lag behind the highlight in Electron's Chromium, as in #251, before changing anything. M0-22 still needs its second passing nightly.
