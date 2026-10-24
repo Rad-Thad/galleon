@@ -2750,3 +2750,15 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: the next nightly reports `waitedMs` on the Nova.
 - Next: a unit test for the paging stall (a held Down outrunning `LOOKAHEAD`), then fetch further ahead. M0-22 still needs its second passing nightly.
+
+## 2026-10-24 02:27 UTC session 01LLmuXFuv1M9sCvB99wTRUS (hourly heartbeat)
+
+- Device results: nothing new since b63deb9 (bridge last seen 2026-10-24 00:10 UTC, "busy: reaper running"); no safety failures, no regressions.
+- Worked on: G1-4, the library grid's paging lookahead (tracking issue #249).
+- Result: PR (this one). `usePagedRoms` watched its sentinel against the viewport. The grid scrolls inside the screen's `.content` box, and an observer clips its target by every scrolling ancestor before `rootMargin` applies, so `LOOKAHEAD` did nothing: a page was asked for only once the sentinel was on screen. The sentinel is now watched against its nearest scrolling ancestor (`scrollingAncestor` in src/renderer/src/paging.ts), as Home's rows already watch theirs against the row.
+- Evidence: in Electron's Chromium (this VM, Xvfb), a sentinel 300 px below the fold of a 600 px scroll box, observed with `rootMargin: '600px 0px'`, reads `isIntersecting` false against the viewport and true against the box. `src/renderer/src/paging.test.tsx` "what the sentinel is watched against": "the grid's observer is given it, so the lookahead reaches below the fold" fails on the old observer and passes now. `scripts/agent/check.sh` green.
+- Finding: the fix does not measurably shorten the probe's wait in test:app. `grid.scroll` `waitedMs`, nes / synthetic, on this VM: old code 7475 / 5422; fix 9419 / 7391; fix with `LOOKAHEAD` `200%` 8218 / 5730 and `400%` 8035 / 5244. Every run reached all 1,300 cards and the last row, with `p95Ms` 16.8. The 12252 / 11346 in the 01:27 entry came from another VM, so run-to-run spread is wider than any of these differences. A wait that holds when the lookahead is four screens is not the lookahead. It is pages arriving one at a time, about 21 of them in 30 s, slower than a held Down crosses one. So the 01:27 entry's "a held Down outruns `LOOKAHEAD`" was wrong about the cause. `LOOKAHEAD` stays as it is.
+- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none new. The next nightly's `waitedMs` is the first on the Nova with the lookahead in effect.
+- Next: time one page from request to drawn cards (main-process fetch versus render of 60 more cards into a grid that is never windowed) before any change to paging; that decides between more than one page in flight, larger pages, or a windowed grid (a G1-4 optimisation round, PLAN.md section 9). M0-22 still needs its second passing nightly.
