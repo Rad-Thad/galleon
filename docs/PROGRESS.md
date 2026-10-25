@@ -2830,3 +2830,14 @@ Lines the tooling reads (exact forms):
 
 - Device results: nothing new since b63deb9 (bridge last seen 2026-10-24 00:10 UTC, "busy: reaper running"); no safety failures, no regressions. #260 (grid rest timed from its first frame) merged at 4e99187; CI x64 8:59, arm64 1:13.
 - Stopped: nothing eligible. M0-22 waits on its second passing nightly; M2-08 waits on M1-03 to M1-06, which wait on M0-22; M4 waits on Gate 1. No `needs-human` issue is open.
+
+## 2026-10-25 11:35 UTC session 011nm8casZvGgshrvK5D7c1r (interactive)
+
+- Device results: nothing new since b63deb9 (bridge last seen 2026-10-24 00:10 UTC, "busy: reaper running"); no safety failures, no regressions.
+- Worked on: the owner's request to be told when progress can't be made without the device.
+- Result: PR (this one). ADR 0007 and a CLAUDE.md rule under Decisions: a run that stops because everything left waits on the device sends the owner one push notification (what waits, the bridge's last skip reason and last-seen time), once per reason, and records it as `Notified: <reason>` in its stop line.
+- Evidence: docs only. `scripts/agent/check.sh` green.
+- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none.
+- Next: M0-22 still needs its second passing nightly. The next heartbeat that stops for that reason sends the first notification.
