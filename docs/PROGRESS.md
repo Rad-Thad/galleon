@@ -2967,3 +2967,14 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: READY-FOR-DEVICE M1-03. The next nightly asks for `launch.armsx2` and `exit.armsx2`; they skip as `missing-bios` if the Nova has no PS2 BIOS, or as missing if ARMSX2 is not installed.
 - Next: `node scripts/agent/next.mjs`.
+
+## 2026-10-25 23:01 UTC session 01AuHPkRH6XWYwPN87wpup2F (hourly heartbeat, second unit)
+
+- Device results: none new since 1ac4cb4. #277 (M1-03's last part) merged at 9f33312; CI x64 10:17, arm64 1:02 (x64 over the 10-minute target, under the 20-minute limit).
+- Worked on: M1-04, its first two acceptance lines (tracking issue #278).
+- Result: PR (this one). `src/config/emulators/dolphin/index.ts`: flatpak `org.DolphinEmu.dolphin-emu` (then `dolphin-emu` on PATH), ES-DE rule `DOLPHIN`, systems `gc` and `wii`, `-b -C Dolphin.Display.Fullscreen=True -e <rom>`; Dolphin reads a `.m3u` itself. GameCube memory cards `dolphin-emu/GC` (XDG data, inside the flatpak's tree for the flatpak) declared `shared`, with `saves.dolphinStandalone` (all four catalogues) as the Saves tab's reason; no states (named after the game's ID), no BIOS, no sandbox recipe yet. The `-C` syntax and key were read in Dolphin at e6f3ae17 (the research pin) and are the same at master 3eb30c76: `CommandLineConfigLayerLoader` in `UICommon/CommandLineParse.cpp`, `System::Main` named `Dolphin` in `Common/Config/Config.cpp`, `MAIN_FULLSCREEN` = `Display`/`Fullscreen` in `Core/Config/MainSettings.cpp`, `.m3u` in `Core/Boot/Boot.cpp`.
+- Evidence: registry.test.ts "Dolphin boots an .iso, an .rvz or a two-disc .m3u fullscreen without its main window", "Dolphin is found as the catalog flatpak first, then on PATH", "Dolphin runs GameCube and Wii games only", the dirs test; savepaths.test.ts "Dolphin's shared memory cards are not synced, and the Saves tab is told why". `scripts/agent/check.sh` green; `npm run test:app` 244/244 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root); `npm run shots:nova` 21 screens: looked at `emulators.png` (Dolphin the last row, Not installed, 2 platforms, Install, its down arrow disabled).
+- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet. `launch.dolphin` needs a sandbox recipe (`-u <sandbox user folder>`), a GameCube homebrew `.dol` in the M0-07 manifest, and run.sh asking for it.
+- Next: M1-04 part 2, the sandbox recipe.

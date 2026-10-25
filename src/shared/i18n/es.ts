@@ -618,6 +618,8 @@ export const es: Catalog = {
     'PCSX2 mantiene una sola tarjeta de memoria compartida por todos los juegos de PS2, así que no hay ninguna partida guardada que pertenezca a este. Los estados guardados sí se sincronizan.',
   'saves.armsx2':
     'ARMSX2 mantiene una sola tarjeta de memoria compartida por todos los juegos de PS2 y nombra los estados guardados según el disco y no según la ROM, así que no hay ninguna partida guardada de este juego que sincronizar.',
+  'saves.dolphinStandalone':
+    'Dolphin mantiene una tarjeta de memoria de GameCube por región y una NAND de Wii para todos los juegos, y nombra los estados guardados según el juego y no según la ROM, así que no hay ninguna partida guardada de este juego que sincronizar.',
   'saves.dolphin':
     'Dolphin mantiene una tarjeta de memoria de GameCube por región y una sola NAND de Wii para todos los juegos, así que no hay ninguna partida guardada que pertenezca a este. Los estados guardados sí se sincronizan.',
   'saves.primehack':
