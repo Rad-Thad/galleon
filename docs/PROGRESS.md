@@ -2911,3 +2911,14 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet. `launch.armsx2` needs a sandbox recipe (`PCSX2.ini` in the sandbox, a portable marker declining it), the `missing-bios` skip, a redistributable PS2 payload in the M0-07 manifest and run.sh asking for the check.
 - Next: M1-03 part 2, those four.
+
+## 2026-10-25 18:56 UTC session 01CaVX6KtqxMGnbn8Hbz7a21 (hourly heartbeat, second unit)
+
+- Device results: none new since 1ac4cb4. #271 (ARMSX2 descriptor) merged at 0d547c1; CI x64 8:18, arm64 1:12.
+- Worked on: M1-03, the sandbox recipe behind `launch.armsx2` (tracking issue #270).
+- Result: PR (this one). ARMSX2's recipe starts only the AppImage with `-datapath <sandbox config>`, which roots its data in `<config>/ARMSX2` as `XDG_CONFIG_HOME` already does, and writes `ARMSX2/inis/PCSX2.ini` there naming the sandbox's BIOS, memory card and state folders, with `SettingsVersion = 1` (without it ARMSX2 resets the file and opens its setup wizard) and `SetupWizardIncomplete = false`. Read in ARMSX2 at b1f3196b: `EmuFolders::SetDataDirectory` and `ShouldUsePortableMode` (pcsx2/Pcsx2Config.cpp; the portable marker is read beside the program inside the mounted AppImage), `QtHost::InitializeConfig` and `-datapath` (pcsx2-qt/QtHost.cpp), `CheckSettingsVersion` (pcsx2/VMManager.cpp).
+- Evidence: selftestsandbox.test.ts "ARMSX2's recipe": its argv and XDG root, the settings file's keys, and a binary install not started. `scripts/agent/check.sh` green; `npm run test:app` 243/244: `report.bundle` failed once `not-opened:no-report-button` and then passed 3 of 3 alone, so flaky issue #272 is open (root-cause fix due within two units of work).
+- Evaluator: PASS. Its notes, not acted on: an ARMSX2 build shipping a portable marker inside its own AppImage would fall back to `~/Applications/ARMSX2`, which only the owner-state manifest would catch; and for an existing file without the version ARMSX2 first asks whether to reset, then opens the wizard (a window either way).
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet. Still to do for READY-FOR-DEVICE M1-03: the `missing-bios` skip, a redistributable PS2 payload in the M0-07 manifest, and run.sh asking for `launch.armsx2`.
+- Next: those three.
