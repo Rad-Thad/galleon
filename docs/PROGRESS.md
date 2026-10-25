@@ -2877,3 +2877,14 @@ Lines the tooling reads (exact forms):
 - Device / acceptance: none yet. M0-12 still needs the `report.bundle` self-test check before READY-FOR-DEVICE.
 - Next: M0-12's `report.bundle`.
 - Notes: `dockerd` was not running at session start; started by hand.
+
+## 2026-10-25 15:58 UTC session 01MkPuRUHMEisj2GHHwuG9Sz (hourly heartbeat, second unit)
+
+- Device results: none new since 1ac4cb4. #267 (Report a problem text) merged at 9f41e5c; CI x64 9:06, arm64 1:04.
+- Worked on: M0-12, the app half of `report.bundle` (tracking issue #265).
+- Result: PR (this one). A `report.bundle` scenario (src/main/selftestreport.ts) opens Settings, moves to the System tab and Report a problem and presses A through the page's keyboard path, waits for the toast naming the zip, unpacks the one new zip from the test home's `reports/` into `report.bundle/` in the results folder for the bridge's sanitiser, and fails when a file is under `config/`, named for a secret, or holds a RomM token, an auth header or an unreplaced secret value (then nothing is left in the results). run.sh asks for it. docs/TESTING.md describes it.
+- Evidence: selftestreport.test.ts (10 tests: a clean bundle passes and lands in the results; a credential fails, names the file and leaves nothing; button not reached; no bundle; unreadable bundle; stopped run is a skip; what counts as a credential by name and by content; the page probe). test/app/selftest.test.ts "signed in, report.bundle presses Report a problem and copies a clean bundle": passes in the built app against the fake RomM, and no copied file carries the fake server's host or token. `npm run test:app` 244/244 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root). `scripts/agent/check.sh` green.
+- Evaluator: PASS; its notes taken: an unreadable bundle now leaves nothing in the results either, and the docs name the `app/report.bundle/` prefix the gate must match. Not taken: `pressReport` ignores the abort signal (a stop waits out the probe's timeout, then is a skip), and the toast can show on the `settings` shot that follows (appearance only).
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: the next nightly runs `report.bundle`. Not READY-FOR-DEVICE yet: `device-results.mjs` must first hold the check to nothing under `app/report.bundle/` in `bridge.json`'s `sanitizer.withheld`.
+- Next: that sanitiser gate in `device-results.mjs`, then READY-FOR-DEVICE M0-12.

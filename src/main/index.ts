@@ -10,6 +10,7 @@ import { reportRefusal, runAndReport, takeRequest } from './selftest.ts'
 import { DOWNLOAD_CHECK, downloadScenario } from './selftestdownload.ts'
 import { deviceCycle, devicePlan, emulatorScenarios } from './selftestemulators.ts'
 import { IDENTITY_CHECK, identityScenario } from './selftestidentity.ts'
+import { REPORT_CHECK, pressReport, reportScenario } from './selftestreport.ts'
 import { HEARTBEAT_CHECK, heartbeatScenario } from './selftestserver.ts'
 import { watchInput } from './selftestinput.ts'
 import { takeScreenshots } from './selftestshots.ts'
@@ -178,6 +179,10 @@ if (!app.requestSingleInstanceLock()) {
               store: rommix.store,
               home: resolveRoot()
             })
+          ],
+          [
+            REPORT_CHECK,
+            reportScenario({ home: resolveRoot(), press: () => pressReport(window.webContents) })
           ],
           ...emulatorScenarios(selfTest.request.checks, {
             home: resolveRoot(),

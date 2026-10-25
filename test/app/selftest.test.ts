@@ -110,6 +110,33 @@ test('a self-test request is taken, answered in summary.json, and the app quits 
   assert.ok(checks.has(RUN_CHECKS.complete))
 })
 
+test('signed in, report.bundle presses Report a problem and copies a clean bundle', async () => {
+  const server = await startFakeRomm()
+  try {
+    const { code, home, results } = await runWithRequest(
+      { ...REQUEST, checks: [RUN_CHECKS.complete, 'report.bundle'] },
+      server
+    )
+    assert.equal(code, 0)
+    const summary = JSON.parse(readFileSync(join(results, SUMMARY_FILE), 'utf8')) as Summary
+    assert.deepEqual(summaryErrors(summary), [])
+    const report = summary.checks.find((c) => c.id === 'report.bundle')
+    assert.equal(report?.result, 'pass', JSON.stringify(report))
+    assert.match(String(report.metrics.bundle), /^reports\/[0-9T-]+Z\.zip$/)
+    assert.ok(existsSync(join(home, String(report.metrics.bundle))))
+    assert.ok(report.evidence.includes('report.bundle/versions.json'), JSON.stringify(report))
+    for (const file of report.evidence) assert.ok(existsSync(join(results, file)), file)
+    // The fake server's address and token are what the app must have taken out.
+    const origin = new URL(server.baseUrl).host
+    for (const file of report.evidence) {
+      const text = readFileSync(join(results, file), 'utf8')
+      assert.ok(!text.includes(origin) && !text.includes(server.token), file)
+    }
+  } finally {
+    await server.close()
+  }
+})
+
 test('signed in, startup.cold times the start to an interactive Home', async () => {
   const server = await startFakeRomm()
   try {
