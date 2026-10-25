@@ -2865,3 +2865,15 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet. M0-12 still needs the dialog text (all four catalogues) and the `report.bundle` self-test check before READY-FOR-DEVICE.
 - Next: M0-12's dialog text and `report.bundle`; then M1-03.
+
+## 2026-10-25 15:27 UTC session 01MkPuRUHMEisj2GHHwuG9Sz (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. #266 (one bug per problem report) merged at 8458c03.
+- Worked on: M0-12, its first acceptance line (tracking issue #265).
+- Result: PR (this one). Report a problem says, in all four catalogues, that the zip goes to the `reports` folder inside the Galleon folder and is picked up automatically the next night the device is charging in Game Mode, with nothing to send (`system.reportExplainer`); the toast after writing names the path and says the same (`system.reportWritten`). No link or code is shown.
+- Evidence: i18n.test.ts "Report a problem says where the zip goes and that nothing has to be sent" (fails on the old strings, passes now). `scripts/agent/check.sh` green. `npm run shots:nova` 21 screens (Electron through a `--no-sandbox` wrapper in the scratchpad, as root): looked at `report.png`: the System tab's explainer wraps to two lines under "Report a problem", and the toast top right shows the zip's path and the pick-up sentence on four lines inside its box, nothing clipped; `settings-system.png` unchanged above the fold.
+- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet. M0-12 still needs the `report.bundle` self-test check before READY-FOR-DEVICE.
+- Next: M0-12's `report.bundle`.
+- Notes: `dockerd` was not running at session start; started by hand.

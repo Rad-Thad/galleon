@@ -84,6 +84,31 @@ test('no phrase is left in English by accident', () => {
   }
 })
 
+test('Report a problem says where the zip goes and that nothing has to be sent', () => {
+  // The device bridge collects the report from the Galleon folder, so the
+  // player is told where it lands and that it is picked up, never handed a
+  // link or a code to send it on.
+  const pickedUp = {
+    en: 'automatically',
+    fr: 'automatiquement',
+    de: 'automatisch',
+    es: 'automáticamente'
+  }
+  for (const [language, catalog] of Object.entries({ en, ...CATALOGUES })) {
+    const explainer = catalog['system.reportExplainer']
+    const written = catalog['system.reportWritten']
+    assert.ok(explainer.includes('reports'), `${language} does not name the reports folder`)
+    assert.ok(written.includes('{path}'), `${language} does not say where the report was saved`)
+    for (const phrase of [explainer, written]) {
+      assert.ok(
+        phrase.includes(pickedUp[language as keyof typeof pickedUp]),
+        `${language}: ${phrase}`
+      )
+      assert.doesNotMatch(phrase, /github|https?:|\bQR\b/i, `${language}: ${phrase}`)
+    }
+  }
+})
+
 test('the plural form follows the language rather than a comparison with one', () => {
   // French keeps the singular for zero; German and Spanish do not. Anything
   // written as `count === 1 ? … : …` is wrong in one of these three.

@@ -751,10 +751,11 @@ export const de: Catalog = {
   'system.performance': 'Leistung',
   'system.reportTitle': 'Problem melden',
   'system.reportExplainer':
-    'Speichert die Protokolle, die Vorabprüfung und die verwendeten Versionen in einer ZIP-Datei. Serveradressen, Passwörter und Tokens werden vorher entfernt.',
+    'Speichert die Protokolle, die Vorabprüfung und die verwendeten Versionen in einer ZIP-Datei im Ordner reports im Galleon-Ordner. Serveradressen, Passwörter und Tokens werden vorher entfernt. Es muss nichts gesendet werden: Der Bericht wird in der nächsten Nacht, in der dieses Gerät im Spielmodus lädt, automatisch abgeholt.',
   'system.reportProblem': 'Problem melden',
   'system.reportWriting': 'Bericht wird geschrieben…',
-  'system.reportWritten': 'Problembericht gespeichert unter {path}',
+  'system.reportWritten':
+    'Problembericht gespeichert unter {path}. Er wird in der nächsten Nacht, in der dieses Gerät im Spielmodus lädt, automatisch abgeholt.',
   'settings.perfOverlay': 'Leistungsanzeige',
   'settings.perfOverlayHint':
     'Bildzeiten und Taktraten in einer Ecke. L3 und R3 zusammen halten, um sie überall ein- oder auszublenden.',
