@@ -6,6 +6,7 @@ import { after, describe, test } from 'node:test'
 import { Window } from 'happy-dom'
 import type { PowerState, RommPlatform } from '@shared/types'
 import type { CheckResult, Safety, SelfTestRequest } from './selftest.ts'
+import { PageTimes } from './pagetimes.ts'
 import {
   GRID_CHECK,
   GRID_END,
@@ -555,6 +556,33 @@ describe('scrollScenario', () => {
     assert.equal(none.metrics.pageP50Ms, null)
     assert.equal(none.metrics.pageMaxMs, null)
     assert.equal(none.metrics.gapP50Ms, null)
+  })
+
+  test("the main process's share of each page is split into RomM's answer and the disk", async () => {
+    const f = fake({ run: scrolled(100) })
+    const times = new PageTimes()
+    // Before the scroll: not this scroll's pages.
+    times.start()
+    times.record({ serverMs: 9000, adoptMs: 9000 })
+    f.deps.pageTimes = times
+    f.deps.scroll = async () => {
+      times.record({ serverMs: 2000.4, adoptMs: 40 })
+      times.record({ serverMs: 100, adoptMs: 900 })
+      times.record({ serverMs: 1500, adoptMs: 60.6 })
+      return scrolled(100)
+    }
+    const [result] = await run(f, [])
+    assert.equal(result.metrics.serverP50Ms, 1500)
+    assert.equal(result.metrics.adoptP50Ms, 61)
+    // Nothing is kept once the scroll is over.
+    times.record({ serverMs: 1, adoptMs: 1 })
+    assert.deepEqual(times.stop(), [])
+  })
+
+  test('without a page timer the split is left out rather than reported as unknown', async () => {
+    const [result] = await run(fake({ run: scrolled(100) }), [])
+    assert.equal('serverP50Ms' in result.metrics, false)
+    assert.equal('adoptP50Ms' in result.metrics, false)
   })
 
   test('no frames at rest: the idle numbers are unknown', async () => {

@@ -6,6 +6,7 @@ import type { PowerState, RommPlatform } from '@shared/types'
 import { log } from './log.ts'
 import { UNKNOWN } from './powerstate.ts'
 import type { CheckResult, Scenario } from './selftest.ts'
+import type { PageTime, PageTimes } from './pagetimes.ts'
 
 /**
  * `grid.scroll@<profile>`: how the library grid feels to scroll on the device,
@@ -427,6 +428,11 @@ export interface ScrollScenarioDeps {
   askForProfile: (profile: string, signal: AbortSignal) => Promise<ProfileAnswer>
   displayHz: () => number
   sampleMs?: number
+  /**
+   * The main process's share of each page, kept across one scroll. Left out,
+   * the page time is reported without its split.
+   */
+  pageTimes?: Pick<PageTimes, 'start' | 'stop'>
 }
 
 /** The power state read during a scroll, summed up for the summary. */
@@ -511,10 +517,13 @@ async function measure(
   sample(deps.power)
   const sampler = setInterval(() => sample(), deps.sampleMs ?? SAMPLE_MS)
   let run: ScrollRun | null
+  let pages: PageTime[] = []
+  deps.pageTimes?.start()
   try {
     run = await deps.scroll(platformId, signal)
   } finally {
     clearInterval(sampler)
+    pages = deps.pageTimes?.stop() ?? []
   }
   Object.assign(metrics, powerMetrics(samples))
   if (signal.aborted) return outcome(id, 'skip', 'aborted-by-user', metrics, profile)
@@ -530,7 +539,11 @@ async function measure(
     pages: run.pageMs.length,
     pageP50Ms: median(run.pageMs),
     pageMaxMs: run.pageMs.length ? Math.round(Math.max(...run.pageMs)) : null,
-    gapP50Ms: median(run.gapMs)
+    gapP50Ms: median(run.gapMs),
+    ...(deps.pageTimes && {
+      serverP50Ms: median(pages.map((page) => page.serverMs)),
+      adoptP50Ms: median(pages.map((page) => page.adoptMs))
+    })
   })
   const hz = deps.displayHz()
   const moving = frameStats(run.intervals, hz)

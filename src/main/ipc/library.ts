@@ -56,8 +56,14 @@ export function registerLibraryIpc(rommix: RomMixApp, handle: Handle): void {
    */
   handle('library:roms', async (query) => {
     await rommix.ensureEmulators()
+    const asked = performance.now()
     const page = await client.roms(query ?? {})
+    const answered = performance.now()
     await library.adopt(page.items)
+    rommix.pageTimes.record({
+      serverMs: answered - asked,
+      adoptMs: performance.now() - answered
+    })
     return page
   })
 
