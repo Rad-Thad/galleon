@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { armsx2 } from './armsx2/index.ts'
+import { dolphin } from './dolphin/index.ts'
 import { duckstation } from './duckstation/index.ts'
 import { eden } from './eden/index.ts'
 import { emudeck, EMUDECK_LAUNCHERS } from './emudeck/index.ts'
@@ -1407,6 +1408,26 @@ test("DuckStation's per-game memory cards are matched to the ROM, and nothing is
     assert.equal(paths.states, null)
     // A standalone emulator: its own id is already the right tag.
     assert.equal(paths.emulator, undefined)
+  }
+})
+
+test("Dolphin's shared memory cards are not synced, and the Saves tab is told why", () => {
+  for (const [system, romPath] of [
+    ['gc', '/roms/gc/Game (USA).rvz'],
+    ['wii', '/roms/wii/Game (USA).iso']
+  ]) {
+    const paths = resolve(dolphin, {
+      romPath,
+      system,
+      paths: { saves: '/data/dolphin-emu/GC' }
+    })
+    assert.deepEqual(paths.saves, { dir: '/data/dolphin-emu/GC', match: 'shared' })
+    assert.equal(paths.states, null)
+    assert.equal(paths.unsyncableReason, 'saves.dolphinStandalone')
+  }
+  for (const language of ['en', 'fr', 'de', 'es'] as const) {
+    const said = localize('saves.dolphinStandalone', createI18n(language))
+    assert.ok(said?.includes('Dolphin'), language)
   }
 })
 

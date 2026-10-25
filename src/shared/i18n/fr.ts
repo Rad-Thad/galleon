@@ -625,6 +625,8 @@ export const fr: Catalog = {
     "PCSX2 garde une seule carte mémoire partagée par tous les jeux PS2 : aucune sauvegarde n'appartient donc à celui-ci. Les états de sauvegarde sont synchronisés.",
   'saves.armsx2':
     "ARMSX2 garde une seule carte mémoire partagée par tous les jeux PS2 et nomme les états de sauvegarde d'après le disque plutôt que la ROM : aucune sauvegarde n'appartient donc à celui-ci pour être synchronisée.",
+  'saves.dolphinStandalone':
+    "Dolphin garde une carte mémoire GameCube par région et une NAND Wii pour tous les jeux, et nomme les états de sauvegarde d'après le jeu plutôt que la ROM : aucune sauvegarde n'appartient donc à celui-ci pour être synchronisée.",
   'saves.dolphin':
     "Dolphin garde une carte mémoire GameCube par région et une seule NAND Wii pour tous les jeux : aucune sauvegarde n'appartient donc à celui-ci. Les états de sauvegarde sont synchronisés.",
   'saves.primehack':

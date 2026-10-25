@@ -22,6 +22,7 @@ import {
   supportsSystem
 } from './index.ts'
 import { armsx2 } from './armsx2/index.ts'
+import { dolphin } from './dolphin/index.ts'
 import { duckstation } from './duckstation/index.ts'
 import { eden } from './eden/index.ts'
 import { emudeck, ROM_PLACEHOLDER } from './emudeck/index.ts'
@@ -929,4 +930,40 @@ test("ARMSX2's BIOS and memory cards are its own config folders", () => {
   assert.deepEqual(armsx2.dirs.bios, { base: 'config', path: 'ARMSX2/bios' })
   assert.deepEqual(armsx2.dirs.saves, { base: 'config', path: 'ARMSX2/memcards' })
   assert.equal(armsx2.dirs.states, undefined)
+})
+
+test('Dolphin is found as the catalog flatpak first, then on PATH', () => {
+  assert.deepEqual(
+    dolphin.install.map((spec) => spec.kind),
+    ['flatpak', 'binary']
+  )
+  assert.deepEqual(dolphin.install[0], { kind: 'flatpak', appId: 'org.DolphinEmu.dolphin-emu' })
+  assert.equal(dolphin.findRule, 'DOLPHIN')
+})
+
+test('Dolphin runs GameCube and Wii games only', () => {
+  assert.equal(supportsSystem(dolphin, 'gc'), true)
+  assert.equal(supportsSystem(dolphin, 'wii'), true)
+  assert.equal(supportsSystem(dolphin, 'ps2'), false)
+})
+
+test('Dolphin boots an .iso, an .rvz or a two-disc .m3u fullscreen without its main window', () => {
+  const exec = ['flatpak', 'run', 'org.DolphinEmu.dolphin-emu']
+  for (const [system, romPath] of [
+    ['gc', '/roms/gc/Game (USA).iso'],
+    ['wii', '/roms/wii/-Game (USA).rvz'],
+    ['gc', '/roms/gc/Game (USA)/Game (USA).m3u']
+  ]) {
+    assert.deepEqual(
+      dolphin.launch({ exec, installRef: 'org.DolphinEmu.dolphin-emu', system, romPath }),
+      [...exec, '-b', '-C', 'Dolphin.Display.Fullscreen=True', '-e', romPath]
+    )
+  }
+})
+
+test("Dolphin's memory cards are its own data folder, and it keeps no state or BIOS folder", () => {
+  assert.deepEqual(dolphin.dirs.saves, { base: 'data', path: 'dolphin-emu/GC' })
+  assert.equal(dolphin.dirs.states, undefined)
+  assert.equal(dolphin.dirs.bios, undefined)
+  assert.equal(dolphin.sandbox, undefined)
 })
