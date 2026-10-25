@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
+import { armsx2 } from './armsx2/index.ts'
 import { duckstation } from './duckstation/index.ts'
 import { eden } from './eden/index.ts'
 import { emudeck, EMUDECK_LAUNCHERS } from './emudeck/index.ts'
@@ -1406,5 +1407,20 @@ test("DuckStation's per-game memory cards are matched to the ROM, and nothing is
     assert.equal(paths.states, null)
     // A standalone emulator: its own id is already the right tag.
     assert.equal(paths.emulator, undefined)
+  }
+})
+
+test("ARMSX2's shared memory card is not synced, and the Saves tab is told why", () => {
+  const paths = resolve(armsx2, {
+    romPath: '/roms/ps2/Game (USA).iso',
+    system: 'ps2',
+    paths: { saves: '/config/ARMSX2/memcards' }
+  })
+  assert.deepEqual(paths.saves, { dir: '/config/ARMSX2/memcards', match: 'shared' })
+  assert.equal(paths.states, null)
+  assert.equal(paths.unsyncableReason, 'saves.armsx2')
+  for (const language of ['en', 'fr', 'de', 'es'] as const) {
+    const said = localize(paths.unsyncableReason, createI18n(language))
+    assert.ok(said?.includes('ARMSX2'), language)
   }
 })

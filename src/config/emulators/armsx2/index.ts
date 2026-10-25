@@ -1,0 +1,105 @@
+import { shared } from '../savepaths.ts'
+import type { EmulatorDescriptor } from '../types.ts'
+
+/**
+ * The track a disc's descriptor names, for a `.cue`.
+ *
+ * Armada's ps2 system for ES-DE does not accept `.cue` at all, so on the Nova
+ * a cue/bin pair is played from its `.bin`, and the owner's server lists the
+ * two as separate games. The `.bin` beside a `.cue` shares its stem; the
+ * extension keeps the case the `.cue` was written in, since a folder of
+ * `GAME.CUE` holds `GAME.BIN`.
+ */
+function trackOf(romPath: string): string {
+  const match = /\.cue$/i.exec(romPath)
+  if (!match) return romPath
+  return romPath.slice(0, match.index) + (match[0] === '.CUE' ? '.BIN' : '.bin')
+}
+
+/**
+ * ARMSX2 — the ARM build of PCSX2, and what armadaOS's catalog installs for
+ * PS2.
+ *
+ *  - The catalog puts it in `~/Applications` as an AppImage, which is the one
+ *    way to have it: it is not on Flathub.
+ *  - It covers **exactly one system**.
+ *  - It needs a **BIOS dump**, which it looks for in its own `bios` folder.
+ *  - Its memory cards are **shared** by every game (`Mcd001.ps2`), so nothing
+ *    in them can be attributed to one ROM, and its states are named after the
+ *    disc's serial and checksum rather than the ROM. Neither is synced.
+ *
+ * It keeps everything under `~/.config/ARMSX2`, settings in
+ * `inis/PCSX2.ini`, whatever the install.
+ *
+ * Flags and their meanings are read from ARMSX2's `pcsx2-qt/QtHost.cpp` at the
+ * commit docs/research/armada_integration.md pins.
+ */
+export const armsx2: EmulatorDescriptor = {
+  id: 'armsx2',
+  name: 'ARMSX2',
+  dispatch: 'rommix',
+  install: [
+    {
+      kind: 'appimage',
+      // The catalog installs it as `ARMSX2.AppImage`; a release keeps the
+      // project's name in front of its version and architecture.
+      patterns: ['armsx2*.appimage'],
+      release: {
+        api: 'https://api.github.com/repos/ARMSX2/ARMSX2/releases',
+        // Anchored to the Linux AppImages, so the Android and macOS builds on
+        // the same page are never offered. The architecture is chosen from
+        // the name at download time — see `builtForThisMachine`.
+        asset: /^[\w.-]*linux[\w.-]*\.AppImage$/i
+      }
+    },
+    { kind: 'binary', names: ['armsx2-qt', 'armsx2'] }
+  ],
+  findRule: 'ARMSX2',
+  homepage: 'https://github.com/ARMSX2/ARMSX2',
+  systems: ['ps2'],
+  variants: undefined,
+  ownsLibrary: false,
+  dirs: {
+    // ARMSX2's game list is the folders the user adds; RomMix's own folder is
+    // the honest answer.
+    roms: { base: 'rommix', path: 'roms' },
+    saves: { base: 'config', path: 'ARMSX2/memcards' },
+    bios: { base: 'config', path: 'ARMSX2/bios' }
+    // No `states`: a state is named after the disc's serial, which nothing
+    // here can pair with a game.
+  },
+  // Fixed by the install; nothing here reads ARMSX2's settings file.
+  layout: undefined,
+  // Games are booted by path, so a multi-file game keeps its own folder.
+  flatLibrary: false,
+  needsRomFolders: false,
+  saves: (ctx) => ({
+    saves: ctx.paths.saves ? shared(ctx.paths.saves) : null,
+    states: null,
+    unsyncableReason: 'saves.armsx2'
+  }),
+  // Every dump goes where ARMSX2 looks; it identifies them by content.
+  bios: ({ paths }) => paths.bios,
+  biosStagingNote: undefined,
+  core: undefined,
+  setupNotes: [],
+  env: undefined,
+  // `exec` alone opens ARMSX2's game list.
+  open: undefined,
+  /**
+   * `-batch` so ARMSX2 exits when the game shuts down, `-fullscreen` so it does
+   * not open in a window over RomMix's, and `-nogui` so its main window never
+   * shows while the game runs. `--` ends the options, so a ROM whose name
+   * begins with a dash is still read as the file to boot. A `.cue` is booted
+   * from its track — see `trackOf`.
+   */
+  launch: ({ exec, romPath }) => [
+    ...exec,
+    '-batch',
+    '-fullscreen',
+    '-nogui',
+    '--',
+    trackOf(romPath)
+  ],
+  sandbox: undefined
+}

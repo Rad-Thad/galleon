@@ -21,6 +21,7 @@ import {
   resolveEmulator,
   supportsSystem
 } from './index.ts'
+import { armsx2 } from './armsx2/index.ts'
 import { duckstation } from './duckstation/index.ts'
 import { eden } from './eden/index.ts'
 import { emudeck, ROM_PLACEHOLDER } from './emudeck/index.ts'
@@ -843,4 +844,89 @@ test("DuckStation's BIOS and memory cards are its own XDG folders", () => {
   assert.deepEqual(duckstation.dirs.bios, { base: 'data', path: 'duckstation/bios' })
   assert.deepEqual(duckstation.dirs.saves, { base: 'data', path: 'duckstation/memcards' })
   assert.equal(duckstation.dirs.states, undefined)
+})
+
+test('ARMSX2 is found as the catalog AppImage first, then on PATH', async () => {
+  assert.deepEqual(
+    armsx2.install.map((spec) => spec.kind),
+    ['appimage', 'binary']
+  )
+  const appimage = armsx2.install.find((spec) => spec.kind === 'appimage')
+  assert.ok(appimage?.kind === 'appimage')
+  const dir = mkdtempSync(join(tmpdir(), 'armsx2-'))
+  writeFileSync(join(dir, 'notes.txt'), '')
+  assert.equal(await findMatchingFile(dir, appimage.patterns), null)
+  writeFileSync(join(dir, 'ARMSX2.AppImage'), '')
+  assert.equal(await findMatchingFile(dir, appimage.patterns), join(dir, 'ARMSX2.AppImage'))
+})
+
+test("ES-DE's find rules resolve ARMSX2 from the catalog's AppImage in a fake home", async () => {
+  const { rules, unreadable } = await loadFindRules(
+    join(import.meta.dirname, '..', '..', '..', 'packaging', 'es-de', 'linuxarm'),
+    join(tmpdir(), 'galleon-no-custom-systems')
+  )
+  assert.deepEqual(unreadable, [])
+  const home = mkdtempSync(join(tmpdir(), 'armsx2-home-'))
+  // An empty PATH, so an armsx2 the test machine happens to have is not what is found.
+  const ctx = { home, pathVariable: '' }
+  assert.equal(await findEmulator(rules, 'ARMSX2', ctx), null)
+
+  mkdirSync(join(home, 'Applications'))
+  writeFileSync(join(home, 'Applications', 'ARMSX2.AppImage'), '')
+  assert.deepEqual(await findEmulator(rules, 'ARMSX2', ctx), {
+    emulator: 'ARMSX2',
+    source: 'bundled',
+    type: 'staticpath',
+    entry: '~/Applications/ARMSX2*.AppImage',
+    path: join(home, 'Applications', 'ARMSX2.AppImage')
+  })
+})
+
+test('ARMSX2 downloads only its Linux AppImages', () => {
+  const source = releaseSource(armsx2)
+  assert.ok(source)
+  assert.equal(isInstallableAsset('ARMSX2-v2.0-Linux-arm64-4K-pages.AppImage', source), true)
+  for (const name of [
+    'ARMSX2-v2.0-Linux-arm64-4K-pages.AppImage.zsync',
+    'ARMSX2-v2.0-android.apk',
+    'ARMSX2-v2.0-macos.zip'
+  ]) {
+    assert.equal(isInstallableAsset(name, source), false, name)
+  }
+})
+
+test('ARMSX2 runs PlayStation 2 games only', () => {
+  assert.equal(supportsSystem(armsx2, 'ps2'), true)
+  assert.equal(supportsSystem(armsx2, 'psx'), false)
+})
+
+test('ARMSX2 boots an .iso or a .chd fullscreen, exits with the game, and ends options first', () => {
+  const exec = ['/home/u/Applications/ARMSX2.AppImage']
+  for (const romPath of ['/roms/ps2/Game (USA).iso', '/roms/ps2/-Game (USA).chd']) {
+    assert.deepEqual(armsx2.launch({ exec, installRef: exec[0], system: 'ps2', romPath }), [
+      ...exec,
+      '-batch',
+      '-fullscreen',
+      '-nogui',
+      '--',
+      romPath
+    ])
+  }
+})
+
+test('ARMSX2 boots a cue/bin pair from its .bin', () => {
+  const exec = ['/home/u/Applications/ARMSX2.AppImage']
+  const launched = (romPath: string): string | undefined =>
+    armsx2.launch({ exec, installRef: exec[0], system: 'ps2', romPath })?.at(-1)
+  assert.equal(launched('/roms/ps2/Game (USA).cue'), '/roms/ps2/Game (USA).bin')
+  assert.equal(launched('/roms/ps2/GAME.CUE'), '/roms/ps2/GAME.BIN')
+  assert.equal(launched('/roms/ps2/Game (USA).bin'), '/roms/ps2/Game (USA).bin')
+  // Only the extension: a folder named like a descriptor is left alone.
+  assert.equal(launched('/roms/ps2/Game.cue.d/Game.iso'), '/roms/ps2/Game.cue.d/Game.iso')
+})
+
+test("ARMSX2's BIOS and memory cards are its own config folders", () => {
+  assert.deepEqual(armsx2.dirs.bios, { base: 'config', path: 'ARMSX2/bios' })
+  assert.deepEqual(armsx2.dirs.saves, { base: 'config', path: 'ARMSX2/memcards' })
+  assert.equal(armsx2.dirs.states, undefined)
 })

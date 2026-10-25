@@ -2900,3 +2900,14 @@ Lines the tooling reads (exact forms):
 - Device / acceptance: READY-FOR-DEVICE M0-12. The next nightly runs `report.bundle`; it passes once the bridge publishes the bundle whole.
 - Notes: CI's pull-request body check wants a `Feature: <id>` line; a job re-run reads the body the PR was opened with, so a fixed body needs the next push.
 - Next: M1-03 (ARMSX2 descriptor) from `next.mjs`.
+
+## 2026-10-25 18:27 UTC session 01CaVX6KtqxMGnbn8Hbz7a21 (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. #269 (M0-12's sanitiser gate) merged at 796e34a.
+- Worked on: M1-03, its first two acceptance lines (tracking issue #270).
+- Result: PR (this one). `src/config/emulators/armsx2/index.ts`: the catalog's `~/Applications/ARMSX2*.AppImage` (then `armsx2-qt`/`armsx2` on PATH), system `ps2`, `-batch -fullscreen -nogui -- <rom>` (flags read in ARMSX2's `pcsx2-qt/QtHost.cpp` at b1f3196b), BIOS `~/.config/ARMSX2/bios`, memory cards `~/.config/ARMSX2/memcards` declared `shared` with `saves.armsx2` (all four catalogues) as the reason the Saves tab gives; no states, since ARMSX2 names them `<serial> (<crc>).<slot>.p2s` (`VMManager::GetSaveStateFileName`). A `.cue` launches the `.bin` beside it.
+- Evidence: registry.test.ts "ARMSX2 boots an .iso or a .chd fullscreen…", "ARMSX2 boots a cue/bin pair from its .bin", the AppImage and ES-DE find-rule tests, "ARMSX2 downloads only its Linux AppImages"; savepaths.test.ts "ARMSX2's shared memory card is not synced, and the Saves tab is told why". `scripts/agent/check.sh` green; `npm run test:app` 244/244; `npm run shots:nova` 21 screens: looked at `emulators.png` (ARMSX2 the last row, Not installed, 1 platform, Install, its down arrow disabled, nothing clipped) and `bios.png` (unchanged).
+- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet. `launch.armsx2` needs a sandbox recipe (`PCSX2.ini` in the sandbox, a portable marker declining it), the `missing-bios` skip, a redistributable PS2 payload in the M0-07 manifest and run.sh asking for the check.
+- Next: M1-03 part 2, those four.

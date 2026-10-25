@@ -628,6 +628,8 @@ export const de: Catalog = {
     'RetroDECK gibt DuckStation eine einzige Memory Card für alle PS1-Spiele, deshalb gehört keine Speicherdatei zu diesem einen Spiel. Savestates werden synchronisiert.',
   'saves.pcsx2':
     'PCSX2 führt eine einzige Memory Card für alle PS2-Spiele, deshalb gehört keine Speicherdatei zu diesem einen Spiel. Savestates werden synchronisiert.',
+  'saves.armsx2':
+    'ARMSX2 führt eine einzige Memory Card für alle PS2-Spiele und benennt Savestates nach der Disc statt nach dem ROM, deshalb gehört keine Speicherdatei zu diesem einen Spiel, die synchronisiert werden könnte.',
   'saves.dolphin':
     'Dolphin führt eine GameCube-Memory-Card pro Region und einen einzigen Wii-NAND für alle Spiele, deshalb gehört keine Speicherdatei zu diesem einen Spiel. Savestates werden synchronisiert.',
   'saves.primehack':

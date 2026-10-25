@@ -623,6 +623,8 @@ export const fr: Catalog = {
     "RetroDECK donne à DuckStation une seule carte mémoire partagée par tous les jeux PS1 : aucune sauvegarde n'appartient donc à celui-ci. Les états de sauvegarde sont synchronisés.",
   'saves.pcsx2':
     "PCSX2 garde une seule carte mémoire partagée par tous les jeux PS2 : aucune sauvegarde n'appartient donc à celui-ci. Les états de sauvegarde sont synchronisés.",
+  'saves.armsx2':
+    "ARMSX2 garde une seule carte mémoire partagée par tous les jeux PS2 et nomme les états de sauvegarde d'après le disque plutôt que la ROM : aucune sauvegarde n'appartient donc à celui-ci pour être synchronisée.",
   'saves.dolphin':
     "Dolphin garde une carte mémoire GameCube par région et une seule NAND Wii pour tous les jeux : aucune sauvegarde n'appartient donc à celui-ci. Les états de sauvegarde sont synchronisés.",
   'saves.primehack':
