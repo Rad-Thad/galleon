@@ -2944,3 +2944,15 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none. M0-12's `report.bundle` uses the same probe on the Nova.
 - Next: M1-03's PS2 payload and `launch.armsx2` in run.sh.
+
+## 2026-10-25 21:26 UTC session 01BJHVJD5cvQpyeAbNSENtHs (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. #275 (`report.bundle` waits for the highlight) merged at 7f6d833; `main`'s push run on it green (x64 9:19, arm64 1:00), and #272 is closed.
+- Worked on: M1-03, the PS2 payload of `launch.armsx2` (tracking issue #270).
+- Result: PR #276. `test/fixtures/homebrew/ps2-hello/`: `main.c` draws one line with ps2sdk's debug screen and sleeps; `build.sh` builds it in `ghcr.io/ps2dev/ps2dev` pinned by digest (Docker Hub answered 429; GHCR serves the same image) and writes `galleon-ps2-hello.iso`, a disc whose `SYSTEM.CNF` boots `GALLEON.ELF`, its dates from `SOURCE_DATE_EPOCH`. The ISO is committed beside its source. ADR 0008: our own homebrew lives in the repository and the manifest pins it by its raw URL at the merged commit.
+- Evidence: two builds give sha256 `3fcccf406bb0466e256ab18a8d016091a5b05bd43ff639a6c580fd44dffced33` (532480 bytes); the first try differed only in the disc folder's own date, now set too. `scripts/agent/check.sh` green. Not booted on the VM (no PCSX2 here).
+- Evaluator: PASS (SYSTEM.CNF and the ISO layout parsed, licences clean). Its note taken: the image's apk packages are unpinned, so README, ADR and build.sh no longer promise the same bytes on a rebuild; the committed ISO is the payload.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet.
+- Notes: inside the container the proxy needs `--network host` plus the CA bundle mounted, or `apk add` cannot reach its mirror; build.sh does both when they exist.
+- Next: M1-03's last part: the manifest entry at #276's merge commit (`roms/ps2/…`), its THIRD_PARTY.md notice (heading must appear in the URL, see device-bundle.test.ts), and run.sh asking for `launch.armsx2`/`exit.armsx2` with it; then READY-FOR-DEVICE M1-03.
