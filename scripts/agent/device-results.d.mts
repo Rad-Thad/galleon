@@ -64,6 +64,7 @@ export function analyse(input: {
   features: readonly Feature[]
   index: readonly IndexEntry[]
   summaries: ReadonlyMap<string, Summary | null>
+  bridges?: ReadonlyMap<string, unknown>
   progress: string
   reports?: readonly string[]
   reportContents?: ReadonlyMap<string, readonly ProblemReport[]>
@@ -95,6 +96,7 @@ export function readBranch(
   index: IndexEntry[]
   status: Record<string, unknown> | null
   summaries: Map<string, Summary | null>
+  bridges: Map<string, unknown>
   reports: string[]
   reportContents: Map<string, ProblemReport[]>
   acceptance: string[]

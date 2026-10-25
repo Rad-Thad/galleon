@@ -45,6 +45,7 @@ interface Fixture {
   head: Record<string, unknown>[]
   progress?: string
   summaries?: Record<string, { status?: string; checks?: { id: string; result: string }[] }>
+  bridges?: Record<string, unknown>
   acceptance?: Record<string, { items?: { feature: string; result: string }[] }>
   ancestors?: string[]
   expect: string[]
@@ -63,6 +64,7 @@ function judge(fixture: Fixture): string[] {
     ...flipErrors(flipped, {
       progress: fixture.progress ?? '',
       summary: (sha) => fixture.summaries?.[sha] ?? null,
+      bridge: (sha) => fixture.bridges?.[sha] ?? null,
       acceptance: (date) => fixture.acceptance?.[date] ?? null,
       readyIsAncestor: (id, sha) => (fixture.ancestors ?? []).includes(`${id}@${sha}`)
     })

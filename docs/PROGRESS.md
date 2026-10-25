@@ -2888,3 +2888,15 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: the next nightly runs `report.bundle`. Not READY-FOR-DEVICE yet: `device-results.mjs` must first hold the check to nothing under `app/report.bundle/` in `bridge.json`'s `sanitizer.withheld`.
 - Next: that sanitiser gate in `device-results.mjs`, then READY-FOR-DEVICE M0-12.
+
+## 2026-10-25 17:27 UTC session 01NevEPaUCP1YsyQSBqqK5Ni (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. #268 (`report.bundle` in the app) merged at a69e593; CI x64 and arm64 green (median over the last 10 PRs: x64 8:52, arm64 1:06).
+- Worked on: M0-12, the sanitiser half of `report.bundle` (tracking issue #265).
+- Result: PR (this one). `countedResults` in scripts/agent/features-check.mjs is the one place a check's result is counted: a pass of a check in `PUBLISHED_WHOLE` (`report.bundle` → `app/report.bundle/`) is a `fail` with `sanitiser:<files>` when `bridge.json`'s `sanitizer.withheld` or `sanitizer.dropped` names a file in that folder, and a `skip` when no `bridge.json` says what the sanitiser kept. `device-results.mjs` reads every `results/<sha>/bridge.json` and judges flips, reverts, regressions and new passes through it; features-check's flip guard does the same against `origin/device-results`. docs/TESTING.md says so under "How a device feature passes" and in the check's description.
+- Evidence: device-results.test.ts "report.bundle counts only when the sanitiser published its bundle whole" (whole, withheld, dropped, no bridge.json, half a sanitiser report, and a revert naming the file) and readBranch's test now checks `bridges`; features-check fixtures `device-flip-report-bundle-withheld`, `-no-bridge` and `-whole`. The new tests fail on the old scripts and pass now. `scripts/agent/check.sh` green.
+- Evaluator: PASS. Its note, not acted on here: nothing in CI runs the bridge's real sanitiser over a bundle the app produced, so a first-night `report.bundle` fail with a `sanitiser:` reason points there.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: READY-FOR-DEVICE M0-12. The next nightly runs `report.bundle`; it passes once the bridge publishes the bundle whole.
+- Notes: CI's pull-request body check wants a `Feature: <id>` line; a job re-run reads the body the PR was opened with, so a fixed body needs the next push.
+- Next: M1-03 (ARMSX2 descriptor) from `next.mjs`.
