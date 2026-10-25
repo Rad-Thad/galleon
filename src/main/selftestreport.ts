@@ -65,27 +65,40 @@ export function reportProbe(timeoutMs = REPORT_TIMEOUT_MS): string {
       }
       return null
     }
-    const press = (element) => {
+    // An element is drawn before the focus engine knows it: it registers from
+    // an effect after the render, and a hover until then is dropped, leaving
+    // Enter to whatever had the highlight. So the hover is repeated until the
+    // highlight is on it, a pixel apart each time, since the engine ignores a
+    // move to where the pointer already is (see \`pointer\` in focus.tsx).
+    const press = async (element) => {
       const box = element.getBoundingClientRect()
-      element.dispatchEvent(new MouseEvent('mousemove', {
-        bubbles: true,
-        clientX: Math.round(box.left + box.width / 2),
-        clientY: Math.round(box.top + box.height / 2)
-      }))
+      let nudge = 0
+      const highlighted = await waitFor(() => {
+        if (element.dataset.focused === 'true') return true
+        element.dispatchEvent(new MouseEvent('mousemove', {
+          bubbles: true,
+          clientX: Math.round(box.left + box.width / 2) + nudge,
+          clientY: Math.round(box.top + box.height / 2)
+        }))
+        nudge = 1 - nudge
+        return element.dataset.focused === 'true'
+      })
+      if (!highlighted) return false
       window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+      return true
     }
     const menu = await waitFor(() => document.querySelector('.topbar__nav [data-route="settings"]'))
     if (!menu) return 'no-menu-item'
     menu.click()
     const tab = await waitFor(() => document.querySelector('[data-screen="settings"] [data-tab="system"]'))
     if (!tab) return 'no-system-tab'
-    press(tab)
+    if (!(await press(tab))) return 'system-tab-not-highlighted'
     const button = await waitFor(() =>
       document.querySelector('[data-screen="settings"] [data-action="report-problem"]')
     )
     if (!button) return 'no-report-button'
     const earlier = new Set(document.querySelectorAll('.toast'))
-    press(button)
+    if (!(await press(button))) return 'report-button-not-highlighted'
     const toast = await waitFor(() =>
       [...document.querySelectorAll('.toast')].find(
         (one) => !earlier.has(one) && /\\.zip\\b/.test(one.textContent || '')
