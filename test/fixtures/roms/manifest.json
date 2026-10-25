@@ -15,6 +15,14 @@
       "bytes": 2084,
       "licence": "MIT",
       "attribution": "gba-tests by Julian Smolka, https://github.com/jsmolka/gba-tests. Copyright (c) 2019 Julian Smolka."
+    },
+    {
+      "path": "roms/ps2/galleon-ps2-hello.iso",
+      "url": "https://raw.githubusercontent.com/Rad-Thad/galleon/585653d561cdb74b1c4e419d99b52ba0bed8a55e/test/fixtures/homebrew/ps2-hello/galleon-ps2-hello.iso",
+      "sha256": "3fcccf406bb0466e256ab18a8d016091a5b05bd43ff639a6c580fd44dffced33",
+      "bytes": 532480,
+      "licence": "MIT",
+      "attribution": "galleon-ps2-hello by the Galleon contributors, https://github.com/Rad-Thad/galleon. Built with ps2sdk (AFL-2.0), newlib (BSD-style) and libgcc (GPL-3.0 with the GCC Runtime Library Exception)."
     }
   ]
 }
