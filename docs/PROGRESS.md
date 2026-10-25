@@ -25,6 +25,7 @@ Lines the tooling reads (exact forms):
 - `PASSES <id> device:<sha>`: `passes` was flipped on the evidence of `results/<sha>/summary.json` on `device-results`.
 - `PASSES <id> acceptance:<date>`: `passes` was flipped on the evidence of `acceptance/<date>/results.json`.
 - `DEVICE-RESULTS <sha> <status>`: a device result was ingested; the next session starts after it.
+- `DEVICE-REPORT <time>/<report>`: a problem report on `device-results` was ingested and its bug opened; it is not opened again.
 - `ACCEPTANCE-RESULTS <date>`: `acceptance/<date>/results.json` was ingested; its passes flipped and its fails became `[acceptance]` bugs.
 
 ---
@@ -2853,3 +2854,14 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: the next nightly reports `serverP50Ms` and `adoptP50Ms` on the Nova.
 - Next: with the split, either more than one page in flight (RomM's answer) or a cheaper adoption. M1-03 (ARMSX2 descriptor) is the next feature from `next.mjs` after M0-12.
+
+## 2026-10-25 13:58 UTC session 01A4cx7dsUvyaEmYpHtAeCD6 (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4. #264 (page time split) merged at 2ec3648; CI x64 8:07, arm64 1:17.
+- Worked on: M0-12, its second acceptance line only (tracking issue #265).
+- Result: PR (this one). `device-results.mjs --apply` opens one issue per problem report in a `reports/<time>/` folder newer than the last ingested result (`[device-report] <time>/<report>`, labels `bug` and `device-report`) and prints a `DEVICE-REPORT <time>/<report>` line for the PROGRESS entry so a closed one is not opened again, quoting only the report's sanitised summary: its `versions.json` with backticks dropped, and its file list. `readBranch` finds each report the bridge publishes in a folder of its own under the time (`reportsIn`). docs/PLAN.md section 5 says so.
+- Evidence: device-results.test.ts "each problem report the bridge published is found, with its versions", "one bug per new problem report, quoting only its summary, and not again while open", "a report recorded in PROGRESS.md is not opened again once its bug is closed" (the evaluator's first round found that a closed report bug came back until a newer result was ingested), and readBranch's test now checks `reportContents`. `scripts/agent/check.sh` green.
+- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet. M0-12 still needs the dialog text (all four catalogues) and the `report.bundle` self-test check before READY-FOR-DEVICE.
+- Next: M0-12's dialog text and `report.bundle`; then M1-03.

@@ -14,6 +14,8 @@ import {
   readBranch,
   regressionTitle,
   render,
+  reportsIn,
+  reportTitle,
   setPasses,
   type IndexEntry,
   type Summary
@@ -265,6 +267,108 @@ describe('device-results: the rules', () => {
     assert.deepEqual(analyse(input([], { reports: ['20200101T000000Z'] })).reports, [
       '20200101T000000Z'
     ])
+  })
+
+  test('each problem report the bridge published is found, with its versions', () => {
+    const names = [
+      'reports/20261020T010000Z/galleon-report-a/versions.json',
+      'reports/20261020T010000Z/galleon-report-a/logs/app.log',
+      'reports/20261020T010000Z/galleon-report-b/system.json',
+      'reports/20261021T010000Z/report.json',
+      'results/index.json'
+    ]
+    const read: string[] = []
+    const found = reportsIn(names, (path) => {
+      read.push(path)
+      return path.endsWith('galleon-report-a/versions.json') ? { galleon: '0.20.0' } : null
+    })
+    assert.deepEqual(found.get('20261020T010000Z'), [
+      {
+        name: 'galleon-report-a',
+        files: ['versions.json', 'logs/app.log'],
+        versions: { galleon: '0.20.0' }
+      },
+      { name: 'galleon-report-b', files: ['system.json'], versions: null }
+    ])
+    assert.deepEqual(found.get('20261021T010000Z'), [
+      { name: null, files: ['report.json'], versions: null }
+    ])
+    assert.equal(found.size, 2)
+    assert.ok(read.includes('reports/20261021T010000Z/versions.json'))
+  })
+
+  test('one bug per new problem report, quoting only its summary, and not again while open', () => {
+    const contents = new Map([
+      [
+        '20261001T100001Z',
+        [
+          {
+            name: 'galleon-report-a',
+            files: ['versions.json', 'logs/app.log'],
+            versions: { galleon: '0.20.0 ```injected' }
+          },
+          { name: 'galleon-report-b', files: ['system.json'], versions: null }
+        ]
+      ],
+      ['20261001T095959Z', [{ name: 'old', files: ['versions.json'], versions: {} }]]
+    ])
+    const a = analyse(
+      input([[1, summary('complete', SAFE)]], {
+        progress: `DEVICE-RESULTS ${SHA(1)} complete`,
+        reports: ['20261001T095959Z', '20261001T100001Z'],
+        reportContents: contents
+      })
+    )
+    const issues = issuesToOpen(a, [])
+    assert.deepEqual(
+      issues.map((i) => [i.title, i.labels]),
+      [
+        [reportTitle('20261001T100001Z', 'galleon-report-a'), ['bug', 'device-report']],
+        [reportTitle('20261001T100001Z', 'galleon-report-b'), ['bug', 'device-report']]
+      ],
+      'a report older than the last ingested result was seen before'
+    )
+    assert.match(issues[0].body, /reports\/20261001T100001Z\/galleon-report-a\//)
+    assert.match(issues[0].body, /galleon: "0\.20\.0 '''injected"/)
+    assert.equal(issues[0].body.split('```').length, 3, 'nothing in the report closes its block')
+    assert.match(issues[0].body, /- `logs\/app\.log`/)
+    assert.match(issues[1].body, /no readable versions\.json/)
+    assert.deepEqual(
+      issuesToOpen(a, [reportTitle('20261001T100001Z', 'galleon-report-a')]).map((i) => i.title),
+      [reportTitle('20261001T100001Z', 'galleon-report-b')]
+    )
+    assert.equal(reportTitle('20261001T100001Z', null), '[device-report] 20261001T100001Z')
+  })
+
+  test('a report recorded in PROGRESS.md is not opened again once its bug is closed', () => {
+    const contents = new Map([
+      [
+        '20261001T100001Z',
+        [
+          { name: 'galleon-report-a', files: ['versions.json'], versions: {} },
+          { name: 'galleon-report-b', files: ['versions.json'], versions: {} }
+        ]
+      ]
+    ])
+    const at = (progress: string) =>
+      analyse(
+        input([[1, summary('complete', SAFE)]], {
+          progress,
+          reports: ['20261001T100001Z'],
+          reportContents: contents
+        })
+      )
+    const first = at(`DEVICE-RESULTS ${SHA(1)} complete`)
+    const lines = progressLines(first)
+    assert.ok(lines.includes('DEVICE-REPORT 20261001T100001Z/galleon-report-a'))
+    assert.ok(lines.includes('DEVICE-REPORT 20261001T100001Z/galleon-report-b'))
+    const later = at(
+      `DEVICE-RESULTS ${SHA(1)} complete\n- DEVICE-REPORT 20261001T100001Z/galleon-report-a`
+    )
+    assert.deepEqual(
+      issuesToOpen(later, []).map((i) => i.title),
+      [reportTitle('20261001T100001Z', 'galleon-report-b')]
+    )
   })
 
   test('a published result is the bridge being seen, since only a skip writes its status', () => {
@@ -616,6 +720,9 @@ describe('device-results: fixture branches', () => {
     assert.equal(branch.summaries.get(shas.ready)?.status, 'complete')
     assert.equal(branch.status?.bridgeVersion, 1)
     assert.deepEqual(branch.reports, ['20261009T080000Z'])
+    assert.deepEqual(branch.reportContents.get('20261009T080000Z'), [
+      { name: null, files: ['report.json'], versions: null }
+    ])
     assert.deepEqual(branch.acceptance, [])
   })
 
