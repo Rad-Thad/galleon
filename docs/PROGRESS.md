@@ -2933,3 +2933,14 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet. Still to do for READY-FOR-DEVICE M1-03: a redistributable PS2 homebrew payload in the M0-07 manifest (`test/fixtures/roms/manifest.json` holds only GBA so far), and run.sh asking for `launch.armsx2` with it.
 - Next: those two. No prebuilt PS2 homebrew under a permissive licence turned up in a first search; the likely route is a tiny ELF of our own built with the ps2dev toolchain's container image, its source MIT in the repo and the ELF pinned by hash.
+
+## 2026-10-25 20:26 UTC session 015EjWSXk1H9dreEMUBJeFLy (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. #274 (`missing-bios` skip) merged at bdb9427. `main`'s push run on d4db10b was red: x64 `test:app` failed `report.bundle` with `not-opened:no-report-button`, the flake of #272.
+- Worked on: #272, the root cause of that flake (CI red on `main`, then a `flaky` issue past due).
+- Result: PR (this one). `useFocusable` registers an element from an effect after the render, and `applyFocus` drops an id it does not know, so the `report.bundle` probe could hover the System tab after it was drawn but before it was registered: the hover was dropped, Enter went to whatever had the highlight, the tab never opened and the probe waited out its timeout for the Report a problem button. The probe now repeats the hover (a pixel apart, since the engine ignores a move to where the pointer already is) until the element shows `data-focused="true"`, and only then presses Enter; a highlight that never arrives fails as `system-tab-not-highlighted` or `report-button-not-highlighted`.
+- Evidence: selftestreport.test.ts "presses only what the focus engine has taken, so a page still registering is waited for" runs the probe in a fake page whose elements register 150 ms after they are drawn: it failed `no-report-button` on the old probe (the CI failure) and passes now. `scripts/agent/check.sh` green; `npm run test:app` 244/244 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root).
+- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none. M0-12's `report.bundle` uses the same probe on the Nova.
+- Next: M1-03's PS2 payload and `launch.armsx2` in run.sh.

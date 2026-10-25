@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { runInNewContext } from 'node:vm'
 import { afterEach, describe, test } from 'node:test'
 import { parseRequest } from './selftest.ts'
 import {
@@ -204,4 +205,120 @@ describe('the press in the page', () => {
     assert.match(script, /Date\.now\(\) \+ 1234/)
     assert.match(script, /data-action="report-problem"/)
   })
+
+  test('presses only what the focus engine has taken, so a page still registering is waited for', async () => {
+    const page = fakePage({ registersAfterMs: 150 })
+    assert.equal(await runInNewContext(reportProbe(2000), page.globals), null)
+    assert.deepEqual(page.selected, ['system', 'report-problem'])
+  })
 })
+
+/**
+ * Enough of the app's page to run the probe against: an element is drawn at
+ * once but known to the focus engine only a while later, as `useFocusable`
+ * registers it from an effect after the render. Until then a hover over it is
+ * dropped, as `applyFocus` drops an id it does not know, and Enter goes to
+ * whatever had the highlight before. A move to where the pointer already is
+ * is ignored, as the engine ignores one (see `pointer` in focus.tsx).
+ */
+function fakePage({ registersAfterMs }: { registersAfterMs: number }) {
+  type Element = {
+    name: string
+    dataset: Record<string, string>
+    toastText?: string
+    getBoundingClientRect: () => { left: number; top: number; width: number; height: number }
+    dispatchEvent: (event: { type: string; clientX: number; clientY: number }) => void
+    click: () => void
+  }
+  const selected: string[] = []
+  const registered = new Set<Element>()
+  const pointer = { x: -1, y: -1 }
+  let focused: Element | null = null
+  let screen = 'home'
+  let tab = 'general'
+  const toasts: Element[] = []
+  const element = (name: string, onSelect = () => {}): Element => {
+    const self: Element = {
+      name,
+      dataset: {},
+      getBoundingClientRect: () => ({ left: 10, top: 10, width: 100, height: 40 }),
+      dispatchEvent: (event) => {
+        const moved = event.clientX !== pointer.x || event.clientY !== pointer.y
+        pointer.x = event.clientX
+        pointer.y = event.clientY
+        if (!moved || !registered.has(self)) return
+        if (focused) focused.dataset.focused = 'false'
+        focused = self
+        self.dataset.focused = 'true'
+      },
+      click: onSelect
+    }
+    ;(self as unknown as { select: () => void }).select = () => {
+      selected.push(name)
+      onSelect()
+    }
+    return self
+  }
+  const drawn = (one: Element): Element => {
+    setTimeout(() => registered.add(one), registersAfterMs)
+    return one
+  }
+  let system: Element | null = null
+  let report: Element | null = null
+  const menu = element('menu', () => {
+    screen = 'settings'
+    system = drawn(
+      element('system', () => {
+        tab = 'system'
+        report = drawn(
+          element('report-problem', () => {
+            const toast = element('toast')
+            toast.toastText = 'Written to reports/galleon-report.zip'
+            toasts.push(toast)
+          })
+        )
+      })
+    )
+  })
+  const document = {
+    querySelector: (selector: string) => {
+      if (selector.includes('topbar__nav')) return menu
+      if (screen !== 'settings') return null
+      if (selector.includes('data-tab="system"')) return system
+      if (selector.includes('report-problem')) return tab === 'system' ? report : null
+      return null
+    },
+    querySelectorAll: (selector: string) =>
+      selector === '.toast' ? toasts.map((one) => ({ ...one, textContent: one.toastText })) : []
+  }
+  const window = {
+    dispatchEvent: (event: { type: string; key: string }) => {
+      if (event.type === 'keydown' && event.key === 'Enter' && focused)
+        (focused as unknown as { select: () => void }).select()
+    }
+  }
+  class MouseEvent {
+    clientX: number
+    clientY: number
+    constructor(
+      public type: string,
+      init: { clientX: number; clientY: number }
+    ) {
+      this.clientX = init.clientX
+      this.clientY = init.clientY
+    }
+  }
+  class KeyboardEvent {
+    key: string
+    constructor(
+      public type: string,
+      init: { key: string }
+    ) {
+      this.key = init.key
+    }
+  }
+  return {
+    selected,
+    globals: { document, window, MouseEvent, KeyboardEvent, setTimeout, Date, Set, Promise }
+  }
+}
