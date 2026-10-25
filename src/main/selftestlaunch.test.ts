@@ -26,6 +26,7 @@ const PLAN: SandboxPlan = {
   strays: ['/tmp/emu-stray'],
   cwd: '/home/test/sandbox/emu',
   bios: '/home/test/sandbox/emu/bios',
+  needsBios: false,
   folders: {
     root: '/home/test/sandbox/emu',
     config: '/home/test/sandbox/emu/config',
@@ -486,6 +487,21 @@ describe('launchCycle', () => {
     })
     const [launch] = await cycle(f)
     assert.equal(launch.reason, 'cannot-sandbox')
+    assert.equal(started, false)
+  })
+
+  test('an emulator missing its BIOS skips both as missing-bios and starts nothing', async () => {
+    let started = false
+    const f = fake({
+      prepare: () => ({ kind: 'skip', reason: 'missing-bios', detail: 'no-bios-files' }),
+      start: () => {
+        started = true
+        throw new Error('unreachable')
+      }
+    })
+    const [launch, exit] = await cycle(f)
+    assert.deepEqual([launch.result, launch.reason], ['skip', 'missing-bios'])
+    assert.deepEqual([exit.result, exit.reason], ['skip', 'missing-bios'])
     assert.equal(started, false)
   })
 

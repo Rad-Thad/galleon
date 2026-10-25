@@ -477,6 +477,13 @@ export interface SandboxRecipe {
    * such as Eden's keys. Null for `folders.bios`.
    */
   readonly bios: string | null
+  /**
+   * The emulator cannot start a game without a BIOS dump of its own, such as
+   * a console's: a start with none would stop at the emulator's own error, so
+   * the launch check is skipped as `missing-bios` when no file of the owner's
+   * reached the sandbox's BIOS folder.
+   */
+  readonly needsBios: boolean
   /** Written whole before the start; `path` is relative to `folders.root`. */
   readonly files: readonly { readonly path: string; readonly content: string }[]
 }

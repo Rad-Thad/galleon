@@ -35,6 +35,12 @@ import { execPrefix } from './host.ts'
 /** The reason a launch check gives when it would not start an emulator. */
 export const CANNOT_SANDBOX = 'cannot-sandbox'
 
+/**
+ * The reason a launch check gives for an emulator that needs a BIOS dump the
+ * owner does not have; see `SandboxRecipe.needsBios`.
+ */
+export const MISSING_BIOS = 'missing-bios'
+
 /** How deep below the owner's BIOS folder files are cloned into a sandbox. */
 const BIOS_DEPTH = 4
 
@@ -102,6 +108,8 @@ export type SandboxPlan =
       cwd: string
       /** Where the copies of the owner's BIOS files go; see `SandboxRecipe.bios`. */
       bios: string
+      /** See `SandboxRecipe.needsBios`. */
+      needsBios: boolean
       folders: SandboxFolders
       files: { path: string; content: string }[]
     }
@@ -188,6 +196,7 @@ export function planSandbox(request: SandboxRequest): SandboxPlan {
     strays,
     cwd: folders.root,
     bios,
+    needsBios: recipe.needsBios,
     folders,
     files
   }
@@ -247,7 +256,7 @@ export function cloneFile(source: string, target: string): void {
 
 export type PreparedSandbox =
   | { kind: 'ready'; biosFiles: number }
-  | { kind: 'skip'; reason: typeof CANNOT_SANDBOX; detail: string }
+  | { kind: 'skip'; reason: typeof CANNOT_SANDBOX | typeof MISSING_BIOS; detail: string }
 
 /**
  * Makes the sandbox's folders, writes the recipe's files and gives the
@@ -260,7 +269,9 @@ export type PreparedSandbox =
  * `BIOS_COPY_BUDGET`. Past the budget the launch is skipped as
  * `cannot-sandbox` rather than started with part of the owner's BIOS.
  * `biosFiles` counts the files this call added; a second start of the same
- * emulator keeps the copies it has, written to or not.
+ * emulator keeps the copies it has, written to or not. An emulator that needs
+ * a BIOS is skipped as `missing-bios` when its BIOS folder is left without a
+ * file, so it is never started only to stop at its own complaint.
  */
 export function prepareSandbox(
   plan: Extract<SandboxPlan, { kind: 'run' }>,
@@ -273,12 +284,33 @@ export function prepareSandbox(
     mkdirSync(dir, { recursive: true })
   }
   for (const file of plan.files) writeWhole(file.path, file.content)
-  if (ownerBios === null) return { kind: 'ready', biosFiles: 0 }
   const tally = { files: 0, copied: 0, budget: copyBudget, clone }
-  if (!copyTree(ownerBios, plan.bios, BIOS_DEPTH, tally)) {
+  if (ownerBios !== null && !copyTree(ownerBios, plan.bios, BIOS_DEPTH, tally)) {
     return { kind: 'skip', reason: CANNOT_SANDBOX, detail: 'bios-too-large' }
   }
+  if (plan.needsBios && !holdsFile(plan.bios, BIOS_DEPTH)) {
+    return { kind: 'skip', reason: MISSING_BIOS, detail: 'no-bios-files' }
+  }
   return { kind: 'ready', biosFiles: tally.files }
+}
+
+/** Whether `dir` holds a file of its own within `depth` levels, links not counted. */
+function holdsFile(dir: string, depth: number): boolean {
+  let entries: string[]
+  try {
+    entries = readdirSync(dir)
+  } catch {
+    return false
+  }
+  return entries.some((name) => {
+    try {
+      const info = lstatSync(join(dir, name))
+      if (info.isFile()) return true
+      return info.isDirectory() && depth > 1 && holdsFile(join(dir, name), depth - 1)
+    } catch {
+      return false
+    }
+  })
 }
 
 interface Tally {
