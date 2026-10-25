@@ -92,9 +92,11 @@ THE SOFTWARE.
 # Test payloads
 
 Fetched by `scripts/agent/fetch-fixtures.mjs` from the pinned URLs in
-`test/fixtures/roms/manifest.json` and never committed. Each entry there names
-its licence and author. The device test bundle carries them under `payloads/`
-with that manifest and this part of the file.
+`test/fixtures/roms/manifest.json`. Each entry there names its licence and
+author. Other projects' homebrew is never committed; our own, built where no
+redistributable homebrew exists, is committed beside its source and fetched
+from this repository like the rest (ADR 0008). The device test bundle carries
+them under `payloads/` with that manifest and this part of the file.
 
 ## gba-tests
 
