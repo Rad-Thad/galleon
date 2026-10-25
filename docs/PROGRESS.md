@@ -2922,3 +2922,14 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet. Still to do for READY-FOR-DEVICE M1-03: the `missing-bios` skip, a redistributable PS2 payload in the M0-07 manifest, and run.sh asking for `launch.armsx2`.
 - Next: those three.
+
+## 2026-10-25 19:26 UTC session 01RmaoJCHLC8BcdHdnxBuEZc (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. #273 (ARMSX2's sandbox recipe) merged at d4db10b.
+- Worked on: M1-03, the `missing-bios` skip of `launch.armsx2` (tracking issue #270).
+- Result: PR (this one). A sandbox recipe says whether the emulator needs a BIOS dump to start (`SandboxRecipe.needsBios`: ARMSX2 and DuckStation yes, the rest no). `prepareSandbox` skips launch and exit as `missing-bios` (`no-bios-files`) when such an emulator's sandbox BIOS folder holds no file of its own after the owner's are copied (links do not count; a copy kept from an earlier start does). docs/TESTING.md says so under the emulator sandbox.
+- Evidence: selftestsandbox.test.ts "an emulator that needs a BIOS is skipped as missing-bios when none reached the sandbox", "… starts with a dump of the owner, or the copy it kept", "an emulator that needs no BIOS starts without one", ARMSX2's "needs a BIOS dump to start"; selftestlaunch.test.ts "an emulator missing its BIOS skips both as missing-bios and starts nothing". `scripts/agent/check.sh` green; `npm run test:app` 244/244 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root).
+- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet. Still to do for READY-FOR-DEVICE M1-03: a redistributable PS2 homebrew payload in the M0-07 manifest (`test/fixtures/roms/manifest.json` holds only GBA so far), and run.sh asking for `launch.armsx2` with it.
+- Next: those two. No prebuilt PS2 homebrew under a permissive licence turned up in a first search; the likely route is a tiny ELF of our own built with the ps2dev toolchain's container image, its source MIT in the repo and the ELF pinned by hash.
