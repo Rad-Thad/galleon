@@ -1,5 +1,5 @@
 import { shared } from '../savepaths.ts'
-import type { EmulatorDescriptor } from '../types.ts'
+import type { EmulatorDescriptor, SandboxContext, SandboxRecipe } from '../types.ts'
 
 /**
  * The track a disc's descriptor names, for a `.cue`.
@@ -14,6 +14,53 @@ function trackOf(romPath: string): string {
   const match = /\.cue$/i.exec(romPath)
   if (!match) return romPath
   return romPath.slice(0, match.index) + (match[0] === '.CUE' ? '.BIN' : '.bin')
+}
+
+/**
+ * The settings version ARMSX2 accepts a `PCSX2.ini` at (`SETTINGS_VERSION` in
+ * its `pcsx2/VMManager.cpp`).
+ */
+const SETTINGS_VERSION = 1
+
+/**
+ * ARMSX2 started in its sandbox, on a settings file written there.
+ *
+ * `-datapath` roots everything ARMSX2 keeps (`<path>/ARMSX2`) in the sandbox
+ * config, the same folder `XDG_CONFIG_HOME` leads it to, so the sandbox holds
+ * whether or not the AppImage's own start script changes the environment. The
+ * settings file names the BIOS, memory card and save state folders the sandbox
+ * holds. It carries the settings version ARMSX2 expects, because a file
+ * without it is reset to defaults and the setup wizard opens in a window of
+ * its own; it also says the wizard is done.
+ *
+ * Portable mode outranks `-datapath`, and ARMSX2 looks for its marker beside
+ * the program inside the mounted AppImage, where nothing of the owner's can
+ * be. Only the AppImage is started: a binary install would read a marker
+ * beside itself, and its layout has not been checked against the recipe.
+ */
+function sandboxRecipe(ctx: SandboxContext): SandboxRecipe | null {
+  if (ctx.installKind !== 'appimage') return null
+  const { folders } = ctx
+  const settings = [
+    '[UI]',
+    `SettingsVersion = ${SETTINGS_VERSION}`,
+    'SetupWizardIncomplete = false',
+    '',
+    '[Folders]',
+    `Bios = ${folders.bios}`,
+    `MemoryCards = ${folders.saves}`,
+    `Savestates = ${folders.states}`,
+    ''
+  ].join('\n')
+  return {
+    args: ['-datapath', folders.config],
+    env: {},
+    unset: [],
+    needs: [],
+    strays: [],
+    bios: null,
+    files: [{ path: 'config/ARMSX2/inis/PCSX2.ini', content: settings }]
+  }
 }
 
 /**
@@ -101,5 +148,5 @@ export const armsx2: EmulatorDescriptor = {
     '--',
     trackOf(romPath)
   ],
-  sandbox: undefined
+  sandbox: sandboxRecipe
 }

@@ -651,6 +651,81 @@ describe("DuckStation's recipe", () => {
   })
 })
 
+describe("ARMSX2's recipe", () => {
+  const armsx2 = emulatorById('armsx2')
+  assert.ok(armsx2)
+  const appImage: ResolvedInstall = {
+    kind: 'appimage',
+    ref: '/home/owner/Applications/ARMSX2.AppImage'
+  }
+
+  function armsPlan(install: ResolvedInstall = appImage) {
+    return planSandbox({
+      descriptor: armsx2!,
+      install,
+      system: 'ps2',
+      romPath: '/payload/game.iso',
+      home: HOME,
+      owner: OWNER,
+      realPath: (path) => path
+    })
+  }
+
+  /** The settings file as section/key and value, the way ARMSX2 reads it. */
+  function settings(files: { path: string; content: string }[], root: string) {
+    const file = files.find((f) => f.path === join(root, 'config', 'ARMSX2', 'inis', 'PCSX2.ini'))
+    assert.ok(file)
+    const read: Record<string, string> = {}
+    let section = ''
+    for (const line of file.content.split('\n')) {
+      const header = /^\[(\w+)\]$/.exec(line)
+      if (header) section = header[1]
+      const entry = /^(\w+) = (.*)$/.exec(line)
+      if (entry) read[`${section}/${entry[1]}`] = entry[2]
+    }
+    return read
+  }
+
+  test('roots ARMSX2 in the sandbox config by its data path and by XDG_CONFIG_HOME alike', () => {
+    const result = armsPlan()
+    assert.equal(result.kind, 'run')
+    if (result.kind !== 'run') return
+    assert.equal(result.env.XDG_CONFIG_HOME, result.folders.config)
+    assert.deepEqual(result.argv, [
+      appImage.ref,
+      '-datapath',
+      result.folders.config,
+      '-batch',
+      '-fullscreen',
+      '-nogui',
+      '--',
+      '/payload/game.iso'
+    ])
+  })
+
+  test('finds BIOS files, memory cards and states in the sandbox and opens no setup wizard', () => {
+    const result = armsPlan()
+    assert.equal(result.kind, 'run')
+    if (result.kind !== 'run') return
+    assert.deepEqual(settings(result.files, result.folders.root), {
+      // Without the version ARMSX2 resets the file and runs its wizard.
+      'UI/SettingsVersion': '1',
+      'UI/SetupWizardIncomplete': 'false',
+      'Folders/Bios': result.folders.bios,
+      'Folders/MemoryCards': result.folders.saves,
+      'Folders/Savestates': result.folders.states
+    })
+  })
+
+  test('is not started as a binary', () => {
+    assert.deepEqual(armsPlan({ kind: 'binary', ref: '/usr/bin/armsx2-qt' }), {
+      kind: 'skip',
+      reason: CANNOT_SANDBOX,
+      detail: 'no-recipe'
+    })
+  })
+})
+
 describe("Eden's recipe", () => {
   const eden = emulatorById('eden')
   assert.ok(eden)

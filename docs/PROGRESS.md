@@ -2911,3 +2911,14 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet. `launch.armsx2` needs a sandbox recipe (`PCSX2.ini` in the sandbox, a portable marker declining it), the `missing-bios` skip, a redistributable PS2 payload in the M0-07 manifest and run.sh asking for the check.
 - Next: M1-03 part 2, those four.
+
+## 2026-10-25 18:56 UTC session 01CaVX6KtqxMGnbn8Hbz7a21 (hourly heartbeat, second unit)
+
+- Device results: none new since 1ac4cb4. #271 (ARMSX2 descriptor) merged at 0d547c1; CI x64 8:18, arm64 1:12.
+- Worked on: M1-03, the sandbox recipe behind `launch.armsx2` (tracking issue #270).
+- Result: PR (this one). ARMSX2's recipe starts only the AppImage with `-datapath <sandbox config>`, which roots its data in `<config>/ARMSX2` as `XDG_CONFIG_HOME` already does, and writes `ARMSX2/inis/PCSX2.ini` there naming the sandbox's BIOS, memory card and state folders, with `SettingsVersion = 1` (without it ARMSX2 resets the file and opens its setup wizard) and `SetupWizardIncomplete = false`. Read in ARMSX2 at b1f3196b: `EmuFolders::SetDataDirectory` and `ShouldUsePortableMode` (pcsx2/Pcsx2Config.cpp; the portable marker is read beside the program inside the mounted AppImage), `QtHost::InitializeConfig` and `-datapath` (pcsx2-qt/QtHost.cpp), `CheckSettingsVersion` (pcsx2/VMManager.cpp).
+- Evidence: selftestsandbox.test.ts "ARMSX2's recipe": its argv and XDG root, the settings file's keys, and a binary install not started. `scripts/agent/check.sh` green; `npm run test:app` (see the PR).
+- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet. Still to do for READY-FOR-DEVICE M1-03: the `missing-bios` skip, a redistributable PS2 payload in the M0-07 manifest, and run.sh asking for `launch.armsx2`.
+- Next: those three.
