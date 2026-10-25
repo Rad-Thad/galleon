@@ -340,6 +340,37 @@ describe('device-results: the rules', () => {
     assert.equal(reportTitle('20261001T100001Z', null), '[device-report] 20261001T100001Z')
   })
 
+  test('a report recorded in PROGRESS.md is not opened again once its bug is closed', () => {
+    const contents = new Map([
+      [
+        '20261001T100001Z',
+        [
+          { name: 'galleon-report-a', files: ['versions.json'], versions: {} },
+          { name: 'galleon-report-b', files: ['versions.json'], versions: {} }
+        ]
+      ]
+    ])
+    const at = (progress: string) =>
+      analyse(
+        input([[1, summary('complete', SAFE)]], {
+          progress,
+          reports: ['20261001T100001Z'],
+          reportContents: contents
+        })
+      )
+    const first = at(`DEVICE-RESULTS ${SHA(1)} complete`)
+    const lines = progressLines(first)
+    assert.ok(lines.includes('DEVICE-REPORT 20261001T100001Z/galleon-report-a'))
+    assert.ok(lines.includes('DEVICE-REPORT 20261001T100001Z/galleon-report-b'))
+    const later = at(
+      `DEVICE-RESULTS ${SHA(1)} complete\n- DEVICE-REPORT 20261001T100001Z/galleon-report-a`
+    )
+    assert.deepEqual(
+      issuesToOpen(later, []).map((i) => i.title),
+      [reportTitle('20261001T100001Z', 'galleon-report-b')]
+    )
+  })
+
   test('a published result is the bridge being seen, since only a skip writes its status', () => {
     // Results at 10:00 on the 1st to the 9th; the status is from a skip before them.
     const runs: [number, Summary][] = [1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => [

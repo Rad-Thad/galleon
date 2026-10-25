@@ -77,6 +77,8 @@ export function render(analysis: Analysis): string
 export function progressLines(analysis: Analysis): string[]
 export function setPasses(text: string, id: string, passes: boolean): string
 export function regressionTitle(subject: string): string
+export function ingestedReports(progress: string): Set<string>
+export function reportId(stamp: string, name: string | null): string
 export function reportTitle(stamp: string, name: string | null): string
 export function reportsIn(
   names: readonly string[],

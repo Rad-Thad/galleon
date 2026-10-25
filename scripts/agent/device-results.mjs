@@ -55,6 +55,21 @@ function validResults(results) {
 }
 
 /** The commits PROGRESS.md records as ingested. */
+/**
+ * The problem reports PROGRESS.md records as ingested. A report is newer than
+ * the last ingested result until the next one is ingested, which can be days
+ * when the Nova has nothing new to test, so the time alone would open its bug
+ * again in every session after the first was closed.
+ */
+export function ingestedReports(progress) {
+  return new Set([...progress.matchAll(/\bDEVICE-REPORT (\S+)/g)].map((m) => m[1]))
+}
+
+/** How a report is named in PROGRESS.md and in its bug's title. */
+export function reportId(stamp, name) {
+  return name ? `${stamp}/${name}` : stamp
+}
+
 export function ingestedShas(progress) {
   return new Set([...progress.matchAll(/\bDEVICE-RESULTS ([0-9a-f]{40})\b/g)].map((m) => m[1]))
 }
@@ -237,8 +252,11 @@ export function analyse({
 
   const since = lastIngested?.finishedAt ?? null
   out.reports = [...reports].sort().filter((name) => since === null || name > compact(since))
+  const reportsSeen = ingestedReports(progress)
   out.problemReports = out.reports.flatMap((stamp) =>
-    (reportContents.get(stamp) ?? []).map((report) => ({ stamp, ...report }))
+    (reportContents.get(stamp) ?? [])
+      .filter((report) => !reportsSeen.has(reportId(stamp, report.name)))
+      .map((report) => ({ stamp, ...report }))
   )
 
   // The newest of the two sightings: the bridge writes its status only when
@@ -335,6 +353,7 @@ export function progressLines(analysis) {
   const lastFlip = new Map(analysis.acceptanceFlips.map((f) => [f.id, f.date]))
   return [
     ...analysis.fresh.map((r) => `DEVICE-RESULTS ${r.sha} ${r.status}`),
+    ...(analysis.problemReports ?? []).map((r) => `DEVICE-REPORT ${reportId(r.stamp, r.name)}`),
     ...analysis.flips.filter((f) => passing.has(f.id)).map((f) => `PASSES ${f.id} device:${f.sha}`),
     ...analysis.acceptance
       .filter((date) => !analysis.acceptanceInvalid.includes(date))
@@ -366,7 +385,12 @@ export function regressionTitle(subject) {
 
 /** The title a problem report's bug carries, by which an open one is found again. */
 export function reportTitle(stamp, name) {
-  return `[device-report] ${stamp}${name ? `/${name}` : ''}`
+  return `[device-report] ${plain(reportId(stamp, name))}`
+}
+
+/** Device text set in inline code or a code block, with nothing that can close it. */
+function plain(text) {
+  return String(text).replaceAll('`', "'")
 }
 
 /**
@@ -377,7 +401,6 @@ export function reportTitle(stamp, name) {
  * the block it is quoted in.
  */
 function reportSummary(report) {
-  const plain = (text) => String(text).replaceAll('`', "'")
   const versions =
     report.versions && typeof report.versions === 'object'
       ? Object.entries(report.versions).map(([key, value]) => `${key}: ${JSON.stringify(value)}`)
@@ -443,7 +466,7 @@ export function issuesToOpen(analysis, openTitles) {
       ].join('\n')
     })
   for (const r of analysis.problemReports ?? []) {
-    const path = `reports/${r.stamp}/${r.name ? `${r.name}/` : ''}`
+    const path = plain(`reports/${reportId(r.stamp, r.name)}/`)
     wanted.set(reportTitle(r.stamp, r.name), {
       title: reportTitle(r.stamp, r.name),
       labels: ['bug', 'device-report'],
