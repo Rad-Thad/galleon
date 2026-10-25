@@ -24,6 +24,7 @@ import { Updater } from './update.ts'
 import { isWebAddress } from './weblink.ts'
 import { saveContext } from './gamecontext.ts'
 import { realHome } from './xdg.ts'
+import { PageTimes } from './pagetimes.ts'
 import {
   isInProgress,
   isStopped,
@@ -105,6 +106,8 @@ export class RomMixApp {
    * rather than something only Settings knows about.
    */
   readonly updates = new Updater(this.store, (status) => this.send('update:status', status))
+  /** How each page of the library was spent, for the self-test to read. */
+  readonly pageTimes = new PageTimes()
 
   /** Cached emulator probe; refreshed on demand rather than on every call. */
   private emulatorCache: EmulatorState[] | null = null

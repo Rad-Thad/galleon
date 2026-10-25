@@ -2841,3 +2841,15 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none.
 - Next: M0-22 still needs its second passing nightly. The next heartbeat that stops for that reason sends the first notification.
+
+## 2026-10-25 13:27 UTC session 01A4cx7dsUvyaEmYpHtAeCD6 (hourly heartbeat)
+
+- Device results: DEVICE-RESULTS 1ac4cb4aaa08b016305ea8f995e9d34eec610cfd complete. No safety failures, no regressions. PASSES M0-22 device:1ac4cb4aaa08b016305ea8f995e9d34eec610cfd (its second passing nightly), which makes M1-03 to M1-08 and M0-12 eligible.
+- Grid scroll on the Nova with #257 and #260 in: `grid.scroll@performance` dropped 7.2% (56.2% at b63deb9), p95 16.7 ms, `trailMaxPx` 66; `@balanced` dropped 24.8% (88.5%), p95 33.1 ms. Both still fail G1-4. The scroll now waits on pages: `pageP50Ms` 2160 / 2100, `waitedMs` 19744 / 12467, `gapP50Ms` 662 / 708, `turns` 0 (it never reached the end of 1,292 games). The 04:26 entry's "under 100 ms a page" was the VM's synthetic platform, not the Nova. A held Down eats a page of `PAGE_SIZE` in about a second, so one page in flight at 2 s cannot keep up whatever the lookahead.
+- Worked on: G1-4, where the Nova's 2 s per page goes (tracking issue #263).
+- Result: PR (this one). The main process times each `library:roms` answer it serves while the scroll runs, split into its wait on RomM and `Library.adopt` (src/main/pagetimes.ts, kept only between the scroll's start and end), and the scroll reports `serverP50Ms` and `adoptP50Ms` (docs/TESTING.md).
+- Evidence: selftestscroll.test.ts "the main process's share of each page is split into RomM's answer and the disk" and "without a page timer the split is left out rather than reported as unknown". `scripts/agent/check.sh` green; `npm run test:app` (see the PR). init.sh could not bring the RomM stack up (Docker Hub answered 429 to the mariadb pull); nothing here touches the client.
+- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: the next nightly reports `serverP50Ms` and `adoptP50Ms` on the Nova.
+- Next: with the split, either more than one page in flight (RomM's answer) or a cheaper adoption. M1-03 (ARMSX2 descriptor) is the next feature from `next.mjs` after M0-12.

@@ -165,7 +165,8 @@ if (!app.requestSingleInstanceLock()) {
               sample: () => readPowerState(),
               askForProfile: (profile, signal) =>
                 askForProfile(selfTest.request.handshakeDir, profile, signal),
-              displayHz: () => screen.getPrimaryDisplay().displayFrequency || 60
+              displayHz: () => screen.getPrimaryDisplay().displayFrequency || 60,
+              pageTimes: rommix.pageTimes
             })
           ],
           [
