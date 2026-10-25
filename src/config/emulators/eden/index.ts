@@ -36,6 +36,7 @@ function sandboxRecipe(ctx: SandboxContext): SandboxRecipe | null {
     needs: [joinPath(ctx.owner.dataDir, 'eden/keys/prod.keys')],
     strays: [],
     bios: joinPath(ctx.folders.data, 'eden/keys'),
+    needsBios: false,
     files: [{ path: 'config/eden/qt-config.ini', content: settings }]
   }
 }

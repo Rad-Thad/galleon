@@ -14,7 +14,16 @@ import { shadPs4SavePaths } from './saves.ts'
  */
 function sandboxRecipe(ctx: SandboxContext): SandboxRecipe | null {
   if (ctx.installKind !== 'appimage') return null
-  return { args: [], env: {}, unset: [], needs: [], strays: [], bios: null, files: [] }
+  return {
+    args: [],
+    env: {},
+    unset: [],
+    needs: [],
+    strays: [],
+    bios: null,
+    needsBios: false,
+    files: []
+  }
 }
 
 /**

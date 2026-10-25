@@ -25,6 +25,7 @@ import { EMULATORS, emulatorById } from '@config/emulators'
 import { example } from '@config/emulators/example/index.ts'
 import {
   CANNOT_SANDBOX,
+  MISSING_BIOS,
   planSandbox,
   clearStrays,
   prepareSandbox,
@@ -92,6 +93,7 @@ const EMPTY: SandboxRecipe = {
   needs: [],
   strays: [],
   bios: null,
+  needsBios: false,
   files: []
 }
 
@@ -132,6 +134,7 @@ describe('planSandbox', () => {
       needs: [],
       strays: [],
       bios: null,
+      needsBios: false,
       files: []
     }))
     const result = plan(descriptor, BINARY, 'nes')
@@ -155,6 +158,7 @@ describe('planSandbox', () => {
         needs: [],
         strays: [],
         bios: null,
+        needsBios: false,
         files: []
       }),
       { env: { FROM_DESCRIPTOR: '1', FROM_RECIPE: 'descriptor' } }
@@ -197,6 +201,7 @@ describe('planSandbox', () => {
         needs: [],
         strays: [],
         bios: null,
+        needsBios: false,
         files: []
       }),
       { env: { FROM_DESCRIPTOR: '1' } }
@@ -248,6 +253,7 @@ describe('planSandbox', () => {
       needs: [],
       strays: [],
       bios: null,
+      needsBios: false,
       files: [{ path: 'config/example.cfg', content: 'x = 1\n' }]
     }))
     const result = plan(descriptor)
@@ -311,6 +317,7 @@ describe('planSandbox', () => {
         needs: [],
         strays: [],
         bios: null,
+        needsBios: false,
         files: [{ path: '../../.config/x', content: '' }]
       })),
       BINARY,
@@ -325,6 +332,7 @@ describe('planSandbox', () => {
         needs: [],
         strays: [],
         bios: null,
+        needsBios: false,
         files: [{ path: '.', content: '' }]
       })),
       BINARY,
@@ -339,6 +347,7 @@ describe('planSandbox', () => {
         needs: [],
         strays: [],
         bios: null,
+        needsBios: false,
         files: [{ path: '/etc/x', content: '' }]
       })),
       BINARY,
@@ -717,6 +726,13 @@ describe("ARMSX2's recipe", () => {
     })
   })
 
+  test('needs a BIOS dump to start', () => {
+    const result = armsPlan()
+    assert.equal(result.kind, 'run')
+    if (result.kind !== 'run') return
+    assert.equal(result.needsBios, true)
+  })
+
   test('is not started as a binary', () => {
     assert.deepEqual(armsPlan({ kind: 'binary', ref: '/usr/bin/armsx2-qt' }), {
       kind: 'skip',
@@ -872,6 +888,7 @@ describe('prepareSandbox', () => {
       needs: [],
       strays: [],
       bios: null,
+      needsBios: false,
       files: [{ path: 'config/example/example.cfg', content: 'x = 1\n' }]
     })
     assert.deepEqual(prepareSandbox(result, null), { kind: 'ready', biosFiles: 0 })
@@ -984,6 +1001,37 @@ describe('prepareSandbox', () => {
     writeFileSync(join(deep, 'too-deep.bin'), 'x')
     writeFileSync(join(owner, 'a', 'b', 'c', 'kept.bin'), 'x')
     assert.deepEqual(prepareSandbox(ready(home), owner), { kind: 'ready', biosFiles: 1 })
+  })
+
+  test('an emulator that needs a BIOS is skipped as missing-bios when none reached the sandbox', () => {
+    const needs = { ...EMPTY, needsBios: true }
+    const missing = { kind: 'skip', reason: MISSING_BIOS, detail: 'no-bios-files' }
+    assert.deepEqual(prepareSandbox(ready(scratch(), needs), null), missing)
+    assert.deepEqual(prepareSandbox(ready(scratch(), needs), scratch()), missing)
+    const nested = scratch()
+    mkdirSync(join(nested, 'ps2', 'empty'), { recursive: true })
+    assert.deepEqual(prepareSandbox(ready(scratch(), needs), nested), missing)
+    // A link the sandbox holds is not a dump of its own.
+    const linked = ready(scratch(), needs)
+    const elsewhere = join(scratch(), 'scph39001.bin')
+    writeFileSync(elsewhere, 'bios')
+    mkdirSync(linked.folders.bios, { recursive: true })
+    symlinkSync(elsewhere, join(linked.folders.bios, 'scph39001.bin'))
+    assert.deepEqual(prepareSandbox(linked, null), missing)
+  })
+
+  test('an emulator that needs a BIOS starts with a dump of the owner, or the copy it kept', () => {
+    const needs = { ...EMPTY, needsBios: true }
+    const owner = scratch()
+    mkdirSync(join(owner, 'ps2'))
+    writeFileSync(join(owner, 'ps2', 'scph39001.bin'), 'bios')
+    const result = ready(scratch(), needs)
+    assert.deepEqual(prepareSandbox(result, owner), { kind: 'ready', biosFiles: 1 })
+    assert.deepEqual(prepareSandbox(result, null), { kind: 'ready', biosFiles: 0 })
+  })
+
+  test('an emulator that needs no BIOS starts without one', () => {
+    assert.deepEqual(prepareSandbox(ready(scratch()), scratch()), { kind: 'ready', biosFiles: 0 })
   })
 
   test('a missing BIOS folder copies nothing', () => {

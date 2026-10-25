@@ -72,6 +72,7 @@ function runPlan(dir: string, argv: string[], env: Record<string, string> = {}):
     strays: [],
     cwd: dir,
     bios: join(dir, 'bios'),
+    needsBios: false,
     folders: {
       root: dir,
       config: join(dir, 'config'),

@@ -59,6 +59,7 @@ function sandboxRecipe(ctx: SandboxContext): SandboxRecipe | null {
     needs: [],
     strays: [],
     bios: null,
+    needsBios: true,
     files: [{ path: 'config/ARMSX2/inis/PCSX2.ini', content: settings }]
   }
 }
