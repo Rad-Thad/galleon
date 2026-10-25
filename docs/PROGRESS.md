@@ -2951,7 +2951,7 @@ Lines the tooling reads (exact forms):
 - Worked on: M1-03, the PS2 payload of `launch.armsx2` (tracking issue #270).
 - Result: PR #276. `test/fixtures/homebrew/ps2-hello/`: `main.c` draws one line with ps2sdk's debug screen and sleeps; `build.sh` builds it in `ghcr.io/ps2dev/ps2dev` pinned by digest (Docker Hub answered 429; GHCR serves the same image) and writes `galleon-ps2-hello.iso`, a disc whose `SYSTEM.CNF` boots `GALLEON.ELF`, its dates from `SOURCE_DATE_EPOCH`. The ISO is committed beside its source. ADR 0008: our own homebrew lives in the repository and the manifest pins it by its raw URL at the merged commit.
 - Evidence: two builds give sha256 `3fcccf406bb0466e256ab18a8d016091a5b05bd43ff639a6c580fd44dffced33` (532480 bytes); the first try differed only in the disc folder's own date, now set too. `scripts/agent/check.sh` green. Not booted on the VM (no PCSX2 here).
-- Evaluator: see the PR.
+- Evaluator: PASS (SYSTEM.CNF and the ISO layout parsed, licences clean). Its note taken: the image's apk packages are unpinned, so README, ADR and build.sh no longer promise the same bytes on a rebuild; the committed ISO is the payload.
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet.
 - Notes: inside the container the proxy needs `--network host` plus the CA bundle mounted, or `apk add` cannot reach its mirror; build.sh does both when they exist.

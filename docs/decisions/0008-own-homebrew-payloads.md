@@ -10,7 +10,7 @@ Device checks start each emulator with a homebrew payload (M0-07). Until now eve
 
 ## Decision
 
-Where no such homebrew exists, we write the smallest program that shows a frame, under the repository's MIT licence, in `test/fixtures/homebrew/<name>/` with a script that builds it in a toolchain image pinned by digest, reproducibly. The built file is committed beside its source, and `test/fixtures/roms/manifest.json` pins it by its `raw.githubusercontent.com` URL at the `main` commit that added it, with its SHA-256, licence and attribution, like any other payload. `scripts/agent/fetch-fixtures.mjs` and the device bundle need no second way to find a payload.
+Where no such homebrew exists, we write the smallest program that shows a frame, under the repository's MIT licence, in `test/fixtures/homebrew/<name>/` with a script that builds it in a toolchain image pinned by digest, with the dates on the file fixed. The built file is committed beside its source, and `test/fixtures/roms/manifest.json` pins it by its `raw.githubusercontent.com` URL at the `main` commit that added it, with its SHA-256, licence and attribution, like any other payload. `scripts/agent/fetch-fixtures.mjs` and the device bundle need no second way to find a payload.
 
 - The libraries linked into it are named in THIRD_PARTY.md's "Test payloads" part with their licences. None of it goes in the AppImage.
 - A rebuild that gives other bytes is a change to the payload: commit it, and pin the new commit and hash.

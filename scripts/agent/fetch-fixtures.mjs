@@ -11,7 +11,8 @@
  * library tree: the manifest pins each by URL and SHA-256 and names its
  * licence and author, and a file whose bytes differ from the pinned hash is
  * refused and never written. Homebrew of our own is served from this
- * repository at the commit that added it (ADR 0008). Run make-library first, since it clears its tree.
+ * repository at the commit that added it (ADR 0008). Run make-library
+ * first, since it clears its tree.
  */
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
