@@ -85,7 +85,8 @@ function compact(iso) {
  *   build;
  * - `changes`: the `passes` value each touched feature ends on, when it
  *   differs from where it started;
- * - `reports`: folders newer than the last ingested result;
+ * - `reports`: folders newer than the last ingested result, and
+ *   `problemReports` the reports inside them (see `reportsIn`);
  * - `acceptance`: session dates not yet ingested, oldest first, and of those
  *   `acceptanceInvalid` (no results.json in the documented shape, so nothing
  *   is decided and the date stays new), `acceptanceFlips` (features that
@@ -104,6 +105,7 @@ export function analyse({
   summaries,
   progress,
   reports = [],
+  reportContents = new Map(),
   acceptance = [],
   acceptanceResults = new Map(),
   status = null,
@@ -137,6 +139,7 @@ export function analyse({
     reverts: [],
     changes: [],
     reports: [],
+    problemReports: [],
     acceptance: [],
     acceptanceInvalid: [],
     acceptanceFlips: [],
@@ -234,6 +237,9 @@ export function analyse({
 
   const since = lastIngested?.finishedAt ?? null
   out.reports = [...reports].sort().filter((name) => since === null || name > compact(since))
+  out.problemReports = out.reports.flatMap((stamp) =>
+    (reportContents.get(stamp) ?? []).map((report) => ({ stamp, ...report }))
+  )
 
   // The newest of the two sightings: the bridge writes its status only when
   // it skips (see `maybe_heartbeat` in tools/device-bridge), so one testing
@@ -358,6 +364,35 @@ export function regressionTitle(subject) {
   return `[regression] ${subject}`
 }
 
+/** The title a problem report's bug carries, by which an open one is found again. */
+export function reportTitle(stamp, name) {
+  return `[device-report] ${stamp}${name ? `/${name}` : ''}`
+}
+
+/**
+ * A problem report's sanitised summary: which Galleon wrote it, and what it
+ * holds. Never the logs themselves: those are read in the branch, where the
+ * bridge's sanitiser has been over them, rather than copied into an issue
+ * anyone can read. Backticks are dropped so nothing in the report can close
+ * the block it is quoted in.
+ */
+function reportSummary(report) {
+  const plain = (text) => String(text).replaceAll('`', "'")
+  const versions =
+    report.versions && typeof report.versions === 'object'
+      ? Object.entries(report.versions).map(([key, value]) => `${key}: ${JSON.stringify(value)}`)
+      : ['(no readable versions.json)']
+  return [
+    '```',
+    ...versions.map(plain),
+    '```',
+    '',
+    'Files:',
+    '',
+    ...report.files.map((f) => `- \`${plain(f)}\``)
+  ]
+}
+
 /** The title an acceptance bug carries, by which an open one is found again. */
 export function acceptanceTitle(feature, system) {
   return `[acceptance] ${feature}${system ? ` ${system}` : ''}`
@@ -365,8 +400,8 @@ export function acceptanceTitle(feature, system) {
 
 /**
  * The issues to open: one per feature that went back to false, one per safety
- * check that failed and one per failed acceptance item (by feature and
- * system), minus those already open. A subject named by several results gets
+ * check that failed, one per failed acceptance item (by feature and system)
+ * and one per new problem report, minus those already open. A subject named by several results gets
  * one issue, about its newest failure.
  */
 export function issuesToOpen(analysis, openTitles) {
@@ -407,6 +442,20 @@ export function issuesToOpen(analysis, openTitles) {
         `Fix it, prove the fix with its device checks, then repeat only this item in a short follow-up session (docs/TESTING.md, "The acceptance session").`
       ].join('\n')
     })
+  for (const r of analysis.problemReports ?? []) {
+    const path = `reports/${r.stamp}/${r.name ? `${r.name}/` : ''}`
+    wanted.set(reportTitle(r.stamp, r.name), {
+      title: reportTitle(r.stamp, r.name),
+      labels: ['bug', 'device-report'],
+      body: [
+        `A problem report the owner saved in Galleon on the Nova, published by the device bridge at \`${path}\` on \`device-results\`. It counts as an owner-authored bug (M0-12). Its sanitised summary, as data:`,
+        '',
+        ...reportSummary(r),
+        '',
+        'Read the report itself on the branch. Reproduce it with a unit or app test against fakes before fixing it.'
+      ].join('\n')
+    })
+  }
   return [...wanted.values()].filter((issue) => !open.has(issue.title))
 }
 
@@ -450,6 +499,39 @@ function parse(text) {
   }
 }
 
+/**
+ * The problem reports under each `reports/<time>/` folder, from the branch's
+ * file list. The bridge publishes each report it collects in a folder of its
+ * own beneath the time; files straight under the time are one report named by
+ * the time alone. `versions(path)` reads a report's `versions.json`.
+ */
+export function reportsIn(names, versions) {
+  const byStamp = new Map()
+  for (const n of names) {
+    const parts = n.split('/')
+    if (parts[0] !== 'reports' || parts.length < 3) continue
+    const stamp = parts[1]
+    const name = parts.length > 3 ? parts[2] : null
+    const reports = byStamp.get(stamp) ?? new Map()
+    byStamp.set(stamp, reports)
+    const report = reports.get(name) ?? { name, files: [] }
+    reports.set(name, report)
+    report.files.push(parts.slice(name === null ? 2 : 3).join('/'))
+  }
+  return new Map(
+    [...byStamp].map(([stamp, reports]) => [
+      stamp,
+      [...reports.values()].map((r) => ({
+        ...r,
+        versions:
+          versions(
+            ['reports', stamp, ...(r.name === null ? [] : [r.name]), 'versions.json'].join('/')
+          ) ?? null
+      }))
+    ])
+  )
+}
+
 /** Everything `analyse` needs from the device-results branch at `ref`. */
 export function readBranch(cwd, ref) {
   const names = gitIn(cwd, ['ls-tree', '-r', '--name-only', ref]).split('\n').filter(Boolean)
@@ -463,6 +545,12 @@ export function readBranch(cwd, ref) {
     .filter(Boolean)
   const sessions = folders('acceptance/')
   const sessionSpec = (date) => `${ref}:acceptance/${date}/results.json`
+  const reportBlobs = readBlobs(
+    cwd,
+    names
+      .filter((n) => n.startsWith('reports/') && n.endsWith('/versions.json'))
+      .map((n) => `${ref}:${n}`)
+  )
   const specs = [
     `${ref}:results/index.json`,
     `${ref}:bridge/status.json`,
@@ -477,6 +565,7 @@ export function readBranch(cwd, ref) {
       shas.map((sha) => [sha, parse(blobs.get(`${ref}:results/${sha}/summary.json`))])
     ),
     reports: folders('reports/'),
+    reportContents: reportsIn(names, (path) => parse(reportBlobs.get(`${ref}:${path}`))),
     acceptance: sessions,
     acceptanceResults: new Map(sessions.map((date) => [date, parse(blobs.get(sessionSpec(date)))]))
   }

@@ -19,6 +19,12 @@ export interface IndexEntry {
   finishedAt?: string
 }
 
+export interface ProblemReport {
+  name: string | null
+  files: string[]
+  versions: unknown
+}
+
 export interface Analysis {
   fresh: { sha: string; status?: string; finishedAt?: string }[]
   safety: { sha: string; id: string; result: string; reason: string | null }[]
@@ -32,6 +38,7 @@ export interface Analysis {
   }[]
   changes: { id: string; passes: boolean }[]
   reports: string[]
+  problemReports: (ProblemReport & { stamp: string })[]
   acceptance: string[]
   acceptanceInvalid: string[]
   acceptanceFlips: { id: string; date: string }[]
@@ -59,6 +66,7 @@ export function analyse(input: {
   summaries: ReadonlyMap<string, Summary | null>
   progress: string
   reports?: readonly string[]
+  reportContents?: ReadonlyMap<string, readonly ProblemReport[]>
   acceptance?: readonly string[]
   acceptanceResults?: ReadonlyMap<string, unknown>
   status?: Record<string, unknown> | null
@@ -69,6 +77,11 @@ export function render(analysis: Analysis): string
 export function progressLines(analysis: Analysis): string[]
 export function setPasses(text: string, id: string, passes: boolean): string
 export function regressionTitle(subject: string): string
+export function reportTitle(stamp: string, name: string | null): string
+export function reportsIn(
+  names: readonly string[],
+  versions: (path: string) => unknown
+): Map<string, ProblemReport[]>
 export function issuesToOpen(
   analysis: Analysis,
   openTitles: readonly string[]
@@ -81,6 +94,7 @@ export function readBranch(
   status: Record<string, unknown> | null
   summaries: Map<string, Summary | null>
   reports: string[]
+  reportContents: Map<string, ProblemReport[]>
   acceptance: string[]
   acceptanceResults: Map<string, unknown>
 }
