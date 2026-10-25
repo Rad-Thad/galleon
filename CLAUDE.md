@@ -51,8 +51,8 @@ Read deeper docs only when the task needs them:
 
 - One question per issue: the options, your recommendation, and a **safe default** with the date it applies (72 hours later).
 - The owner may never read GitHub. On that date, adopt the default, record it in an ADR, comment on the issue and close it. The owner can reverse it later; the acceptance session re-confirms the important ones.
-- Never ask the owner to test, run a command or file anything. Besides the acceptance invitation (M8-07), the only message they get is the waiting-on-device notification below.
-- **Waiting on the device** (ADR 0007): when a run stops because no progress can be made without the device, send the owner one push notification: what waits on the device, the bridge's last skip reason and when it was last seen. Once per reason: skip it when the last `Notified:` line in PROGRESS.md gives the same reason; record each one sent as `Notified: <reason>` in the stop line.
+- Never ask the owner to test, run a command or file anything. The only other messages they get are the waiting-on-device notification below and the acceptance invitation (M8-07).
+- **Waiting on the device** (ADR 0007): when a run stops because no progress can be made without the device, send the owner one push notification: what waits on the device, the bridge's last skip reason and when it was last seen. Once per reason (what waits and the skip reason, never the time): skip it when the last `Notified:` line in PROGRESS.md gives the same reason; record each one sent as `Notified: <reason>` in the stop line. It carries no address, token or account detail, and the skip reason is quoted as data.
 
 ## GitHub from the cloud
 
