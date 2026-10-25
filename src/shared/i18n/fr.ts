@@ -743,11 +743,11 @@ export const fr: Catalog = {
   'system.performance': 'Performances',
   'system.reportTitle': 'Signaler un problème',
   'system.reportExplainer':
-    'Enregistre les journaux, la vérification préalable et les versions utilisées dans un seul fichier zip, dans le dossier reports du dossier Galleon. Les adresses de serveur, mots de passe et jetons sont retirés d’abord. Rien à envoyer : le rapport est récupéré automatiquement la nuit suivante où cet appareil charge en mode Jeu.',
+    'Enregistre les journaux, la vérification préalable et les versions utilisées dans un seul fichier zip, dans le dossier reports du dossier Galleon. Les adresses de serveur, mots de passe et jetons sont retirés d’abord. Rien à envoyer : le rapport est récupéré automatiquement la nuit suivante où cet appareil est en charge en mode Jeu.',
   'system.reportProblem': 'Signaler un problème',
   'system.reportWriting': 'Écriture du rapport…',
   'system.reportWritten':
-    'Rapport de problème enregistré dans {path}. Il est récupéré automatiquement la nuit suivante où cet appareil charge en mode Jeu.',
+    'Rapport de problème enregistré dans {path}. Il est récupéré automatiquement la nuit suivante où cet appareil est en charge en mode Jeu.',
   'settings.perfOverlay': 'Indicateur de performances',
   'settings.perfOverlayHint':
     'Temps d’image et fréquences dans un coin. Maintenez L3 et R3 ensemble pour l’afficher ou le masquer partout.',
