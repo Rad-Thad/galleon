@@ -229,6 +229,10 @@ gba_payload='roms/gba/gba-tests hello.gba'
 if [ -n "$payloads_ok" ] && printf '%s\n' "$payload_list" | grep -qxF "$gba_payload"; then
   set -- "$@" --payload "retroarch=$gba_payload" --check launch.retroarch --check exit.retroarch
 fi
+ps2_payload='roms/ps2/galleon-ps2-hello.iso'
+if [ -n "$payloads_ok" ] && printf '%s\n' "$payload_list" | grep -qxF "$ps2_payload"; then
+  set -- "$@" --payload "armsx2=$ps2_payload" --check launch.armsx2 --check exit.armsx2
+fi
 app_budget=$((deadline - $(date +%s) - STOP_RESERVE_SECONDS))
 selftest_ok=
 if [ -n "$home_ok" ] && rm -rf -- "$app_results" "$handshake" &&

@@ -967,9 +967,10 @@ describe('device-bundle', () => {
     }
   })
 
-  test('run.sh copies the payloads into the test home, names RetroArch its own, and empties the ROM folder', () => {
+  test('run.sh copies the payloads into the test home, names each emulator its own, and empties the ROM folder', () => {
     const { from, manifest, entries } = fetchedPayloads([
       'roms/gba/gba-tests hello.gba',
+      'roms/ps2/galleon-ps2-hello.iso',
       'roms/snes/two.sfc'
     ])
     const out = mkdtempSync(join(tmpdir(), 'bundle-out-'))
@@ -980,10 +981,13 @@ describe('device-bundle', () => {
     })
     assert.equal(run.status, 0, run.stderr)
     const request = JSON.parse(readFileSync(join(seen, 'request.json'), 'utf8'))
-    assert.deepEqual(request.payloads, { retroarch: 'roms/gba/gba-tests hello.gba' })
-    assert.ok(
-      request.checks.includes('launch.retroarch') && request.checks.includes('exit.retroarch')
-    )
+    assert.deepEqual(request.payloads, {
+      retroarch: 'roms/gba/gba-tests hello.gba',
+      armsx2: 'roms/ps2/galleon-ps2-hello.iso'
+    })
+    for (const id of ['launch.retroarch', 'exit.retroarch', 'launch.armsx2', 'exit.armsx2']) {
+      assert.ok(request.checks.includes(id), id)
+    }
     assert.deepEqual(request.savingPayloads, [])
     // While the app ran, every payload was in its ROM folder as pinned.
     const held = JSON.parse(readFileSync(join(seen, 'roms.json'), 'utf8'))

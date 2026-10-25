@@ -130,3 +130,17 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+## ps2-hello
+
+- Project: https://github.com/Rad-Thad/galleon, `test/fixtures/homebrew/ps2-hello/`
+- Licence: MIT, this repository's (see LICENSE). Built here because no
+  redistributable PS2 homebrew was found (ADR 0008).
+- Fetched: `galleon-ps2-hello.iso` at
+  585653d561cdb74b1c4e419d99b52ba0bed8a55e, as committed.
+- Linked into its program:
+  - ps2sdk, https://github.com/ps2dev/ps2sdk, Academic Free License v2.0.
+  - newlib, https://sourceware.org/newlib/, the BSD-style licences listed in
+    its `COPYING.NEWLIB`.
+  - libgcc, https://gcc.gnu.org/, GPL-3.0 with the GCC Runtime Library
+    Exception, which lets the program carry its own licence.

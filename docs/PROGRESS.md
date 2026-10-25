@@ -2956,3 +2956,14 @@ Lines the tooling reads (exact forms):
 - Device / acceptance: none yet.
 - Notes: inside the container the proxy needs `--network host` plus the CA bundle mounted, or `apk add` cannot reach its mirror; build.sh does both when they exist.
 - Next: M1-03's last part: the manifest entry at #276's merge commit (`roms/ps2/…`), its THIRD_PARTY.md notice (heading must appear in the URL, see device-bundle.test.ts), and run.sh asking for `launch.armsx2`/`exit.armsx2` with it; then READY-FOR-DEVICE M1-03.
+
+## 2026-10-25 22:27 UTC session 01AuHPkRH6XWYwPN87wpup2F (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. #276 (the PS2 disc) merged at 585653d; CI x64 9:12, arm64 1:11.
+- Worked on: M1-03, its last part (tracking issue #270).
+- Result: PR (this one). `test/fixtures/roms/manifest.json` pins `roms/ps2/galleon-ps2-hello.iso` by its raw URL at 585653d with its hash and size (ADR 0008); THIRD_PARTY.md's test payloads part has its `ps2-hello` notice, naming what is linked into it; run.sh names ARMSX2 that payload and asks for `launch.armsx2` and `exit.armsx2` whenever it was copied, as for RetroArch's GBA payload. docs/TESTING.md says so.
+- Evidence: device-bundle.test.ts "run.sh copies the payloads into the test home, names each emulator its own, and empties the ROM folder" failed on the old run.sh and passes now; "the real manifest's payloads all have their notice in THIRD_PARTY.md" and "every payload run.sh names is one the real manifest pins" pass. `node scripts/agent/fetch-fixtures.mjs` fetched the ISO at the pinned URL, sha256 3fcccf40… as pinned. `scripts/agent/check.sh` green; `python3 -B -m unittest discover -s test/device` 188 OK. `test:app` not run: no renderer, IPC or launch code changed.
+- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: READY-FOR-DEVICE M1-03. The next nightly asks for `launch.armsx2` and `exit.armsx2`; they skip as `missing-bios` if the Nova has no PS2 BIOS, or as missing if ARMSX2 is not installed.
+- Next: `node scripts/agent/next.mjs`.
