@@ -6,11 +6,17 @@ type Feature = Record<string, unknown>
 export interface Evidence {
   progress: string
   summary(sha: string): { status?: string; checks?: { id: string; result: string }[] } | null
+  bridge(sha: string): unknown
   acceptance(date: string): { items?: { feature: string; result: string }[] } | null
   readyIsAncestor(id: string, sha: string): boolean
 }
 
 export const REQUIRED_SOURCES: string[]
+export const PUBLISHED_WHOLE: Record<string, string>
+export function countedResults(
+  summary: { checks?: { id: string; result: string; reason?: string | null }[] } | null,
+  bridge: unknown
+): { id: string; result: string; reason?: string | null }[]
 export function deviceChecks(feature: Feature): string[]
 export function catalogueIds(markdown: string): string[]
 export function caveatRows(markdown: string): { caveat: string; ids: string[] }[] | null

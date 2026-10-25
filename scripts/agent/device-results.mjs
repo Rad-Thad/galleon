@@ -30,6 +30,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import {
   COUNTING_STATUSES,
   SAFETY_CHECKS,
+  countedResults,
   deviceChecks,
   readyIsAncestor
 } from './features-check.mjs'
@@ -74,8 +75,8 @@ export function ingestedShas(progress) {
   return new Set([...progress.matchAll(/\bDEVICE-RESULTS ([0-9a-f]{40})\b/g)].map((m) => m[1]))
 }
 
-function resultsOf(summary) {
-  return new Map((summary?.checks ?? []).map((check) => [check.id, check]))
+function resultsOf(summary, bridge) {
+  return new Map(countedResults(summary, bridge).map((check) => [check.id, check]))
 }
 
 function counts(summary) {
@@ -110,7 +111,8 @@ function compact(iso) {
  *   why it last skipped.
  *
  * `index` is `results/index.json` (newest first), `summaries` maps a sha to
- * its summary (absent when pruned), `readyIsAncestor(id, sha)` answers the
+ * its summary (absent when pruned), `bridges` maps it to the `bridge.json`
+ * beside it, `readyIsAncestor(id, sha)` answers the
  * ancestry rule, and is asked only when everything else already holds.
  * `acceptanceResults` maps a session date to its parsed results.json.
  */
@@ -118,6 +120,7 @@ export function analyse({
   features,
   index,
   summaries,
+  bridges = new Map(),
   progress,
   reports = [],
   reportContents = new Map(),
@@ -140,7 +143,7 @@ export function analyse({
   const older = (entry) => {
     for (const e of entries.slice(entries.indexOf(entry) + 1)) {
       const summary = summaries.get(e.sha)
-      if (counts(summary)) return resultsOf(summary)
+      if (counts(summary)) return resultsOf(summary, bridges.get(e.sha))
     }
     return new Map()
   }
@@ -165,7 +168,7 @@ export function analyse({
   for (const entry of fresh) {
     const { sha } = entry
     const summary = summaries.get(sha) ?? null
-    const results = resultsOf(summary)
+    const results = resultsOf(summary, bridges.get(sha))
     const unsafe = [...results.values()].filter(
       (check) => check.id.startsWith('safety.') && FAILING.includes(check.result)
     )
@@ -578,6 +581,7 @@ export function readBranch(cwd, ref) {
     `${ref}:results/index.json`,
     `${ref}:bridge/status.json`,
     ...shas.map((sha) => `${ref}:results/${sha}/summary.json`),
+    ...shas.map((sha) => `${ref}:results/${sha}/bridge.json`),
     ...sessions.map(sessionSpec)
   ]
   const blobs = readBlobs(cwd, specs)
@@ -586,6 +590,9 @@ export function readBranch(cwd, ref) {
     status: parse(blobs.get(specs[1])),
     summaries: new Map(
       shas.map((sha) => [sha, parse(blobs.get(`${ref}:results/${sha}/summary.json`))])
+    ),
+    bridges: new Map(
+      shas.map((sha) => [sha, parse(blobs.get(`${ref}:results/${sha}/bridge.json`))])
     ),
     reports: folders('reports/'),
     reportContents: reportsIn(names, (path) => parse(reportBlobs.get(`${ref}:${path}`))),

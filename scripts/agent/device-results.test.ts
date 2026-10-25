@@ -149,6 +149,58 @@ describe('device-results: the rules', () => {
       assert.deepEqual(analyse(input([[1, summary('partial', checks)]])).flips, [])
   })
 
+  test('report.bundle counts only when the sanitiser published its bundle whole', () => {
+    const reported = (passes: boolean) => [
+      ...features,
+      {
+        id: 'M9-06',
+        verification: 'device',
+        acceptance: ['Device check `report.bundle`: published whole.'],
+        passes
+      }
+    ]
+    const bundled = summary('complete', [...allPass, { id: 'report.bundle', result: 'pass' }])
+    const kept = (sanitizer: unknown, passes = false) =>
+      analyse(
+        input([[1, bundled]], {
+          features: reported(passes),
+          bridges: new Map([[SHA(1), sanitizer === undefined ? null : { sanitizer }]])
+        })
+      )
+    const flipped = (a: ReturnType<typeof analyse>) => a.flips.map((f) => f.id)
+
+    assert.deepEqual(
+      flipped(kept({ withheld: ['app/selftest.log'], dropped: ['logs/run.sh.log.gz'] })),
+      ['M9-01', 'M9-06']
+    )
+    assert.deepEqual(flipped(kept({ withheld: ['app/report.bundle/logs/app.log'], dropped: [] })), [
+      'M9-01'
+    ])
+    assert.deepEqual(flipped(kept({ withheld: [], dropped: ['app/report.bundle/power.bin'] })), [
+      'M9-01'
+    ])
+    assert.deepEqual(
+      flipped(kept(undefined)),
+      ['M9-01'],
+      'no bridge.json: nothing says it was whole'
+    )
+    assert.deepEqual(flipped(kept({ withheld: [] })), ['M9-01'], 'half a sanitiser report')
+
+    const reverted = kept({ withheld: ['app/report.bundle/logs/app.log'], dropped: [] }, true)
+    assert.deepEqual(reverted.reverts, [
+      {
+        id: 'M9-06',
+        sha: SHA(1),
+        checks: [{ id: 'report.bundle', result: 'fail', reason: 'sanitiser:logs/app.log' }]
+      }
+    ])
+    assert.deepEqual(
+      kept(undefined, true).reverts,
+      [],
+      'an unconfirmed pass is a skip, which reverts nothing'
+    )
+  })
+
   test('a safety failure blocks every flip from that run and is reported first', () => {
     const checks = [
       ...allPass.filter((c) => c.id !== 'safety.owner-state'),
@@ -632,6 +684,7 @@ function repository(
   ]
   runs.forEach((sha, i) => {
     write(dir, `results/${sha}/summary.json`, JSON.stringify(summary('complete', allPass)))
+    write(dir, `results/${sha}/bridge.json`, JSON.stringify({ sanitizer: { withheld: [sha] } }))
     index.unshift({
       sha,
       status: 'complete',
@@ -718,6 +771,7 @@ describe('device-results: fixture branches', () => {
       [shas.ready]
     )
     assert.equal(branch.summaries.get(shas.ready)?.status, 'complete')
+    assert.deepEqual(branch.bridges.get(shas.ready), { sanitizer: { withheld: [shas.ready] } })
     assert.equal(branch.status?.bridgeVersion, 1)
     assert.deepEqual(branch.reports, ['20261009T080000Z'])
     assert.deepEqual(branch.reportContents.get('20261009T080000Z'), [

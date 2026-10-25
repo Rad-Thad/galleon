@@ -41,6 +41,38 @@ export const SAFETY_CHECKS = ['safety.owner-state', 'safety.server-readonly']
 /** Device statuses whose checks count (docs/TESTING.md, "summary.json"). */
 export const COUNTING_STATUSES = ['complete', 'partial']
 
+/**
+ * Checks whose files the bridge must publish whole, by the folder of the
+ * results they leave them in (docs/TESTING.md, `report.bundle`). The app can
+ * only check what it wrote; whether the sanitiser kept all of it is on the
+ * bridge's side, in `bridge.json`.
+ */
+export const PUBLISHED_WHOLE = { 'report.bundle': 'app/report.bundle/' }
+
+/**
+ * A summary's checks as the agent counts them, given the `bridge.json` beside
+ * it: a pass of a check in `PUBLISHED_WHOLE` fails when the sanitiser withheld
+ * or dropped any of its files, and is a skip when no sanitiser report says
+ * either way.
+ */
+export function countedResults(summary, bridge) {
+  const sanitizer = bridge?.sanitizer
+  const kept = ['withheld', 'dropped'].map((key) => sanitizer?.[key])
+  return (summary?.checks ?? []).map((check) => {
+    const folder = PUBLISHED_WHOLE[check.id]
+    if (folder === undefined || check.result !== 'pass') return check
+    if (!kept.every(Array.isArray))
+      return { ...check, result: 'skip', reason: 'no-sanitiser-report' }
+    const lost = kept
+      .flat()
+      .filter((path) => typeof path === 'string' && path.startsWith(folder))
+      .map((path) => path.slice(folder.length))
+    return lost.length === 0
+      ? check
+      : { ...check, result: 'fail', reason: `sanitiser:${lost.join(',')}` }
+  })
+}
+
 function range(prefix, last) {
   return Array.from({ length: last }, (_, index) => `${prefix}-${index + 1}`)
 }
@@ -247,6 +279,7 @@ export function compare(base, head) {
  *
  * - `progress`: the lines the pull request added to docs/PROGRESS.md;
  * - `summary(sha)`: `results/<sha>/summary.json` on device-results, or null;
+ * - `bridge(sha)`: the `bridge.json` beside it, or null;
  * - `acceptance(date)`: `acceptance/<date>/results.json` there, or null;
  * - `readyIsAncestor(id, sha)`: whether the commit that added
  *   `READY-FOR-DEVICE <id>` to docs/PROGRESS.md is an ancestor of `sha`.
@@ -273,7 +306,9 @@ export function flipErrors(flipped, evidence) {
       }
       if (!COUNTING_STATUSES.includes(summary.status))
         errors.push(`${id}: the run for ${sha} is "${summary.status}", which flips nothing`)
-      const results = new Map((summary.checks ?? []).map((check) => [check.id, check.result]))
+      const results = new Map(
+        countedResults(summary, evidence.bridge(sha)).map((check) => [check.id, check.result])
+      )
       for (const check of [...deviceChecks(feature), ...SAFETY_CHECKS])
         if (results.get(check) !== 'pass')
           errors.push(`${id}: ${check} is "${results.get(check) ?? 'absent'}" in ${sha}, not pass`)
@@ -463,6 +498,7 @@ function main(argv) {
         ...flipErrors(flipped, {
           progress,
           summary: (sha) => showJson(results, `results/${sha}/summary.json`),
+          bridge: (sha) => showJson(results, `results/${sha}/bridge.json`),
           acceptance: (date) => showJson(results, `acceptance/${date}/results.json`),
           readyIsAncestor: (id, sha) => readyIsAncestor(id, sha)
         })
