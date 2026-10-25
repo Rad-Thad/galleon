@@ -743,10 +743,11 @@ export const en = {
   'system.performance': 'Performance',
   'system.reportTitle': 'Report a problem',
   'system.reportExplainer':
-    'Saves the logs, the pre-flight check and the versions in use to one zip file. Server addresses, passwords and tokens are removed first.',
+    'Saves the logs, the pre-flight check and the versions in use to one zip file in the reports folder inside the Galleon folder. Server addresses, passwords and tokens are removed first. There is nothing to send: the report is picked up automatically the next night this device is charging in Game Mode.',
   'system.reportProblem': 'Report a problem',
   'system.reportWriting': 'Writing the report…',
-  'system.reportWritten': 'Problem report saved to {path}',
+  'system.reportWritten':
+    'Problem report saved to {path}. It is picked up automatically the next night this device is charging in Game Mode.',
   'settings.perfOverlay': 'Performance overlay',
   'settings.perfOverlayHint':
     'Frame times and clock speeds in a corner. Hold L3 and R3 together to show or hide it anywhere.',

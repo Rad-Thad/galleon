@@ -737,10 +737,11 @@ export const es: Catalog = {
   'system.performance': 'Rendimiento',
   'system.reportTitle': 'Informar de un problema',
   'system.reportExplainer':
-    'Guarda los registros, la comprobación previa y las versiones en uso en un único archivo zip. Antes se quitan las direcciones de servidor, contraseñas y tokens.',
+    'Guarda los registros, la comprobación previa y las versiones en uso en un único archivo zip, en la carpeta reports de la carpeta de Galleon. Antes se quitan las direcciones de servidor, contraseñas y tokens. No hay que enviar nada: el informe se recoge automáticamente la próxima noche en que este dispositivo se cargue en modo Juego.',
   'system.reportProblem': 'Informar de un problema',
   'system.reportWriting': 'Escribiendo el informe…',
-  'system.reportWritten': 'Informe del problema guardado en {path}',
+  'system.reportWritten':
+    'Informe del problema guardado en {path}. Se recoge automáticamente la próxima noche en que este dispositivo se cargue en modo Juego.',
   'settings.perfOverlay': 'Indicador de rendimiento',
   'settings.perfOverlayHint':
     'Tiempos de fotograma y frecuencias en una esquina. Mantén L3 y R3 a la vez para mostrarlo u ocultarlo en cualquier lugar.',
