@@ -54,7 +54,6 @@ function validResults(results) {
   )
 }
 
-/** The commits PROGRESS.md records as ingested. */
 /**
  * The problem reports PROGRESS.md records as ingested. A report is newer than
  * the last ingested result until the next one is ingested, which can be days
@@ -70,6 +69,7 @@ export function reportId(stamp, name) {
   return name ? `${stamp}/${name}` : stamp
 }
 
+/** The commits PROGRESS.md records as ingested. */
 export function ingestedShas(progress) {
   return new Set([...progress.matchAll(/\bDEVICE-RESULTS ([0-9a-f]{40})\b/g)].map((m) => m[1]))
 }
