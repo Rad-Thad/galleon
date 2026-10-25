@@ -124,15 +124,16 @@ describe('report.bundle', () => {
     assert.equal(answered.reason, 'no-bundle')
   })
 
-  test('a bundle that will not open fails', async () => {
+  test('a bundle that will not open fails and leaves nothing to publish', async () => {
     const home = await scratch()
-    const { answered } = await run(async () => {
+    const { answered, results } = await run(async () => {
       await mkdir(join(home, 'reports'), { recursive: true })
       await writeFile(join(home, 'reports', 'broken.zip'), 'not a zip')
       return null
     }, home)
     assert.equal(answered.result, 'fail')
     assert.equal(answered.reason, 'bundle-unreadable')
+    await assert.rejects(readdir(join(results, REPORT_DIR)))
   })
 
   test('a run stopped by the player is a skip', async () => {

@@ -172,6 +172,8 @@ export function reportScenario(deps: ReportDeps): Scenario {
         .sort()
     } catch (cause) {
       log.warn('selftest', 'the report bundle would not open', { cause })
+      // Half a bundle was never scanned, so none of it is left to publish.
+      await rm(out, { recursive: true, force: true })
       return result('fail', REPORT_FAILED.unreadable)
     }
     metrics.files = files.length
