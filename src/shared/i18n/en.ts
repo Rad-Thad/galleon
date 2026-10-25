@@ -624,6 +624,8 @@ export const en = {
     'RetroDECK gives DuckStation one memory card shared by every PS1 game, so there is no save file that belongs to this one. Save states are synced.',
   'saves.pcsx2':
     'PCSX2 keeps one memory card shared by every PS2 game, so there is no save file that belongs to this one. Save states are synced.',
+  'saves.armsx2':
+    'ARMSX2 keeps one memory card shared by every PS2 game and names save states after the disc rather than the ROM, so there is no save file that belongs to this one to sync.',
   'saves.dolphin':
     'Dolphin keeps one GameCube memory card per region and one Wii NAND for every game, so there is no save file that belongs to this one. Save states are synced.',
   'saves.primehack':

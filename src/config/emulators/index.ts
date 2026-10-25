@@ -1,3 +1,4 @@
+import { armsx2 } from './armsx2/index.ts'
 import { duckstation } from './duckstation/index.ts'
 import { eden } from './eden/index.ts'
 import { emudeck } from './emudeck/index.ts'
@@ -28,7 +29,8 @@ export const EMULATORS: readonly EmulatorDescriptor[] = [
   retroarch,
   eden,
   shadps4,
-  duckstation
+  duckstation,
+  armsx2
 ]
 
 /**
