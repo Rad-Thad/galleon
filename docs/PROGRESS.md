@@ -3092,3 +3092,15 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet.
 - Next: M1-06 part 3b: the manifest entry at this PR's merge commit (`roms/dreamcast/…`), its THIRD_PARTY.md notice, and run.sh asking for `launch.flycast`/`exit.flycast` with it (check the descriptor accepts `.elf`, or how run.sh names the payload); then READY-FOR-DEVICE M1-06 (skips as `cannot-sandbox` while Flycast is the flatpak).
+
+## 2026-10-26 10:27 UTC session 0112v3sFvJyC4FpR9m9VLhRp (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. #291 (the Dreamcast ELF) merged at c587caf; both `build` legs green on `main`.
+- Worked on: M1-06 part 3b, the last part (tracking issue #288).
+- Result: PR (this one). `test/fixtures/roms/manifest.json` pins `roms/dreamcast/galleon-dc-hello.elf` by its raw URL at c587caf with its hash and size (ADR 0008); the folder is the system id `dreamcast`, which `payloadFor` hands to Flycast's plan, and the descriptor takes the path as given whatever its extension. THIRD_PARTY.md's test payloads part has its `dc-hello` notice: KallistiOS at 5e89c26a with the KOS License text its binary-form clause asks for, newlib and libgcc. run.sh names Flycast that payload and asks for `launch.flycast` and `exit.flycast` whenever it was copied, as for PPSSPP's `.pbp`. docs/TESTING.md says so, and that both skip as `cannot-sandbox` while Flycast is the flatpak.
+- Evidence: device-bundle.test.ts "run.sh copies the payloads into the test home, names each emulator its own, and empties the ROM folder" failed before the run.sh change (62/1) and passes now (63/63); `node scripts/agent/fetch-fixtures.mjs` fetched the `.elf` at the pinned URL, hash as pinned. `scripts/agent/check.sh` (see the PR). `test:app` not run: no renderer, IPC or launch code changed.
+- Notes: `dockerd` was not running at session start (a stale pid file); started by hand.
+- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: READY-FOR-DEVICE M1-06. On the Nova `launch.flycast` and `exit.flycast` skip as `cannot-sandbox` while Flycast is armadaOS's flatpak; a device pass needs the parked flatpak sandbox (#155).
+- Next: `node scripts/agent/next.mjs`.

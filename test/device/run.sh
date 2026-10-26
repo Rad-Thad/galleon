@@ -241,6 +241,10 @@ psp_payload='roms/psp/galleon-psp-hello.pbp'
 if [ -n "$payloads_ok" ] && printf '%s\n' "$payload_list" | grep -qxF "$psp_payload"; then
   set -- "$@" --payload "ppsspp=$psp_payload" --check launch.ppsspp --check exit.ppsspp
 fi
+dc_payload='roms/dreamcast/galleon-dc-hello.elf'
+if [ -n "$payloads_ok" ] && printf '%s\n' "$payload_list" | grep -qxF "$dc_payload"; then
+  set -- "$@" --payload "flycast=$dc_payload" --check launch.flycast --check exit.flycast
+fi
 app_budget=$((deadline - $(date +%s) - STOP_RESERVE_SECONDS))
 selftest_ok=
 if [ -n "$home_ok" ] && rm -rf -- "$app_results" "$handshake" &&
