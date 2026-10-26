@@ -144,3 +144,18 @@ SOFTWARE.
     its `COPYING.NEWLIB`.
   - libgcc, https://gcc.gnu.org/, GPL-3.0 with the GCC Runtime Library
     Exception, which lets the program carry its own licence.
+
+## gc-hello
+
+- Project: https://github.com/Rad-Thad/galleon, `test/fixtures/homebrew/gc-hello/`
+- Licence: MIT, this repository's (see LICENSE). Built here, as ps2-hello is
+  (ADR 0008).
+- Fetched: `galleon-gc-hello.dol` at
+  2faac06b4c755fe52f33d09050f45848b3f39d0c, as committed.
+- Linked into its program:
+  - libogc, https://github.com/devkitPro/libogc, zlib licence, with parts
+    under a BSD licence from RTEMS.
+  - newlib, https://sourceware.org/newlib/, the BSD-style licences listed in
+    its `COPYING.NEWLIB`.
+  - libgcc, https://gcc.gnu.org/, GPL-3.0 with the GCC Runtime Library
+    Exception, which lets the program carry its own licence.

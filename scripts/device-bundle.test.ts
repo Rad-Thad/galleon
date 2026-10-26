@@ -971,6 +971,7 @@ describe('device-bundle', () => {
     const { from, manifest, entries } = fetchedPayloads([
       'roms/gba/gba-tests hello.gba',
       'roms/ps2/galleon-ps2-hello.iso',
+      'roms/gc/galleon-gc-hello.dol',
       'roms/snes/two.sfc'
     ])
     const out = mkdtempSync(join(tmpdir(), 'bundle-out-'))
@@ -983,9 +984,17 @@ describe('device-bundle', () => {
     const request = JSON.parse(readFileSync(join(seen, 'request.json'), 'utf8'))
     assert.deepEqual(request.payloads, {
       retroarch: 'roms/gba/gba-tests hello.gba',
-      armsx2: 'roms/ps2/galleon-ps2-hello.iso'
+      armsx2: 'roms/ps2/galleon-ps2-hello.iso',
+      dolphin: 'roms/gc/galleon-gc-hello.dol'
     })
-    for (const id of ['launch.retroarch', 'exit.retroarch', 'launch.armsx2', 'exit.armsx2']) {
+    for (const id of [
+      'launch.retroarch',
+      'exit.retroarch',
+      'launch.armsx2',
+      'exit.armsx2',
+      'launch.dolphin',
+      'exit.dolphin'
+    ]) {
       assert.ok(request.checks.includes(id), id)
     }
     assert.deepEqual(request.savingPayloads, [])
