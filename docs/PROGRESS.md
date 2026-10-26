@@ -3069,3 +3069,14 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet. `launch.flycast` needs a sandbox recipe, a Dreamcast homebrew payload in the M0-07 manifest, and run.sh asking for it.
 - Next: M1-06 part 2, Flycast's sandbox recipe (XDG roots should suffice, per `core/linux-dist/main.cpp`; check the first-start windows).
+
+## 2026-10-26 08:36 UTC session 01DSCaRLYevreq3RyPzDmE66 (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. #289 (Flycast's descriptor) merged at 902387b; CI x64 8:23, arm64 1:06.
+- Worked on: M1-06 part 2, Flycast's sandbox recipe (tracking issue #288).
+- Result: PR (this one). Read in Flycast at 0d9853df: every write (`emu.cfg`, VMUs, `dc_nvmem.bin`, states) goes under `XDG_CONFIG_HOME/flycast` or `XDG_DATA_HOME/flycast` (`core/linux-dist/main.cpp`, `getFlashSavePath`/`getVmuPath` in `core/oslib/oslib.cpp`), but `emu.cfg` is read from the first config folder holding one, and the system folders (`/etc/flycast`, `/etc/xdg/flycast`, `XDG_CONFIG_DIRS`) follow the user's (`get_readonly_config_path` in `core/stdclass.cpp`); such a file could name save or VMU paths outside the sandbox. So the recipe writes the sandbox's own `config/flycast/emu.cfg` (`[window] fullscreen = yes`, which Flycast writes back only into that file), removes `FLYCAST_BIOS_PATH`, and puts the owner's BIOS copies in `data/flycast`, where Flycast looks first; `needsBios` false (HLE BIOS without `dc_boot.bin`). The onboarding window opens only when the config folder is unset, never on Linux (`flycast_init` in `core/nullDC.cpp`). The flatpak stays `cannot-sandbox` (`flatpak-install`) until #155's flatpak sandbox. docs/TESTING.md names it under the emulator sandbox.
+- Evidence: selftestsandbox.test.ts "Flycast's recipe": "writes its own emu.cfg where Flycast reads it first, with the window fullscreen", "takes copies of the owner BIOS into its data folder and no BIOS folder of the owner", "is not started as the flatpak" (file 73/73). `scripts/agent/check.sh` green. `test:app` not run: no renderer, IPC or launch argv changed.
+- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet. `launch.flycast` needs a Dreamcast homebrew payload of our own in the M0-07 manifest and run.sh asking for it.
+- Next: M1-06 part 3a, a Dreamcast homebrew of our own (ADR 0008).

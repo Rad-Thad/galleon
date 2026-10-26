@@ -1,5 +1,44 @@
 import { shared } from '../savepaths.ts'
-import type { EmulatorDescriptor } from '../types.ts'
+import type { EmulatorDescriptor, SandboxContext, SandboxRecipe } from '../types.ts'
+
+/**
+ * Flycast started in its sandbox.
+ *
+ * On Linux Flycast writes everything, `emu.cfg`, VMUs, flash and states, in
+ * `flycast` under `XDG_CONFIG_HOME` and `XDG_DATA_HOME`, which the sandbox
+ * points inside itself (`find_user_config_dir` and `find_user_data_dir` in
+ * `core/linux-dist/main.cpp`). It also reads from folders beyond them:
+ *
+ *  - `emu.cfg` is read from the first config folder that has one, and the
+ *    system ones (`/etc/flycast`, `/etc/xdg/flycast` or `XDG_CONFIG_DIRS`)
+ *    come after the user's, so the sandbox writes its own, which then
+ *    outranks any whose save or VMU paths lead out of the sandbox
+ *    (`get_readonly_config_path` in `core/stdclass.cpp`). It sets the window
+ *    fullscreen, which Flycast writes back only into that same file.
+ *  - `FLYCAST_BIOS_PATH` adds a BIOS folder, so it is removed and only the
+ *    sandbox's copies of the owner's files are found, where Flycast looks
+ *    first: its data folder.
+ *
+ * Without `dc_boot.bin` Flycast boots the game through its HLE BIOS, and a
+ * first start opens no window before the game, since the config folder is
+ * always set on Linux (`flycast_init` in `core/nullDC.cpp`).
+ *
+ * A flatpak is never started by the self-test, so only the program on PATH
+ * gets here.
+ */
+function sandboxRecipe(ctx: SandboxContext): SandboxRecipe | null {
+  if (ctx.installKind !== 'binary') return null
+  return {
+    args: [],
+    env: {},
+    unset: ['FLYCAST_BIOS_PATH'],
+    needs: [],
+    strays: [],
+    bios: 'data/flycast',
+    needsBios: false,
+    files: [{ path: 'config/flycast/emu.cfg', content: '[window]\nfullscreen = yes\n' }]
+  }
+}
 
 /**
  * Flycast — the Dreamcast emulator, and what armadaOS's catalog installs for
@@ -81,5 +120,5 @@ export const flycast: EmulatorDescriptor = {
    * with a dash.
    */
   launch: ({ exec, romPath }) => [...exec, romPath],
-  sandbox: undefined
+  sandbox: sandboxRecipe
 }

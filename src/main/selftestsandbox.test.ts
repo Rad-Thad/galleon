@@ -964,6 +964,54 @@ describe("PPSSPP's recipe", () => {
   })
 })
 
+describe("Flycast's recipe", () => {
+  const flycast = emulatorById('flycast')
+  assert.ok(flycast)
+  const binary: ResolvedInstall = { kind: 'binary', ref: '/usr/bin/flycast' }
+
+  function flycastPlan(install: ResolvedInstall = binary) {
+    return planSandbox({
+      descriptor: flycast!,
+      install,
+      system: 'dreamcast',
+      romPath: '/payload/hello.cdi',
+      home: HOME,
+      owner: OWNER,
+      realPath: (path) => path
+    })
+  }
+
+  test('writes its own emu.cfg where Flycast reads it first, with the window fullscreen', () => {
+    const result = flycastPlan()
+    assert.equal(result.kind, 'run')
+    if (result.kind !== 'run') return
+    assert.deepEqual(result.argv, [binary.ref, '/payload/hello.cdi'])
+    assert.deepEqual(result.files, [
+      {
+        path: join(result.env.XDG_CONFIG_HOME, 'flycast', 'emu.cfg'),
+        content: '[window]\nfullscreen = yes\n'
+      }
+    ])
+  })
+
+  test('takes copies of the owner BIOS into its data folder and no BIOS folder of the owner', () => {
+    const result = flycastPlan()
+    assert.equal(result.kind, 'run')
+    if (result.kind !== 'run') return
+    assert.equal(result.bios, join(result.env.XDG_DATA_HOME, 'flycast'))
+    assert.deepEqual(result.unset, ['FLYCAST_BIOS_PATH'])
+    assert.equal(result.needsBios, false)
+  })
+
+  test('is not started as the flatpak', () => {
+    assert.deepEqual(flycastPlan({ kind: 'flatpak', ref: 'org.flycast.Flycast' }), {
+      kind: 'skip',
+      reason: CANNOT_SANDBOX,
+      detail: 'flatpak-install'
+    })
+  })
+})
+
 describe('prepareSandbox', () => {
   function ready(home: string, recipe: SandboxRecipe = EMPTY) {
     const result = planSandbox({
