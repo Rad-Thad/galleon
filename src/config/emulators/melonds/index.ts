@@ -1,5 +1,37 @@
 import { perRom } from '../savepaths.ts'
-import type { EmulatorDescriptor } from '../types.ts'
+import type { EmulatorDescriptor, SandboxContext, SandboxRecipe } from '../types.ts'
+
+/**
+ * melonDS started in its sandbox.
+ *
+ * melonDS keeps `melonDS.toml` and every other file of its own in
+ * `melonDS` under Qt's config location, which is `XDG_CONFIG_HOME`, and so
+ * inside the sandbox (`pathInit` in `src/frontend/qt_sdl/main.cpp`,
+ * `GetLocalFilePath` in `Platform.cpp`). The sandbox's folder starts empty,
+ * so melonDS reads its defaults: `SaveFilePath` and `SavestatePath` empty,
+ * which puts saves and states beside the ROM it is handed, and
+ * external BIOS off, so it boots on its own BIOS and firmware and opens no
+ * window before the game (`Config.cpp`).
+ *
+ * A `portable` folder beside the program outranks the config location. Inside
+ * the mounted AppImage nothing of the owner's can sit there, so only the
+ * AppImage is started: a binary install could have one beside it. The
+ * AppImage runtime's own folders beside the file are refused by the
+ * self-test for every AppImage (see `planSandbox`).
+ */
+function sandboxRecipe(ctx: SandboxContext): SandboxRecipe | null {
+  if (ctx.installKind !== 'appimage') return null
+  return {
+    args: [],
+    env: {},
+    unset: [],
+    needs: [],
+    strays: [],
+    bios: null,
+    needsBios: false,
+    files: []
+  }
+}
 
 /**
  * melonDS — the Nintendo DS emulator armadaOS's catalog installs.
@@ -75,6 +107,5 @@ export const melonds: EmulatorDescriptor = {
    * The ROM path is absolute, so it never begins with a dash.
    */
   launch: ({ exec, romPath }) => [...exec, '-f', romPath],
-  // No recipe yet, so the self-test never starts melonDS.
-  sandbox: undefined
+  sandbox: sandboxRecipe
 }

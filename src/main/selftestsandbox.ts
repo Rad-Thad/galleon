@@ -138,6 +138,16 @@ function xdgRoots(folders: SandboxFolders): Record<string, string> {
 }
 
 /**
+ * The folders beside an AppImage that its runtime makes the program's `HOME`
+ * and `XDG_CONFIG_HOME` before the program starts, over whatever the sandbox
+ * set. Looked for beside the path as given and as its links lead, since
+ * either can be the one the runtime is started as.
+ */
+function portableFolders(ref: string, target: string): string[] {
+  return [...new Set([ref, target])].flatMap((path) => [`${path}.home`, `${path}.config`])
+}
+
+/**
  * How to start this game inside the emulator's sandbox, or why not.
  *
  * Pure: nothing is written until `prepareSandbox`. A flatpak runs in a
@@ -152,6 +162,11 @@ export function planSandbox(request: SandboxRequest): SandboxPlan {
   if (descriptor.sandbox === undefined) return skip('no-recipe')
   const target = request.realPath(install.ref)
   if (target === null) return skip('install-unreadable')
+  if (
+    install.kind === 'appimage' &&
+    portableFolders(install.ref, target).some((path) => request.realPath(path) !== null)
+  )
+    return skip('appimage-portable-folder')
 
   const folders = sandboxFolders(home, descriptor.id)
   const recipe = descriptor.sandbox({

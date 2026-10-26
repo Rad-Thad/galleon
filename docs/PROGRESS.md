@@ -3115,3 +3115,15 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet. `launch.melonds` needs a sandbox recipe, an NDS homebrew payload of our own, and run.sh asking for it.
 - Next: M1-07 part 2, melonDS's sandbox recipe (its config folder is `QStandardPaths::ConfigLocation`/melonDS unless a `portable` folder sits beside the program, `main.cpp`; check first-start dialogs and that `SaveFilePath` stays empty in the sandbox's `melonDS.toml`).
+
+## 2026-10-26 12:34 UTC session 015PiXrJ4qQhxq2hRj3FPz49 (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. #294 (melonDS's descriptor) merged at 293664b; CI x64 10:44, arm64 2:34.
+- Worked on: M1-07 part 2, melonDS's sandbox recipe (tracking issue #293).
+- Result: PR (this one). Read at the catalog's `drm-leasing` commit 12891b6: melonDS keeps `melonDS.toml` (and a legacy `melonDS.ini`, read the same way) and its other files in `melonDS` under Qt's config location, `XDG_CONFIG_HOME` (`pathInit` in `src/frontend/qt_sdl/main.cpp`, `GetLocalFilePath` in `Platform.cpp`); an empty folder is its defaults: `SaveFilePath`/`SavestatePath` empty (saves and states beside the ROM it is handed), external BIOS off (no dump, no dialog before the game; `Config.cpp`). So the recipe adds nothing and is the AppImage's only: a `portable` folder beside the program outranks the config location, and inside the mounted image none of the owner's can sit there. Found by the evaluator and fixed for every AppImage: the AppImage type2 runtime makes a writable `<file>.home` or `<file>.config` folder beside the AppImage the program's `HOME` or `XDG_CONFIG_HOME` over the sandbox's (`set_portable_home_and_config`), so `planSandbox` now skips such an install as `cannot-sandbox` / `appimage-portable-folder`, looking beside the path as given and as its links lead. docs/TESTING.md says both.
+- Evidence: selftestsandbox.test.ts "melonDS's recipe" (3 tests; 2 failed before the descriptor change), planSandbox "starts no AppImage whose runtime would give it a HOME or config folder of its own" (failed before the `planSandbox` change); the other recipe tests take a `present` `realPath` with no such folders; `src/main/selftest*.test.ts` 299/299. `scripts/agent/check.sh` (see the PR). `test:app` not run: no renderer, IPC or launch argv changed.
+- Notes: Docker Hub answered 429 to `init.sh`'s mariadb pull, so the Docker RomM was not up; nothing here touches the client.
+- Evaluator: FAIL first (the AppImage runtime's `.home`/`.config` folders; and the comment said the self-test copies the ROM, while it hands melonDS the payload's own path); then see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet. `launch.melonds` needs an NDS homebrew payload of our own in the M0-07 manifest and run.sh asking for it; the save half of its acceptance needs the save found beside the payload.
+- Next: M1-07 part 3a, an NDS homebrew of our own (ADR 0008, as the Dreamcast ELF).
