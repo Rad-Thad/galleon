@@ -52,6 +52,14 @@ afterEach(() => {
   for (const dir of scratches.splice(0)) rmSync(dir, { recursive: true, force: true })
 })
 
+/**
+ * `realPath` on a machine where every path is there but an AppImage's portable
+ * folders, which only the tests about them put beside it.
+ */
+function present(path: string): string | null {
+  return /\.(home|config)$/.test(path) ? null : path
+}
+
 const BINARY: ResolvedInstall = { kind: 'binary', ref: '/usr/bin/example' }
 const HOME = '/test/home'
 
@@ -105,7 +113,7 @@ function plan(descriptor: EmulatorDescriptor, install = BINARY, system = 'snes')
     romPath: '/payload/game.sfc',
     home: HOME,
     owner: OWNER,
-    realPath: (path) => path
+    realPath: present
   })
 }
 
@@ -182,14 +190,47 @@ describe('planSandbox', () => {
       owner: OWNER
     }
     assert.deepEqual(
-      planSandbox({ ...request, realPath: (path) => (path === '/owner/needed.bin' ? null : path) }),
+      planSandbox({
+        ...request,
+        realPath: (path) => (path === '/owner/needed.bin' ? null : present(path))
+      }),
       {
         kind: 'skip',
         reason: CANNOT_SANDBOX,
         detail: 'needed-file-missing'
       }
     )
-    assert.equal(planSandbox({ ...request, realPath: (path) => path }).kind, 'run')
+    assert.equal(planSandbox({ ...request, realPath: present }).kind, 'run')
+  })
+
+  test('starts no AppImage whose runtime would give it a HOME or config folder of its own', () => {
+    const appImage: ResolvedInstall = {
+      kind: 'appimage',
+      ref: '/home/owner/Applications/Example.AppImage'
+    }
+    const target = '/home/owner/Applications/Example-1.0.AppImage'
+    const request = {
+      descriptor: withRecipe(() => EMPTY),
+      install: appImage,
+      system: 'snes',
+      romPath: '/payload/game.sfc',
+      home: HOME,
+      owner: OWNER
+    }
+    const resolving = (folder: string | null) => (path: string) =>
+      path === folder ? path : path === appImage.ref ? target : present(path)
+    for (const folder of [
+      `${appImage.ref}.home`,
+      `${appImage.ref}.config`,
+      `${target}.home`,
+      `${target}.config`
+    ])
+      assert.deepEqual(planSandbox({ ...request, realPath: resolving(folder) }), {
+        kind: 'skip',
+        reason: CANNOT_SANDBOX,
+        detail: 'appimage-portable-folder'
+      })
+    assert.equal(planSandbox({ ...request, realPath: resolving(null) }).kind, 'run')
   })
 
   test("removes the recipe's unset variables, but never an XDG root", () => {
@@ -385,7 +426,7 @@ describe('planSandbox', () => {
           romPath: '/payload/game',
           home: HOME,
           owner: OWNER,
-          realPath: (path) => path
+          realPath: present
         })
         if (result.kind === 'skip') {
           assert.equal(result.reason, CANNOT_SANDBOX, descriptor.id)
@@ -417,7 +458,7 @@ describe("RetroArch's recipe", () => {
   function retroPlan(
     system = 'snes',
     kind: ResolvedInstall = install,
-    realPath: (path: string) => string | null = (path) => path
+    realPath: (path: string) => string | null = present
   ) {
     return planSandbox({
       descriptor: retroarch!,
@@ -558,7 +599,7 @@ describe("DuckStation's recipe", () => {
       romPath: '/payload/game.cue',
       home: HOME,
       owner: { ...OWNER, env: machine(files) },
-      realPath: (path) => links[path] ?? path
+      realPath: (path) => links[path] ?? present(path)
     })
   }
 
@@ -676,7 +717,7 @@ describe("ARMSX2's recipe", () => {
       romPath: '/payload/game.iso',
       home: HOME,
       owner: OWNER,
-      realPath: (path) => path
+      realPath: present
     })
   }
 
@@ -763,7 +804,7 @@ describe("Eden's recipe", () => {
       romPath: '/payload/game.nro',
       home: HOME,
       owner,
-      realPath: (path) => (readable(path) ? path : null)
+      realPath: (path) => (readable(path) ? present(path) : null)
     })
   }
 
@@ -843,7 +884,7 @@ describe("shadPS4's recipe", () => {
       romPath: '/payload/game/eboot.bin',
       home: HOME,
       owner: OWNER,
-      realPath: (path) => path
+      realPath: present
     })
   }
 
@@ -876,7 +917,7 @@ describe("Dolphin's recipe", () => {
       romPath: '/payload/hello.dol',
       home: HOME,
       owner: OWNER,
-      realPath: (path) => path
+      realPath: present
     })
   }
 
@@ -936,7 +977,7 @@ describe("PPSSPP's recipe", () => {
       romPath: '/payload/hello.pbp',
       home: HOME,
       owner: OWNER,
-      realPath: (path) => path
+      realPath: present
     })
   }
 
@@ -977,7 +1018,7 @@ describe("Flycast's recipe", () => {
       romPath: '/payload/hello.cdi',
       home: HOME,
       owner: OWNER,
-      realPath: (path) => path
+      realPath: present
     })
   }
 
@@ -1028,6 +1069,52 @@ describe("Flycast's recipe", () => {
   })
 })
 
+describe("melonDS's recipe", () => {
+  const melonds = emulatorById('melonds')
+  assert.ok(melonds)
+  const appImage: ResolvedInstall = {
+    kind: 'appimage',
+    ref: '/home/owner/Applications/melonDS.AppImage'
+  }
+
+  function melonPlan(install: ResolvedInstall = appImage) {
+    return planSandbox({
+      descriptor: melonds!,
+      install,
+      system: 'nds',
+      romPath: '/payload/hello.nds',
+      home: HOME,
+      owner: OWNER,
+      realPath: present
+    })
+  }
+
+  test('starts the AppImage fullscreen on the ROM, its config folder the sandbox config', () => {
+    const result = melonPlan()
+    assert.equal(result.kind, 'run')
+    if (result.kind !== 'run') return
+    assert.deepEqual(result.argv, [appImage.ref, '-f', '/payload/hello.nds'])
+    assert.equal(result.env.XDG_CONFIG_HOME, result.folders.config)
+  })
+
+  test('writes no melonDS.toml, so saves follow the ROM and no BIOS dump is asked for', () => {
+    const result = melonPlan()
+    assert.equal(result.kind, 'run')
+    if (result.kind !== 'run') return
+    // An empty config folder is melonDS's defaults: no save folder, external BIOS off.
+    assert.deepEqual(result.files, [])
+    assert.equal(result.needsBios, false)
+  })
+
+  test('is not started as a binary, which could have a portable folder beside it', () => {
+    assert.deepEqual(melonPlan({ kind: 'binary', ref: '/usr/bin/melonDS' }), {
+      kind: 'skip',
+      reason: CANNOT_SANDBOX,
+      detail: 'no-recipe'
+    })
+  })
+})
+
 describe('prepareSandbox', () => {
   function ready(home: string, recipe: SandboxRecipe = EMPTY) {
     const result = planSandbox({
@@ -1037,7 +1124,7 @@ describe('prepareSandbox', () => {
       romPath: '/payload/game.sfc',
       home,
       owner: OWNER,
-      realPath: (path) => path
+      realPath: present
     })
     assert.equal(result.kind, 'run')
     if (result.kind !== 'run') throw new Error('expected a plan')
@@ -1217,7 +1304,7 @@ describe('stray folders', () => {
       romPath: '/payload/game.sfc',
       home: HOME,
       owner: OWNER,
-      realPath: (path) => path
+      realPath: present
     })
     if (result.kind !== 'run') throw new Error('expected a plan')
     return result
