@@ -641,6 +641,8 @@ export const fr: Catalog = {
     "Vita3K classe ses sauvegardes sous l'identifiant de titre Vita plutôt que sous le nom de la ROM, que Galleon ne peut pas rattacher à ce jeu.",
   'saves.xenia':
     "Xenia classe ses sauvegardes sous l'identifiant de titre Xbox 360 plutôt que sous le nom de la ROM, que Galleon ne peut pas rattacher à ce jeu.",
+  'saves.flycastStandalone':
+    "Flycast garde deux cartes mémoire VMU partagées par tous les jeux Dreamcast : aucune sauvegarde n'appartient donc à celui-ci pour être synchronisée. Les états de sauvegarde restent sur cet appareil.",
   'saves.flycast':
     "Flycast garde deux cartes mémoire VMU partagées par tous les jeux Dreamcast : aucune sauvegarde n'appartient donc à celui-ci. Les états de sauvegarde sont synchronisés.",
   'saves.xemu':

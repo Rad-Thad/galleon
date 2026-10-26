@@ -3,6 +3,7 @@ import { dolphin } from './dolphin/index.ts'
 import { duckstation } from './duckstation/index.ts'
 import { eden } from './eden/index.ts'
 import { emudeck } from './emudeck/index.ts'
+import { flycast } from './flycast/index.ts'
 import { ppsspp } from './ppsspp/index.ts'
 import { retroarch } from './retroarch/index.ts'
 import { retrodeck } from './retrodeck/index.ts'
@@ -34,7 +35,8 @@ export const EMULATORS: readonly EmulatorDescriptor[] = [
   duckstation,
   armsx2,
   dolphin,
-  ppsspp
+  ppsspp,
+  flycast
 ]
 
 /**
@@ -213,6 +215,7 @@ export { duckstation } from './duckstation/index.ts'
 export { dolphin } from './dolphin/index.ts'
 export { eden } from './eden/index.ts'
 export { ppsspp } from './ppsspp/index.ts'
+export { flycast } from './flycast/index.ts'
 export { emudeck, EMUDECK_LAUNCHERS, emuDeckLaunchers } from './emudeck/index.ts'
 export { retroarch } from './retroarch/index.ts'
 export { retrodeck, RETRODECK_APP_ID } from './retrodeck/index.ts'

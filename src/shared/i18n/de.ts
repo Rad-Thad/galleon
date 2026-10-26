@@ -646,6 +646,8 @@ export const de: Catalog = {
     'Vita3K legt Spielstände unter der Vita-Title-ID ab statt unter dem ROM-Namen, die Galleon diesem Spiel nicht zuordnen kann.',
   'saves.xenia':
     'Xenia legt Spielstände unter der Xbox-360-Title-ID ab statt unter dem ROM-Namen, die Galleon diesem Spiel nicht zuordnen kann.',
+  'saves.flycastStandalone':
+    'Flycast führt zwei VMU-Memory-Cards für alle Dreamcast-Spiele, deshalb gehört keine Speicherdatei zu diesem einen Spiel, die synchronisiert werden könnte. Savestates bleiben auf diesem Gerät.',
   'saves.flycast':
     'Flycast führt zwei VMU-Speicherkarten für alle Dreamcast-Spiele, deshalb gehört keine Speicherdatei zu diesem einen Spiel. Savestates werden synchronisiert.',
   'saves.xemu':

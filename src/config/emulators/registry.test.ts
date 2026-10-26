@@ -27,6 +27,7 @@ import { dolphin } from './dolphin/index.ts'
 import { duckstation } from './duckstation/index.ts'
 import { eden } from './eden/index.ts'
 import { emudeck, ROM_PLACEHOLDER } from './emudeck/index.ts'
+import { flycast } from './flycast/index.ts'
 import { ppsspp } from './ppsspp/index.ts'
 import { retroarch } from './retroarch/index.ts'
 import { retrodeck } from './retrodeck/index.ts'
@@ -1027,4 +1028,38 @@ test("PPSSPP's saves are its own config folder, and it keeps no state or BIOS fo
   assert.deepEqual(ppsspp.dirs.saves, { base: 'config', path: 'ppsspp/PSP/SAVEDATA' })
   assert.equal(ppsspp.dirs.states, undefined)
   assert.equal(ppsspp.dirs.bios, undefined)
+})
+
+test('Flycast is found as the catalog flatpak first, then on PATH', () => {
+  assert.deepEqual(
+    flycast.install.map((spec) => spec.kind),
+    ['flatpak', 'binary']
+  )
+  assert.deepEqual(flycast.install[0], { kind: 'flatpak', appId: 'org.flycast.Flycast' })
+  assert.equal(flycast.findRule, 'FLYCAST')
+})
+
+test('Flycast runs Dreamcast games only', () => {
+  assert.equal(supportsSystem(flycast, 'dreamcast'), true)
+  assert.equal(supportsSystem(flycast, 'naomi'), false)
+})
+
+test('Flycast is handed a .chd, a .cdi or a .gdi alone, and nothing that would outlive the game', () => {
+  const exec = ['flatpak', 'run', 'org.flycast.Flycast']
+  for (const romPath of [
+    '/roms/dreamcast/Game (USA).chd',
+    '/roms/dreamcast/Game (USA).cdi',
+    '/roms/dreamcast/Game (USA)/Game (USA).gdi'
+  ]) {
+    assert.deepEqual(
+      flycast.launch({ exec, installRef: 'org.flycast.Flycast', system: 'dreamcast', romPath }),
+      [...exec, romPath]
+    )
+  }
+})
+
+test("Flycast's VMUs and BIOS are its own data folder, and it keeps no state folder", () => {
+  assert.deepEqual(flycast.dirs.saves, { base: 'data', path: 'flycast' })
+  assert.deepEqual(flycast.dirs.bios, { base: 'data', path: 'flycast' })
+  assert.equal(flycast.dirs.states, undefined)
 })
