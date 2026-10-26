@@ -5,6 +5,7 @@ import { dolphin } from './dolphin/index.ts'
 import { duckstation } from './duckstation/index.ts'
 import { eden } from './eden/index.ts'
 import { emudeck, EMUDECK_LAUNCHERS } from './emudeck/index.ts'
+import { flycast } from './flycast/index.ts'
 import { ppsspp } from './ppsspp/index.ts'
 import {
   emuDeckSaveFolder,
@@ -1444,6 +1445,21 @@ test("PPSSPP's saves, named after the game id, are not synced, and the Saves tab
   for (const language of ['en', 'fr', 'de', 'es'] as const) {
     const said = localize('saves.ppsspp', createI18n(language))
     assert.ok(said?.includes('PPSSPP'), language)
+  }
+})
+
+test("Flycast's shared VMUs are not synced, and the Saves tab is told why", () => {
+  const paths = resolve(flycast, {
+    romPath: '/roms/dreamcast/Game (USA).chd',
+    system: 'dreamcast',
+    paths: { saves: '/data/flycast' }
+  })
+  assert.deepEqual(paths.saves, { dir: '/data/flycast', match: 'shared' })
+  assert.equal(paths.states, null)
+  assert.equal(paths.unsyncableReason, 'saves.flycastStandalone')
+  for (const language of ['en', 'fr', 'de', 'es'] as const) {
+    const said = localize('saves.flycastStandalone', createI18n(language))
+    assert.ok(said?.includes('Flycast'), language)
   }
 })
 

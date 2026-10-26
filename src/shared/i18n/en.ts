@@ -642,6 +642,8 @@ export const en = {
     'Vita3K files saves under the Vita title id rather than the ROM name, which Galleon cannot match to this game.',
   'saves.xenia':
     'Xenia files saves under the Xbox 360 title id rather than the ROM name, which Galleon cannot match to this game.',
+  'saves.flycastStandalone':
+    'Flycast keeps two VMU memory cards shared by every Dreamcast game, so there is no save file that belongs to this one to sync. Save states stay on this device.',
   'saves.flycast':
     'Flycast keeps two VMU memory cards shared by every Dreamcast game, so there is no save file that belongs to this one. Save states are synced.',
   'saves.xemu':

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { eden } from './eden/index.ts'
+import { flycast } from './flycast/index.ts'
 import { retroarch } from './retroarch/index.ts'
 import { retrodeck } from './retrodeck/index.ts'
 import type { BiosContext, EmulatorDescriptor } from './types.ts'
@@ -225,4 +226,11 @@ test('Eden takes keys and refuses firmware', () => {
 
   const firmware = place(eden, context({ system: 'switch', fileName: 'Firmware 18.1.0.zip' }))
   assert.equal(firmware, null, 'firmware is staged for Eden to register itself')
+})
+
+test('Flycast takes the Dreamcast boot ROM and flash into its data folder', () => {
+  const data = '/home/deck/.var/app/org.flycast.Flycast/data/flycast'
+  for (const fileName of ['dc_boot.bin', 'dc_flash.bin']) {
+    assert.equal(place(flycast, context({ system: 'dreamcast', fileName, bios: data })), data)
+  }
 })
