@@ -2990,3 +2990,14 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet. On the Nova `launch.dolphin` will skip as `cannot-sandbox` while Dolphin is the flatpak.
 - Next: M1-04 part 3, a GameCube homebrew `.dol` of our own (ADR 0008) in the M0-07 manifest and run.sh asking for `launch.dolphin`.
+
+## 2026-10-26 00:53 UTC session 01GUrAuV9efftewhHNN3vDe2 (hourly heartbeat, second unit)
+
+- Device results: none new since 1ac4cb4. #280 (Dolphin's sandbox recipe) merged at 39a6410; CI x64 9:18, arm64 1:08.
+- Worked on: M1-04 part 3a, the GameCube payload of `launch.dolphin` (tracking issue #278).
+- Result: PR (this one). `test/fixtures/homebrew/gc-hello/`: `main.c` draws one line with libogc's console and waits on vertical sync; `build.sh` builds it in `devkitpro/devkitppc` pinned by digest and writes `galleon-gc-hello.dol`, committed beside its source (ADR 0008). README names what is linked in (libogc zlib/BSD, newlib, libgcc with the runtime exception).
+- Evidence: two builds give sha256 `030ca8b7f60442fd02198f5fdaf08c1ef6a4be06c19648d9cd7f25f2b0744991` (96512 bytes); the DOL header has text0 at 0x80003100 and the same entry point, and the text is in it. `scripts/agent/check.sh` green. Not booted on the VM (no Dolphin here).
+- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet.
+- Next: M1-04 part 3b: the manifest entry at this PR's merge commit (`roms/gc/…`), its THIRD_PARTY.md notice, and run.sh asking for `launch.dolphin`/`exit.dolphin` with it; then READY-FOR-DEVICE M1-04, noting that on the Nova it skips as `cannot-sandbox` while Dolphin is the flatpak.
