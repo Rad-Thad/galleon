@@ -189,12 +189,15 @@ export function planSandbox(request: SandboxRequest): SandboxPlan {
   if (recipe.needs.some((path) => request.realPath(path) === null))
     return skip('needed-file-missing')
 
+  // The sandbox's root stands for RomMix's own folder, and the recipe writes
+  // the files `launch` names there, so nothing a launch reads is outside it.
   const argv = descriptor.launch({
     exec: [...execPrefix(install), ...recipe.args],
     installRef: install.ref,
     system,
     romPath,
-    variant
+    variant,
+    launcherDir: folders.root
   })
   if (argv === null) return skip('unsupported-system')
 

@@ -5,6 +5,7 @@ import type { EmulatorState, LaunchResult, RommRom, SavePushPreview } from '@sha
 import { spawnEmulator } from './childenv.ts'
 import { installCore, missingCore } from './cores.ts'
 import { complaint, readExit, stageFor, type ExitReport } from './emulatorexit.ts'
+import { launcherDir, writeLaunchFiles } from './launchfiles.ts'
 import {
   execPrefix,
   killFlatpakApp,
@@ -234,7 +235,8 @@ export class Launcher {
       installRef: emulator.install.ref,
       system,
       romPath,
-      variant
+      variant,
+      launcherDir: launcherDir(emulator.id)
     })
   }
 
@@ -356,6 +358,17 @@ export class Launcher {
       }
 
       if (session.stopped) return failure(t('launch.stoppedBeforeStart'), command)
+
+      // The files `launch` named, written before anything else is touched, so
+      // a launch that cannot have them fails before the saves have moved.
+      try {
+        await writeLaunchFiles(
+          launcherDir(emulator.id),
+          emulatorById(emulator.id)?.launchFiles?.({ system, variant }) ?? []
+        )
+      } catch (cause) {
+        return failure((cause as Error).message, command)
+      }
 
       // Pull remote saves before the emulator opens them. A failure here is
       // reported but does not block play — the local save is still valid.

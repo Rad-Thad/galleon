@@ -1145,6 +1145,8 @@ export const en = {
     '{emulator} has no launcher installed for "{system}". Add one from {emulator}, or pick ' +
     'another emulator for this platform on the Emulators screen.',
   'launch.stoppedBeforeStart': 'Stopped before the game started',
+  'launch.badLaunchFile':
+    "The emulator's launch file {name} cannot be written: it is not a plain file name",
   'launch.syncWarning': 'Save sync warning: {details}',
   'launch.couldNotStartEmulator': 'Could not start the emulator: {reason}',
   'launch.couldNotStartNamed': 'Could not start {name}: {reason}',

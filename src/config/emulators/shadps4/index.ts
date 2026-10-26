@@ -131,5 +131,6 @@ export const shadps4: EmulatorDescriptor = {
     // expected becomes a second positional argument, and the launch fails.
     return [...exec, '-f', 'true', game]
   },
-  sandbox: sandboxRecipe
+  sandbox: sandboxRecipe,
+  launchFiles: undefined
 }

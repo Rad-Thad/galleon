@@ -52,6 +52,7 @@ const ALLOWED: Record<string, string> = {
   'main/fetchfile.ts': 'the staged file a caller names, which for a save is `stageBeside`',
   'main/install.ts': 'an installed game under the ROMs folder',
   'main/integrity.ts': 'a download that failed its digest',
+  'main/launchfiles.ts': "an emulator's launch files in the app root's config folder",
   'main/library.ts': 'an uninstalled game under the ROMs folder',
   'main/log.ts': 'the log file',
   'main/offline.ts': 'the offline cache',

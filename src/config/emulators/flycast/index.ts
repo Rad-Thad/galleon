@@ -127,5 +127,6 @@ export const flycast: EmulatorDescriptor = {
    * with a dash.
    */
   launch: ({ exec, romPath }) => [...exec, romPath],
-  sandbox: sandboxRecipe
+  sandbox: sandboxRecipe,
+  launchFiles: undefined
 }

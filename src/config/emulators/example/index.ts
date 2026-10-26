@@ -386,7 +386,18 @@ export const example: EmulatorDescriptor = {
    * })
    * ```
    */
-  sandbox: undefined
+  sandbox: undefined,
+  /**
+   * Files of RomMix's own that `launch` names, written into `launcherDir`
+   * before every launch. For behaviour RomMix needs from an emulator that its
+   * own config would otherwise have to be edited for, e.g. RetroArch's
+   * appended config:
+   *
+   * ```ts
+   * launchFiles: () => [{ name: 'append.cfg', content: 'quit_on_close_content = "2"\n' }]
+   * ```
+   */
+  launchFiles: undefined
 }
 
 /**

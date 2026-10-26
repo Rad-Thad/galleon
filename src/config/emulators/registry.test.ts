@@ -63,7 +63,8 @@ const FIELD_ORDER = [
   'env',
   'open',
   'launch',
-  'sandbox'
+  'sandbox',
+  'launchFiles'
 ] as const
 
 /**
@@ -221,7 +222,8 @@ test('RetroDECK is launched by system so it resolves the emulator itself', () =>
     exec: ['flatpak', 'run', 'net.retrodeck.retrodeck'],
     installRef: 'net.retrodeck.retrodeck',
     system: 'snes',
-    romPath: '/roms/snes/game.sfc'
+    romPath: '/roms/snes/game.sfc',
+    launcherDir: '/galleon/launch'
   })
   assert.deepEqual(argv, [
     'flatpak',
@@ -238,15 +240,52 @@ test('RetroArch is launched with the core mapped for the system', () => {
     exec: ['/usr/bin/retroarch'],
     installRef: '/usr/bin/retroarch',
     system: 'snes',
-    romPath: '/roms/snes/game.sfc'
+    romPath: '/roms/snes/game.sfc',
+    launcherDir: '/galleon/launch'
   })
   assert.deepEqual(argv, [
     '/usr/bin/retroarch',
     '-f',
     '-L',
     'snes9x_libretro.so',
+    '--appendconfig',
+    '/galleon/launch/retroarch-append.cfg',
     '/roms/snes/game.sfc'
   ])
+})
+
+test("RetroArch's appended config is RomMix's own file, and never its retroarch.cfg", () => {
+  const files = retroarch.launchFiles?.({ system: 'snes' }) ?? []
+  assert.deepEqual(
+    files.map((file) => file.name),
+    ['retroarch-append.cfg']
+  )
+  // The snapshot: a change to what every RetroArch launch appends is a change
+  // to this file, made on purpose.
+  assert.equal(
+    files[0].content,
+    readFileSync(
+      join(import.meta.dirname, '../../../test/fixtures/snapshots/retroarch-append.cfg'),
+      'utf8'
+    )
+  )
+  const argv = retroarch.launch({
+    exec: ['flatpak', 'run', 'org.libretro.RetroArch'],
+    installRef: 'org.libretro.RetroArch',
+    system: 'snes',
+    romPath: '/roms/snes/game.sfc',
+    launcherDir: '/galleon/launch'
+  })
+  assert.ok(argv)
+  assert.equal(argv[argv.indexOf('--appendconfig') + 1], '/galleon/launch/retroarch-append.cfg')
+  assert.ok(!argv.some((arg) => arg.endsWith('retroarch.cfg')))
+})
+
+test('no other emulator has launch files yet', () => {
+  for (const descriptor of EMULATORS) {
+    if (descriptor.id !== 'retroarch')
+      assert.equal(descriptor.launchFiles, undefined, descriptor.id)
+  }
 })
 
 test('RetroArch offers the Android-matching cores, and launches the one chosen', () => {
@@ -276,7 +315,8 @@ test('RetroArch offers the Android-matching cores, and launches the one chosen',
       installRef: '/usr/bin/retroarch',
       system: 'psx',
       romPath: '/roms/psx/game.chd',
-      variant
+      variant,
+      launcherDir: '/galleon/launch'
     })
   assert.equal(launch()?.[3], 'swanstation_libretro.so')
   assert.equal(launch('mednafen_psx_hw')?.[3], 'mednafen_psx_hw_libretro.so')
@@ -306,7 +346,8 @@ test('Eden is started fullscreen, with the ROM named by -g', () => {
     exec: ['/home/u/rommix/emulators/eden/Eden.AppImage'],
     installRef: '/home/u/rommix/emulators/eden/Eden.AppImage',
     system: 'switch',
-    romPath: '/roms/switch/game.nsp'
+    romPath: '/roms/switch/game.nsp',
+    launcherDir: '/galleon/launch'
   })
   assert.deepEqual(argv, [
     '/home/u/rommix/emulators/eden/Eden.AppImage',
@@ -326,7 +367,8 @@ test('an emulator returns null rather than argv for a system it cannot run', () 
     exec: ['/usr/bin/retroarch'],
     installRef: '/usr/bin/retroarch',
     system: 'switch',
-    romPath: '/roms/switch/game.nsp'
+    romPath: '/roms/switch/game.nsp',
+    launcherDir: '/galleon/launch'
   })
   assert.equal(argv, null)
 })
@@ -525,7 +567,8 @@ test('EmuDeck runs a game through the launcher script for that system', () => {
     exec: [],
     installRef: '/home/deck/Emulation/tools/launchers',
     system: 'gc',
-    romPath: '/home/deck/Emulation/roms/gc/game.rvz'
+    romPath: '/home/deck/Emulation/roms/gc/game.rvz',
+    launcherDir: '/galleon/launch'
   })
   assert.deepEqual(argv, [
     '/home/deck/Emulation/tools/launchers/dolphin-emu.sh',
@@ -540,7 +583,8 @@ test('EmuDeck passes RomMix nothing to guess for a libretro system', () => {
     exec: [],
     installRef: '/e/tools/launchers',
     system: 'snes',
-    romPath: '/e/roms/snes/game.sfc'
+    romPath: '/e/roms/snes/game.sfc',
+    launcherDir: '/galleon/launch'
   })
   assert.deepEqual(argv, [
     '/e/tools/launchers/retroarch.sh',
@@ -558,7 +602,8 @@ test('the ROM placeholder is substituted inside an argument, not only as one', (
       exec: [],
       installRef: '/e/tools/launchers',
       system: 'xbox360',
-      romPath: '/e/roms/xbox360/game.iso'
+      romPath: '/e/roms/xbox360/game.iso',
+      launcherDir: '/galleon/launch'
     }),
     ['/e/tools/launchers/xenia.sh', 'Z:/e/roms/xbox360/game.iso']
   )
@@ -567,7 +612,8 @@ test('the ROM placeholder is substituted inside an argument, not only as one', (
       exec: [],
       installRef: '/e/tools/launchers',
       system: 'scummvm',
-      romPath: '/e/roms/scummvm/game'
+      romPath: '/e/roms/scummvm/game',
+      launcherDir: '/galleon/launch'
     }),
     ['/e/tools/launchers/scummvm.sh', '--path=/e/roms/scummvm/game', '--auto-detect']
   )
@@ -598,7 +644,8 @@ test('a chosen EmuDeck variant is the one that runs', () => {
     installRef: '/e/tools/launchers',
     system: 'switch',
     romPath: '/e/roms/switch/game.nsp',
-    variant: 'ryujinx'
+    variant: 'ryujinx',
+    launcherDir: '/galleon/launch'
   })
   assert.deepEqual(argv, [
     '/e/tools/launchers/ryujinx.sh',
@@ -616,7 +663,8 @@ test('a variant that no longer exists refuses rather than substituting', () => {
     installRef: '/e/tools/launchers',
     system: 'switch',
     romPath: '/e/roms/switch/game.nsp',
-    variant: 'an-emulator-that-was-removed'
+    variant: 'an-emulator-that-was-removed',
+    launcherDir: '/galleon/launch'
   })
   assert.equal(argv, null)
 })
@@ -628,7 +676,8 @@ test('EmuDeck declines a system it has no launcher for', () => {
       exec: [],
       installRef: '/e/tools/launchers',
       system: 'psvita',
-      romPath: '/e/roms/psvita/game'
+      romPath: '/e/roms/psvita/game',
+      launcherDir: '/galleon/launch'
     }),
     null
   )
@@ -656,7 +705,8 @@ test('a scripts install builds its launcher path from the install ref', () => {
     exec: [],
     installRef: '/e/tools/launchers',
     system: 'psx',
-    romPath: '/e/roms/psx/game.chd'
+    romPath: '/e/roms/psx/game.chd',
+    launcherDir: '/galleon/launch'
   })
   assert.equal(argv?.[0], '/e/tools/launchers/duckstation.sh')
   assert.ok(argv?.includes('/e/roms/psx/game.chd'), 'the ROM path is never passed')
@@ -732,7 +782,8 @@ test("shadPS4 is launched on the game directory's eboot, not on the largest file
     exec: ['flatpak', 'run', 'net.shadps4.shadPS4'],
     installRef: 'net.shadps4.shadPS4',
     system: 'ps4',
-    romPath: '/roms/ps4/CUSA12345/data.psarc'
+    romPath: '/roms/ps4/CUSA12345/data.psarc',
+    launcherDir: '/galleon/launch'
   })
   assert.deepEqual(argv, [
     'flatpak',
@@ -750,7 +801,8 @@ test('shadPS4 passes an eboot and a package through as they are', () => {
       exec: ['/usr/bin/shadps4'],
       installRef: '/usr/bin/shadps4',
       system: 'ps4',
-      romPath
+      romPath,
+      launcherDir: '/galleon/launch'
     })
 
   assert.deepEqual(run('/roms/ps4/CUSA12345/eboot.bin'), [
@@ -878,14 +930,16 @@ test('DuckStation runs PlayStation games only', () => {
 test('DuckStation boots a .chd or an .m3u fullscreen, exits with the game, and ends options first', () => {
   const exec = ['/home/u/Applications/DuckStation-arm64.AppImage']
   for (const romPath of ['/roms/psx/Game (USA).chd', '/roms/psx/-Game (USA).m3u']) {
-    assert.deepEqual(duckstation.launch({ exec, installRef: exec[0], system: 'psx', romPath }), [
-      ...exec,
-      '-batch',
-      '-fullscreen',
-      '-nogui',
-      '--',
-      romPath
-    ])
+    assert.deepEqual(
+      duckstation.launch({
+        exec,
+        installRef: exec[0],
+        system: 'psx',
+        romPath,
+        launcherDir: '/galleon/launch'
+      }),
+      [...exec, '-batch', '-fullscreen', '-nogui', '--', romPath]
+    )
   }
   const flatpak = ['flatpak', 'run', 'org.duckstation.DuckStation']
   assert.deepEqual(
@@ -893,7 +947,8 @@ test('DuckStation boots a .chd or an .m3u fullscreen, exits with the game, and e
       exec: flatpak,
       installRef: 'org.duckstation.DuckStation',
       system: 'psx',
-      romPath: '/roms/psx/Game.chd'
+      romPath: '/roms/psx/Game.chd',
+      launcherDir: '/galleon/launch'
     }),
     [...flatpak, '-batch', '-fullscreen', '-nogui', '--', '/roms/psx/Game.chd']
   )
@@ -962,21 +1017,25 @@ test('ARMSX2 runs PlayStation 2 games only', () => {
 test('ARMSX2 boots an .iso or a .chd fullscreen, exits with the game, and ends options first', () => {
   const exec = ['/home/u/Applications/ARMSX2.AppImage']
   for (const romPath of ['/roms/ps2/Game (USA).iso', '/roms/ps2/-Game (USA).chd']) {
-    assert.deepEqual(armsx2.launch({ exec, installRef: exec[0], system: 'ps2', romPath }), [
-      ...exec,
-      '-batch',
-      '-fullscreen',
-      '-nogui',
-      '--',
-      romPath
-    ])
+    assert.deepEqual(
+      armsx2.launch({
+        exec,
+        installRef: exec[0],
+        system: 'ps2',
+        romPath,
+        launcherDir: '/galleon/launch'
+      }),
+      [...exec, '-batch', '-fullscreen', '-nogui', '--', romPath]
+    )
   }
 })
 
 test('ARMSX2 boots a cue/bin pair from its .bin', () => {
   const exec = ['/home/u/Applications/ARMSX2.AppImage']
   const launched = (romPath: string): string | undefined =>
-    armsx2.launch({ exec, installRef: exec[0], system: 'ps2', romPath })?.at(-1)
+    armsx2
+      .launch({ exec, installRef: exec[0], system: 'ps2', romPath, launcherDir: '/galleon/launch' })
+      ?.at(-1)
   assert.equal(launched('/roms/ps2/Game (USA).cue'), '/roms/ps2/Game (USA).bin')
   assert.equal(launched('/roms/ps2/GAME.CUE'), '/roms/ps2/GAME.BIN')
   assert.equal(launched('/roms/ps2/Game (USA).bin'), '/roms/ps2/Game (USA).bin')
@@ -1013,7 +1072,13 @@ test('Dolphin boots an .iso, an .rvz or a two-disc .m3u fullscreen without its m
     ['gc', '/roms/gc/Game (USA)/Game (USA).m3u']
   ]) {
     assert.deepEqual(
-      dolphin.launch({ exec, installRef: 'org.DolphinEmu.dolphin-emu', system, romPath }),
+      dolphin.launch({
+        exec,
+        installRef: 'org.DolphinEmu.dolphin-emu',
+        system,
+        romPath,
+        launcherDir: '/galleon/launch'
+      }),
       [...exec, '-b', '-C', 'Dolphin.Display.Fullscreen=True', '-e', romPath]
     )
   }
@@ -1043,7 +1108,13 @@ test('PPSSPP boots an .iso or a .cso fullscreen, and its pause menu exits', () =
   const exec = ['flatpak', 'run', 'org.ppsspp.PPSSPP']
   for (const romPath of ['/roms/psp/Game (USA).iso', '/roms/psp/Game (USA).cso']) {
     assert.deepEqual(
-      ppsspp.launch({ exec, installRef: 'org.ppsspp.PPSSPP', system: 'psp', romPath }),
+      ppsspp.launch({
+        exec,
+        installRef: 'org.ppsspp.PPSSPP',
+        system: 'psp',
+        romPath,
+        launcherDir: '/galleon/launch'
+      }),
       [...exec, '--fullscreen', '--pause-menu-exit', romPath]
     )
   }
@@ -1073,7 +1144,15 @@ test('PPSSPP is handed the image inside a PSP game kept in a folder of its own',
     assert.equal(chosen, inner)
     const romPath = `${folder}/${chosen}`
     assert.deepEqual(
-      ppsspp.launch({ exec, installRef: 'org.ppsspp.PPSSPP', system: 'psp', romPath })?.at(-1),
+      ppsspp
+        .launch({
+          exec,
+          installRef: 'org.ppsspp.PPSSPP',
+          system: 'psp',
+          romPath,
+          launcherDir: '/galleon/launch'
+        })
+        ?.at(-1),
       romPath
     )
   }
@@ -1107,7 +1186,13 @@ test('Flycast is handed a .chd, a .cdi or a .gdi alone, and nothing that would o
     '/roms/dreamcast/Game (USA)/Game (USA).gdi'
   ]) {
     assert.deepEqual(
-      flycast.launch({ exec, installRef: 'org.flycast.Flycast', system: 'dreamcast', romPath }),
+      flycast.launch({
+        exec,
+        installRef: 'org.flycast.Flycast',
+        system: 'dreamcast',
+        romPath,
+        launcherDir: '/galleon/launch'
+      }),
       [...exec, romPath]
     )
   }
@@ -1177,11 +1262,16 @@ test('melonDS runs Nintendo DS games only', () => {
 test('melonDS boots a .nds full screen', () => {
   const exec = ['/home/u/Applications/melonDS.AppImage']
   const romPath = '/roms/nds/Game (USA).nds'
-  assert.deepEqual(melonds.launch({ exec, installRef: exec[0], system: 'nds', romPath }), [
-    ...exec,
-    '-f',
-    romPath
-  ])
+  assert.deepEqual(
+    melonds.launch({
+      exec,
+      installRef: exec[0],
+      system: 'nds',
+      romPath,
+      launcherDir: '/galleon/launch'
+    }),
+    [...exec, '-f', romPath]
+  )
 })
 
 test('melonDS keeps no save, state or BIOS folder of its own', () => {
