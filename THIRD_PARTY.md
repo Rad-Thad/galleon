@@ -172,9 +172,12 @@ SOFTWARE.
   - newlib, https://sourceware.org/newlib/, the BSD-style licences listed in
     its `COPYING.NEWLIB`.
   - pthread-embedded, https://github.com/pspdev/pthread-embedded, LGPL-2.1,
-    with its PSP port under the MIT licence. It is linked statically; the
-    program's source, `build.sh` and the image it pins by digest are
-    everything needed to relink it with a changed copy, as the LGPL asks.
+    at 97fe4ce006b420894f2bcaeb530d1f1f53111fc2, the version the pinned
+    pspdev image builds. Its complete source at that commit is offered from
+    the same place as the program, this repository, as
+    `test/fixtures/homebrew/psp-hello/pthread-embedded-97fe4ce.tar.gz`. It is
+    linked statically; the program's source, `build.sh` and the image it pins
+    by digest are what is needed to relink it with a changed copy.
   - libgcc, https://gcc.gnu.org/, GPL-3.0 with the GCC Runtime Library
     Exception, which lets the program carry its own licence.
 
