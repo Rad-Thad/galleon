@@ -1147,6 +1147,8 @@ export const en = {
   'launch.stoppedBeforeStart': 'Stopped before the game started',
   'launch.badLaunchFile':
     "The emulator's launch file {name} cannot be written: it is not a plain file name",
+  'launch.badSettingsFile':
+    "The emulator's settings file {name} cannot be changed: it is outside the emulator's config folder",
   'launch.syncWarning': 'Save sync warning: {details}',
   'launch.couldNotStartEmulator': 'Could not start the emulator: {reason}',
   'launch.couldNotStartNamed': 'Could not start {name}: {reason}',

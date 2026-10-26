@@ -201,5 +201,6 @@ export const eden: EmulatorDescriptor = {
    */
   launch: ({ exec, romPath }) => [...exec, '-f', '-g', romPath],
   sandbox: sandboxRecipe,
-  launchFiles: undefined
+  launchFiles: undefined,
+  settingsEdits: undefined
 }

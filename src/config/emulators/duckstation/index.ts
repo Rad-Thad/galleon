@@ -145,5 +145,6 @@ export const duckstation: EmulatorDescriptor = {
    */
   launch: ({ exec, romPath }) => [...exec, '-batch', '-fullscreen', '-nogui', '--', romPath],
   sandbox: sandboxRecipe,
-  launchFiles: undefined
+  launchFiles: undefined,
+  settingsEdits: undefined
 }

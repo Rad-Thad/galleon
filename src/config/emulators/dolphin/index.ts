@@ -31,6 +31,14 @@ function sandboxRecipe(ctx: SandboxContext): SandboxRecipe | null {
   }
 }
 
+/** Slot A as a GCI folder; see `dolphin.settingsEdits`. */
+const DOLPHIN_SLOT_A = {
+  section: 'Core',
+  key: 'SlotA',
+  value: '8',
+  whenAbsent: 'leave'
+} as const
+
 /**
  * Dolphin — the GameCube and Wii emulator, and what armadaOS's catalog
  * installs for both, from Flathub.
@@ -76,7 +84,7 @@ export const dolphin: EmulatorDescriptor = {
     // No `states`: a state is named after the game's ID, which nothing here
     // can pair with a ROM. No `bios`: Dolphin needs none.
   },
-  // Fixed by the XDG layout; nothing here reads Dolphin's settings files.
+  // Fixed by the XDG layout.
   layout: undefined,
   // Games are booted by path, so a multi-file game keeps its own folder.
   flatLibrary: false,
@@ -110,5 +118,15 @@ export const dolphin: EmulatorDescriptor = {
     romPath
   ],
   sandbox: sandboxRecipe,
-  launchFiles: undefined
+  launchFiles: undefined,
+  /**
+   * Slot A a GCI folder, so a GameCube save is one file per game, the shape
+   * Argosy syncs (ADR 0005). Dolphin's default already is one
+   * (`MAIN_SLOT_A` in `Core/Config/MainSettings.cpp`), so only a file that
+   * names another device is changed. The value is
+   * `ExpansionInterface::EXIDeviceType::MemoryCardFolder`, which Dolphin
+   * writes as its number (`Core/HW/EXI/EXI_Device.h`).
+   */
+  settingsEdits: ({ system }) =>
+    system === 'gc' ? [{ file: 'dolphin-emu/Dolphin.ini', ...DOLPHIN_SLOT_A }] : []
 }

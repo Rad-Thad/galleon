@@ -405,5 +405,6 @@ export const emudeck: EmulatorDescriptor = {
     ]
   },
   sandbox: undefined,
-  launchFiles: undefined
+  launchFiles: undefined,
+  settingsEdits: undefined
 }

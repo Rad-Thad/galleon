@@ -1182,6 +1182,8 @@ export const de: Catalog = {
   'launch.stoppedBeforeStart': 'Vor dem Start des Spiels abgebrochen',
   'launch.badLaunchFile':
     "The emulator's launch file {name} cannot be written: it is not a plain file name", // TODO(i18n)
+  'launch.badSettingsFile':
+    "The emulator's settings file {name} cannot be changed: it is outside the emulator's config folder", // TODO(i18n)
   'launch.syncWarning': 'Warnung beim Spielstand-Abgleich: {details}',
   'launch.couldNotStartEmulator': 'Der Emulator ließ sich nicht starten: {reason}',
   'launch.couldNotStartNamed': '{name} ließ sich nicht starten: {reason}',

@@ -397,7 +397,20 @@ export const example: EmulatorDescriptor = {
    * launchFiles: () => [{ name: 'append.cfg', content: 'quit_on_close_content = "2"\n' }]
    * ```
    */
-  launchFiles: undefined
+  launchFiles: undefined,
+  /**
+   * Keys of the emulator's own settings file that a launch needs, set before
+   * every launch in the file it already has, and only that key's value. For
+   * a setting a save depends on that the command line cannot give, e.g. a
+   * memory card kept as a folder:
+   *
+   * ```ts
+   * settingsEdits: () => [
+   *   { file: 'example/settings.ini', section: 'Cards', key: 'Folder', value: 'true', whenAbsent: 'add' }
+   * ]
+   * ```
+   */
+  settingsEdits: undefined
 }
 
 /**

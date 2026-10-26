@@ -96,5 +96,6 @@ export const ppsspp: EmulatorDescriptor = {
    */
   launch: ({ exec, romPath }) => [...exec, '--fullscreen', '--pause-menu-exit', romPath],
   sandbox: sandboxRecipe,
-  launchFiles: undefined
+  launchFiles: undefined,
+  settingsEdits: undefined
 }
