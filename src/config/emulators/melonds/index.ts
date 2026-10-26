@@ -32,8 +32,8 @@ export const melonds: EmulatorDescriptor = {
       // architecture after the project's name.
       patterns: ['melonds*.appimage'],
       release: {
-        // The fork the catalog installs from: upstream melonDS publishes its
-        // Linux builds as zips, which RomMix cannot run.
+        // The fork the catalog installs from, so a download is the build
+        // armadaOS's own settings template was written for.
         api: 'https://api.github.com/repos/virtudude/melonDS/releases',
         asset: /^melonDS[\w.-]*\.AppImage$/i
       }
