@@ -3138,3 +3138,15 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet.
 - Next: M1-07 part 3b: the manifest entry at this PR's merge commit (`roms/nds/galleon-nds-hello.nds`), its THIRD_PARTY.md notice, and run.sh asking for `launch.melonds`/`exit.melonds` with it; the save half of `launch.melonds` (a save beside the ROM found by save discovery) needs a payload that writes cartridge save memory, or a check that places one, still to be decided.
+
+## 2026-10-26 13:46 UTC session 01HpJi2JLryiY3kNJ8EqPff6 (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. #296 (the NDS ROM) merged at cef92ca.
+- Worked on: M1-07 part 3b (tracking issue #293).
+- Result: PR (this one). `test/fixtures/roms/manifest.json` pins `roms/nds/galleon-nds-hello.nds` by its raw URL at cef92ca with its hash and size (ADR 0008); the folder is melonDS's system id `nds`. THIRD_PARTY.md's test payloads part has its `nds-hello` notice: libnds (zlib), BlocksDS's `sys/crts` (zlib and MPL-2.0, with where its source form is), picolibc and libgcc. run.sh names melonDS that payload and asks for `launch.melonds` and `exit.melonds` whenever it was copied, as for Flycast's `.elf`; docs/TESTING.md says so.
+- Evidence: device-bundle.test.ts "run.sh copies the payloads into the test home, names each emulator its own, and empties the ROM folder" failed before the run.sh change and passes now (63/63); `node scripts/agent/fetch-fixtures.mjs` fetched the `.nds` at the pinned URL, hash as pinned. `scripts/agent/check.sh` green (3:33). `test:app` not run: no renderer, IPC or launch code changed.
+- Notes: Docker Hub answered 429 to `init.sh`'s mariadb pull again, so the Docker RomM was not up; nothing here touches the client.
+- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet. `launch.melonds`'s save half (a save beside the ROM in the sandbox found by save discovery) is not asked for yet; until it is, M1-07 is not READY-FOR-DEVICE.
+- Next: M1-07 part 3c, the save half of `launch.melonds`: read how `savingPayloads` and the self-test's save check work for RetroArch, then either a payload that writes cartridge save memory or the check placing a `.sav` beside the payload in the sandbox; then READY-FOR-DEVICE M1-07.

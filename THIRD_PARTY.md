@@ -732,3 +732,21 @@ LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
 OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 SUCH DAMAGE.
 ```
+
+## nds-hello
+
+- Project: https://github.com/Rad-Thad/galleon, `test/fixtures/homebrew/nds-hello/`
+- Licence: MIT, this repository's (see LICENSE). Built here, as ps2-hello is
+  (ADR 0008).
+- Fetched: `galleon-nds-hello.nds` at
+  cef92ca6c6d0c04729c873d9a8ba94c2a63707d1, as committed.
+- Linked into its program, with BlocksDS 1.13.1 (its core at 245a25c3):
+  - libnds, https://github.com/blocksds/libnds, zlib licence, for the ARM9
+    side and in BlocksDS's `arm7_minimal.elf` for the ARM7 side.
+  - BlocksDS's start-up code and linker scripts, `sys/crts` in
+    https://github.com/blocksds/sdk, under the zlib licence and the MPL-2.0;
+    their source form is at that address.
+  - picolibc, https://github.com/picolibc/picolibc, the BSD-style licences
+    listed in its `COPYING.picolibc`.
+  - libgcc, https://gcc.gnu.org/, GPL-3.0 with the GCC Runtime Library
+    Exception, which lets the program carry its own licence.
