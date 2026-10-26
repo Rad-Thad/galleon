@@ -1,5 +1,31 @@
 import { shared } from '../savepaths.ts'
-import type { EmulatorDescriptor } from '../types.ts'
+import type { EmulatorDescriptor, SandboxContext, SandboxRecipe } from '../types.ts'
+
+/**
+ * PPSSPP started in its sandbox.
+ *
+ * On Linux PPSSPP keeps its whole memory stick, settings, saves, states and
+ * caches included, in `ppsspp` under `XDG_CONFIG_HOME`, which the sandbox
+ * already points inside itself; nothing beside the program or under `HOME`
+ * outranks it (`NativeInit` in `UI/NativeApp.cpp`). A first start opens no
+ * window of its own before the game, so no settings file is written either.
+ *
+ * A flatpak is never started by the self-test, so only the program on PATH
+ * gets here.
+ */
+function sandboxRecipe(ctx: SandboxContext): SandboxRecipe | null {
+  if (ctx.installKind !== 'binary') return null
+  return {
+    args: [],
+    env: {},
+    unset: [],
+    needs: [],
+    strays: [],
+    bios: null,
+    needsBios: false,
+    files: []
+  }
+}
 
 /**
  * PPSSPP — the PlayStation Portable emulator, and what armadaOS's catalog
@@ -61,7 +87,7 @@ export const ppsspp: EmulatorDescriptor = {
   // `exec` alone opens PPSSPP's game browser.
   open: undefined,
   /**
-   * Fullscreen for this start only (PPSSPP keeps it out of its saved
+   * Fullscreen for this start only (PPSSPP keeps both flags out of its saved
    * settings), so its window does not open over RomMix's, and the
    * pause menu's "Exit to menu" made "Exit", so leaving the game ends the
    * process — which is how RomMix knows the game is over — instead of
@@ -69,5 +95,5 @@ export const ppsspp: EmulatorDescriptor = {
    * the ROM path is absolute, so it never begins with a dash.
    */
   launch: ({ exec, romPath }) => [...exec, '--fullscreen', '--pause-menu-exit', romPath],
-  sandbox: undefined
+  sandbox: sandboxRecipe
 }

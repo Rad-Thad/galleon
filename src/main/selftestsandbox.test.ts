@@ -923,6 +923,47 @@ describe("Dolphin's recipe", () => {
   })
 })
 
+describe("PPSSPP's recipe", () => {
+  const ppsspp = emulatorById('ppsspp')
+  assert.ok(ppsspp)
+  const binary: ResolvedInstall = { kind: 'binary', ref: '/usr/bin/PPSSPPSDL' }
+
+  function ppssppPlan(install: ResolvedInstall = binary) {
+    return planSandbox({
+      descriptor: ppsspp!,
+      install,
+      system: 'psp',
+      romPath: '/payload/hello.pbp',
+      home: HOME,
+      owner: OWNER,
+      realPath: (path) => path
+    })
+  }
+
+  test('keeps the memory stick in the sandbox, where XDG_CONFIG_HOME leads PPSSPP', () => {
+    const result = ppssppPlan()
+    assert.equal(result.kind, 'run')
+    if (result.kind !== 'run') return
+    assert.ok(result.env.XDG_CONFIG_HOME.startsWith(result.folders.root + '/'))
+    assert.deepEqual(result.argv, [
+      binary.ref,
+      '--fullscreen',
+      '--pause-menu-exit',
+      '/payload/hello.pbp'
+    ])
+    assert.deepEqual(result.files, [])
+    assert.equal(result.needsBios, false)
+  })
+
+  test('is not started as the flatpak', () => {
+    assert.deepEqual(ppssppPlan({ kind: 'flatpak', ref: 'org.ppsspp.PPSSPP' }), {
+      kind: 'skip',
+      reason: CANNOT_SANDBOX,
+      detail: 'flatpak-install'
+    })
+  })
+})
+
 describe('prepareSandbox', () => {
   function ready(home: string, recipe: SandboxRecipe = EMPTY) {
     const result = planSandbox({

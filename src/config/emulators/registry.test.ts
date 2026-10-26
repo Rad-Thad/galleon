@@ -1027,5 +1027,4 @@ test("PPSSPP's saves are its own config folder, and it keeps no state or BIOS fo
   assert.deepEqual(ppsspp.dirs.saves, { base: 'config', path: 'ppsspp/PSP/SAVEDATA' })
   assert.equal(ppsspp.dirs.states, undefined)
   assert.equal(ppsspp.dirs.bios, undefined)
-  assert.equal(ppsspp.sandbox, undefined)
 })
