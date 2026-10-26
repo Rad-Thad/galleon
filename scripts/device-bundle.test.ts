@@ -44,7 +44,8 @@ import {
   fakeArmadaPower,
   writtenPid,
   profileAskingApp,
-  runHarness
+  runHarness,
+  running
 } from './device-bundle-harness.ts'
 
 /**
@@ -1247,7 +1248,7 @@ describe('device-bundle', () => {
       env: { ...env, GALLEON_TEST_DIR: testDir }
     })
     assert.equal(run.status, 0, String(run.stderr))
-    assert.throws(() => process.kill(pid, 0))
+    assert.ok(!running(pid), `pid ${pid} still runs`)
     assert.equal(readFileSync(join(seen, 'stopped'), 'utf8'), 'muted\n')
     assert.equal(readFileSync(join(launched, 'exit'), 'utf8'), '0\n')
     assert.ok(!existsSync(join(session, 'muted')))

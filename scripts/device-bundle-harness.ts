@@ -373,3 +373,23 @@ export function answersOnceServer() {
       '    c, _ = s.accept(); time.sleep(2); c.close()\n'
   )
 }
+
+/**
+ * Whether a process still runs. A killed process stays in the table as a
+ * zombie until its parent reaps it, which on a busy machine can be after
+ * run.sh has returned, and `kill -0` cannot tell the two apart.
+ */
+export function running(pid: number): boolean {
+  try {
+    process.kill(pid, 0)
+  } catch {
+    return false
+  }
+  try {
+    // The state is the field after the command, which is in parentheses.
+    const stat = readFileSync(`/proc/${pid}/stat`, 'utf8')
+    return stat.slice(stat.lastIndexOf(')') + 2)[0] !== 'Z'
+  } catch {
+    return false
+  }
+}

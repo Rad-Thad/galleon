@@ -11,6 +11,7 @@ import {
   fakeSession,
   withShortcut,
   runHarness,
+  running,
   answersOnceServer
 } from './device-bundle-harness.ts'
 
@@ -58,7 +59,7 @@ describe('device-bundle: late starts and stops', () => {
     )
     assert.ok(!existsSync(join(seen, 'sound')), 'the app never ran with the sound on')
     const pid = Number(readFileSync(join(seen, 'pid'), 'utf8'))
-    assert.throws(() => process.kill(pid, 0))
+    assert.ok(!running(pid), `pid ${pid} still runs`)
   })
 
   test('a start Steam acts on after the run withdrew its request starts nothing', () => {
@@ -115,6 +116,6 @@ describe('device-bundle: late starts and stops', () => {
     assert.ok(summary.notes.includes('app: killed'), summary.notes.join('; '))
     assert.deepEqual([summary.status, summary.reason], ['partial', null])
     const pid = Number(readFileSync(join(testDir, 'home/launch/app.pid'), 'utf8'))
-    assert.throws(() => process.kill(pid, 0))
+    assert.ok(!running(pid), `pid ${pid} still runs`)
   })
 })
