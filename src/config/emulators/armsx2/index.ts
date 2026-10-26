@@ -150,5 +150,6 @@ export const armsx2: EmulatorDescriptor = {
     trackOf(romPath)
   ],
   sandbox: sandboxRecipe,
-  launchFiles: undefined
+  launchFiles: undefined,
+  settingsEdits: undefined
 }

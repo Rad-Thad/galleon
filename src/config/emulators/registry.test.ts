@@ -64,7 +64,8 @@ const FIELD_ORDER = [
   'open',
   'launch',
   'sandbox',
-  'launchFiles'
+  'launchFiles',
+  'settingsEdits'
 ] as const
 
 /**
@@ -1289,4 +1290,20 @@ test('melonDS keeps no save, state or BIOS folder of its own', () => {
   assert.equal(melonds.dirs.saves, undefined)
   assert.equal(melonds.dirs.states, undefined)
   assert.equal(melonds.dirs.bios, undefined)
+})
+
+test('only Dolphin edits its own settings so far, and only the one key', () => {
+  for (const descriptor of EMULATORS) {
+    if (descriptor.id !== 'dolphin')
+      assert.equal(descriptor.settingsEdits, undefined, descriptor.id)
+  }
+  assert.deepEqual(dolphin.settingsEdits?.({ system: 'gc' }), [
+    {
+      file: 'dolphin-emu/Dolphin.ini',
+      section: 'Core',
+      key: 'SlotA',
+      value: '8',
+      whenAbsent: 'leave'
+    }
+  ])
 })

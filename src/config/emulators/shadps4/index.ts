@@ -132,5 +132,6 @@ export const shadps4: EmulatorDescriptor = {
     return [...exec, '-f', 'true', game]
   },
   sandbox: sandboxRecipe,
-  launchFiles: undefined
+  launchFiles: undefined,
+  settingsEdits: undefined
 }

@@ -174,5 +174,6 @@ export const retrodeck: EmulatorDescriptor = {
   open: undefined,
   launch: ({ exec, system, romPath }) => [...exec, '-s', system, romPath],
   sandbox: undefined,
-  launchFiles: undefined
+  launchFiles: undefined,
+  settingsEdits: undefined
 }

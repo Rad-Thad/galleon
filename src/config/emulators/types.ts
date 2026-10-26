@@ -315,6 +315,27 @@ export interface LaunchContext {
   launcherDir: string
 }
 
+/**
+ * One key of an emulator's own settings file, set before a launch.
+ *
+ * For a setting a save needs that nothing on the command line can give for a
+ * single start, such as a memory card kept as a folder. Only that key's value
+ * changes, in the file the emulator already has: a fresh or partial settings
+ * file would bring back first-run dialogs the pad cannot answer (ADR 0005).
+ */
+export interface SettingsEdit {
+  /** The file, relative to the install's `configDir`. */
+  file: string
+  section: string
+  key: string
+  value: string
+  /**
+   * What a file without the key gets: `leave` when the emulator's own default
+   * is already the value, `add` when it is not.
+   */
+  whenAbsent: 'leave' | 'add'
+}
+
 /** A file RomMix writes into `LaunchContext.launcherDir` before a launch. */
 export interface LaunchFile {
   /** A plain file name, never a path. */
@@ -700,6 +721,14 @@ interface EmulatorFields {
    */
   readonly launchFiles:
     ((ctx: Pick<LaunchContext, 'system' | 'variant'>) => readonly LaunchFile[]) | undefined
+
+  /**
+   * Keys of the emulator's own settings that a launch needs, set in the file
+   * it already has before every launch. A file that is not there is left
+   * missing rather than started fresh.
+   */
+  readonly settingsEdits:
+    ((ctx: Pick<LaunchContext, 'system' | 'variant'>) => readonly SettingsEdit[]) | undefined
 }
 
 /**

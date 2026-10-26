@@ -108,5 +108,6 @@ export const melonds: EmulatorDescriptor = {
    */
   launch: ({ exec, romPath }) => [...exec, '-f', romPath],
   sandbox: sandboxRecipe,
-  launchFiles: undefined
+  launchFiles: undefined,
+  settingsEdits: undefined
 }

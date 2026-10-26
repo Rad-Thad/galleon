@@ -6,6 +6,7 @@ import { spawnEmulator } from './childenv.ts'
 import { installCore, missingCore } from './cores.ts'
 import { complaint, readExit, stageFor, type ExitReport } from './emulatorexit.ts'
 import { launcherDir, writeLaunchFiles } from './launchfiles.ts'
+import { applySettingsEdits, settingsBackups } from './settingsedits.ts'
 import {
   execPrefix,
   killFlatpakApp,
@@ -359,12 +360,18 @@ export class Launcher {
 
       if (session.stopped) return failure(t('launch.stoppedBeforeStart'), command)
 
-      // The files `launch` named, written before anything else is touched, so
-      // a launch that cannot have them fails before the saves have moved.
+      // The files `launch` named and the emulator's settings it needs, written
+      // before anything else is touched, so a launch that cannot have them
+      // fails before the saves have moved.
       try {
         await writeLaunchFiles(
           launcherDir(emulator.id),
           emulatorById(emulator.id)?.launchFiles?.({ system, variant }) ?? []
+        )
+        await applySettingsEdits(
+          emulator.configDir,
+          emulatorById(emulator.id)?.settingsEdits?.({ system, variant }) ?? [],
+          settingsBackups(emulator.id)
         )
       } catch (cause) {
         return failure((cause as Error).message, command)

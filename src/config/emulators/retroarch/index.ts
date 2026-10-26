@@ -281,5 +281,6 @@ export const retroarch: EmulatorDescriptor = {
     ]
   },
   sandbox: sandboxRecipe,
-  launchFiles: () => [{ name: LAUNCH_APPEND, content: LAUNCH_SETTINGS }]
+  launchFiles: () => [{ name: LAUNCH_APPEND, content: LAUNCH_SETTINGS }],
+  settingsEdits: undefined
 }

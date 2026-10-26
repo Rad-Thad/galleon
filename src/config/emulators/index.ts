@@ -233,6 +233,7 @@ export { coreLibraryName, readLibretroConfig } from './libretro.ts'
 export { baseName, dirName, joinPath } from './savepaths.ts'
 export { SAVE_CONVENTIONS } from './saves.ts'
 export { STATE_SYNC, statesSync } from './states.ts'
+export { editSetting } from './settingsedit.ts'
 
 export type {
   CoreContext,
@@ -255,7 +256,8 @@ export type {
   SandboxContext,
   SandboxFolders,
   SandboxRecipe,
-  SaveFileConventions
+  SaveFileConventions,
+  SettingsEdit
 } from './types.ts'
 
 export type {
