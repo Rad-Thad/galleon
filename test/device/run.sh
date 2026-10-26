@@ -350,6 +350,8 @@ START_WAIT_SECONDS=${GALLEON_START_WAIT_SECONDS:-60}
 STOP_WAIT_SECONDS=${GALLEON_STOP_WAIT_SECONDS:-30}
 LIBRARY_WAIT_SECONDS=${GALLEON_LIBRARY_WAIT_SECONDS:-60}
 READY_WAIT_SECONDS=${GALLEON_READY_WAIT_SECONDS:-30}
+# How often the waits below look again; tests look more often.
+POLL_SECONDS=${GALLEON_POLL_SECONDS:-1}
 launched="$GALLEON_HOME/launch"
 gameid=$(printf '%s' "$shortcut" | sed -n 's/.*"gameid": *\([0-9][0-9]*\).*/\1/p')
 started_by=
@@ -360,7 +362,7 @@ stopped=
 marked_by() {
   until [ -e "$launched/started" ]; do
     [ "$(date +%s)" -lt "$1" ] || return 1
-    sleep 1
+    sleep "$POLL_SECONDS"
   done
 }
 # A pid launch.sh wrote, digits only, so nothing else can be signalled.
@@ -388,7 +390,7 @@ gone_by() {
   until app_gone; do
     [ "$(date +%s)" -lt "$1" ] || return 1
     serve_profile
-    sleep 1
+    sleep "$POLL_SECONDS"
   done
 }
 # The owner may have picked the device up since the first check. Nothing has
