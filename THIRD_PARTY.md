@@ -750,3 +750,12 @@ SUCH DAMAGE.
     listed in its `COPYING.picolibc`.
   - libgcc, https://gcc.gnu.org/, GPL-3.0 with the GCC Runtime Library
     Exception, which lets the program carry its own licence.
+
+## snes-save
+
+- Project: https://github.com/Rad-Thad/galleon, `test/fixtures/homebrew/snes-save/`
+- Licence: MIT, this repository's (see LICENSE). Built here, as ps2-hello is
+  (ADR 0008).
+- Fetched: `galleon-snes-save.sfc` at
+  5422806bb28bdd8e0749d1efffdb11d7730337f2, as committed.
+- Nothing is linked into its program: `build.py` assembles it by hand.

@@ -225,9 +225,12 @@ set --
 for name in $profiles; do set -- "$@" --profile "$name"; done
 # Each emulator is started with the payload of a system it plays, once
 # that payload was copied: a cycle without one is only a skip.
-gba_payload='roms/gba/gba-tests hello.gba'
-if [ -n "$payloads_ok" ] && printf '%s\n' "$payload_list" | grep -qxF "$gba_payload"; then
-  set -- "$@" --payload "retroarch=$gba_payload" --check launch.retroarch --check exit.retroarch
+# RetroArch's SNES cartridge writes its battery SRAM, so its exit must leave a
+# changed save folder.
+snes_payload='roms/snes/galleon-snes-save.sfc'
+if [ -n "$payloads_ok" ] && printf '%s\n' "$payload_list" | grep -qxF "$snes_payload"; then
+  set -- "$@" --payload "retroarch=$snes_payload" --saving retroarch \
+    --check launch.retroarch --check exit.retroarch
 fi
 ps2_payload='roms/ps2/galleon-ps2-hello.iso'
 if [ -n "$payloads_ok" ] && printf '%s\n' "$payload_list" | grep -qxF "$ps2_payload"; then

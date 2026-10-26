@@ -970,12 +970,12 @@ describe('device-bundle', () => {
   test('run.sh copies the payloads into the test home, names each emulator its own, and empties the ROM folder', () => {
     const { from, manifest, entries } = fetchedPayloads([
       'roms/gba/gba-tests hello.gba',
+      'roms/snes/galleon-snes-save.sfc',
       'roms/ps2/galleon-ps2-hello.iso',
       'roms/gc/galleon-gc-hello.dol',
       'roms/psp/galleon-psp-hello.pbp',
       'roms/dreamcast/galleon-dc-hello.elf',
-      'roms/nds/galleon-nds-hello.nds',
-      'roms/snes/two.sfc'
+      'roms/nds/galleon-nds-hello.nds'
     ])
     const out = mkdtempSync(join(tmpdir(), 'bundle-out-'))
     writeBundle({ root: ROOT, out, sha: SHA, builtAt: BUILT_AT, payloads: from, manifest })
@@ -986,7 +986,7 @@ describe('device-bundle', () => {
     assert.equal(run.status, 0, run.stderr)
     const request = JSON.parse(readFileSync(join(seen, 'request.json'), 'utf8'))
     assert.deepEqual(request.payloads, {
-      retroarch: 'roms/gba/gba-tests hello.gba',
+      retroarch: 'roms/snes/galleon-snes-save.sfc',
       armsx2: 'roms/ps2/galleon-ps2-hello.iso',
       dolphin: 'roms/gc/galleon-gc-hello.dol',
       ppsspp: 'roms/psp/galleon-psp-hello.pbp',
@@ -1009,7 +1009,8 @@ describe('device-bundle', () => {
     ]) {
       assert.ok(request.checks.includes(id), id)
     }
-    assert.deepEqual(request.savingPayloads, [])
+    // Only RetroArch's cartridge writes a save of its own.
+    assert.deepEqual(request.savingPayloads, ['retroarch'])
     // While the app ran, every payload was in its ROM folder as pinned.
     const held = JSON.parse(readFileSync(join(seen, 'roms.json'), 'utf8'))
     assert.deepEqual(held, Object.fromEntries(entries.map((entry) => [entry.path, entry.sha256])))

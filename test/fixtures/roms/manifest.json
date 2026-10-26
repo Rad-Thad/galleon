@@ -55,6 +55,14 @@
       "bytes": 66560,
       "licence": "MIT",
       "attribution": "galleon-nds-hello by the Galleon contributors, https://github.com/Rad-Thad/galleon. Built with BlocksDS: libnds (zlib), its start-up code and linker scripts (zlib and MPL-2.0, source at https://github.com/blocksds/sdk), picolibc (BSD-style) and libgcc (GPL-3.0 with the GCC Runtime Library Exception)."
+    },
+    {
+      "path": "roms/snes/galleon-snes-save.sfc",
+      "url": "https://raw.githubusercontent.com/Rad-Thad/galleon/5422806bb28bdd8e0749d1efffdb11d7730337f2/test/fixtures/homebrew/snes-save/galleon-snes-save.sfc",
+      "sha256": "45420c79e55b1764e5ed389e8364554d4b137bc6a89e22dc44eedcdb67ef998e",
+      "bytes": 131072,
+      "licence": "MIT",
+      "attribution": "galleon-snes-save by the Galleon contributors, https://github.com/Rad-Thad/galleon. Assembled by hand in its build.py; nothing else is linked in."
     }
   ]
 }
