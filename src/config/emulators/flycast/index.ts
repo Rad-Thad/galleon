@@ -4,9 +4,9 @@ import type { EmulatorDescriptor, SandboxContext, SandboxRecipe } from '../types
 /**
  * Flycast started in its sandbox.
  *
- * On Linux Flycast writes everything, `emu.cfg`, VMUs, flash and states, in
- * `flycast` under `XDG_CONFIG_HOME` and `XDG_DATA_HOME`, which the sandbox
- * points inside itself (`find_user_config_dir` and `find_user_data_dir` in
+ * On Linux Flycast saves `emu.cfg`, VMUs, flash and states in `flycast`
+ * under `XDG_CONFIG_HOME` and `XDG_DATA_HOME`, which the sandbox points
+ * inside itself (`find_user_config_dir` and `find_user_data_dir` in
  * `core/linux-dist/main.cpp`). It also reads from folders beyond them:
  *
  *  - `emu.cfg` is read from the first config folder that has one, and the
@@ -15,8 +15,15 @@ import type { EmulatorDescriptor, SandboxContext, SandboxRecipe } from '../types
  *    outranks any whose save or VMU paths lead out of the sandbox
  *    (`get_readonly_config_path` in `core/stdclass.cpp`). It sets the window
  *    fullscreen, which Flycast writes back only into that same file.
- *  - `FLYCAST_BIOS_PATH` adds a BIOS folder, so it is removed and only the
- *    sandbox's copies of the owner's files are found, where Flycast looks
+ *  - A VMU missing from the data folder is looked for in the data and config
+ *    folders `XDG_DATA_DIRS` and `XDG_CONFIG_DIRS` name, and one found there
+ *    is moved into the data folder and the original deleted (`getVmuPath` in
+ *    `core/oslib/oslib.cpp`, `maple_sega_vmu` in `core/hw/maple/maple_devs.cpp`).
+ *    Both are removed, so only the XDG defaults are left, which the owner
+ *    cannot write to, and a session's own folders, such as flatpak's exports
+ *    under `HOME`, are never searched.
+ *  - `FLYCAST_BIOS_PATH` adds a BIOS folder, so it is removed too, and the
+ *    sandbox's copies of the owner's files are found where Flycast looks
  *    first: its data folder.
  *
  * Without `dc_boot.bin` Flycast boots the game through its HLE BIOS, and a
@@ -31,7 +38,7 @@ function sandboxRecipe(ctx: SandboxContext): SandboxRecipe | null {
   return {
     args: [],
     env: {},
-    unset: ['FLYCAST_BIOS_PATH'],
+    unset: ['XDG_DATA_DIRS', 'XDG_CONFIG_DIRS', 'FLYCAST_BIOS_PATH'],
     needs: [],
     strays: [],
     bios: 'data/flycast',

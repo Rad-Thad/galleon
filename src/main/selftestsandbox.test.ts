@@ -999,8 +999,24 @@ describe("Flycast's recipe", () => {
     assert.equal(result.kind, 'run')
     if (result.kind !== 'run') return
     assert.equal(result.bios, join(result.env.XDG_DATA_HOME, 'flycast'))
-    assert.deepEqual(result.unset, ['FLYCAST_BIOS_PATH'])
+    assert.ok(result.unset.includes('FLYCAST_BIOS_PATH'))
     assert.equal(result.needsBios, false)
+  })
+
+  test('searches no inherited data or config folder, where a VMU found would be moved away', () => {
+    const result = flycastPlan()
+    assert.equal(result.kind, 'run')
+    if (result.kind !== 'run') return
+    const env = sandboxEnvironment(result, {
+      PATH: '/usr/bin',
+      XDG_DATA_DIRS: '/home/owner/.local/share/flatpak/exports/share:/usr/share',
+      XDG_CONFIG_DIRS: '/home/owner/.config/xdg:/etc/xdg',
+      FLYCAST_BIOS_PATH: '/home/owner/bios'
+    })
+    assert.equal(env.XDG_DATA_DIRS, undefined)
+    assert.equal(env.XDG_CONFIG_DIRS, undefined)
+    assert.equal(env.FLYCAST_BIOS_PATH, undefined)
+    assert.equal(env.XDG_DATA_HOME, result.folders.data)
   })
 
   test('is not started as the flatpak', () => {
