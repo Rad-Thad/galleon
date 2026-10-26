@@ -2066,3 +2066,45 @@ describe('settling a conflict the way the player said to', () => {
     assert.deepEqual(confirmed, [])
   })
 })
+
+describe('saves kept beside the ROM', () => {
+  /** The fixture's game run in melonDS, whose save is the ROM's own neighbour. */
+  function inMelonDs(target: SaveTarget, romDir: string): SaveTarget {
+    return {
+      ...target,
+      emulator: { ...target.emulator, id: 'melonds', name: 'melonDS' },
+      system: 'nds',
+      romPath: join(romDir, 'Sonic the Hedgehog (USA).nds')
+    }
+  }
+
+  test('a push finds the save beside the ROM, and not the ROM or its states', async () => {
+    const { sync, target } = setUp()
+    const romDir = join(target.romPath, '..')
+    const melon = inMelonDs(target, romDir)
+    writeFileSync(melon.romPath, 'the game')
+    writeFileSync(join(romDir, 'Sonic the Hedgehog (USA).sav'), 'played')
+    writeFileSync(join(romDir, 'Sonic the Hedgehog (USA).ml1'), 'a state')
+    writeFileSync(join(romDir, 'Another Game (USA).sav'), 'not this one')
+
+    const preview = await sync.previewPush(melon)
+
+    assert.deepEqual(
+      preview.files.map((file) => file.fileName),
+      ['Sonic the Hedgehog (USA).sav']
+    )
+  })
+
+  test('a pull writes the save beside the ROM, where melonDS opens it', async () => {
+    const { sync, target } = setUp({
+      saves: [save({ file_name: 'Sonic the Hedgehog (USA).sav', emulator: 'melonds' })]
+    })
+    const romDir = join(target.romPath, '..')
+    const melon = inMelonDs(target, romDir)
+    writeFileSync(melon.romPath, 'the game')
+
+    await sync.pull(melon)
+
+    assert.equal(readFileSync(join(romDir, 'Sonic the Hedgehog (USA).sav'), 'utf8'), REMOTE_BYTES)
+  })
+})

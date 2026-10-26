@@ -6,6 +6,7 @@ import { duckstation } from './duckstation/index.ts'
 import { eden } from './eden/index.ts'
 import { emudeck, EMUDECK_LAUNCHERS } from './emudeck/index.ts'
 import { flycast } from './flycast/index.ts'
+import { melonds } from './melonds/index.ts'
 import { ppsspp } from './ppsspp/index.ts'
 import {
   emuDeckSaveFolder,
@@ -1461,6 +1462,16 @@ test("Flycast's shared VMUs are not synced, and the Saves tab is told why", () =
     const said = localize('saves.flycastStandalone', createI18n(language))
     assert.ok(said?.includes('Flycast'), language)
   }
+})
+
+test("melonDS's saves are looked for beside the ROM, named after it", () => {
+  const paths = resolve(melonds, {
+    romPath: '/sd/Emulation/roms/nds/Game (USA).nds',
+    system: 'nds'
+  })
+  assert.deepEqual(paths.saves, { dir: '/sd/Emulation/roms/nds', match: 'rom-stem' })
+  assert.equal(paths.states, null)
+  assert.equal(paths.unsyncableReason, undefined)
 })
 
 test("ARMSX2's shared memory card is not synced, and the Saves tab is told why", () => {

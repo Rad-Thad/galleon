@@ -4,6 +4,7 @@ import { duckstation } from './duckstation/index.ts'
 import { eden } from './eden/index.ts'
 import { emudeck } from './emudeck/index.ts'
 import { flycast } from './flycast/index.ts'
+import { melonds } from './melonds/index.ts'
 import { ppsspp } from './ppsspp/index.ts'
 import { retroarch } from './retroarch/index.ts'
 import { retrodeck } from './retrodeck/index.ts'
@@ -36,7 +37,8 @@ export const EMULATORS: readonly EmulatorDescriptor[] = [
   armsx2,
   dolphin,
   ppsspp,
-  flycast
+  flycast,
+  melonds
 ]
 
 /**

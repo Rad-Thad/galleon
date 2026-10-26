@@ -28,6 +28,7 @@ import { duckstation } from './duckstation/index.ts'
 import { eden } from './eden/index.ts'
 import { emudeck, ROM_PLACEHOLDER } from './emudeck/index.ts'
 import { flycast } from './flycast/index.ts'
+import { melonds } from './melonds/index.ts'
 import { ppsspp } from './ppsspp/index.ts'
 import { retroarch } from './retroarch/index.ts'
 import { retrodeck } from './retrodeck/index.ts'
@@ -1062,4 +1063,75 @@ test("Flycast's VMUs and BIOS are its own data folder, and it keeps no state fol
   assert.deepEqual(flycast.dirs.saves, { base: 'data', path: 'flycast' })
   assert.deepEqual(flycast.dirs.bios, { base: 'data', path: 'flycast' })
   assert.equal(flycast.dirs.states, undefined)
+})
+
+test('melonDS is found as the catalog AppImage first, then on PATH', async () => {
+  assert.deepEqual(
+    melonds.install.map((spec) => spec.kind),
+    ['appimage', 'binary']
+  )
+  const appimage = melonds.install.find((spec) => spec.kind === 'appimage')
+  assert.ok(appimage?.kind === 'appimage')
+  const dir = mkdtempSync(join(tmpdir(), 'melonds-'))
+  writeFileSync(join(dir, 'notes.txt'), '')
+  assert.equal(await findMatchingFile(dir, appimage.patterns), null)
+  writeFileSync(join(dir, 'melonDS.AppImage'), '')
+  assert.equal(await findMatchingFile(dir, appimage.patterns), join(dir, 'melonDS.AppImage'))
+})
+
+test("ES-DE's find rules resolve melonDS from the catalog's AppImage in a fake home", async () => {
+  const { rules, unreadable } = await loadFindRules(
+    join(import.meta.dirname, '..', '..', '..', 'packaging', 'es-de', 'linuxarm'),
+    join(tmpdir(), 'galleon-no-custom-systems')
+  )
+  assert.deepEqual(unreadable, [])
+  const home = mkdtempSync(join(tmpdir(), 'melonds-home-'))
+  // An empty PATH, so a melonDS the test machine happens to have is not what is found.
+  const ctx = { home, pathVariable: '' }
+  assert.equal(await findEmulator(rules, 'MELONDS', ctx), null)
+
+  mkdirSync(join(home, 'Applications'))
+  writeFileSync(join(home, 'Applications', 'melonDS.AppImage'), '')
+  assert.deepEqual(await findEmulator(rules, 'MELONDS', ctx), {
+    emulator: 'MELONDS',
+    source: 'bundled',
+    type: 'staticpath',
+    entry: '~/Applications/melonDS*.AppImage',
+    path: join(home, 'Applications', 'melonDS.AppImage')
+  })
+})
+
+test("melonDS downloads only the catalog fork's AppImages", () => {
+  const source = releaseSource(melonds)
+  assert.ok(source)
+  assert.match(source.api, /\/virtudude\/melonDS\//)
+  assert.equal(isInstallableAsset('melonDS-aarch64.AppImage', source), true)
+  for (const name of [
+    'melonDS-aarch64.AppImage.zsync',
+    'melonDS-1.0-appimage-x86_64.zip',
+    'melonDS-1.0-macOS-universal.zip'
+  ]) {
+    assert.equal(isInstallableAsset(name, source), false, name)
+  }
+})
+
+test('melonDS runs Nintendo DS games only', () => {
+  assert.equal(supportsSystem(melonds, 'nds'), true)
+  assert.equal(supportsSystem(melonds, 'gba'), false)
+})
+
+test('melonDS boots a .nds full screen', () => {
+  const exec = ['/home/u/Applications/melonDS.AppImage']
+  const romPath = '/roms/nds/Game (USA).nds'
+  assert.deepEqual(melonds.launch({ exec, installRef: exec[0], system: 'nds', romPath }), [
+    ...exec,
+    '-f',
+    romPath
+  ])
+})
+
+test('melonDS keeps no save, state or BIOS folder of its own', () => {
+  assert.equal(melonds.dirs.saves, undefined)
+  assert.equal(melonds.dirs.states, undefined)
+  assert.equal(melonds.dirs.bios, undefined)
 })
