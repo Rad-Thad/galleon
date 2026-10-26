@@ -3001,3 +3001,15 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet.
 - Next: M1-04 part 3b: the manifest entry at this PR's merge commit (`roms/gc/…`), its THIRD_PARTY.md notice, and run.sh asking for `launch.dolphin`/`exit.dolphin` with it; then READY-FOR-DEVICE M1-04, noting that on the Nova it skips as `cannot-sandbox` while Dolphin is the flatpak.
+
+## 2026-10-26 01:34 UTC session 016MNpC8BmKqhA6XiCP8yYYk (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. #281 (the GameCube `.dol`) merged at 2faac06; CI x64 9:44, arm64 1:06.
+- Worked on: M1-04 part 3b, the last part (tracking issue #278).
+- Result: PR (this one). `test/fixtures/roms/manifest.json` pins `roms/gc/galleon-gc-hello.dol` by its raw URL at 2faac06 with its hash and size (ADR 0008); THIRD_PARTY.md's test payloads part has its `gc-hello` notice, naming what is linked in; run.sh names Dolphin that payload and asks for `launch.dolphin` and `exit.dolphin` whenever it was copied, as for ARMSX2's disc. docs/TESTING.md says so, and that both checks skip as `cannot-sandbox` while Dolphin is the flatpak.
+- Evidence: device-bundle.test.ts "run.sh copies the payloads into the test home, names each emulator its own, and empties the ROM folder" failed before the run.sh change and passes now (file 63/63); `node scripts/agent/fetch-fixtures.mjs` fetched the `.dol` at the pinned URL, hash as pinned. `scripts/agent/check.sh` green; `python3 -B -m unittest discover -s test/device` 188 OK. `test:app` not run: no renderer, IPC or launch code changed.
+- Evaluator: PASS (pinned URL fetched and hashed, `gc` folder resolves to Dolphin, the `cannot-sandbox` skip matches `planSandbox`).
+- CI: the first x64 run failed `pr-body`, because the PR body had no `Feature:` line.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: READY-FOR-DEVICE M1-04. On the Nova `launch.dolphin` and `exit.dolphin` skip as `cannot-sandbox` while Dolphin is armadaOS's flatpak; a device pass needs the parked flatpak sandbox (#155).
+- Next: `node scripts/agent/next.mjs`.

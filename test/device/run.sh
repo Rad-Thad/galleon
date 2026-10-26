@@ -233,6 +233,10 @@ ps2_payload='roms/ps2/galleon-ps2-hello.iso'
 if [ -n "$payloads_ok" ] && printf '%s\n' "$payload_list" | grep -qxF "$ps2_payload"; then
   set -- "$@" --payload "armsx2=$ps2_payload" --check launch.armsx2 --check exit.armsx2
 fi
+gc_payload='roms/gc/galleon-gc-hello.dol'
+if [ -n "$payloads_ok" ] && printf '%s\n' "$payload_list" | grep -qxF "$gc_payload"; then
+  set -- "$@" --payload "dolphin=$gc_payload" --check launch.dolphin --check exit.dolphin
+fi
 app_budget=$((deadline - $(date +%s) - STOP_RESERVE_SECONDS))
 selftest_ok=
 if [ -n "$home_ok" ] && rm -rf -- "$app_results" "$handshake" &&

@@ -23,6 +23,14 @@
       "bytes": 532480,
       "licence": "MIT",
       "attribution": "galleon-ps2-hello by the Galleon contributors, https://github.com/Rad-Thad/galleon. Built with ps2sdk (AFL-2.0), newlib (BSD-style) and libgcc (GPL-3.0 with the GCC Runtime Library Exception)."
+    },
+    {
+      "path": "roms/gc/galleon-gc-hello.dol",
+      "url": "https://raw.githubusercontent.com/Rad-Thad/galleon/2faac06b4c755fe52f33d09050f45848b3f39d0c/test/fixtures/homebrew/gc-hello/galleon-gc-hello.dol",
+      "sha256": "030ca8b7f60442fd02198f5fdaf08c1ef6a4be06c19648d9cd7f25f2b0744991",
+      "bytes": 96512,
+      "licence": "MIT",
+      "attribution": "galleon-gc-hello by the Galleon contributors, https://github.com/Rad-Thad/galleon. Built with libogc (zlib, parts BSD), newlib (BSD-style) and libgcc (GPL-3.0 with the GCC Runtime Library Exception)."
     }
   ]
 }
