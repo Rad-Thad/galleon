@@ -3241,3 +3241,14 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none.
 - Next: M2-08 part 2b-2b-2, Flycast's per-game VMU in its `emu.cfg`; then part 2b-2b-3, ARMSX2's folder card (which needs a folder card to name, so read SPEC.md's PS2 rows first). Then M2-08 can pass.
+
+## 2026-10-26 22:26 UTC session 01Wd7QyAHPqDKsvf88chu9UF (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. #306 (M2-08 part 2b-2b-1) merged at f063715; CI x64 10:09, arm64 1:00 (over the target, #307).
+- Worked on: #307, the x64 pull-request leg over the 10-minute budget.
+- Result: PR (this one). In #306's x64 leg, `test:coverage` took 118 s and 114 s of it was `scripts/device-bundle.test.ts` alone: one file runs its tests one after another, and most run.sh tests waited a whole second at least twice because run.sh's start and stop waits poll once a second. run.sh's poll interval is now `GALLEON_POLL_SECONDS` (default unchanged, so the Nova polls as before; tests poll more often, as they already shorten the waits). The four tests that wait out one of run.sh's own timeouts (late start, withdrawn start, past-budget stop, kill) move to `scripts/device-bundle-stops.test.ts`, with the shared fakes in `scripts/device-bundle-harness.ts`, so the runner runs the two files side by side. No test changed or dropped: 63 tests before and after.
+- Evidence: the device-bundle tests took 117 s on the VM before; 86 s with the poll alone; 50 s for both files together after the split (63/63). `scripts/agent/check.sh` green in 1:33 (3:18 in the previous entry). `npm run test:app` (292 s of the leg, the rest) is untouched here.
+- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none; run.sh's behaviour on the Nova is unchanged.
+- Next: if the x64 leg is still near 10 minutes, `test:app` (perf overlay 76 s, two 33 s grid.scroll runs); otherwise M2-08 part 2b-2b-2, Flycast's per-game VMU.
