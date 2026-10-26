@@ -39,6 +39,14 @@
       "bytes": 129920,
       "licence": "MIT",
       "attribution": "galleon-psp-hello by the Galleon contributors, https://github.com/Rad-Thad/galleon. Built with PSPSDK (BSD), newlib (BSD-style), pthread-embedded (LGPL-2.1, its PSP port MIT) and libgcc (GPL-3.0 with the GCC Runtime Library Exception)."
+    },
+    {
+      "path": "roms/dreamcast/galleon-dc-hello.elf",
+      "url": "https://raw.githubusercontent.com/Rad-Thad/galleon/c587cafa550c4bfe51d42e8d93dd6e8cecfd3e9f/test/fixtures/homebrew/dc-hello/galleon-dc-hello.elf",
+      "sha256": "6d8f7f4a235390b7870be604f6dd3f2ae3a23bddb1041201e965d76cebccee75",
+      "bytes": 201140,
+      "licence": "MIT",
+      "attribution": "galleon-dc-hello by the Galleon contributors, https://github.com/Rad-Thad/galleon. Built with KallistiOS (the KOS License, BSD-3-Clause), newlib (BSD-style) and libgcc (GPL-3.0 with the GCC Runtime Library Exception)."
     }
   ]
 }

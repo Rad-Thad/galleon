@@ -973,6 +973,7 @@ describe('device-bundle', () => {
       'roms/ps2/galleon-ps2-hello.iso',
       'roms/gc/galleon-gc-hello.dol',
       'roms/psp/galleon-psp-hello.pbp',
+      'roms/dreamcast/galleon-dc-hello.elf',
       'roms/snes/two.sfc'
     ])
     const out = mkdtempSync(join(tmpdir(), 'bundle-out-'))
@@ -987,7 +988,8 @@ describe('device-bundle', () => {
       retroarch: 'roms/gba/gba-tests hello.gba',
       armsx2: 'roms/ps2/galleon-ps2-hello.iso',
       dolphin: 'roms/gc/galleon-gc-hello.dol',
-      ppsspp: 'roms/psp/galleon-psp-hello.pbp'
+      ppsspp: 'roms/psp/galleon-psp-hello.pbp',
+      flycast: 'roms/dreamcast/galleon-dc-hello.elf'
     })
     for (const id of [
       'launch.retroarch',
@@ -997,7 +999,9 @@ describe('device-bundle', () => {
       'launch.dolphin',
       'exit.dolphin',
       'launch.ppsspp',
-      'exit.ppsspp'
+      'exit.ppsspp',
+      'launch.flycast',
+      'exit.flycast'
     ]) {
       assert.ok(request.checks.includes(id), id)
     }
