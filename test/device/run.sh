@@ -245,6 +245,10 @@ dc_payload='roms/dreamcast/galleon-dc-hello.elf'
 if [ -n "$payloads_ok" ] && printf '%s\n' "$payload_list" | grep -qxF "$dc_payload"; then
   set -- "$@" --payload "flycast=$dc_payload" --check launch.flycast --check exit.flycast
 fi
+nds_payload='roms/nds/galleon-nds-hello.nds'
+if [ -n "$payloads_ok" ] && printf '%s\n' "$payload_list" | grep -qxF "$nds_payload"; then
+  set -- "$@" --payload "melonds=$nds_payload" --check launch.melonds --check exit.melonds
+fi
 app_budget=$((deadline - $(date +%s) - STOP_RESERVE_SECONDS))
 selftest_ok=
 if [ -n "$home_ok" ] && rm -rf -- "$app_results" "$handshake" &&
