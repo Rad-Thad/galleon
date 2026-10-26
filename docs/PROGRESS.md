@@ -3174,7 +3174,7 @@ Lines the tooling reads (exact forms):
 - Device / acceptance: none yet.
 - Next: M1-08 part 2, the launcher-owned appended config (`--appendconfig` from the launcher's home with `quit_on_close_content = "2"`, a snapshot test, `retroarch.cfg` never edited); then the flatpak core folder, and `launch.retroarch` on a SNES homebrew leaving an `.srm`.
 
-## 2026-10-26 17:24 UTC session 01NRpKWyAncrau2YBP689x5h (hourly heartbeat, second unit)
+## 2026-10-26 16:55 UTC session 01NRpKWyAncrau2YBP689x5h (hourly heartbeat, second unit)
 
 - Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. #300 (M1-08 part 1) merged at 83518ab; CI x64 9:09, arm64 1:04.
 - Worked on: M1-08 part 2, the launcher-owned appended config (tracking issue #299).
