@@ -3040,9 +3040,9 @@ Lines the tooling reads (exact forms):
 
 - Device results: none new since 1ac4cb4. #285 (PPSSPP's sandbox recipe) merged at 6cf2694; CI x64 8:43, arm64 1:09.
 - Worked on: M1-05 part 3a, the PSP payload of `launch.ppsspp` (tracking issue #283).
-- Result: PR (this one). `test/fixtures/homebrew/psp-hello/`: `main.c` draws one line with PSPSDK's debug screen and waits on vertical blank; `build.sh` builds it with PSPSDK's own `build.mak` in `pspdev/pspdev` pinned by digest and writes `galleon-psp-hello.pbp` (an EBOOT.PBP), committed beside its source (ADR 0008). README names what is linked in (PSPSDK BSD, newlib, libgcc with the runtime exception).
+- Result: PR (this one). `test/fixtures/homebrew/psp-hello/`: `main.c` draws one line with PSPSDK's debug screen and waits on vertical blank; `build.sh` builds it with PSPSDK's own `build.mak` in `pspdev/pspdev` pinned by digest and writes `galleon-psp-hello.pbp` (an EBOOT.PBP), committed beside its source (ADR 0008). README names what the compiler links in (PSPSDK BSD, newlib, pthread-embedded LGPL-2.1 with its MIT PSP port, libgcc with the runtime exception) and how the LGPL's relinking condition is met (the source, build script and pinned image).
 - Evidence: two builds give sha256 `6dc85e791811cf4cb38b2a2cfa218bcef3c849dc2ef827c1ff09f6ca73e7d97c` (129920 bytes); the module name and the text are in it. `scripts/agent/check.sh` green. Not booted on the VM (no PPSSPP here).
-- Evaluator: see the PR.
+- Evaluator: FAIL first, because the README left out pthread-embedded (LGPL-2.1), which psp-gcc's default link line adds to every program; then see the PR.
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet.
-- Next: M1-05 part 3b: the manifest entry at this PR's merge commit (`roms/psp/…`), its THIRD_PARTY.md notice, and run.sh asking for `launch.ppsspp`/`exit.ppsspp` with it; then READY-FOR-DEVICE M1-05, noting that on the Nova it skips as `cannot-sandbox` while PPSSPP is the flatpak.
+- Next: M1-05 part 3b: the manifest entry at this PR's merge commit (`roms/psp/…`), its THIRD_PARTY.md notice (pthread-embedded's LGPL included), and run.sh asking for `launch.ppsspp`/`exit.ppsspp` with it; then READY-FOR-DEVICE M1-05, noting that on the Nova it skips as `cannot-sandbox` while PPSSPP is the flatpak.
