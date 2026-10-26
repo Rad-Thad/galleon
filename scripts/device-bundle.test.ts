@@ -972,6 +972,7 @@ describe('device-bundle', () => {
       'roms/gba/gba-tests hello.gba',
       'roms/ps2/galleon-ps2-hello.iso',
       'roms/gc/galleon-gc-hello.dol',
+      'roms/psp/galleon-psp-hello.pbp',
       'roms/snes/two.sfc'
     ])
     const out = mkdtempSync(join(tmpdir(), 'bundle-out-'))
@@ -985,7 +986,8 @@ describe('device-bundle', () => {
     assert.deepEqual(request.payloads, {
       retroarch: 'roms/gba/gba-tests hello.gba',
       armsx2: 'roms/ps2/galleon-ps2-hello.iso',
-      dolphin: 'roms/gc/galleon-gc-hello.dol'
+      dolphin: 'roms/gc/galleon-gc-hello.dol',
+      ppsspp: 'roms/psp/galleon-psp-hello.pbp'
     })
     for (const id of [
       'launch.retroarch',
@@ -993,7 +995,9 @@ describe('device-bundle', () => {
       'launch.armsx2',
       'exit.armsx2',
       'launch.dolphin',
-      'exit.dolphin'
+      'exit.dolphin',
+      'launch.ppsspp',
+      'exit.ppsspp'
     ]) {
       assert.ok(request.checks.includes(id), id)
     }

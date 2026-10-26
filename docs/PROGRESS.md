@@ -3046,3 +3046,14 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet.
 - Next: M1-05 part 3b: the manifest entry at this PR's merge commit (`roms/psp/…`), its THIRD_PARTY.md notice (pthread-embedded's LGPL included), and run.sh asking for `launch.ppsspp`/`exit.ppsspp` with it; then READY-FOR-DEVICE M1-05, noting that on the Nova it skips as `cannot-sandbox` while PPSSPP is the flatpak.
+
+## 2026-10-26 03:27 UTC session 01YUwCCa7k17hSPfHmcwyWof (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. #286 (the PSP `EBOOT.PBP`) merged at aa67b95; CI x64 10:36, arm64 1:10; `ci-times.mjs` median x64 9:39, arm64 1:09, under the target.
+- Worked on: M1-05 part 3b, the last part (tracking issue #283).
+- Result: PR (this one). `test/fixtures/roms/manifest.json` pins `roms/psp/galleon-psp-hello.pbp` by its raw URL at aa67b95 with its hash and size (ADR 0008). THIRD_PARTY.md's test payloads part has its `psp-hello` notice: PSPSDK, newlib, pthread-embedded and libgcc, how pthread-embedded's relinking condition is met, and the LGPL-2.1 text, which travels in the bundle beside the payload. run.sh names PPSSPP that payload and asks for `launch.ppsspp` and `exit.ppsspp` whenever it was copied, as for Dolphin's `.dol`. docs/TESTING.md says so, and that both checks skip as `cannot-sandbox` while PPSSPP is the flatpak.
+- Evidence: device-bundle.test.ts "run.sh copies the payloads into the test home, names each emulator its own, and empties the ROM folder" failed before the run.sh change and passes now (file 63/63); `node scripts/agent/fetch-fixtures.mjs` fetched the `.pbp` at the pinned URL, hash as pinned; `payloadNotices` keeps the LGPL text whole. `scripts/agent/check.sh` green; `python3 -B -m unittest discover -s test/device` 188 OK. `test:app` not run: no renderer, IPC or launch code changed.
+- Evaluator: FAIL first: the notice met the LGPL's relinking condition but offered no source of pthread-embedded at the version linked, and called a Vita port's MIT file the PSP port's. Now the notice and README name the commit the pinned image builds (97fe4ce, from its `build.txt`), `test/fixtures/homebrew/psp-hello/pthread-embedded-97fe4ce.tar.gz` (`git archive` of it, `gzip -n`, two runs same sha256 `8a0055ca…`) is offered beside the program, and the MIT claim is gone; then see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: READY-FOR-DEVICE M1-05. On the Nova `launch.ppsspp` and `exit.ppsspp` skip as `cannot-sandbox` while PPSSPP is armadaOS's flatpak; a device pass needs the parked flatpak sandbox (#155).
+- Next: `node scripts/agent/next.mjs`.
