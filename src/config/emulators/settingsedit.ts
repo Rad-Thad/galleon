@@ -8,8 +8,9 @@ const HEADER = /^\s*\[([^\]]*)\]\s*$/
  *
  * Every other line comes back as it was, comments, blank lines and line ends
  * included, so the file differs from the emulator's own only in that value.
- * Sections and keys match without regard to case, as the INI readers of the
- * emulators this serves do (Dolphin's `IniFile`, PCSX2's `SettingsInterface`).
+ * Sections and keys match without regard to case, as the INI readers of
+ * Dolphin (`IniFile`) and PCSX2 (`SettingsInterface`) do; Flycast's reader
+ * keeps case, but it only ever writes its own spelling.
  * Only the first matching key of the first matching section is read, the one
  * those readers take.
  */
