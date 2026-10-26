@@ -47,6 +47,14 @@ function sandboxRecipe(ctx: SandboxContext): SandboxRecipe | null {
   }
 }
 
+/** One VMU per game in port A1; see `flycast.settingsEdits`. */
+const FLYCAST_PER_GAME_VMU = {
+  section: 'config',
+  key: 'PerGameVmu',
+  value: 'yes',
+  whenAbsent: 'leave'
+} as const
+
 /**
  * Flycast — the Dreamcast emulator, and what armadaOS's catalog installs for
  * it, from Flathub.
@@ -58,9 +66,10 @@ function sandboxRecipe(ctx: SandboxContext): SandboxRecipe | null {
  *    BIOS. It reads and writes the flash there as `dc_nvmem.bin`, so a
  *    `dc_flash.bin` (the libretro core's name) placed beside it is kept but
  *    not read.
- *  - Its VMU memory cards are **shared** by every game unless the user turns
- *    on per-game VMUs, so nothing in them can be attributed to one ROM, and
- *    they are not synced. Its states stay on the device.
+ *  - The VMU in port A1 is **one per game** while `PerGameVmu` is on, and
+ *    Galleon keeps it on (see `flycast.settingsEdits`); the other ports'
+ *    VMUs are shared by every game. Neither is synced yet, and its states stay on
+ *    the device.
  *
  * It follows the XDG layout (`~/.local/share/flycast` for data,
  * `~/.config/flycast` for `emu.cfg`), which the flatpak build takes inside
@@ -129,5 +138,13 @@ export const flycast: EmulatorDescriptor = {
   launch: ({ exec, romPath }) => [...exec, romPath],
   sandbox: sandboxRecipe,
   launchFiles: undefined,
-  settingsEdits: undefined
+  /**
+   * ADR 0005 chose a VMU per game for the Dreamcast, the shape Argosy's
+   * Dreamcast handler converts from (SPEC.md). `PerGameVmu` in `[config]` is
+   * on by Flycast's own default, so a file without it is left alone, and one
+   * a user turned it off in gets it back. Flycast writes booleans as `yes`
+   * and `no` and reads its keys with their case (`core/cfg/option.cpp`,
+   * `core/cfg/ini.h`, `getVmuPath` in `core/oslib/oslib.cpp`).
+   */
+  settingsEdits: () => [{ file: 'flycast/emu.cfg', ...FLYCAST_PER_GAME_VMU }]
 }

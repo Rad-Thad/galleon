@@ -1292,11 +1292,20 @@ test('melonDS keeps no save, state or BIOS folder of its own', () => {
   assert.equal(melonds.dirs.bios, undefined)
 })
 
-test('only Dolphin edits its own settings so far, and only the one key', () => {
+test('only Dolphin and Flycast edit their own settings so far, each only the one key', () => {
   for (const descriptor of EMULATORS) {
-    if (descriptor.id !== 'dolphin')
+    if (descriptor.id !== 'dolphin' && descriptor.id !== 'flycast')
       assert.equal(descriptor.settingsEdits, undefined, descriptor.id)
   }
+  assert.deepEqual(flycast.settingsEdits?.({ system: 'dreamcast' }), [
+    {
+      file: 'flycast/emu.cfg',
+      section: 'config',
+      key: 'PerGameVmu',
+      value: 'yes',
+      whenAbsent: 'leave'
+    }
+  ])
   assert.deepEqual(dolphin.settingsEdits?.({ system: 'gc' }), [
     {
       file: 'dolphin-emu/Dolphin.ini',
