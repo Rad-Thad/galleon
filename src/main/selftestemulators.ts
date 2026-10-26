@@ -1,10 +1,11 @@
 import { spawn } from 'node:child_process'
-import { lstatSync, readFileSync, readdirSync } from 'node:fs'
+import { lstatSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
-import { emulatorById, type EmulatorState } from '@config/emulators'
+import { emulatorById, type EmulatorState, type SaveLocation } from '@config/emulators'
 import { t } from './i18n.ts'
 import { log } from './log.ts'
 import { fileSystemEnvironment } from './saveenv.ts'
+import { findLocalAssets } from './saves.ts'
 import type { CheckResult, Scenario } from './selftest.ts'
 import {
   EXIT_PREFIX,
@@ -64,8 +65,32 @@ export interface EmulatorScenarioDeps {
     signal: AbortSignal,
     expectSave: boolean
   ) => Promise<[CheckResult, CheckResult]>
+  /** See `PlacedSave`; absent, no save is ever placed. */
+  placeSave?: (
+    state: EmulatorState,
+    system: string,
+    romPath: string,
+    plan: Extract<SandboxPlan, { kind: 'run' }>
+  ) => PlacedSave | null
   /** See `resolveLinks`. */
   realPath?: (path: string) => string | null
+}
+
+/**
+ * A save put beside the payload before the cycle, for an emulator that keeps
+ * its saves beside the ROM.
+ *
+ * A homebrew payload has no save memory to write, so the save the player's
+ * would be is placed instead, and what is asked of the cycle is that save
+ * discovery still finds it once the emulator has run and stopped: the half of
+ * a save beside the ROM that is the emulator's and the device's, not the
+ * descriptor's alone.
+ */
+export interface PlacedSave {
+  /** Whether save discovery finds the placed save now. Never throws. */
+  found: () => Promise<boolean>
+  /** Takes the placed save away again. Never throws. */
+  remove: () => void
 }
 
 /** The emulator a launch or exit id names, or null for any other id. */
@@ -142,7 +167,40 @@ async function runOne(
   if (plan.kind === 'skip') {
     log.info('selftest', 'an emulator cannot be sandboxed', { emulator, detail: plan.detail })
   }
-  return deps.cycle(emulator, plan, state, signal, deps.savingPayloads?.includes(emulator) ?? false)
+  const placed =
+    plan.kind === 'run'
+      ? (deps.placeSave?.(state, payload.system, payload.path, plan) ?? null)
+      : null
+  try {
+    const [launch, exit] = await deps.cycle(
+      emulator,
+      plan,
+      state,
+      signal,
+      deps.savingPayloads?.includes(emulator) ?? false
+    )
+    return [placed ? await withSaveFound(launch, placed) : launch, exit]
+  } finally {
+    placed?.remove()
+  }
+}
+
+/**
+ * The launch result held also to the placed save being found. A launch that
+ * was skipped or erred is left as it was: a save found or not says nothing
+ * about an emulator that never ran.
+ */
+async function withSaveFound(launch: CheckResult, placed: PlacedSave): Promise<CheckResult> {
+  if (launch.result === 'skip' || launch.result === 'error') return launch
+  const found = await placed.found()
+  const result: CheckResult = {
+    ...launch,
+    metrics: { ...launch.metrics, saveFound: Number(found) },
+    thresholds: { ...launch.thresholds, saveFound: 1 }
+  }
+  if (launch.result === 'pass' && !found)
+    Object.assign(result, { result: 'fail', reason: 'save-not-found' })
+  return result
 }
 
 function skipped(id: string, reason: string): CheckResult {
@@ -256,6 +314,95 @@ export function saveFingerprint(folder: string): string {
   }
   walk(folder, '')
   return lines.join('\n')
+}
+
+/** What a placed save holds: no emulator reads it, it only has to be found. */
+export const PLACED_SAVE = 'galleon self-test save\n'
+
+/**
+ * `EmulatorScenarioDeps.placeSave` on a disk. Only for an emulator whose
+ * descriptor, asked about the payload in its sandbox, keeps the saves of a
+ * ROM beside it, named after it; any other is left to its own save folder
+ * (see `savingPayloads`). The save is named as the descriptor's own emulator
+ * names one, `<rom stem>.sav`, and is never written over a file already there,
+ * nor taken away unless it was placed.
+ */
+export function placeSaveBeside(
+  home: string,
+  env = fileSystemEnvironment()
+): NonNullable<EmulatorScenarioDeps['placeSave']> {
+  return (state, system, romPath, plan) => {
+    const location = besideRom(state, system, romPath, plan, home, env)
+    if (!location) return null
+    const stem = basename(romPath).replace(/\.[^.]+$/, '')
+    const path = join(location.dir, `${stem}.sav`)
+    try {
+      writeFileSync(path, PLACED_SAVE, { flag: 'wx' })
+    } catch (cause) {
+      log.warn('selftest', 'a save could not be placed beside the payload', { cause })
+      return null
+    }
+    return {
+      found: async () => {
+        try {
+          const assets = await findLocalAssets(env, location, stem, 'save')
+          return assets.some((asset) => asset.path === path)
+        } catch (cause) {
+          log.info('selftest', 'save discovery failed in the sandbox', { cause })
+          return false
+        }
+      },
+      remove: () => {
+        try {
+          rmSync(path, { force: true })
+        } catch (cause) {
+          log.warn('selftest', 'a placed save could not be removed', { cause })
+        }
+      }
+    }
+  }
+}
+
+/** The descriptor's save location for the payload, when it is the payload's own folder. */
+function besideRom(
+  state: EmulatorState,
+  system: string,
+  romPath: string,
+  plan: Extract<SandboxPlan, { kind: 'run' }>,
+  home: string,
+  env: ReturnType<typeof fileSystemEnvironment>
+): SaveLocation | null {
+  const descriptor = emulatorById(state.id)
+  if (!descriptor) return null
+  const { folders } = plan
+  try {
+    const { saves } = descriptor.saves({
+      paths: {
+        home: folders.root,
+        roms: dirname(romPath),
+        saves: folders.saves,
+        states: folders.states,
+        bios: plan.bios
+      },
+      system,
+      romPath,
+      romDir: dirname(romPath),
+      romStem: basename(romPath).replace(/\.[^.]+$/, ''),
+      home,
+      configDir: folders.config,
+      dataDir: folders.data,
+      installDir: null,
+      env
+    })
+    if (saves?.match !== 'rom-stem' || resolve(saves.dir) !== dirname(romPath)) return null
+    return saves
+  } catch (cause) {
+    log.info('selftest', 'a descriptor could not say where saves live', {
+      emulator: state.id,
+      cause
+    })
+    return null
+  }
 }
 
 /** `EmulatorScenarioDeps.plan` on the device: the owner's install, read and never written. */

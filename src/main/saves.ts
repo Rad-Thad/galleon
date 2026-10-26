@@ -5,7 +5,7 @@ import type { SaveProgress } from '@shared/api'
 import { localize } from '@shared/i18n'
 import { changedAt, mayBeSentUnasked, AUTOSAVE_SLOT } from '@shared/saveassets'
 import { SAVE_CONVENTIONS, emulatorById, statesSync } from '@config/emulators'
-import type { SaveContext, SaveLocation, SavePaths } from '@config/emulators'
+import type { SaveContext, SaveEnvironment, SaveLocation, SavePaths } from '@config/emulators'
 import type {
   ConflictChoice,
   EmulatorState,
@@ -156,7 +156,7 @@ interface PullCount {
   failed: number
 }
 
-interface LocalAsset {
+export interface LocalAsset {
   path: string
   fileName: string
   mtimeMs: number
@@ -170,6 +170,78 @@ interface UploadBatch {
   assets: LocalAsset[]
   tag: string
   primary: string | null
+}
+
+/**
+ * Find local save/state data belonging to a ROM.
+ *
+ * `since` restricts the result to data modified after a timestamp, which is
+ * how we detect "what did this play session actually write". `stem` is the
+ * name the ROM's saves are named after (see `romStemOf`).
+ *
+ * Outside `SaveSync`, so the self-test asks the same question of a sandbox
+ * that a sync asks of the player's folders.
+ */
+export async function findLocalAssets(
+  env: SaveEnvironment,
+  location: SaveLocation,
+  stem: string,
+  kind: 'save' | 'state',
+  since = 0
+): Promise<LocalAsset[]> {
+  // A directory save is one asset: the folder itself, named after the game so
+  // the server has something readable to show.
+  if (location.match === 'directory') {
+    const newest = env.newest(location.dir)
+    if (newest === 0 || newest <= since) return []
+    return [
+      {
+        path: location.dir,
+        fileName: `${stem}${ARCHIVE_SUFFIX}`,
+        mtimeMs: newest,
+        isDirectory: true
+      }
+    ]
+  }
+
+  const roots = [location.dir, ...(location.search ?? [])]
+  const results: LocalAsset[] = []
+  const seen = new Set<string>()
+
+  for (const root of roots) {
+    for (const path of await walk(root)) {
+      if (seen.has(path)) continue
+      const name = basename(path)
+      const ext = extname(name).toLowerCase()
+
+      const matchesKind = kind === 'state' ? STATE_PATTERN.test(name) : SAVE_EXTENSIONS.has(ext)
+      if (!matchesKind) continue
+
+      // Emulators name the save after the ROM file, sometimes with a suffix.
+      //
+      // A state's suffix is not an extension: `Game.state1` is the ROM's own
+      // name with the slot appended, so taking an extension off afterwards
+      // eats into any name that has a dot in it — `Super Mario Bros. 3
+      // (USA).state1` becomes `Super Mario Bros`, which matches no game, and
+      // the state is invisible to every direction of the sync. A battery save
+      // does carry a real extension and keeps losing it.
+      const fileStem =
+        kind === 'state' ? name.replace(STATE_PATTERN, '') : name.replace(/\.[^.]+$/, '')
+      if (!stemMatches(fileStem, stem, ext)) continue
+
+      let info
+      try {
+        info = await stat(path)
+      } catch {
+        continue
+      }
+      if (info.mtimeMs <= since) continue
+
+      seen.add(path)
+      results.push({ path, fileName: name, mtimeMs: info.mtimeMs })
+    }
+  }
+  return results
 }
 
 export class SaveSync {
@@ -353,12 +425,7 @@ export class SaveSync {
     return ids
   }
 
-  /**
-   * Find local save/state data belonging to a ROM.
-   *
-   * `since` restricts the result to data modified after a timestamp, which is
-   * how we detect "what did this play session actually write".
-   */
+  /** `findLocalAssets` for a game, named as the descriptor names its saves. */
   private async findLocal(
     location: SaveLocation,
     rom: RommRom,
@@ -366,61 +433,7 @@ export class SaveSync {
     kind: 'save' | 'state',
     since = 0
   ): Promise<LocalAsset[]> {
-    const stem = romStemOf(rom, romPath)
-
-    // A directory save is one asset: the folder itself, named after the game so
-    // the server has something readable to show.
-    if (location.match === 'directory') {
-      const newest = this.env.newest(location.dir)
-      if (newest === 0 || newest <= since) return []
-      return [
-        {
-          path: location.dir,
-          fileName: `${stem}${ARCHIVE_SUFFIX}`,
-          mtimeMs: newest,
-          isDirectory: true
-        }
-      ]
-    }
-
-    const roots = [location.dir, ...(location.search ?? [])]
-    const results: LocalAsset[] = []
-    const seen = new Set<string>()
-
-    for (const root of roots) {
-      for (const path of await walk(root)) {
-        if (seen.has(path)) continue
-        const name = basename(path)
-        const ext = extname(name).toLowerCase()
-
-        const matchesKind = kind === 'state' ? STATE_PATTERN.test(name) : SAVE_EXTENSIONS.has(ext)
-        if (!matchesKind) continue
-
-        // Emulators name the save after the ROM file, sometimes with a suffix.
-        //
-        // A state's suffix is not an extension: `Game.state1` is the ROM's own
-        // name with the slot appended, so taking an extension off afterwards
-        // eats into any name that has a dot in it — `Super Mario Bros. 3
-        // (USA).state1` becomes `Super Mario Bros`, which matches no game, and
-        // the state is invisible to every direction of the sync. A battery save
-        // does carry a real extension and keeps losing it.
-        const fileStem =
-          kind === 'state' ? name.replace(STATE_PATTERN, '') : name.replace(/\.[^.]+$/, '')
-        if (!stemMatches(fileStem, stem, ext)) continue
-
-        let info
-        try {
-          info = await stat(path)
-        } catch {
-          continue
-        }
-        if (info.mtimeMs <= since) continue
-
-        seen.add(path)
-        results.push({ path, fileName: name, mtimeMs: info.mtimeMs })
-      }
-    }
-    return results
+    return findLocalAssets(this.env, location, romStemOf(rom, romPath), kind, since)
   }
 
   /**

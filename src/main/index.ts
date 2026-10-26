@@ -8,7 +8,7 @@ import { ensureRoot, profilePath, resolveRoot } from './root.ts'
 import { ReadOnlyGuard } from './romm/guard.ts'
 import { reportRefusal, runAndReport, takeRequest } from './selftest.ts'
 import { DOWNLOAD_CHECK, downloadScenario } from './selftestdownload.ts'
-import { deviceCycle, devicePlan, emulatorScenarios } from './selftestemulators.ts'
+import { deviceCycle, devicePlan, emulatorScenarios, placeSaveBeside } from './selftestemulators.ts'
 import { IDENTITY_CHECK, identityScenario } from './selftestidentity.ts'
 import { REPORT_CHECK, pressReport, reportScenario } from './selftestreport.ts'
 import { HEARTBEAT_CHECK, heartbeatScenario } from './selftestserver.ts'
@@ -190,7 +190,8 @@ if (!app.requestSingleInstanceLock()) {
             savingPayloads: selfTest.request.savingPayloads,
             emulators: () => rommix.ensureEmulators(),
             plan: devicePlan(resolveRoot()),
-            cycle: deviceCycle()
+            cycle: deviceCycle(),
+            placeSave: placeSaveBeside(resolveRoot())
           })
         ]),
         guard,
