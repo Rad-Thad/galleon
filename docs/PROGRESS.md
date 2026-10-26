@@ -3080,3 +3080,15 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet. `launch.flycast` needs a Dreamcast homebrew payload of our own in the M0-07 manifest and run.sh asking for it.
 - Next: M1-06 part 3a, a Dreamcast homebrew of our own (ADR 0008).
+
+## 2026-10-26 09:35 UTC session 01Typ7m8nodVAyPTMhZBx9zW (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. #290 (Flycast's sandbox recipe) merged at 804f5c1.
+- Worked on: M1-06 part 3a, the Dreamcast payload of `launch.flycast` (tracking issue #288).
+- Result: PR (this one). `test/fixtures/homebrew/dc-hello/`: `main.c` clears the screen, draws one line in the BIOS font and waits on vertical blank; `build.sh` builds it with KallistiOS's `kos-cc` in `kazade/dreamcast-sdk` pinned by digest (KallistiOS at 5e89c26a) and writes `galleon-dc-hello.elf`, committed beside its source (ADR 0008). An ELF needs no disc image: Flycast at 0d9853df loads an `.elf` itself and boots it through its HLE BIOS (`loadGame` in `core/emulator.cpp`, `reios_loadElf`, `reios_setup_state(0x8C010000)` in `core/reios/`), whose `reios_sys_font` serves the BIOS font from its own `fonts/biosfont.bin`. README names what `kos-cc` links in (KallistiOS under the KOS License, BSD-3-Clause; newlib; libgcc with the runtime exception) and carries the KOS notice its binary-form clause asks for; no GPL or LGPL file is in KallistiOS's kernel.
+- Evidence: two builds give sha256 `6d8f7f4a235390b7870be604f6dd3f2ae3a23bddb1041201e965d76cebccee75` (201140 bytes), SH ELF, entry and first load segment at 0x8c010000, where reios starts it; the text is in it. `scripts/agent/check.sh` green. Not booted on the VM (no Flycast here).
+- Evaluator: PASS (rebuilt twice to the same sha256; Flycast's ELF path and HLE font confirmed at 0d9853df; a link map shows only libkallisti, libc, libm and libgcc members, no GPL or LGPL). Note: the ELF carries the image's own KOS build date and path, fixed by the digest.
+- CI: the first x64 run failed `pr-body`, because the body had no `Feature:` line; the body is fixed and this push proves it.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet.
+- Next: M1-06 part 3b: the manifest entry at this PR's merge commit (`roms/dreamcast/…`), its THIRD_PARTY.md notice, and run.sh asking for `launch.flycast`/`exit.flycast` with it (check the descriptor accepts `.elf`, or how run.sh names the payload); then READY-FOR-DEVICE M1-06 (skips as `cannot-sandbox` while Flycast is the flatpak).
