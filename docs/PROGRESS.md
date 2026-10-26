@@ -3226,7 +3226,7 @@ Lines the tooling reads (exact forms):
 - Worked on: M2-08 part 2b-2a (tracking issue #111): the remaining per-system defaults of ADR 0005, now that PPSSPP, ARMSX2, Dolphin and Flycast have descriptors (M1-03 to M1-06).
 - Result: PR (this one). `SYSTEM_DEFAULTS` names PPSSPP for `psp`, ARMSX2 for `ps2`, Dolphin for `gc` and `wii`, and Flycast for `dreamcast`, so these systems no longer go to RetroDECK, EmuDeck or RetroArch by registry order. A choice recorded for the system still wins, and an uninstalled default still falls back to the ranking. M2-08 stays false.
 - Evidence: registry.test.ts "the defaults are the save choices ADR 0005 records" asks for each standalone default with and without a ranking that puts RetroArch, RetroDECK and EmuDeck first; it failed before the change (`psp`: `retrodeck`, expected `ppsspp`) and passes now (93/93 in the file). `scripts/agent/check.sh` green (3:18); `npm run test:app` 244/244 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root); `npm run shots:nova` 21 screens, looked at `emulators.png` and `settings-games.png`: unchanged.
-- Evaluator: see the PR.
-- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: PASS (the new test fails with the old defaults swapped back in; callers only reorder candidates; a recorded choice still wins).
+- CI wall time: recorded in the next entry (this entry rides the PR). The first x64 run failed only the PR-body check: the body had no `Feature:` line.
 - Device / acceptance: none.
 - Next: M2-08 part 2b-2b, ADR 0005 decision 2: change only ARMSX2's folder-card key, Dolphin's slot A GCI-folder key and Flycast's per-game VMU key in the Nova's existing settings files, backup first, every other byte kept (unit tests on copies of complete files). Then M2-08 can pass.
