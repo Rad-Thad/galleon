@@ -2978,3 +2978,15 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet. `launch.dolphin` needs a sandbox recipe (`-u <sandbox user folder>`), a GameCube homebrew `.dol` in the M0-07 manifest, and run.sh asking for it.
 - Next: M1-04 part 2, the sandbox recipe.
+
+## 2026-10-26 00:30 UTC session 01GUrAuV9efftewhHNN3vDe2 (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. #279 (Dolphin's descriptor) merged at 4cb5d23.
+- Worked on: M1-04 part 2, Dolphin's sandbox recipe (tracking issue #278).
+- Result: PR (this one). `-u <sandbox>/data/dolphin-emu` names Dolphin's user folder, which `UICommon::SetUserDirectory` takes before a `portable.txt`, `DOLPHIN_EMU_USERPATH` or the XDG roots; `Config/Dolphin.ini` there answers the usage-statistics question, which `DolphinQt/Main.cpp` asks on a first start even in batch mode (both read at e6f3ae17). Only the program on PATH is started; the flatpak, armadaOS's install, stays `cannot-sandbox` (`flatpak-install`) until the parked flatpak sandbox (#155) lands. No BIOS needed. docs/TESTING.md says so under the emulator sandbox.
+- Evidence: selftestsandbox.test.ts "gives Dolphin a user folder in the sandbox, where XDG_DATA_HOME would lead it", "answers the usage-statistics question in the user folder, so no window asks it", "is not started as the flatpak". `scripts/agent/check.sh` green. `test:app` not run: no renderer, IPC or launch argv changed (`npx install-electron` also failed on this VM).
+- Evaluator: PASS (`-u` outranks the other lookups, the analytics prompt ignores batch mode, nothing escapes the sandbox). Its note: even after part 3, `launch.dolphin` skips on the Nova until flatpaks can be sandboxed, so READY-FOR-DEVICE alone will not get M1-04 to a device pass.
+- CI: the first x64 run failed `features-check`, because this entry first carried a time later than the run.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet. On the Nova `launch.dolphin` will skip as `cannot-sandbox` while Dolphin is the flatpak.
+- Next: M1-04 part 3, a GameCube homebrew `.dol` of our own (ADR 0008) in the M0-07 manifest and run.sh asking for `launch.dolphin`.

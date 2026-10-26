@@ -1,5 +1,35 @@
-import { shared } from '../savepaths.ts'
-import type { EmulatorDescriptor } from '../types.ts'
+import { joinPath, shared } from '../savepaths.ts'
+import type { EmulatorDescriptor, SandboxContext, SandboxRecipe } from '../types.ts'
+
+/**
+ * Dolphin started in its sandbox, on a user folder there.
+ *
+ * `-u` names the user folder Dolphin keeps everything in, and it outranks
+ * every other way Dolphin picks one (a `portable.txt` beside the program,
+ * `DOLPHIN_EMU_USERPATH`, the XDG roots): `UICommon::SetUserDirectory` takes
+ * a given path before it looks at anything else. The folder sits where the
+ * XDG layout would put it in the sandbox. Its settings file answers the
+ * usage-statistics question, which Dolphin asks in a window of its own on a
+ * first start even in batch mode (`DolphinQt/Main.cpp`).
+ *
+ * A flatpak is never started by the self-test, so only the program on PATH
+ * gets here; `-u` leaves its layout nothing to decide.
+ */
+function sandboxRecipe(ctx: SandboxContext): SandboxRecipe | null {
+  if (ctx.installKind !== 'binary') return null
+  const user = joinPath(ctx.folders.data, 'dolphin-emu')
+  const settings = ['[Analytics]', 'PermissionAsked = True', 'Enabled = False', ''].join('\n')
+  return {
+    args: ['-u', user],
+    env: {},
+    unset: [],
+    needs: [],
+    strays: [],
+    bios: null,
+    needsBios: false,
+    files: [{ path: 'data/dolphin-emu/Config/Dolphin.ini', content: settings }]
+  }
+}
 
 /**
  * Dolphin — the GameCube and Wii emulator, and what armadaOS's catalog
@@ -79,6 +109,5 @@ export const dolphin: EmulatorDescriptor = {
     '-e',
     romPath
   ],
-  // No recipe, so the self-test does not start Dolphin.
-  sandbox: undefined
+  sandbox: sandboxRecipe
 }

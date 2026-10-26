@@ -965,5 +965,4 @@ test("Dolphin's memory cards are its own data folder, and it keeps no state or B
   assert.deepEqual(dolphin.dirs.saves, { base: 'data', path: 'dolphin-emu/GC' })
   assert.equal(dolphin.dirs.states, undefined)
   assert.equal(dolphin.dirs.bios, undefined)
-  assert.equal(dolphin.sandbox, undefined)
 })
