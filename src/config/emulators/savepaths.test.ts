@@ -304,6 +304,28 @@ test('sorting by core names the folder after the core, not the core file', () =>
   assert.deepEqual(paths.saves?.search, ['/lib/saves'])
 })
 
+test('sorted by core, the folder is the chosen variant core', () => {
+  const env = machine({
+    files: {
+      '/cfg/retroarch/retroarch.cfg': retroArchCfg({
+        savefile_directory: '/lib/saves',
+        sort_savefiles_enable: 'true'
+      })
+    }
+  })
+  const dir = (variant?: string): string | undefined =>
+    resolve(retroarch, {
+      romPath: '/lib/roms/psx/game.chd',
+      system: 'psx',
+      configDir: '/cfg',
+      env,
+      variant
+    }).saves?.dir
+  assert.equal(dir(), '/lib/saves/SwanStation')
+  assert.equal(dir('pcsx_rearmed'), '/lib/saves/PCSX-ReARMed')
+  assert.equal(dir('mednafen_psx_hw'), '/lib/saves/Beetle PSX HW')
+})
+
 test('both sort flags stack, content directory first', () => {
   const env = machine({
     files: {

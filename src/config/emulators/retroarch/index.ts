@@ -4,12 +4,62 @@ import { joinPath } from '../savepaths.ts'
 import type {
   CoreContext,
   EmulatorDescriptor,
+  LaunchVariant,
   RequiredCore,
   SandboxContext,
   SandboxRecipe
 } from '../types.ts'
 
 const RETROARCH_APP_ID = 'org.libretro.RetroArch'
+
+/**
+ * The cores the player may pick between for a system, each the core Argosy
+ * runs for it on Android or one its saves are compared against (M2-08), so a
+ * system can be played in the same core on both devices. The first is the one
+ * `coreForSystem` maps, so a launch with no choice recorded runs it.
+ *
+ * Every core here is one the buildbot publishes for Linux on aarch64, which
+ * `registry.test.ts` checks against a copy of its index.
+ */
+const CORE_CHOICES: Readonly<Record<string, readonly LaunchVariant[]>> = (() => {
+  const snes9x = [{ id: 'snes9x', label: 'Snes9x' }]
+  const mgba = [{ id: 'mgba', label: 'mGBA' }]
+  const psx = [
+    { id: 'swanstation', label: 'SwanStation' },
+    { id: 'pcsx_rearmed', label: 'PCSX ReARMed' },
+    { id: 'mednafen_psx_hw', label: 'Beetle PSX HW' }
+  ]
+  const ppsspp = [{ id: 'ppsspp', label: 'PPSSPP' }]
+  const dolphin = [{ id: 'dolphin', label: 'Dolphin' }]
+  const flycast = [{ id: 'flycast', label: 'Flycast' }]
+  return {
+    snes: snes9x,
+    snesna: snes9x,
+    sfc: snes9x,
+    satellaview: snes9x,
+    sufami: snes9x,
+    gba: mgba,
+    psx,
+    psp: ppsspp,
+    gc: dolphin,
+    wii: dolphin,
+    dreamcast: flycast,
+    naomi: flycast,
+    atomiswave: flycast
+  }
+})()
+
+/**
+ * The core a launch runs: the chosen variant, else the system's mapped core.
+ *
+ * A recorded choice that is not among the system's cores is no core at all,
+ * not the default: running a game in a core other than the one asked for puts
+ * its save where the chosen one would never look.
+ */
+function chosenCore(system: string, variant: string | undefined): string | null {
+  if (variant === undefined) return coreForSystem(system)
+  return (CORE_CHOICES[system] ?? []).some((choice) => choice.id === variant) ? variant : null
+}
 
 /**
  * Where standalone RetroArch's config might be.
@@ -38,7 +88,7 @@ function configCandidates(ctx: CoreContext): readonly string[] {
 function requiredCore(ctx: CoreContext): RequiredCore | null {
   return libretroCore(
     readLibretroConfig(ctx.env, configCandidates(ctx), ctx.home),
-    coreForSystem(ctx.system),
+    chosenCore(ctx.system, ctx.variant),
     joinPath(ctx.configDir, 'retroarch', 'cores') || null
   )
 }
@@ -149,8 +199,8 @@ export const retroarch: EmulatorDescriptor = {
   findRule: 'RETROARCH',
   homepage: 'https://www.retroarch.com',
   systems: systemsWithCore(),
-  // One core per system, named by `launch`, so there is nothing to choose.
-  variants: undefined,
+  // See `CORE_CHOICES`.
+  variants: (system) => CORE_CHOICES[system] ?? [],
   ownsLibrary: false,
   dirs: {
     roms: { base: 'rommix', path: 'roms' },
@@ -182,7 +232,7 @@ export const retroarch: EmulatorDescriptor = {
     libretroSavePaths(
       ctx,
       readLibretroConfig(ctx.env, configCandidates(ctx), ctx.home),
-      coreForSystem(ctx.system),
+      chosenCore(ctx.system, ctx.variant),
       { saves: ctx.paths.saves, states: ctx.paths.states }
     ),
   // Its system folder takes any firmware file dropped in.
@@ -207,8 +257,8 @@ export const retroarch: EmulatorDescriptor = {
    * who prefers windowed play still has it when they start RetroArch
    * themselves. The same reasoning as Eden's `-f`.
    */
-  launch: ({ exec, system, romPath }) => {
-    const core = coreForSystem(system)
+  launch: ({ exec, system, romPath, variant }) => {
+    const core = chosenCore(system, variant)
     if (!core) return null
     return [...exec, '-f', '-L', `${core}_libretro.so`, romPath]
   },

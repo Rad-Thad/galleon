@@ -337,7 +337,7 @@ export class Launcher {
        * purpose.
        */
       try {
-        const core = await missingCore(emulator, system)
+        const core = await missingCore(emulator, system, variant)
         if (core) {
           options.onStage?.(t('launch.installingCore', { core: core.name }))
           await installCore(

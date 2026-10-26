@@ -89,6 +89,21 @@ describe('whether a core has to be installed at all', () => {
     assert.ok(required)
     assert.match(required.fileName, /_libretro\.so$/)
   })
+
+  test('the core named is the chosen variant, not the system default', async () => {
+    const dir = scratch()
+    const state = {
+      id: 'retroarch',
+      configDir: dir,
+      paths: { home: dir, roms: dir, saves: dir, states: dir, bios: dir }
+    } as EmulatorState
+
+    assert.equal((await missingCore(state, 'psx'))?.fileName, 'swanstation_libretro.so')
+    assert.equal(
+      (await missingCore(state, 'psx', 'pcsx_rearmed'))?.fileName,
+      'pcsx_rearmed_libretro.so'
+    )
+  })
 })
 
 describe('installing one', () => {
@@ -129,7 +144,7 @@ describe('installing one', () => {
       await installCore(core({ buildbotUrl: null }), () => undefined).catch(() => undefined)
 
       assert.equal(asked.length, 1)
-      assert.match(asked[0], /^https:\/\/buildbot\.libretro\.com\/nightly\/linux\/arm64\//)
+      assert.match(asked[0], /^https:\/\/buildbot\.libretro\.com\/nightly\/linux\/aarch64\//)
       assert.match(asked[0], /mupen64plus_next_libretro\.so\.zip$/)
     } finally {
       Object.defineProperty(process, 'arch', { value: held, configurable: true })

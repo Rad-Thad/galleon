@@ -3161,3 +3161,15 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: READY-FOR-DEVICE M1-07. On the Nova `launch.melonds` and `exit.melonds` run when the catalog's melonDS AppImage is installed (no `.home`/`.config` folder beside it); otherwise they skip `not-installed` or `cannot-sandbox`.
 - Next: `node scripts/agent/next.mjs`.
+
+## 2026-10-26 16:27 UTC session 01NRpKWyAncrau2YBP689x5h (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. #298 (M1-07 part 3c) merged at d1f9aac; READY-FOR-DEVICE M1-07 stands.
+- Worked on: M1-08 part 1, RetroArch's core variants (tracking issue #299).
+- Result: PR (this one). `src/config/emulators/retroarch/index.ts`: `CORE_CHOICES` gives RetroArch launch variants for the systems the owner plays in Argosy's cores on Android: SNES `snes9x`, GBA `mgba`, PlayStation `swanstation` (the mapped default, first), `pcsx_rearmed` and `mednafen_psx_hw`, PSP `ppsspp`, GameCube/Wii `dolphin`, Dreamcast/NAOMI/Atomiswave `flycast`; one entry asks nothing, so only PlayStation offers a choice. The chosen variant is the core `launch` names, `core` installs (`CoreContext` now carries `variant`, `missingCore` takes it from the launch) and `saves` sorts into (`PCSX-ReARMed` and `Beetle PSX HW` added to `CORE_LIBRARY_NAMES`, read from each core's `retro_get_system_info` at pcsx_rearmed c8816799 and beetle-psx-libretro 7fea57a5); a recorded core that is not one of the system's runs nothing. Fixed on the way: with no `retroarch.cfg` yet, an arm64 machine fetched cores from the buildbot's `linux/arm64/`, which does not exist (404); it is `linux/aarch64/`.
+- Evidence: registry.test.ts "RetroArch offers the Android-matching cores, and launches the one chosen" and "every RetroArch variant is a core the buildbot publishes for Linux on aarch64" (against `test/fixtures/buildbot/linux-aarch64-cores.txt`, 235 cores read from the buildbot's index on 2026-10-26; its README says how to refresh it); savepaths.test.ts "sorted by core, the folder is the chosen variant core"; cores.test.ts "the core named is the chosen variant, not the system default", and "and one it does publish for falls back to the buildbot on its own" now asks for `linux/aarch64/` (failed before the fix). `scripts/agent/check.sh` green; `npm run test:app` 244/244 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root).
+- Notes: Docker's daemon was not answering, so `init.sh` stopped before the Docker RomM; nothing here touches the client.
+- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet.
+- Next: M1-08 part 2, the launcher-owned appended config (`--appendconfig` from the launcher's home with `quit_on_close_content = "2"`, a snapshot test, `retroarch.cfg` never edited); then the flatpak core folder, and `launch.retroarch` on a SNES homebrew leaving an `.srm`.
