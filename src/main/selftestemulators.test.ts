@@ -287,6 +287,7 @@ describe('a save placed beside the payload', () => {
     h.deps.placeSave = (_state, system, romPath) => {
       log.push(`place ${system} ${romPath}`)
       return {
+        placed: true,
         found: async () => {
           log.push('found?')
           return found
@@ -331,6 +332,18 @@ describe('a save placed beside the payload', () => {
     assert.deepEqual(
       [launch.result, launch.reason, launch.metrics.saveFound],
       ['fail', 'no-window', 0]
+    )
+  })
+
+  test('a save that could not be placed fails the launch rather than leave it unasked', async () => {
+    const h = harness({ melonds: 'payloads/nds/hello.nds' }, [state('melonds')])
+    h.deps.placeSave = () => ({ placed: false, found: async () => true, remove: () => {} })
+    const launch = (await emulatorScenarios(['launch.melonds'], h.deps).get('launch.melonds')!(
+      context
+    )) as CheckResult
+    assert.deepEqual(
+      [launch.result, launch.reason, launch.metrics.saveFound],
+      ['fail', 'save-not-placed', 0]
     )
   })
 
@@ -408,7 +421,7 @@ describe('placeSaveBeside', () => {
     assert.equal(await placed.found(), false)
   })
 
-  test('a file already there is neither written over nor taken away', () => {
+  test('a file already there is neither written over nor taken away; no save is placed', () => {
     const home = scratch()
     const rom = payload(home, 'nds', 'hello.nds')
     const existing = join(home, 'payloads', 'nds', 'hello.sav')
@@ -419,7 +432,9 @@ describe('placeSaveBeside', () => {
       rom,
       runPlan(join(home, 's'), ['/x'])
     )
-    assert.equal(placed, null)
+    assert.ok(placed)
+    assert.equal(placed.placed, false)
+    placed.remove()
     assert.equal(readFileSync(existing, 'utf8'), 'mine')
   })
 

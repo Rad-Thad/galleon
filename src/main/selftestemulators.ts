@@ -87,6 +87,12 @@ export interface EmulatorScenarioDeps {
  * descriptor's alone.
  */
 export interface PlacedSave {
+  /**
+   * False when the emulator keeps its saves beside the ROM but none could be
+   * put there: the check then fails rather than pass with its save half
+   * unasked.
+   */
+  placed: boolean
   /** Whether save discovery finds the placed save now. Never throws. */
   found: () => Promise<boolean>
   /** Takes the placed save away again. Never throws. */
@@ -192,14 +198,16 @@ async function runOne(
  */
 async function withSaveFound(launch: CheckResult, placed: PlacedSave): Promise<CheckResult> {
   if (launch.result === 'skip' || launch.result === 'error') return launch
-  const found = await placed.found()
+  const found = placed.placed && (await placed.found())
   const result: CheckResult = {
     ...launch,
     metrics: { ...launch.metrics, saveFound: Number(found) },
     thresholds: { ...launch.thresholds, saveFound: 1 }
   }
-  if (launch.result === 'pass' && !found)
-    Object.assign(result, { result: 'fail', reason: 'save-not-found' })
+  if (launch.result === 'pass' && !found) {
+    const reason = placed.placed ? 'save-not-found' : 'save-not-placed'
+    Object.assign(result, { result: 'fail', reason })
+  }
   return result
 }
 
@@ -325,7 +333,8 @@ export const PLACED_SAVE = 'galleon self-test save\n'
  * ROM beside it, named after it; any other is left to its own save folder
  * (see `savingPayloads`). The save is named as the descriptor's own emulator
  * names one, `<rom stem>.sav`, and is never written over a file already there,
- * nor taken away unless it was placed.
+ * nor taken away unless it was placed; one that cannot be placed is said so
+ * (see `PlacedSave.placed`).
  */
 export function placeSaveBeside(
   home: string,
@@ -333,6 +342,7 @@ export function placeSaveBeside(
 ): NonNullable<EmulatorScenarioDeps['placeSave']> {
   return (state, system, romPath, plan) => {
     const location = besideRom(state, system, romPath, plan, home, env)
+    if (location === 'unknown') return NOT_PLACED
     if (!location) return null
     const stem = basename(romPath).replace(/\.[^.]+$/, '')
     const path = join(location.dir, `${stem}.sav`)
@@ -340,9 +350,10 @@ export function placeSaveBeside(
       writeFileSync(path, PLACED_SAVE, { flag: 'wx' })
     } catch (cause) {
       log.warn('selftest', 'a save could not be placed beside the payload', { cause })
-      return null
+      return NOT_PLACED
     }
     return {
+      placed: true,
       found: async () => {
         try {
           const assets = await findLocalAssets(env, location, stem, 'save')
@@ -363,7 +374,13 @@ export function placeSaveBeside(
   }
 }
 
-/** The descriptor's save location for the payload, when it is the payload's own folder. */
+const NOT_PLACED: PlacedSave = { placed: false, found: async () => false, remove: () => {} }
+
+/**
+ * The descriptor's save location for the payload, when it is the payload's own
+ * folder; `unknown` when the descriptor could not say, which is a fault in it
+ * rather than an emulator that keeps its saves elsewhere.
+ */
 function besideRom(
   state: EmulatorState,
   system: string,
@@ -371,7 +388,7 @@ function besideRom(
   plan: Extract<SandboxPlan, { kind: 'run' }>,
   home: string,
   env: ReturnType<typeof fileSystemEnvironment>
-): SaveLocation | null {
+): SaveLocation | 'unknown' | null {
   const descriptor = emulatorById(state.id)
   if (!descriptor) return null
   const { folders } = plan
@@ -401,7 +418,7 @@ function besideRom(
       emulator: state.id,
       cause
     })
-    return null
+    return 'unknown'
   }
 }
 
