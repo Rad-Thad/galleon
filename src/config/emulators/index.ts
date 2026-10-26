@@ -3,6 +3,7 @@ import { dolphin } from './dolphin/index.ts'
 import { duckstation } from './duckstation/index.ts'
 import { eden } from './eden/index.ts'
 import { emudeck } from './emudeck/index.ts'
+import { ppsspp } from './ppsspp/index.ts'
 import { retroarch } from './retroarch/index.ts'
 import { retrodeck } from './retrodeck/index.ts'
 import { shadps4 } from './shadps4/index.ts'
@@ -32,7 +33,8 @@ export const EMULATORS: readonly EmulatorDescriptor[] = [
   shadps4,
   duckstation,
   armsx2,
-  dolphin
+  dolphin,
+  ppsspp
 ]
 
 /**
@@ -210,6 +212,7 @@ export function isInstallableAsset(assetName: string, source: ReleaseSource): bo
 export { duckstation } from './duckstation/index.ts'
 export { dolphin } from './dolphin/index.ts'
 export { eden } from './eden/index.ts'
+export { ppsspp } from './ppsspp/index.ts'
 export { emudeck, EMUDECK_LAUNCHERS, emuDeckLaunchers } from './emudeck/index.ts'
 export { retroarch } from './retroarch/index.ts'
 export { retrodeck, RETRODECK_APP_ID } from './retrodeck/index.ts'

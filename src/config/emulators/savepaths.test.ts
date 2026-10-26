@@ -5,6 +5,7 @@ import { dolphin } from './dolphin/index.ts'
 import { duckstation } from './duckstation/index.ts'
 import { eden } from './eden/index.ts'
 import { emudeck, EMUDECK_LAUNCHERS } from './emudeck/index.ts'
+import { ppsspp } from './ppsspp/index.ts'
 import {
   emuDeckSaveFolder,
   FOLDERS,
@@ -1428,6 +1429,21 @@ test("Dolphin's shared memory cards are not synced, and the Saves tab is told wh
   for (const language of ['en', 'fr', 'de', 'es'] as const) {
     const said = localize('saves.dolphinStandalone', createI18n(language))
     assert.ok(said?.includes('Dolphin'), language)
+  }
+})
+
+test("PPSSPP's saves, named after the game id, are not synced, and the Saves tab is told why", () => {
+  const paths = resolve(ppsspp, {
+    romPath: '/roms/psp/Game (USA).iso',
+    system: 'psp',
+    paths: { saves: '/config/ppsspp/PSP/SAVEDATA' }
+  })
+  assert.deepEqual(paths.saves, { dir: '/config/ppsspp/PSP/SAVEDATA', match: 'shared' })
+  assert.equal(paths.states, null)
+  assert.equal(paths.unsyncableReason, 'saves.ppsspp')
+  for (const language of ['en', 'fr', 'de', 'es'] as const) {
+    const said = localize('saves.ppsspp', createI18n(language))
+    assert.ok(said?.includes('PPSSPP'), language)
   }
 })
 
