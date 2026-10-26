@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { join, relative } from 'node:path'
 import { findEmulator, loadFindRules } from '../../main/findrules.ts'
 import { findMatchingFile } from '../../main/host.ts'
+import { chooseLaunchFile } from '../../shared/gamefiles.ts'
 import { isKnownSystem } from '../systems.ts'
 import {
   EMULATORS,
@@ -26,6 +27,7 @@ import { dolphin } from './dolphin/index.ts'
 import { duckstation } from './duckstation/index.ts'
 import { eden } from './eden/index.ts'
 import { emudeck, ROM_PLACEHOLDER } from './emudeck/index.ts'
+import { ppsspp } from './ppsspp/index.ts'
 import { retroarch } from './retroarch/index.ts'
 import { retrodeck } from './retrodeck/index.ts'
 import { shadps4 } from './shadps4/index.ts'
@@ -965,4 +967,65 @@ test("Dolphin's memory cards are its own data folder, and it keeps no state or B
   assert.deepEqual(dolphin.dirs.saves, { base: 'data', path: 'dolphin-emu/GC' })
   assert.equal(dolphin.dirs.states, undefined)
   assert.equal(dolphin.dirs.bios, undefined)
+})
+
+test('PPSSPP is found as the catalog flatpak first, then on PATH', () => {
+  assert.deepEqual(
+    ppsspp.install.map((spec) => spec.kind),
+    ['flatpak', 'binary']
+  )
+  assert.deepEqual(ppsspp.install[0], { kind: 'flatpak', appId: 'org.ppsspp.PPSSPP' })
+  assert.equal(ppsspp.findRule, 'PPSSPP')
+})
+
+test('PPSSPP runs PSP games only', () => {
+  assert.equal(supportsSystem(ppsspp, 'psp'), true)
+  assert.equal(supportsSystem(ppsspp, 'psx'), false)
+})
+
+test('PPSSPP boots an .iso or a .cso fullscreen, and its pause menu exits', () => {
+  const exec = ['flatpak', 'run', 'org.ppsspp.PPSSPP']
+  for (const romPath of ['/roms/psp/Game (USA).iso', '/roms/psp/Game (USA).cso']) {
+    assert.deepEqual(
+      ppsspp.launch({ exec, installRef: 'org.ppsspp.PPSSPP', system: 'psp', romPath }),
+      [...exec, '--fullscreen', '--pause-menu-exit', romPath]
+    )
+  }
+})
+
+test('PPSSPP is handed the image inside a PSP game kept in a folder of its own', () => {
+  const exec = ['flatpak', 'run', 'org.ppsspp.PPSSPP']
+  const folder = '/roms/psp/Game (USA)'
+  for (const [files, inner] of [
+    [
+      [
+        { name: 'Game (USA).cso', sizeBytes: 900_000_000 },
+        { name: 'cover.jpg', sizeBytes: 200_000 },
+        { name: 'readme.txt', sizeBytes: 1_000 }
+      ],
+      'Game (USA).cso'
+    ],
+    [
+      [
+        { name: 'EBOOT.PBP', sizeBytes: 4_000_000 },
+        { name: 'ICON0.PNG', sizeBytes: 20_000 }
+      ],
+      'EBOOT.PBP'
+    ]
+  ] as const) {
+    const chosen = chooseLaunchFile(files, 'psp')
+    assert.equal(chosen, inner)
+    const romPath = `${folder}/${chosen}`
+    assert.deepEqual(
+      ppsspp.launch({ exec, installRef: 'org.ppsspp.PPSSPP', system: 'psp', romPath })?.at(-1),
+      romPath
+    )
+  }
+})
+
+test("PPSSPP's saves are its own config folder, and it keeps no state or BIOS folder", () => {
+  assert.deepEqual(ppsspp.dirs.saves, { base: 'config', path: 'ppsspp/PSP/SAVEDATA' })
+  assert.equal(ppsspp.dirs.states, undefined)
+  assert.equal(ppsspp.dirs.bios, undefined)
+  assert.equal(ppsspp.sandbox, undefined)
 })
