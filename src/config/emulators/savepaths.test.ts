@@ -1241,7 +1241,13 @@ test('the example descriptor answers nothing where the folders are unknown', () 
 test('the example descriptor builds an argv per system, and refuses the rest', () => {
   const exec = ['/opt/example/Example.AppImage']
   const launch = (system: string): string[] | null =>
-    example.launch({ exec, installRef: exec[0], system, romPath: '/roms/game.sfc' })
+    example.launch({
+      exec,
+      installRef: exec[0],
+      system,
+      romPath: '/roms/game.sfc',
+      launcherDir: '/galleon/launch'
+    })
 
   assert.deepEqual(launch('snes'), [...exec, '/roms/game.sfc'])
   // The flag the example uses to show a system that needs one.
@@ -1259,7 +1265,8 @@ test('the example descriptor claims only systems it can launch', () => {
         exec: ['/opt/example/Example.AppImage'],
         installRef: '/opt/example/Example.AppImage',
         system,
-        romPath: '/roms/game.sfc'
+        romPath: '/roms/game.sfc',
+        launcherDir: '/galleon/launch'
       }),
       `${system} is offered but cannot be launched`
     )

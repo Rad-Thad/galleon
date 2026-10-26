@@ -93,8 +93,21 @@ function requiredCore(ctx: CoreContext): RequiredCore | null {
   )
 }
 
-/** The appended config, which `sandbox` writes beside the sandbox's own folders. */
-const SANDBOX_APPEND = 'retroarch-sandbox.cfg'
+/** The config every launch appends to the player's own; see `LAUNCH_SETTINGS`. */
+const LAUNCH_APPEND = 'retroarch-append.cfg'
+
+/**
+ * What every launch needs from RetroArch that its own config may not say.
+ *
+ * `quit_on_close_content` "2" quits when the player closes the game, but only
+ * for a RetroArch started with content on the command line, so the player is
+ * back in RomMix rather than in RetroArch's menu, and RetroArch started on its
+ * own still keeps its menu. Saving the config on exit writes every setting in
+ * force, the appended ones too, into `retroarch.cfg` (`config_save_file` in
+ * its `configuration.c`), so it is off for these sessions: the player's file
+ * is never edited by a launch.
+ */
+const LAUNCH_SETTINGS = 'quit_on_close_content = "2"\nconfig_save_on_exit = "false"\n'
 
 /**
  * Variables RetroArch reads after its config, each replacing a folder the
@@ -124,9 +137,10 @@ const STARTUP_TEMP = '/tmp/retroarch-tmp'
  *
  * `--config` alone is not enough: RetroArch takes its save, state and system
  * folders from the config, and an empty one falls back to defaults that can
- * sit beside the game. The appended config names every folder it writes,
- * keeps saves and states out of the game's folder, and turns off saving the
- * config on exit so the sandbox's file stays what was written. Cores are the
+ * sit beside the game. The appended config is the one `launch` names, which
+ * the self-test reads from the sandbox's root: it carries every launch's
+ * `LAUNCH_SETTINGS`, then names every folder RetroArch writes and keeps saves
+ * and states out of the game's folder. Cores are the
  * owner's, read where RetroArch would load them from; without a core for the
  * system, or without its file, there is nothing to start. A folder variable inherited from the
  * session would win over the appended config, so none reaches it.
@@ -137,7 +151,6 @@ function sandboxRecipe(ctx: SandboxContext): SandboxRecipe | null {
   const { folders } = ctx
   const config = joinPath(folders.config, 'retroarch')
   const settings: Record<string, string> = {
-    config_save_on_exit: 'false',
     libretro_directory: core.dir,
     savefile_directory: folders.saves,
     savestate_directory: folders.states,
@@ -153,16 +166,13 @@ function sandboxRecipe(ctx: SandboxContext): SandboxRecipe | null {
     cache_directory: joinPath(folders.data, 'cache'),
     log_dir: joinPath(folders.data, 'logs')
   }
-  const append = Object.entries(settings)
-    .map(([key, value]) => `${key} = "${value}"\n`)
-    .join('')
+  const append =
+    LAUNCH_SETTINGS +
+    Object.entries(settings)
+      .map(([key, value]) => `${key} = "${value}"\n`)
+      .join('')
   return {
-    args: [
-      '--config',
-      joinPath(config, 'retroarch.cfg'),
-      '--appendconfig',
-      joinPath(folders.root, SANDBOX_APPEND)
-    ],
+    args: ['--config', joinPath(config, 'retroarch.cfg')],
     env: {},
     unset: FOLDER_OVERRIDES,
     needs: [joinPath(core.dir, core.fileName)],
@@ -171,7 +181,7 @@ function sandboxRecipe(ctx: SandboxContext): SandboxRecipe | null {
     needsBios: false,
     files: [
       { path: 'config/retroarch/retroarch.cfg', content: '' },
-      { path: SANDBOX_APPEND, content: append }
+      { path: LAUNCH_APPEND, content: append }
     ]
   }
 }
@@ -257,10 +267,19 @@ export const retroarch: EmulatorDescriptor = {
    * who prefers windowed play still has it when they start RetroArch
    * themselves. The same reasoning as Eden's `-f`.
    */
-  launch: ({ exec, system, romPath, variant }) => {
+  launch: ({ exec, system, romPath, variant, launcherDir }) => {
     const core = chosenCore(system, variant)
     if (!core) return null
-    return [...exec, '-f', '-L', `${core}_libretro.so`, romPath]
+    return [
+      ...exec,
+      '-f',
+      '-L',
+      `${core}_libretro.so`,
+      '--appendconfig',
+      joinPath(launcherDir, LAUNCH_APPEND),
+      romPath
+    ]
   },
-  sandbox: sandboxRecipe
+  sandbox: sandboxRecipe,
+  launchFiles: () => [{ name: LAUNCH_APPEND, content: LAUNCH_SETTINGS }]
 }

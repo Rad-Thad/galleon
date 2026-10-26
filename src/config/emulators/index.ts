@@ -240,6 +240,7 @@ export type {
   EmulatorState,
   InstallSpec,
   LaunchContext,
+  LaunchFile,
   LaunchVariant,
   LayoutDiscovery,
   LayoutSource,

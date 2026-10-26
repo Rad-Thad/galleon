@@ -109,5 +109,6 @@ export const dolphin: EmulatorDescriptor = {
     '-e',
     romPath
   ],
-  sandbox: sandboxRecipe
+  sandbox: sandboxRecipe,
+  launchFiles: undefined
 }

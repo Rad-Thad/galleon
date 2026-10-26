@@ -404,5 +404,6 @@ export const emudeck: EmulatorDescriptor = {
       ...chosen.args.map((arg) => arg.replace(ROM_PLACEHOLDER, romPath))
     ]
   },
-  sandbox: undefined
+  sandbox: undefined,
+  launchFiles: undefined
 }

@@ -1154,6 +1154,8 @@ export const es: Catalog = {
     '{emulator} no tiene ningún lanzador instalado para «{system}». Añade uno desde ' +
     '{emulator}, o elige otro emulador para esta plataforma en la pantalla Emuladores.',
   'launch.stoppedBeforeStart': 'Detenido antes de que el juego arrancara',
+  'launch.badLaunchFile':
+    "The emulator's launch file {name} cannot be written: it is not a plain file name", // TODO(i18n)
   'launch.syncWarning': 'Aviso de sincronización de partidas: {details}',
   'launch.couldNotStartEmulator': 'No se ha podido arrancar el emulador: {reason}',
   'launch.couldNotStartNamed': 'No se ha podido arrancar {name}: {reason}',

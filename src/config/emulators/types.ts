@@ -308,6 +308,18 @@ export interface LaunchContext {
   romPath: string
   /** The chosen `LaunchVariant`, when the emulator offers more than one. */
   variant?: string
+  /**
+   * A folder of RomMix's own for this emulator, where its `launchFiles` are
+   * written before every launch, so `launch` can name them.
+   */
+  launcherDir: string
+}
+
+/** A file RomMix writes into `LaunchContext.launcherDir` before a launch. */
+export interface LaunchFile {
+  /** A plain file name, never a path. */
+  name: string
+  content: string
 }
 
 /**
@@ -680,6 +692,14 @@ interface EmulatorFields {
    * owner's settings and saves costs the owner's trust.
    */
   readonly sandbox: ((ctx: SandboxContext) => SandboxRecipe | null) | undefined
+
+  /**
+   * Files of RomMix's own the launch reads, such as a config appended to the
+   * emulator's, written fresh before every launch so the emulator's own files
+   * are never edited to get the behaviour RomMix needs.
+   */
+  readonly launchFiles:
+    ((ctx: Pick<LaunchContext, 'system' | 'variant'>) => readonly LaunchFile[]) | undefined
 }
 
 /**

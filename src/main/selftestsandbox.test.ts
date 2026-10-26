@@ -473,14 +473,14 @@ describe("RetroArch's recipe", () => {
 
   /** The appended config as key and value, the way RetroArch reads it. */
   function appended(files: { path: string; content: string }[]): Record<string, string> {
-    const file = files.find((f) => f.path.endsWith('retroarch-sandbox.cfg'))
+    const file = files.find((f) => f.path.endsWith('retroarch-append.cfg'))
     assert.ok(file)
     return Object.fromEntries(
       [...file.content.matchAll(/^(\w+) = "([^"]*)"$/gm)].map(([, key, value]) => [key, value])
     )
   }
 
-  test('starts on a config of its own with the sandbox folders appended, before the game', () => {
+  test('starts on a config of its own, with the sandbox folders in the one config the launch appends', () => {
     const result = retroPlan()
     assert.equal(result.kind, 'run')
     if (result.kind !== 'run') return
@@ -489,14 +489,41 @@ describe("RetroArch's recipe", () => {
       '/usr/bin/retroarch',
       '--config',
       join(root, 'config', 'retroarch', 'retroarch.cfg'),
-      '--appendconfig',
-      join(root, 'retroarch-sandbox.cfg')
+      '-f',
+      '-L'
     ])
-    assert.deepEqual(result.argv.slice(5, 7), ['-f', '-L'])
+    // RetroArch keeps only the last `--appendconfig`, so there must be one,
+    // and it must be the sandbox's file.
+    assert.deepEqual(
+      result.argv.filter((arg) => arg === '--appendconfig'),
+      ['--appendconfig']
+    )
+    assert.equal(
+      result.argv[result.argv.indexOf('--appendconfig') + 1],
+      join(root, 'retroarch-append.cfg')
+    )
     assert.deepEqual(
       result.files.map((f) => f.path),
-      [join(root, 'config', 'retroarch', 'retroarch.cfg'), join(root, 'retroarch-sandbox.cfg')]
+      [join(root, 'config', 'retroarch', 'retroarch.cfg'), join(root, 'retroarch-append.cfg')]
     )
+  })
+
+  test("carries every launch's appended settings, so Close Content quits as in play", () => {
+    const result = retroPlan()
+    assert.equal(result.kind, 'run')
+    if (result.kind !== 'run') return
+    const settings = appended(result.files)
+    for (const [key, value] of Object.entries(
+      Object.fromEntries(
+        (retroarch.launchFiles?.({ system: 'snes' })[0].content ?? '')
+          .split('\n')
+          .filter(Boolean)
+          .map((line) => line.split(' = ').map((part) => part.replaceAll('"', '')))
+      )
+    )) {
+      assert.equal(settings[key], value, key)
+    }
+    assert.equal(settings.quit_on_close_content, '2')
   })
 
   test('writes saves, states and system files into the sandbox and never saves its config', () => {
@@ -520,7 +547,7 @@ describe("RetroArch's recipe", () => {
     const { libretro_directory: cores, ...rest } = appended(result.files)
     assert.equal(cores, ownerCores)
     for (const [key, value] of Object.entries(rest)) {
-      if (value === 'false') continue
+      if (!value.includes('/')) continue
       assert.ok(value.startsWith(`${result.folders.root}/`), `${key} = ${value}`)
     }
   })

@@ -200,5 +200,6 @@ export const eden: EmulatorDescriptor = {
    * filename begins with a dash is read as an option and the launch fails.
    */
   launch: ({ exec, romPath }) => [...exec, '-f', '-g', romPath],
-  sandbox: sandboxRecipe
+  sandbox: sandboxRecipe,
+  launchFiles: undefined
 }

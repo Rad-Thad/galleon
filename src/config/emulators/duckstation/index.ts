@@ -144,5 +144,6 @@ export const duckstation: EmulatorDescriptor = {
    * begins with a dash is still read as the file to boot.
    */
   launch: ({ exec, romPath }) => [...exec, '-batch', '-fullscreen', '-nogui', '--', romPath],
-  sandbox: sandboxRecipe
+  sandbox: sandboxRecipe,
+  launchFiles: undefined
 }

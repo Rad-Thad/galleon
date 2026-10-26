@@ -173,5 +173,6 @@ export const retrodeck: EmulatorDescriptor = {
   // `exec` alone opens RetroDECK's own frontend.
   open: undefined,
   launch: ({ exec, system, romPath }) => [...exec, '-s', system, romPath],
-  sandbox: undefined
+  sandbox: undefined,
+  launchFiles: undefined
 }

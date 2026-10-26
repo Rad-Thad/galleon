@@ -95,5 +95,6 @@ export const ppsspp: EmulatorDescriptor = {
    * the ROM path is absolute, so it never begins with a dash.
    */
   launch: ({ exec, romPath }) => [...exec, '--fullscreen', '--pause-menu-exit', romPath],
-  sandbox: sandboxRecipe
+  sandbox: sandboxRecipe,
+  launchFiles: undefined
 }

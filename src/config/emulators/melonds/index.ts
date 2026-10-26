@@ -107,5 +107,6 @@ export const melonds: EmulatorDescriptor = {
    * The ROM path is absolute, so it never begins with a dash.
    */
   launch: ({ exec, romPath }) => [...exec, '-f', romPath],
-  sandbox: sandboxRecipe
+  sandbox: sandboxRecipe,
+  launchFiles: undefined
 }
