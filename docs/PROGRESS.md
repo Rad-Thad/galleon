@@ -3254,3 +3254,15 @@ Lines the tooling reads (exact forms):
 - Flaky: `selftestscroll.test.ts` "holds Down through a page slower than TURN_MS" failed once in `check.sh` while the evaluator ran other suites on the VM; it is untouched here and has its own issue, #309.
 - Device / acceptance: none; run.sh's behaviour on the Nova is unchanged.
 - Next: if the x64 leg is still near 10 minutes, `test:app` (perf overlay 76 s, two 33 s grid.scroll runs); otherwise M2-08 part 2b-2b-2, Flycast's per-game VMU.
+
+## 2026-10-26 23:27 UTC session 015vJV48feABk2qew5yAYx4g (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. #308 (#307, the x64 leg) merged at cdb8c32; x64 median 9:21 over 10 PRs, under the target, so `test:app` waits.
+- Worked on: M2-08 part 2b-2b-2, ADR 0005 decision 2 for Flycast (tracking issue #111).
+- Result: PR (this one). Flycast's descriptor gains `settingsEdits`: `[config] PerGameVmu = yes` in `flycast/emu.cfg` under its config folder, `whenAbsent: 'leave'`, because at the pinned 0d9853df `PerGameVmu` is on by Flycast's own default (`core/cfg/option.cpp`) and Flycast writes booleans as `yes`/`no` (`core/cfg/ini.h`). A file where a user turned it off is set back through `applySettingsEdits` (backup, atomic replace); a file without the key, or no file, is left alone. The descriptor's doc comment said VMUs were shared unless the user turned per-game on; per game is the default for port A1, the other ports' VMUs are shared. Saves stay unsynced until the Dreamcast adapter (SPEC.md: convertible from Argosy's `<product>.A1.bin`).
+- Evidence: settingsedits.test.ts (9) on `test/fixtures/settings/emu.cfg`, a complete emu.cfg in Flycast's own shape: the only changed line is `PerGameVmu = no` to `PerGameVmu = yes` and the backup equals the original; without the key nothing is written and no backup kept; a missing file stays missing. registry.test.ts "only Dolphin and Flycast edit their own settings so far, each only the one key". Both fail with Flycast's `settingsEdits` undefined. `scripts/agent/check.sh` green (1:55); `npm run test:app` 244/244 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root). No UI change, so no shots.
+- Notes: Docker's daemon was not running (started `dockerd` by hand) and Docker Hub answered 429 for mariadb, so init.sh's RomM stack did not come up; this unit needs no RomM. `npx install-electron` needed a retry.
+- Evaluator: PASS (both Flycast claims checked against its source at 0d9853df; the new tests fail with the edit removed; only the one key, backup first, no fresh file). Noted: a per-game `[<gameId>]` override of `config.PerGameVmu` is left alone, as ADR 0005's one-key rule asks.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none.
+- Next: M2-08 part 2b-2b-3, ARMSX2's folder card (read SPEC.md's PS2 rows first). Then M2-08 can pass.

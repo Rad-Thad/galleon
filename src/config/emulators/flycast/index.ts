@@ -66,9 +66,9 @@ const FLYCAST_PER_GAME_VMU = {
  *    BIOS. It reads and writes the flash there as `dc_nvmem.bin`, so a
  *    `dc_flash.bin` (the libretro core's name) placed beside it is kept but
  *    not read.
- *  - The VMU in port A1 is **one per game** while `PerGameVmu` is on, which
- *    Galleon keeps it (see `flycast.settingsEdits`); the other ports' VMUs
- *    are shared by every game. Neither is synced yet, and its states stay on
+ *  - The VMU in port A1 is **one per game** while `PerGameVmu` is on, and
+ *    Galleon keeps it on (see `flycast.settingsEdits`); the other ports'
+ *    VMUs are shared by every game. Neither is synced yet, and its states stay on
  *    the device.
  *
  * It follows the XDG layout (`~/.local/share/flycast` for data,
