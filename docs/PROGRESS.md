@@ -3024,3 +3024,14 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet. `launch.ppsspp` needs a sandbox recipe, a PSP homebrew payload in the M0-07 manifest, and run.sh asking for it.
 - Next: M1-05 part 2, PPSSPP's sandbox recipe.
+
+## 2026-10-26 02:30 UTC session 01YQHgaaGniWGgW5heN23pQb (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. #284 (PPSSPP's descriptor) merged at faff518; CI x64 9:12, arm64 1:10.
+- Worked on: M1-05 part 2, PPSSPP's sandbox recipe (tracking issue #283).
+- Result: PR (this one). PPSSPP needs nothing beyond the sandbox's XDG roots: on Linux `NativeInit` (`UI/NativeApp.cpp` at 13c1773b) puts the whole memory stick, settings, saves, states and caches, in `ppsspp` under `XDG_CONFIG_HOME`, with no portable marker or `HOME` lookup ahead of it, and a first start shows only an on-screen hint, no window. So the recipe adds no arguments and no files; only the program on PATH is started, the flatpak stays `cannot-sandbox` (`flatpak-install`) until the parked flatpak sandbox (#155) lands. The evaluator's question from part 1 is answered: `PauseMenuExitsEmulator` is `CfgFlag::DONT_SAVE` in `Core/Config.cpp`, so `--pause-menu-exit` never reaches `ppsspp.ini`, like `--fullscreen` (`DoNotSaveSetting` in `Core/CmdLine.cpp`); the launch comment says so. docs/TESTING.md names it under the emulator sandbox.
+- Evidence: selftestsandbox.test.ts "keeps the memory stick in the sandbox, where XDG_CONFIG_HOME leads PPSSPP", "is not started as the flatpak". `scripts/agent/check.sh` green. `test:app` not run: no renderer, IPC or launch argv changed.
+- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet. `launch.ppsspp` needs a PSP homebrew payload of our own in the M0-07 manifest and run.sh asking for it; on the Nova it will skip as `cannot-sandbox` while PPSSPP is the flatpak.
+- Next: M1-05 part 3a, a PSP homebrew `EBOOT.PBP` of our own (ADR 0008).
