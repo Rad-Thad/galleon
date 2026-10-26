@@ -3127,3 +3127,14 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet. `launch.melonds` needs an NDS homebrew payload of our own in the M0-07 manifest and run.sh asking for it; the save half of its acceptance needs the save found beside the payload.
 - Next: M1-07 part 3a, an NDS homebrew of our own (ADR 0008, as the Dreamcast ELF).
+
+## 2026-10-26 13:02 UTC session 015PiXrJ4qQhxq2hRj3FPz49 (hourly heartbeat, second unit)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. #295 (melonDS's sandbox recipe) merged at 3b9d7ab; CI x64 9:02, arm64 0:59.
+- Worked on: M1-07 part 3a, the NDS payload of `launch.melonds` (tracking issue #293).
+- Result: PR (this one). `test/fixtures/homebrew/nds-hello/`: `main.c` prints one line with libnds's `consoleDemoInit` and waits on vertical blank; `Makefile` sets the banner, an icon of our own (`icon.bmp`, a plain frame, since BlocksDS's `sys/icon.bmp` states no licence) and BlocksDS's `arm7_minimal.elf` (libnds alone, no dswifi or maxmod), then includes BlocksDS's ARM9 ROM makefile; `build.sh` builds it in `skylyrac/blocksds` pinned by digest (BlocksDS 1.13.1, core at 245a25c3) and writes `galleon-nds-hello.nds`, committed beside its source (ADR 0008). README names what is linked in: libnds (zlib), BlocksDS's `sys/crts` start-up code and linker scripts (zlib and MPL-2.0, source at github.com/blocksds/sdk), picolibc (BSD-style) and libgcc (runtime exception); FatFs is not linked.
+- Evidence: two builds give sha256 `664c24a346a48584d62e0809edf0d37c9f4f32b954f4b817d1d49fff90b52ee6` (66560 bytes); the text is in it; the link map lists only `libnds9.a`, `ds_arm9_crt0.o`, picolibc's `libc.a`, `libgcc.a` and GCC's `crtend.o`/`crtn.o`. `scripts/agent/check.sh` (see the PR). Not booted on the VM (no melonDS here).
+- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet.
+- Next: M1-07 part 3b: the manifest entry at this PR's merge commit (`roms/nds/galleon-nds-hello.nds`), its THIRD_PARTY.md notice, and run.sh asking for `launch.melonds`/`exit.melonds` with it; the save half of `launch.melonds` (a save beside the ROM found by save discovery) needs a payload that writes cartridge save memory, or a check that places one, still to be decided.
