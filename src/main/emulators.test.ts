@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { EmulatorState } from '@config/emulators'
 import type { Settings } from '@shared/types'
+import { missingCore } from './cores.ts'
 import { detectEmulators, expandShell, prepareRomFolders } from './emulators.ts'
 import { addFindRules, emptyFindRules, loadFindRules } from './findrules.ts'
 import { log } from './log.ts'
@@ -372,7 +373,7 @@ describe('an emulator packaged as a flatpak, which keeps its files in its own tr
    * there is nothing to point at instead. Answering the one question the probe
    * asks is enough, and the script is small enough to read.
    */
-  function fakeFlatpak(dir: string, location: string): void {
+  function fakeFlatpak(dir: string, location: string, appId = APP_ID): void {
     const bin = join(dir, 'fake-bin')
     mkdirSync(bin, { recursive: true })
     const script = join(bin, 'flatpak')
@@ -380,7 +381,7 @@ describe('an emulator packaged as a flatpak, which keeps its files in its own tr
       script,
       [
         '#!/bin/sh',
-        'if [ "$1" = "info" ] && [ "$3" = "' + APP_ID + '" ]; then',
+        'if [ "$1" = "info" ] && [ "$3" = "' + appId + '" ]; then',
         `  echo "${location}"`,
         '  exit 0',
         'fi',
@@ -471,6 +472,25 @@ describe('an emulator packaged as a flatpak, which keeps its files in its own tr
     // Neither a number nor an empty string is a path.
     assert.equal(found.paths.saves, null)
     assert.equal(found.paths.bios, null)
+  })
+
+  test("RetroArch's flatpak gets its cores in its own tree, with or without a config yet", async () => {
+    const RETROARCH = 'org.libretro.RetroArch'
+    const dir = home()
+    fakeFlatpak(dir, join(dir, 'flatpak-deploy'), RETROARCH)
+    const cores = join(dir, '.var', 'app', RETROARCH, 'config', 'retroarch', 'cores')
+
+    const found = await probeOne('retroarch', settings())
+    assert.equal(found.install?.kind, 'flatpak')
+    assert.equal((await missingCore(found, 'snes'))?.dir, cores)
+
+    // The config the flatpak writes on its first start names the same folder
+    // from the home, which only the player's home resolves.
+    write(
+      join(dir, '.var', 'app', RETROARCH, 'config', 'retroarch', 'retroarch.cfg'),
+      `libretro_directory = "~/.var/app/${RETROARCH}/config/retroarch/cores"\n`
+    )
+    assert.equal((await missingCore(found, 'snes'))?.dir, cores)
   })
 })
 

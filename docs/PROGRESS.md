@@ -3184,3 +3184,15 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet.
 - Next: M1-08 part 3, the flatpak core folder (`~/.var/app/org.libretro.RetroArch/config/retroarch/cores`) and `launch.retroarch` on a SNES homebrew leaving an `.srm` (a SNES payload of our own with battery-backed SRAM, `savingPayloads`); the self-test still skips flatpaks as `cannot-sandbox` (#155).
+
+## 2026-10-26 18:26 UTC session 01Vkz7fDjjpqSPy19EqnQqFK (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. #301 (M1-08 part 2) merged at fd6e703.
+- Worked on: M1-08 part 3a, the flatpak core folder (tracking issue #299).
+- Result: PR (this one), a test only. The probe gives the RetroArch flatpak its own tree as `configDir` (`~/.var/app/org.libretro.RetroArch/config`), and `requiredCore` already falls back to `retroarch/cores` under it, or takes `libretro_directory` from the flatpak's `retroarch.cfg`; nothing pinned that the two meet. emulators.test.ts "RetroArch's flatpak gets its cores in its own tree, with or without a config yet" probes RetroArch through a fake `flatpak` and asks `missingCore` for a SNES core: the folder is `~/.var/app/org.libretro.RetroArch/config/retroarch/cores` with no config, and again with a config naming it from `~`. `fakeFlatpak` takes the app id it answers for.
+- Evidence: the test passes, and fails when the expected folder is changed; `scripts/agent/check.sh` green (3:34). `test:app` not run: no renderer, IPC or launch code changed.
+- Notes: Docker's daemon was not answering, so `init.sh` stopped before `npm ci`; ran `npm ci` by hand.
+- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet.
+- Next: M1-08 part 3b, a SNES homebrew of our own with battery SRAM for `launch.retroarch` leaving an `.srm` (ADR 0008, as the NDS ROM); `launch.retroarch` on the Nova still skips while RetroArch is the flatpak (#155, flatpak sandbox parked).
