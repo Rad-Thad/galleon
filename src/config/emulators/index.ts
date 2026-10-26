@@ -89,14 +89,19 @@ export function orderedEmulators(
  * `docs/save-sync/SYSTEM-CHOICES.md`).
  *
  * It outranks the user's emulator ranking, which is a general preference, but
- * never a choice recorded for the system itself. Systems whose chosen emulator
- * Galleon cannot drive yet are absent and follow the ranking.
+ * never a choice recorded for the system itself. Systems ADR 0005 does not
+ * name follow the ranking.
  */
 export const SYSTEM_DEFAULTS: Readonly<Record<string, EmulatorId>> = {
   snes: 'retroarch',
   snesna: 'retroarch',
   gba: 'retroarch',
-  psx: 'retroarch'
+  psx: 'retroarch',
+  psp: 'ppsspp',
+  ps2: 'armsx2',
+  gc: 'dolphin',
+  wii: 'dolphin',
+  dreamcast: 'flycast'
 }
 
 export function emulatorsForSystem(

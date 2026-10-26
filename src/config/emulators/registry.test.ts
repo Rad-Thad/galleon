@@ -150,6 +150,17 @@ test('the defaults are the save choices ADR 0005 records', () => {
     assert.equal(defaultEmulatorFor(system), 'retroarch', system)
     assert.equal(defaultEmulatorFor(system, ['retrodeck', 'emudeck']), 'retroarch', system)
   }
+  const standalone = [
+    ['psp', 'ppsspp'],
+    ['ps2', 'armsx2'],
+    ['gc', 'dolphin'],
+    ['wii', 'dolphin'],
+    ['dreamcast', 'flycast']
+  ] as const
+  for (const [system, id] of standalone) {
+    assert.equal(defaultEmulatorFor(system), id, system)
+    assert.equal(defaultEmulatorFor(system, ['retroarch', 'retrodeck', 'emudeck']), id, system)
+  }
   for (const [system, id] of Object.entries(SYSTEM_DEFAULTS)) {
     const descriptor = emulatorById(id)
     assert.ok(descriptor && supportsSystem(descriptor, system), `${system} -> ${id}`)
