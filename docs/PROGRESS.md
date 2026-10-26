@@ -3196,3 +3196,14 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet.
 - Next: M1-08 part 3b, a SNES homebrew of our own with battery SRAM for `launch.retroarch` leaving an `.srm` (ADR 0008, as the NDS ROM); `launch.retroarch` on the Nova still skips while RetroArch is the flatpak (#155, flatpak sandbox parked).
+
+## 2026-10-26 18:47 UTC session 01Vkz7fDjjpqSPy19EqnQqFK (hourly heartbeat, second unit)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. #302 (M1-08 part 3a) merged at 1b648c3; CI x64 9:09, arm64 1:09.
+- Worked on: M1-08 part 3b, the SNES payload of `launch.retroarch` (tracking issue #299).
+- Result: PR (this one). `test/fixtures/homebrew/snes-save/`: `build.py` writes `galleon-snes-save.sfc`, a 128 KiB LoROM cartridge with battery-backed SRAM (header type `$02`, 2 KiB), committed beside it (ADR 0008). On reset the program copies `GALLEON SAVE TEST` into SRAM, shows a green backdrop and waits. The 65816 is assembled by hand in `build.py`, each instruction beside its assembly, so no toolchain and no third-party code is in it; the README says so. 128 KiB because snes9x labels a smaller header size corrupt.
+- Evidence: two builds give sha256 `45420c79e55b1764e5ed389e8364554d4b137bc6a89e22dc44eedcdb67ef998e` (131072 bytes). In Ubuntu's RetroArch 1.18.0 with its snes9x core 1.61, under Xvfb with a config of the scratchpad's own: snes9x reports `"GALLEON SAVE TEST" [checksum ok] LoROM, 1Mbits, ROM+RAM+BAT, NTSC, SRAM:16Kbits`, and after RetroArch is stopped its save folder holds `galleon-snes-save.srm`, 2048 bytes, starting with the text. `scripts/agent/check.sh` (see the PR).
+- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet.
+- Next: M1-08 part 3c: the manifest entry at this PR's merge commit (`roms/snes/galleon-snes-save.sfc`), its THIRD_PARTY.md notice, and run.sh naming RetroArch this payload with the `.srm` expected in `savingPayloads`; then READY-FOR-DEVICE M1-08 (on the Nova it skips `cannot-sandbox` while RetroArch is the flatpak, #155).
