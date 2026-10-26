@@ -964,6 +964,70 @@ describe("PPSSPP's recipe", () => {
   })
 })
 
+describe("Flycast's recipe", () => {
+  const flycast = emulatorById('flycast')
+  assert.ok(flycast)
+  const binary: ResolvedInstall = { kind: 'binary', ref: '/usr/bin/flycast' }
+
+  function flycastPlan(install: ResolvedInstall = binary) {
+    return planSandbox({
+      descriptor: flycast!,
+      install,
+      system: 'dreamcast',
+      romPath: '/payload/hello.cdi',
+      home: HOME,
+      owner: OWNER,
+      realPath: (path) => path
+    })
+  }
+
+  test('writes its own emu.cfg where Flycast reads it first, with the window fullscreen', () => {
+    const result = flycastPlan()
+    assert.equal(result.kind, 'run')
+    if (result.kind !== 'run') return
+    assert.deepEqual(result.argv, [binary.ref, '/payload/hello.cdi'])
+    assert.deepEqual(result.files, [
+      {
+        path: join(result.env.XDG_CONFIG_HOME, 'flycast', 'emu.cfg'),
+        content: '[window]\nfullscreen = yes\n'
+      }
+    ])
+  })
+
+  test('takes copies of the owner BIOS into its data folder and no BIOS folder of the owner', () => {
+    const result = flycastPlan()
+    assert.equal(result.kind, 'run')
+    if (result.kind !== 'run') return
+    assert.equal(result.bios, join(result.env.XDG_DATA_HOME, 'flycast'))
+    assert.ok(result.unset.includes('FLYCAST_BIOS_PATH'))
+    assert.equal(result.needsBios, false)
+  })
+
+  test('searches no inherited data or config folder, where a VMU found would be moved away', () => {
+    const result = flycastPlan()
+    assert.equal(result.kind, 'run')
+    if (result.kind !== 'run') return
+    const env = sandboxEnvironment(result, {
+      PATH: '/usr/bin',
+      XDG_DATA_DIRS: '/home/owner/.local/share/flatpak/exports/share:/usr/share',
+      XDG_CONFIG_DIRS: '/home/owner/.config/xdg:/etc/xdg',
+      FLYCAST_BIOS_PATH: '/home/owner/bios'
+    })
+    assert.equal(env.XDG_DATA_DIRS, undefined)
+    assert.equal(env.XDG_CONFIG_DIRS, undefined)
+    assert.equal(env.FLYCAST_BIOS_PATH, undefined)
+    assert.equal(env.XDG_DATA_HOME, result.folders.data)
+  })
+
+  test('is not started as the flatpak', () => {
+    assert.deepEqual(flycastPlan({ kind: 'flatpak', ref: 'org.flycast.Flycast' }), {
+      kind: 'skip',
+      reason: CANNOT_SANDBOX,
+      detail: 'flatpak-install'
+    })
+  })
+})
+
 describe('prepareSandbox', () => {
   function ready(home: string, recipe: SandboxRecipe = EMPTY) {
     const result = planSandbox({
