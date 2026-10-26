@@ -3207,3 +3207,15 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet.
 - Next: M1-08 part 3c: the manifest entry at this PR's merge commit (`roms/snes/galleon-snes-save.sfc`), its THIRD_PARTY.md notice, and run.sh naming RetroArch this payload with the `.srm` expected in `savingPayloads`; then READY-FOR-DEVICE M1-08 (on the Nova it skips `cannot-sandbox` while RetroArch is the flatpak, #155).
+
+## 2026-10-26 19:26 UTC session 01WDF1DHnyVif1Cs4MZHZLys (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. #303 (M1-08 part 3b) merged at 5422806; CI x64 9:32, arm64 1:01.
+- Worked on: M1-08 part 3c, the SNES payload in the bundle (tracking issue #299).
+- Result: PR (this one). `test/fixtures/roms/manifest.json` pins `roms/snes/galleon-snes-save.sfc` by its raw URL at 5422806, sha256 `45420c79…` and 131072 bytes (ADR 0008); THIRD_PARTY.md has its `snes-save` notice. run.sh names RetroArch that cartridge in place of the GBA `hello.gba`, with `--saving retroarch`, so `exit.retroarch` fails `save-unchanged` unless the sandbox's save folder changed (the `.srm`). docs/TESTING.md says so, and that RetroArch's checks skip `cannot-sandbox` while it is armadaOS's flatpak.
+- Evidence: device-bundle.test.ts "run.sh copies the payloads into the test home, names each emulator its own, and empties the ROM folder" asks for the SNES payload and `savingPayloads: ["retroarch"]`; it fails on the old run.sh and passes now (63/63 in the file); "run.sh names no payload ... not the pinned bytes" corrupts the SNES cartridge, the payload RetroArch is given, so its "no `launch.retroarch`" holds only through the copy check (it failed with the `payloads_ok` guard dropped). The pinned URL fetched gives sha256 `45420c79e55b1764e5ed389e8364554d4b137bc6a89e22dc44eedcdb67ef998e`. `scripts/agent/check.sh` green (3:31); `python3 -B -m unittest discover -s test/device` 188/188.
+- Notes: Docker's daemon was not answering, so `init.sh` stopped; ran `npm ci` and `npx install-electron` by hand.
+- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: READY-FOR-DEVICE M1-08. On the Nova `launch.retroarch` and `exit.retroarch` skip `cannot-sandbox` while RetroArch is the flatpak (#155, M0-21's flatpak sandbox); they count once a sandboxed run passes them.
+- Next: `node scripts/agent/next.mjs`.
