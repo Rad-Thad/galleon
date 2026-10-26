@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict'
 import {
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readdirSync,
   rmSync,
   symlinkSync,
   utimesSync,
@@ -22,6 +24,8 @@ import {
   groupAlive,
   ownFocused,
   payloadFor,
+  placeSaveBeside,
+  PLACED_SAVE,
   runningInGroup,
   saveFingerprint,
   signalGroup,
@@ -273,6 +277,190 @@ describe('the scenarios', () => {
     const h = harness({ retroarch: 'payloads/snes/hello.sfc' }, [state('retroarch')], SKIP_PLAN)
     await emulatorScenarios(['launch.retroarch'], h.deps).get('launch.retroarch')!(context)
     assert.deepEqual(h.cycles, [{ emulator: 'retroarch', plan: SKIP_PLAN, expectSave: false }])
+  })
+})
+
+describe('a save placed beside the payload', () => {
+  function placing(found: boolean): { h: Harness; log: string[] } {
+    const log: string[] = []
+    const h = harness({ melonds: 'payloads/nds/hello.nds' }, [state('melonds')])
+    h.deps.placeSave = (_state, system, romPath) => {
+      log.push(`place ${system} ${romPath}`)
+      return {
+        placed: true,
+        found: async () => {
+          log.push('found?')
+          return found
+        },
+        remove: () => log.push('remove')
+      }
+    }
+    return { h, log }
+  }
+
+  test('found by save discovery after the cycle, the launch passes and says so', async () => {
+    const { h, log } = placing(true)
+    const launch = (await emulatorScenarios(['launch.melonds'], h.deps).get('launch.melonds')!(
+      context
+    )) as CheckResult
+    assert.equal(launch.result, 'pass')
+    assert.equal(launch.metrics.saveFound, 1)
+    assert.equal(launch.thresholds.saveFound, 1)
+    assert.deepEqual(log, ['place nds /home/test/payloads/nds/hello.nds', 'found?', 'remove'])
+  })
+
+  test('not found, the launch fails, and the save is still taken away', async () => {
+    const { h, log } = placing(false)
+    const scenarios = emulatorScenarios(['launch.melonds', 'exit.melonds'], h.deps)
+    const launch = (await scenarios.get('launch.melonds')!(context)) as CheckResult
+    const exit = (await scenarios.get('exit.melonds')!(context)) as CheckResult
+    assert.deepEqual([launch.result, launch.reason], ['fail', 'save-not-found'])
+    assert.equal(launch.metrics.saveFound, 0)
+    assert.equal(exit.result, 'pass')
+    assert.deepEqual(log.slice(-1), ['remove'])
+  })
+
+  test('a launch that failed keeps its own reason, with the save recorded', async () => {
+    const { h } = placing(false)
+    h.deps.cycle = async () => [
+      { ...pass('launch.melonds'), result: 'fail', reason: 'no-window' },
+      pass('exit.melonds')
+    ]
+    const launch = (await emulatorScenarios(['launch.melonds'], h.deps).get('launch.melonds')!(
+      context
+    )) as CheckResult
+    assert.deepEqual(
+      [launch.result, launch.reason, launch.metrics.saveFound],
+      ['fail', 'no-window', 0]
+    )
+  })
+
+  test('a save that could not be placed fails the launch rather than leave it unasked', async () => {
+    const h = harness({ melonds: 'payloads/nds/hello.nds' }, [state('melonds')])
+    h.deps.placeSave = () => ({ placed: false, found: async () => true, remove: () => {} })
+    const launch = (await emulatorScenarios(['launch.melonds'], h.deps).get('launch.melonds')!(
+      context
+    )) as CheckResult
+    assert.deepEqual(
+      [launch.result, launch.reason, launch.metrics.saveFound],
+      ['fail', 'save-not-placed', 0]
+    )
+  })
+
+  test('a skipped or erred launch is left as it was, and the save taken away', async () => {
+    for (const result of ['skip', 'error'] as const) {
+      const { h, log } = placing(false)
+      const given = { ...pass('launch.melonds'), result, reason: 'aborted-by-user' }
+      h.deps.cycle = async () => [given, pass('exit.melonds')]
+      const launch = await emulatorScenarios(['launch.melonds'], h.deps).get('launch.melonds')!(
+        context
+      )
+      assert.deepEqual(launch, given)
+      assert.deepEqual(log.slice(-1), ['remove'])
+      assert.ok(!log.includes('found?'))
+    }
+  })
+
+  test('a cycle that throws still takes the save away', async () => {
+    const { h, log } = placing(true)
+    h.deps.cycle = async () => {
+      throw new Error('boom')
+    }
+    await assert.rejects(async () =>
+      emulatorScenarios(['launch.melonds'], h.deps).get('launch.melonds')!(context)
+    )
+    assert.deepEqual(log.slice(-1), ['remove'])
+  })
+
+  test('nothing is placed for a plan that cannot sandbox', async () => {
+    const { h, log } = placing(true)
+    const skipping = harness({ melonds: 'payloads/nds/hello.nds' }, [state('melonds')], SKIP_PLAN)
+    skipping.deps.placeSave = h.deps.placeSave
+    await emulatorScenarios(['launch.melonds'], skipping.deps).get('launch.melonds')!(context)
+    assert.deepEqual(log, [])
+  })
+})
+
+describe('placeSaveBeside', () => {
+  function payload(home: string, system: string, name: string): string {
+    mkdirSync(join(home, 'payloads', system), { recursive: true })
+    const path = join(home, 'payloads', system, name)
+    writeFileSync(path, 'rom')
+    return path
+  }
+
+  test("melonDS's save goes beside the ROM, named after it, is found there and is taken away", async () => {
+    const home = scratch()
+    const rom = payload(home, 'nds', 'galleon-nds-hello.nds')
+    const placed = placeSaveBeside(home)(
+      state('melonds'),
+      'nds',
+      rom,
+      runPlan(join(home, 'sandbox', 'melonds'), ['/apps/melonds'])
+    )
+    assert.ok(placed)
+    const save = join(home, 'payloads', 'nds', 'galleon-nds-hello.sav')
+    assert.equal(readFileSync(save, 'utf8'), PLACED_SAVE)
+    assert.equal(await placed.found(), true)
+    placed.remove()
+    assert.equal(existsSync(save), false)
+    assert.equal(existsSync(rom), true)
+  })
+
+  test('a placed save that went away is not found', async () => {
+    const home = scratch()
+    const rom = payload(home, 'nds', 'hello.nds')
+    const placed = placeSaveBeside(home)(
+      state('melonds'),
+      'nds',
+      rom,
+      runPlan(join(home, 's'), ['/x'])
+    )
+    assert.ok(placed)
+    rmSync(join(home, 'payloads', 'nds', 'hello.sav'))
+    assert.equal(await placed.found(), false)
+  })
+
+  test('a file already there is neither written over nor taken away; no save is placed', () => {
+    const home = scratch()
+    const rom = payload(home, 'nds', 'hello.nds')
+    const existing = join(home, 'payloads', 'nds', 'hello.sav')
+    writeFileSync(existing, 'mine')
+    const placed = placeSaveBeside(home)(
+      state('melonds'),
+      'nds',
+      rom,
+      runPlan(join(home, 's'), ['/x'])
+    )
+    assert.ok(placed)
+    assert.equal(placed.placed, false)
+    placed.remove()
+    assert.equal(readFileSync(existing, 'utf8'), 'mine')
+  })
+
+  test('an emulator whose saves are in a save folder of its own gets none', () => {
+    const home = scratch()
+    const rom = payload(home, 'psx', 'hello.cue')
+    const placed = placeSaveBeside(home)(
+      state('duckstation'),
+      'psx',
+      rom,
+      runPlan(join(home, 's'), ['/x'])
+    )
+    assert.equal(placed, null)
+    assert.deepEqual(readdirSync(join(home, 'payloads', 'psx')), ['hello.cue'])
+  })
+
+  test('an emulator with no descriptor gets none', () => {
+    const home = scratch()
+    const rom = payload(home, 'nds', 'hello.nds')
+    const placed = placeSaveBeside(home)(
+      state('no-such'),
+      'nds',
+      rom,
+      runPlan(join(home, 's'), ['/x'])
+    )
+    assert.equal(placed, null)
   })
 })
 
