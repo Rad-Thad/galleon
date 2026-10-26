@@ -3013,3 +3013,14 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: READY-FOR-DEVICE M1-04. On the Nova `launch.dolphin` and `exit.dolphin` skip as `cannot-sandbox` while Dolphin is armadaOS's flatpak; a device pass needs the parked flatpak sandbox (#155).
 - Next: `node scripts/agent/next.mjs`.
+
+## 2026-10-26 01:58 UTC session 016MNpC8BmKqhA6XiCP8yYYk (hourly heartbeat, second unit)
+
+- Device results: none new since 1ac4cb4. #282 (M1-04's last part) merged at d8b15ba; CI x64 10:00, arm64 1:07 (x64 at the 10-minute target, under the 20-minute limit). #278 left open for device results.
+- Worked on: M1-05 part 1, PPSSPP's descriptor (tracking issue #283).
+- Result: PR (this one). `src/config/emulators/ppsspp/index.ts`: flatpak `org.ppsspp.PPSSPP` (then `PPSSPPSDL` or `ppsspp` on PATH), ES-DE rule `PPSSPP`, system `psp`, `--fullscreen --pause-menu-exit <rom>`. Saves `ppsspp/PSP/SAVEDATA` in the config folder (inside the flatpak's tree for the flatpak) declared `shared` with the existing `saves.ppsspp` reason, since the folders and states are named after the game id inside the image; no states, no BIOS, no sandbox recipe yet. Flags and the boot-file rule read in PPSSPP at 13c1773b (the research pin): `Core/CmdLine.cpp` (`--fullscreen` kept out of the saved settings, `--pause-menu-exit`, the first argument not beginning with a dash is the file), `UI/NativeApp.cpp` (`NativeInit` boots it).
+- Evidence: registry.test.ts "PPSSPP boots an .iso or a .cso fullscreen, and its pause menu exits", "PPSSPP is handed the image inside a PSP game kept in a folder of its own" (`chooseLaunchFile` picks the inner `.cso` or `EBOOT.PBP`, the launch passes it), "PPSSPP is found as the catalog flatpak first, then on PATH", "PPSSPP runs PSP games only", the dirs test; savepaths.test.ts "PPSSPP's saves, named after the game id, are not synced, and the Saves tab is told why". `scripts/agent/check.sh` green; `npm run test:app` 244/244 (Electron through `ELECTRON_OVERRIDE_DIST_PATH` and a `--no-sandbox` wrapper in the scratchpad, as root); `npm run shots:nova` 21 screens: looked at `emulators.png` (Dolphin's down arrow now enabled, the PPSSPP row below the fold).
+- Evaluator: PASS (comments match `CmdLine.cpp`/`NativeApp.cpp` at 13c1773b, the nested-folder test runs the production `chooseLaunchFile`). Its note for part 2: `--pause-menu-exit` is not kept out of the saved settings as `--fullscreen` is, so confirm in `Config.cpp` whether it lands in `ppsspp.ini`; inside the sandbox it would not reach the owner's.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet. `launch.ppsspp` needs a sandbox recipe, a PSP homebrew payload in the M0-07 manifest, and run.sh asking for it.
+- Next: M1-05 part 2, PPSSPP's sandbox recipe.
