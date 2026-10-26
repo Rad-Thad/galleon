@@ -1021,11 +1021,11 @@ describe('device-bundle', () => {
   })
 
   test('run.sh names no payload, and fails harness.run, when a payload is not the pinned bytes', () => {
-    const { from, manifest } = fetchedPayloads(['roms/gba/gba-tests hello.gba'])
+    const { from, manifest } = fetchedPayloads(['roms/snes/galleon-snes-save.sfc'])
     const out = mkdtempSync(join(tmpdir(), 'bundle-out-'))
     writeBundle({ root: ROOT, out, sha: SHA, builtAt: BUILT_AT, payloads: from, manifest })
     const bundle = unpackLikeTheBridge(out)
-    writeFileSync(join(bundle, 'payloads/roms/gba/gba-tests hello.gba'), 'other bytes')
+    writeFileSync(join(bundle, 'payloads/roms/snes/galleon-snes-save.sfc'), 'other bytes')
     const seen = mkdtempSync(join(tmpdir(), 'bundle-seen-'))
     const { run, results, testDir } = runHarness(bundle, SHA, payloadApp(seen), {
       DEVICE_TEST_BUDGET_SECONDS: '600'
