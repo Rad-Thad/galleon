@@ -30,7 +30,7 @@ import { t } from './i18n.ts'
 /** Where the buildbot publishes builds, by Node's name for the architecture. */
 const BUILDBOT_ARCH: Readonly<Record<string, string>> = {
   x64: 'x86_64',
-  arm64: 'arm64',
+  arm64: 'aarch64',
   arm: 'armv7-neon-hf'
 }
 
@@ -83,7 +83,8 @@ export async function coreInstalled(core: RequiredCore): Promise<boolean> {
  */
 export async function missingCore(
   emulator: EmulatorState,
-  system: string
+  system: string,
+  variant?: string
 ): Promise<RequiredCore | null> {
   const descriptor = emulatorById(emulator.id)
   if (!descriptor?.core) return null
@@ -92,7 +93,8 @@ export async function missingCore(
     system,
     home: realHome(),
     configDir: emulator.configDir,
-    env: fileSystemEnvironment()
+    env: fileSystemEnvironment(),
+    variant
   }
 
   let core: RequiredCore | null

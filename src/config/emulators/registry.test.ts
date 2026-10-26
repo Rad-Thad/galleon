@@ -249,6 +249,58 @@ test('RetroArch is launched with the core mapped for the system', () => {
   ])
 })
 
+test('RetroArch offers the Android-matching cores, and launches the one chosen', () => {
+  assert.deepEqual(
+    retroarch.variants?.('psx').map((variant) => variant.id),
+    ['swanstation', 'pcsx_rearmed', 'mednafen_psx_hw']
+  )
+  for (const [system, core] of [
+    ['snes', 'snes9x'],
+    ['gba', 'mgba'],
+    ['psp', 'ppsspp'],
+    ['gc', 'dolphin'],
+    ['wii', 'dolphin'],
+    ['dreamcast', 'flycast']
+  ]) {
+    assert.deepEqual(
+      retroarch.variants?.(system).map((variant) => variant.id),
+      [core],
+      system
+    )
+  }
+  assert.deepEqual(retroarch.variants?.('nes'), [])
+
+  const launch = (variant?: string): string[] | null =>
+    retroarch.launch({
+      exec: ['/usr/bin/retroarch'],
+      installRef: '/usr/bin/retroarch',
+      system: 'psx',
+      romPath: '/roms/psx/game.chd',
+      variant
+    })
+  assert.equal(launch()?.[3], 'swanstation_libretro.so')
+  assert.equal(launch('mednafen_psx_hw')?.[3], 'mednafen_psx_hw_libretro.so')
+  // A recorded core that is not one of the system's is not swapped for another.
+  assert.equal(launch('snes9x'), null)
+})
+
+test('every RetroArch variant is a core the buildbot publishes for Linux on aarch64', () => {
+  const published = new Set(
+    readFileSync(
+      join(import.meta.dirname, '../../../test/fixtures/buildbot/linux-aarch64-cores.txt'),
+      'utf8'
+    )
+      .split('\n')
+      .filter(Boolean)
+  )
+  assert.ok(published.size > 100, 'the fixture lists the whole index')
+  for (const system of retroarch.systems) {
+    for (const variant of retroarch.variants?.(system) ?? []) {
+      assert.ok(published.has(`${variant.id}_libretro.so`), `${system}: ${variant.id}`)
+    }
+  }
+})
+
 test('Eden is started fullscreen, with the ROM named by -g', () => {
   const argv = eden.launch({
     exec: ['/home/u/rommix/emulators/eden/Eden.AppImage'],
@@ -534,8 +586,10 @@ test('EmuDeck offers a choice where it ships more than one way to run a system',
 test('emulators with a single way to run a system offer no choice at all', () => {
   for (const system of ['snes', 'ps2']) {
     assert.equal(launchVariants(retrodeck, system).length, 0)
-    assert.equal(launchVariants(retroarch, system).length, 0)
   }
+  // One named core is nothing to ask about either.
+  assert.equal(launchVariants(retroarch, 'snes').length, 1)
+  assert.equal(launchVariants(retroarch, 'ps2').length, 0)
 })
 
 test('a chosen EmuDeck variant is the one that runs', () => {
