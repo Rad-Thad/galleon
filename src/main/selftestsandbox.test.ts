@@ -863,6 +863,66 @@ describe("shadPS4's recipe", () => {
   })
 })
 
+describe("Dolphin's recipe", () => {
+  const dolphin = emulatorById('dolphin')
+  assert.ok(dolphin)
+  const binary: ResolvedInstall = { kind: 'binary', ref: '/usr/bin/dolphin-emu' }
+
+  function dolphinPlan(install: ResolvedInstall = binary) {
+    return planSandbox({
+      descriptor: dolphin!,
+      install,
+      system: 'gc',
+      romPath: '/payload/hello.dol',
+      home: HOME,
+      owner: OWNER,
+      realPath: (path) => path
+    })
+  }
+
+  test('gives Dolphin a user folder in the sandbox, where XDG_DATA_HOME would lead it', () => {
+    const result = dolphinPlan()
+    assert.equal(result.kind, 'run')
+    if (result.kind !== 'run') return
+    const user = join(result.env.XDG_DATA_HOME, 'dolphin-emu')
+    assert.ok(user.startsWith(result.folders.root + '/'))
+    assert.deepEqual(result.argv, [
+      binary.ref,
+      '-u',
+      user,
+      '-b',
+      '-C',
+      'Dolphin.Display.Fullscreen=True',
+      '-e',
+      '/payload/hello.dol'
+    ])
+    assert.equal(result.needsBios, false)
+  })
+
+  test('answers the usage-statistics question in the user folder, so no window asks it', () => {
+    const result = dolphinPlan()
+    assert.equal(result.kind, 'run')
+    if (result.kind !== 'run') return
+    const path = join(result.folders.data, 'dolphin-emu', 'Config', 'Dolphin.ini')
+    const file = result.files.find((f) => f.path === path)
+    assert.ok(file)
+    assert.deepEqual(file.content.split('\n'), [
+      '[Analytics]',
+      'PermissionAsked = True',
+      'Enabled = False',
+      ''
+    ])
+  })
+
+  test('is not started as the flatpak', () => {
+    assert.deepEqual(dolphinPlan({ kind: 'flatpak', ref: 'org.DolphinEmu.dolphin-emu' }), {
+      kind: 'skip',
+      reason: CANNOT_SANDBOX,
+      detail: 'flatpak-install'
+    })
+  })
+})
+
 describe('prepareSandbox', () => {
   function ready(home: string, recipe: SandboxRecipe = EMPTY) {
     const result = planSandbox({
