@@ -1026,6 +1026,8 @@ export const de: Catalog = {
   'system.romsWritable': 'ROM-Ordner beschreibbar',
   'system.freeSpace': 'Freier Speicher',
   'system.freeOf': '{free} frei von {total} in {path}',
+  'system.onLabelledVolume': 'Auf {label} ({mount}), {fsType}',
+  'system.onVolume': 'Auf {mount}, {fsType}',
   'system.foundBy': 'Found by', // TODO(i18n)
   'system.foundByBundled': "{name}: ES-DE's {rule} rule, {entry}", // TODO(i18n)
   'system.foundByCustom': '{name}: custom_systems {rule} rule, {entry}', // TODO(i18n)

@@ -1046,7 +1046,14 @@ const bridge: RomMixBridge = {
         flathubConfigured: false,
         emulators: [],
         romsWritable: true,
-        drives: [{ path: `${PREVIEW_ROOT}/roms`, freeBytes: 214e9, totalBytes: 512e9 }],
+        drives: [
+          {
+            path: `${PREVIEW_ROOT}/roms`,
+            freeBytes: 214e9,
+            totalBytes: 512e9,
+            volume: { mountPoint: '/home', fsType: 'ext4', label: null }
+          }
+        ],
         // The path the real app would print, though nothing writes to it here:
         // the panel shows it so a bug report can quote it, and a demo quoting a
         // folder RomMix does not use teaches the wrong one.

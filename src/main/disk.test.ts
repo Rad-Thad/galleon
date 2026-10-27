@@ -10,7 +10,7 @@
 
 import assert from 'node:assert/strict'
 import { afterEach, test } from 'node:test'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { drivesOf, fits, spaceOf } from './disk.ts'
@@ -86,4 +86,33 @@ test('the drives are in the order they were asked about', async () => {
   // which is the usual case and the one the dedupe is for; two where /tmp is
   // its own mount. Either way the first folder asked about leads.
   assert.equal(drives[0].path, first)
+})
+
+test('each drive names the volume it is on', async () => {
+  const dir = realpathSync(scratch())
+  writeFileSync(join(dir, 'mounts'), `/dev/mmcblk0p1 ${dir} ext4 rw 0 0\n`)
+
+  const [drive] = await drivesOf([join(dir, 'roms', 'gc')], {
+    mountsFile: join(dir, 'mounts'),
+    byLabelDir: join(dir, 'no-labels')
+  })
+
+  // The folder that does not exist yet is named by the volume it would be made on.
+  assert.deepEqual(drive.volume, { mountPoint: dir, fsType: 'ext4', label: null })
+})
+
+test('a drive on no known mount is still measured, without a volume', async () => {
+  const dir = scratch()
+
+  const [drive] = await drivesOf([dir], { mountsFile: join(dir, 'missing') })
+
+  assert.ok(drive.totalBytes > 0)
+  assert.equal(drive.volume, undefined)
+})
+
+test("on this machine, a drive's volume comes from the kernel's mount table", async () => {
+  // Every Linux has a mount covering a scratch folder, if only `/`.
+  const [drive] = await drivesOf([scratch()])
+  assert.ok(drive.volume?.mountPoint.startsWith('/'))
+  assert.ok(drive.volume?.fsType)
 })

@@ -2,6 +2,7 @@ import { stat, statfs } from 'node:fs/promises'
 import { dirname, isAbsolute } from 'node:path'
 import type { DriveSpace } from '@shared/types'
 import { log } from './log.ts'
+import { volumeNamer, type VolumeSources } from './volumes.ts'
 
 /**
  * How much room is left where games are written.
@@ -83,10 +84,17 @@ export function fits(needed: number, freeBytes: number): boolean {
  * Matched on the device id rather than on the mount path, which is what
  * `statfs` cannot distinguish: two mounts of the same filesystem report
  * identical figures and are the same disk.
+ *
+ * Each drive is named by the volume it is on where the mount table says so;
+ * `sources` points that reading at fixtures in tests.
  */
-export async function drivesOf(paths: readonly string[]): Promise<DriveSpace[]> {
+export async function drivesOf(
+  paths: readonly string[],
+  sources: Omit<VolumeSources, 'include'> = {}
+): Promise<DriveSpace[]> {
   const seen = new Set<number>()
   const drives: DriveSpace[] = []
+  const nameVolume = await volumeNamer(sources)
 
   for (const path of paths) {
     const at = await nearest(path)
@@ -101,7 +109,8 @@ export async function drivesOf(paths: readonly string[]): Promise<DriveSpace[]> 
     const space = await spaceOf(path)
     if (!space) continue
     seen.add(device)
-    drives.push(space)
+    const volume = await nameVolume(at)
+    drives.push(volume ? { ...space, volume } : space)
   }
 
   return drives

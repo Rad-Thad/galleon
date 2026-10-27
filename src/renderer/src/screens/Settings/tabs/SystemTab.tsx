@@ -152,6 +152,22 @@ export function SystemTab({
                         total: formatBytes(drive.totalBytes),
                         path: drive.path
                       })}
+                      {/* Which volume and file system: the SD card or internal
+                          storage, and whether it is one the emulators can use. */}
+                      {drive.volume ? (
+                        <div className="kv__detail" data-volume={drive.volume.mountPoint}>
+                          {drive.volume.label
+                            ? t('system.onLabelledVolume', {
+                                label: drive.volume.label,
+                                mount: drive.volume.mountPoint,
+                                fsType: drive.volume.fsType
+                              })
+                            : t('system.onVolume', {
+                                mount: drive.volume.mountPoint,
+                                fsType: drive.volume.fsType
+                              })}
+                        </div>
+                      ) : null}
                     </div>
                   ))}
                 </dd>

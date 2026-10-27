@@ -6,11 +6,18 @@
 
 import assert from 'node:assert/strict'
 import { afterEach, test } from 'node:test'
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { chooseLibraryVolume } from '@shared/librarycard'
-import { decodeLabelLink, isMediaMount, parseMounts, readVolumes } from './volumes.ts'
+import {
+  decodeLabelLink,
+  isMediaMount,
+  mountOf,
+  parseMounts,
+  readVolumes,
+  volumeNamer
+} from './volumes.ts'
 
 const scratches: string[] = []
 afterEach(() => {
@@ -18,7 +25,8 @@ afterEach(() => {
 })
 
 function scratch(): string {
-  const dir = mkdtempSync(join(tmpdir(), 'galleon-volumes-test-'))
+  // Resolved, since a folder asked about is matched to its mount once resolved.
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), 'galleon-volumes-test-')))
   scratches.push(dir)
   return dir
 }
@@ -212,4 +220,71 @@ test('what is read is what chooseLibraryVolume chooses from', async () => {
     mountPoint: volume.mountPoint.replace(join(dir, 'media'), '/run/media')
   }))
   assert.deepEqual(chooseLibraryVolume(volumes, 'deck'), { kind: 'internal', reason: 'read-only' })
+})
+
+test('a path is on the deepest mount at or above it', () => {
+  const mounts = parseMounts(
+    [
+      '/dev/nvme0n1p8 / ext4 rw 0 0',
+      '/dev/nvme0n1p9 /home ext4 rw 0 0',
+      '/dev/mmcblk0p1 /run/media/deck/NovaSD ext4 rw 0 0',
+      '/dev/sda1 /run/media/deck/Nova vfat rw 0 0'
+    ].join('\n')
+  )
+  const on = (path: string): string | undefined => mountOf(path, mounts)?.device
+
+  assert.equal(on('/run/media/deck/NovaSD/galleon/roms'), '/dev/mmcblk0p1')
+  assert.equal(on('/run/media/deck/NovaSD'), '/dev/mmcblk0p1')
+  // A mount point that is only the start of the folder's name is not its mount.
+  assert.equal(on('/run/media/deck/NovaSDX/roms'), '/dev/nvme0n1p8')
+  assert.equal(on('/home/deck/galleon/roms'), '/dev/nvme0n1p9')
+  assert.equal(on('/opt'), '/dev/nvme0n1p8')
+  assert.equal(mountOf('/home/deck', parseMounts('/dev/sda1 /run/media/x ext4 rw 0 0')), null)
+})
+
+test("a folder's volume is named with its mount point, file system and label", async () => {
+  const { dir, sources } = machine(
+    (at) => [
+      `/dev/nvme0n1p8 ${at} btrfs rw 0 0`,
+      `${join(at, 'dev', 'mmcblk0p1')} ${join(at, 'media', 'deck', 'NovaSD')} ext4 rw 0 0`
+    ],
+    { NovaSD: 'mmcblk0p1' }
+  )
+  const card = join(dir, 'media', 'deck', 'NovaSD')
+  mkdirSync(join(card, 'galleon', 'roms'), { recursive: true })
+  mkdirSync(join(dir, 'home'))
+  const nameVolume = await volumeNamer(sources)
+
+  assert.deepEqual(await nameVolume(join(card, 'galleon', 'roms')), {
+    mountPoint: card,
+    fsType: 'ext4',
+    label: 'NovaSD'
+  })
+  assert.deepEqual(await nameVolume(join(dir, 'home')), {
+    mountPoint: dir,
+    fsType: 'btrfs',
+    label: null
+  })
+})
+
+test('a link to a folder on the card is named by the card', async () => {
+  const { dir, sources } = machine((at) => [
+    `/dev/nvme0n1p8 ${at} btrfs rw 0 0`,
+    `/dev/mmcblk0p1 ${join(at, 'media', 'deck', 'NovaSD')} ext4 rw 0 0`
+  ])
+  mkdirSync(join(dir, 'media', 'deck', 'NovaSD', 'roms'), { recursive: true })
+  symlinkSync(join(dir, 'media', 'deck', 'NovaSD', 'roms'), join(dir, 'roms'))
+
+  const volume = await (await volumeNamer(sources))(join(dir, 'roms'))
+  assert.equal(volume?.fsType, 'ext4')
+})
+
+test('without a mount table, or off every mount, a folder has no volume', async () => {
+  const dir = scratch()
+  assert.equal(await (await volumeNamer({ mountsFile: join(dir, 'missing') }))(dir), null)
+
+  const { dir: other, sources } = machine((at) => [
+    `/dev/mmcblk0p1 ${join(at, 'media', 'deck', 'NovaSD')} ext4 rw 0 0`
+  ])
+  assert.equal(await (await volumeNamer(sources))(other), null)
 })

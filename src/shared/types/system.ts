@@ -35,6 +35,21 @@ export interface DriveSpace {
   /** Free to the user running RomMix, which is below what is free to root. */
   freeBytes: number
   totalBytes: number
+  /** The mounted volume the folder is on, where the mount table names one. */
+  volume?: DriveVolume
+}
+
+/**
+ * The volume behind a drive, as the mount table and udev name it.
+ *
+ * Shown beside the room left so a library on the SD card can be told from one
+ * on internal storage, and a card the emulators cannot use from one they can.
+ */
+export interface DriveVolume {
+  mountPoint: string
+  fsType: string
+  /** The file system's label, or null for a volume without one. */
+  label: string | null
 }
 
 /** Result of the pre-flight check shown on the Settings screen. */

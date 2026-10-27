@@ -1,6 +1,7 @@
 import { readdir, readFile, realpath, statfs } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { Volume } from '@shared/librarycard'
+import type { DriveVolume } from '@shared/types'
 import { log } from './log.ts'
 
 /**
@@ -82,8 +83,8 @@ export function isMediaMount(mountPoint: string): boolean {
   return mountPoint.startsWith(`${MEDIA_ROOT}/`)
 }
 
-/** The device a path names once its links are followed, or the path itself. */
-async function resolveDevice(path: string): Promise<string> {
+/** A path once its links are followed, or the path itself. */
+async function resolvePath(path: string): Promise<string> {
   try {
     return await realpath(path)
   } catch {
@@ -115,6 +116,51 @@ async function labelsByDevice(byLabelDir: string): Promise<Map<string, string>> 
     }
   }
   return labels
+}
+
+/**
+ * The mount a path is on: the deepest mount point at or above it.
+ *
+ * The path is taken as already resolved; a link into another volume names the
+ * volume it lives on, not the one it points at.
+ */
+export function mountOf(path: string, mounts: readonly MountEntry[]): MountEntry | null {
+  let best: MountEntry | null = null
+  for (const mount of mounts) {
+    const point = mount.mountPoint
+    const covers = point === '/' || path === point || path.startsWith(`${point}/`)
+    if (covers && (!best || point.length > best.mountPoint.length)) best = mount
+  }
+  return best
+}
+
+/**
+ * Names the volume behind any folder, for pre-flight.
+ *
+ * The mount table and the labels are read once, and each folder asked about is
+ * resolved and matched against them. A folder on no listed mount, or a machine
+ * without a mount table, answers null: pre-flight then shows the room alone.
+ */
+export async function volumeNamer(
+  sources: Omit<VolumeSources, 'include'> = {}
+): Promise<(path: string) => Promise<DriveVolume | null>> {
+  let mounts: MountEntry[] = []
+  try {
+    mounts = parseMounts(await readFile(sources.mountsFile ?? MOUNTS_FILE, 'utf8'))
+  } catch (cause) {
+    log.debug('volumes', 'mount table unreadable', { reason: (cause as Error).message })
+  }
+  const labels = mounts.length > 0 ? await labelsByDevice(sources.byLabelDir ?? BY_LABEL_DIR) : null
+  return async (path) => {
+    if (!labels) return null
+    const mount = mountOf(await resolvePath(path), mounts)
+    if (!mount) return null
+    return {
+      mountPoint: mount.mountPoint,
+      fsType: mount.fsType,
+      label: labels.get(await resolvePath(mount.device)) ?? null
+    }
+  }
 }
 
 /** Where `readVolumes` reads from, replaceable so tests read fixtures. */
@@ -156,7 +202,7 @@ export async function readVolumes(sources: VolumeSources = {}): Promise<Volume[]
       volumes.push({
         mountPoint: mount.mountPoint,
         fsType: mount.fsType,
-        label: labels.get(await resolveDevice(mount.device)) ?? null,
+        label: labels.get(await resolvePath(mount.device)) ?? null,
         readOnly: mount.readOnly,
         // See `spaceOf`: free to the user, not to root.
         freeBytes: fs.bavail * fs.bsize,
