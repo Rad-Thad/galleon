@@ -22,6 +22,7 @@ import {
   type UpdateStatus
 } from '@shared/types'
 import { setSoundEnabled } from './input/sound'
+import { NoticeGate } from './notices'
 import { popRoute, prunedForOffline, pushRoute, reviseRoute, type Route } from './history'
 import { fileNameOf } from '@shared/gamefiles'
 
@@ -295,23 +296,28 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
     setSoundEnabled(settings?.navigationSounds ?? false)
   }, [settings?.navigationSounds])
 
+  // Made once: it holds what was raised during play across renders. The toast's
+  // time on screen starts when it is shown, not when it was raised.
+  const [notices] = useState(
+    () =>
+      new NoticeGate<Omit<Toast, 'id'>>((toast) => {
+        const id = ++toastId
+        setToasts((current) => [...current, { id, ...toast }])
+        setTimeout(() => setToasts((current) => current.filter((t) => t.id !== id)), TOAST_MS)
+      })
+  )
+
   const notify = useCallback(
     (message: string, tone: Toast['tone'] = 'ok', subject?: ToastSubject): void => {
-      const id = ++toastId
-      setToasts((current) => [
-        ...current,
-        {
-          id,
-          message,
-          tone,
-          title: subject?.title,
-          coverPath: subject?.coverPath,
-          platform: subject?.platform
-        }
-      ])
-      setTimeout(() => setToasts((current) => current.filter((t) => t.id !== id)), TOAST_MS)
+      notices.offer({
+        message,
+        tone,
+        title: subject?.title,
+        coverPath: subject?.coverPath,
+        platform: subject?.platform
+      })
     },
-    []
+    [notices]
   )
 
   const refreshStatus = useCallback(async (): Promise<ConnectionStatus> => {
@@ -612,11 +618,14 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
 
   useEffect(() => {
     return window.rommix.running.onState((state) => {
+      // Told here, as the state arrives, rather than from a render after it,
+      // so a notice raised in between cannot slip out in front of the game.
+      notices.setCovered(state.running)
       setRunningRomId(state.running ? state.romId : null)
       setRunningEmulator(state.running ? (state.emulator ?? null) : null)
       setRunningStage(state.running ? (state.stage ?? null) : null)
     })
-  }, [])
+  }, [notices])
 
   /**
    * Anything that failed in the main process, whoever asked for it.
