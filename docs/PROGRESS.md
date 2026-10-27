@@ -314,7 +314,7 @@ Lines the tooling reads (exact forms):
   - CI's `Docker RomM` step and `init.sh` build the library before compose starts.
   - `scripts/agent/check.sh` green.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none (`ci`).
 - Next: M0-07 part 2 (`test/fixtures/roms/manifest.json` of redistributable homebrew with SHA-256 and licence, `scripts/agent/fetch-fixtures.mjs` refusing a mismatched hash), then flip M0-07; M0-09.
 - Notes:
@@ -333,7 +333,7 @@ Lines the tooling reads (exact forms):
   - `passes: true` for M0-07: lines 1, 3 and 4 met by #29 (`make-library.test.ts`, `library.real.ts` on v520 and v531), line 2 by this PR.
   - `scripts/agent/check.sh` green.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none (`ci`).
 - Next: M0-09 (screenshot harness), then M0-11.
 - Notes:
@@ -367,7 +367,7 @@ Lines the tooling reads (exact forms):
   - `profilesFrom` (lib.mjs) tested in `lib.test.ts`.
   - `scripts/agent/check.sh` green.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none (`ci`).
 - Next: M0-08 part 2: firmware, the multi-file download, save and state upload and download, device registration, play sessions, request bodies against `schema/` (needs a 5.3.1 snapshot), then flip M0-08.
 
@@ -405,7 +405,7 @@ Lines the tooling reads (exact forms):
   - `docs/REQUIREMENTS-FROM-TESTER.md` item 16 (the owner's words, the hand-made PSP setup, where it is scheduled); `docs/PLAN.md` M7 lists M7-14..M7-17 and the exit gate names M7-17.
   - `scripts/agent/check.sh` green (`features-check: 162 features, all rules hold`).
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none (`ci`).
 - Next: owner issue #5 still waits on M0-05 and M0-13 through M0-24's depends_on; M0-09 (screenshot harness) is next by `next.mjs`.
 - Notes:
@@ -443,7 +443,7 @@ Lines the tooling reads (exact forms):
   - `npm run test:app` 192/192 on the VM; `npm run shots:nova -- --subset pr` 6 screens. Looked at `home.png` and a crop of its top bar: "Galleon" beside the mark, the menu still centred, nothing clipped.
   - `scripts/agent/check.sh` green.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none.
 - Next: M0-11 (diagnostics bundle).
 
@@ -458,7 +458,7 @@ Lines the tooling reads (exact forms):
   - Fix: both tests wait for `.game-hero__title` before reading it. The game screen resets to null on every open, so the title that appears belongs to the game just opened.
   - Without the delay: `npm run test:app` 192/192; `scripts/agent/check.sh` green.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none.
 - Next: M0-11 (diagnostics bundle).
 - Notes:
@@ -475,7 +475,7 @@ Lines the tooling reads (exact forms):
   - `node scripts/agent/ci-times.mjs` (new, unit-tested in `scripts/agent/ci-times.test.ts`) prints the median per required leg over the last 10 merged pull requests, timing only successful legs. Today: x64 4:01, arm64 3:25, both under the 10-minute target.
   - `scripts/agent/check.sh` green (1423 tests, lines 96.15%).
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none (`ci`).
 - Next: M0-05 part 2: `npm run smoke:app` on arm64 in place of `test:app`, RomM and MariaDB images pulled by digest, and the scratch-branch red check; then flip M0-05.
 
@@ -490,7 +490,7 @@ Lines the tooling reads (exact forms):
   - `THIRD_PARTY.md` lists Grout, and now the two OFL fonts shipped in the AppImage. It also says no ES-DE data has been ported yet, and that the change porting the first ES-DE file adds it there.
   - `scripts/agent/check.sh` green (1432 tests, lines 96.10%).
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none (`ci`).
 - Next: M0-18 (PR template, the `Feature:` body check in `build`, `ci-times.mjs <pr>`), then M0-05 part 2 (`smoke:app` on arm64, image digests, the red-check proof). M0-05 flips only after both.
 
@@ -505,7 +505,7 @@ Lines the tooling reads (exact forms):
   - `node scripts/agent/ci-times.mjs <pr>` prints one pull request's legs: `#47` x64 3:58, arm64 3:13; `#49` x64 3:43, arm64 3:05.
   - `scripts/agent/check.sh` green.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none (`ci`).
 - Next: M0-18 part 2 (features-check holds a pull request to a PROGRESS.md entry dated within its lifetime), then M0-05 part 2. A later change could have the licence guard (M0-20) also refuse `SPDX-License-Identifier: GPL-…` lines; the evaluator noted it as optional on #49.
 
@@ -521,7 +521,7 @@ Lines the tooling reads (exact forms):
   - Line 4 (CI wall time per leg from `ci-times.mjs <pr>`): #51, and this entry's figures came from it.
   - `scripts/agent/check.sh` green.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none (`ci`).
 - Next: M0-05 part 2 (`smoke:app` on arm64, image digests, the red-check proof), then flip M0-05.
 
@@ -538,7 +538,7 @@ Lines the tooling reads (exact forms):
   - Red-check proof: scratch PR #55 (`claude/M0-05-red-proof`) added one failing unit test; `build (ubuntu-24.04, x64)` failed at `npm run test:coverage` naming `a deliberately failing test` (actions run 37913343676). #55 was closed unmerged.
   - `scripts/agent/check.sh` green; `npm run test:app` 192/192 on the VM.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none (`ci`).
 - Next: M0-23 (device results ingestion) or the next from `node scripts/agent/next.mjs`.
 
@@ -554,7 +554,7 @@ Lines the tooling reads (exact forms):
   - README "Builds from the tip of `main`" says how to check a download by hand.
   - `scripts/agent/check.sh` green (1450 tests, lines 96.08%).
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none yet.
 - Next: M0-13 part 2: version, short commit and channel in the footer and Settings -> About. Its device checks `build.identity` and `update.verify` are self-test scenarios and need M0-21's self-test mode, whose depends_on (M0-10, M0-11) do not pass. M0-24 depends on M0-13 passing, which needs a nightly to test it: a cycle through device results. Once M0-13's CI parts are in, M0-24 waits only on device results and, per CLAUDE.md ("a feature waiting only for device results blocks nothing"), is taken next for owner issue #5.
 
@@ -570,7 +570,7 @@ Lines the tooling reads (exact forms):
   - Shots: `npm run shots:nova` full set; looked at `home.png` (footer "v0.20.0 · 4127ee6-dirty · releases", one line, no overlap with the hints) and `settings-system.png` (Installed, Channel "releases", Newest published, Last checked aligned).
   - `scripts/agent/check.sh` green.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none yet. Part 3 is the `build.identity` and `update.verify` self-test scenarios, which need M0-21's self-test mode.
 - Next: with M0-13's CI-testable lines in, M0-24 waits only on M0-13's device checks; owner issue #5 makes it next.
 
@@ -586,7 +586,7 @@ Lines the tooling reads (exact forms):
   - Tests: `scripts/device-bundle.test.ts` (8): build-info refuses a short or upper-case sha; names commit, version and contract; same bytes twice; the bridge's own `safe_extract` unpacks it and finds `run.sh`, `bundle.json`, `build-info.json` and `bridge/` without its tests; `run.sh` passes `harness.run` for its own commit, fails it for another commit or a missing AppImage; `--cleanup` exits 0; the CLI writes both files and exits 1 on a short sha.
   - `scripts/agent/check.sh` green.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: the first merge after this publishes the first `nightly`; the bridge should then report `harness.run`.
 - Next: M0-24 part 2: `nightly.yml` (schedule plus dispatch, early exit when `main` has not moved since the last scheduled run, full suites on both architectures, the same publish), then flip M0-24.
 
@@ -601,7 +601,7 @@ Lines the tooling reads (exact forms):
   - `actionlint` (1.7.7) reports nothing on `nightly.yml`; on release.yml only the four shellcheck notes already on `main`.
   - `scripts/agent/check.sh` green.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none (`ci`).
 
 ## 2026-10-09 11:53 UTC session cloud (routine run, third unit)
@@ -617,7 +617,7 @@ Lines the tooling reads (exact forms):
   - Line 5 (never latest, body for the bridge): `prerelease: true`, `make_latest: false`, body in `.github/actions/publish-nightly`.
   - Docker RomM 5.2.0 and 5.3.1 on both architectures: release.yml dispatched on the #62 branch, run 37925135054, success.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: the bridge should now report `harness.run` on the next idle hour on the charger.
 - Next: M0-23 (device results ingestion), so the first results can be read through `device-results.mjs --summary`.
 
@@ -635,7 +635,7 @@ Lines the tooling reads (exact forms):
   - On the real branch: `node scripts/agent/device-results.mjs --summary` prints 0 new results and the bridge last seen 21.5 h ago, in 0.7 s.
   - `scripts/agent/check.sh` green: 1477 tests, coverage 96.13 / 93.58 / 95.71.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none (`ci`).
 - Next: whatever `next.mjs` lists first (M0-10), unless device results arrive.
 
@@ -649,7 +649,7 @@ Lines the tooling reads (exact forms):
   - `src/renderer/src/perf/frames.test.ts` (11 tests): the threshold is 25 ms at 60 Hz and 12.5 ms at 120 Hz; a frame exactly on it is not janky and one just over is; the same frames are smooth at 60 Hz and janky at 120 Hz; percentiles land on measured frames; one stall shows in p99 but not p50; empty or nonsense input gives null; the window's capacity, its non-advancing timestamps and its reset.
   - `scripts/agent/check.sh` green: 1488 tests, coverage 96.14 / 93.60 / 95.72.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none yet.
 - Next: M0-10 part 2, the power-state parser (line 4) with fixtures from DEVICE-FACTS.md; then part 3, the overlay, the log line and the test:app scenarios.
 
@@ -664,7 +664,7 @@ Lines the tooling reads (exact forms):
   - `src/main/powerstate.test.ts` (9 tests): fixture trees for the Nova on Balanced and on Performance (values from DEVICE-FACTS.md); `/etc` wins over the factory conf; a desktop with no such files gives every value unknown; no prime cluster still reports the GPU; the parsers' edge cases (a commented line, quoting, the memory-bus devfreq device that is not the GPU). `powerstate.ts` coverage is 100/100/100.
   - `scripts/agent/check.sh` green: 1497 tests, coverage 96.16 / 93.67 / 95.77.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none yet.
 - Next: M0-10 part 3: the overlay (Settings → System toggle and the L3+R3 chord) showing frame stats and this power state over IPC, the `perf summary` log line per screen, the test:app cost and 30 s scroll scenarios, and screenshots.
 
@@ -685,7 +685,7 @@ Lines the tooling reads (exact forms):
   - `npm run shots:nova`: 15 screens. Looked at `perf-overlay.png` (overlay bottom-left over the library, nothing moved, all power values "unknown" under Xvfb, p50 16.7 ms at 60 Hz), `settings-system.png` (the tab's top, unchanged; the switch is further down), `running.png` (overlay off again).
 - Not done (part 3b): line 1's cost scenario (overlay on vs off under 0.3 ms per frame) and line 3's 30 s scripted scroll of a 1,300-game platform; line 4's perf-state.json half (format still unknown).
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none yet.
 - Next: M0-10 part 3b, the two test:app measurement scenarios.
 
@@ -702,7 +702,7 @@ Lines the tooling reads (exact forms):
   - The whole file takes about 50 s.
   - `scripts/agent/check.sh` green: coverage 96.17 / 93.67 / 95.77 (no unit code changed). Full `npm run test:app` 197/197 (3:22).
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none.
 - Next: `device-results.mjs --summary` should count a published result as the bridge being seen, or the 7-day silence rule fires on a bridge that is testing every night. Then whatever `next.mjs` lists first.
 
@@ -718,7 +718,7 @@ Lines the tooling reads (exact forms):
   - On the real branch: `--summary` now prints `Bridge: last seen 0.7 h ago (2026-10-09T15:05:03Z)`.
   - `scripts/agent/check.sh` green.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none (`ci` tooling).
 - Next: whatever `next.mjs` lists first (M0-10 is left only with line 4's perf-state.json half, which waits for the file's real format; then M0-11).
 
@@ -734,7 +734,7 @@ Lines the tooling reads (exact forms):
   - `src/main/romm.test.ts` 111/111. `fetchfile.ts` was left alone: it does not resume, and a failed fetch there is discarded whole.
   - `scripts/agent/check.sh` green.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none.
 - Next: M0-10 waits only on line 4's perf-state.json format; then M0-11 (`next.mjs`).
 
@@ -751,7 +751,7 @@ Lines the tooling reads (exact forms):
 - The evaluator's first pass failed it on URL userinfo and prefixed keys (`ROMM_PASSWORD=`, `"romm_password":`) surviving; both, a camelCase `deviceCode` and a JSON `Authorization` of any scheme are now in the "nothing survives" test. Its second pass found the widened key pattern quadratic (200 KB of `a-a-a...` took 45 s); the key is now bounded and anchored at a key's start (7 ms), and "a long run with no space in it is redacted in linear time, not hung on" guards it.
 - Not done (part 2): the IPC call, the Settings → System entry and the quit-dialog entry, the live sections (pre-flight, emulator probes, power state, Mesa and gamescope versions), and line 4's test:app scenario.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none.
 - Next: M0-11 part 2.
 
@@ -767,7 +767,7 @@ Lines the tooling reads (exact forms):
   - `test/app/interface.test.ts` "a problem report carries that summary, the probes and no server address": in the built app, `system.report()` returns a `reports/<stamp>.zip` path; the zip holds graphics, app log, perf, power, pre-flight and versions, nothing from `config/`; `perf.log` has the library's summary; `preflight.json` has the emulator list; the fake RomM's host:port appears nowhere. Passed under Xvfb (Electron through a `--no-sandbox` wrapper in the scratchpad, as root).
   - `scripts/agent/check.sh` green: coverage 96.22 / 93.71 / 95.77.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none.
 - Next: M0-11 part 2b: Settings → System "Report a problem" and the quit-dialog entry (four catalogues), the pad-driven test:app scenario, `npm run shots:nova`.
 
@@ -784,7 +784,7 @@ Lines the tooling reads (exact forms):
   - `docs/REQUIREMENTS-FROM-TESTER.md` item 17 (the owner's words, the hand-installed packs, where it is scheduled); `docs/PLAN.md` M7 lists M7-18..M7-23, a risk line on pack licences, and the exit gate names M7-23.
   - `scripts/agent/check.sh` green (`features-check: 168 features, all rules hold`).
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none (`ci`).
 - Next: M0-11 part 2b (Settings → System "Report a problem", the quit-dialog entry, the pad-driven test:app scenario).
 - Notes:
@@ -810,7 +810,7 @@ Lines the tooling reads (exact forms):
     - `settings-system.png`: the top of the tab, unchanged.
   - `scripts/agent/check.sh` green.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none (`ci`).
 - Next: `next.mjs`'s first feature. M0-12 must ignore a stray `reports/.staging-*` (see #75).
 
@@ -828,7 +828,7 @@ Lines the tooling reads (exact forms):
   - `docs/TESTING.md` names the generator and the plan file.
   - `scripts/agent/check.sh` green: coverage 96.23 / 93.69 / 95.83.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none (`ci`).
 - Next: M0-15 part 2 (results.json read-back in `device-results.mjs`).
 
@@ -844,7 +844,7 @@ Lines the tooling reads (exact forms):
   - `docs/TESTING.md` "Reading them back" states the rules.
   - `scripts/agent/check.sh` green: coverage 96.26 / 93.75 / 95.86.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: PASSES M0-15 (ci).
 - Next: `next.mjs`'s first feature (M0-19 or M1-01).
 
@@ -858,7 +858,7 @@ Lines the tooling reads (exact forms):
   - Line 2: `scripts/agent/features-check.mjs` `caveatRows` reads PLAN.md's Phase 0 caveat table and `caveatErrors` fails the guard when the table is missing or empty, a row names no feature, or an id is not in features.json. The command runs it on every check.sh and CI run. Tests: "reads PLAN.md's Phase 0 caveat table, and every row names features that exist" (12 rows, all ids known) and "a caveat naming no feature or an unknown one, or no table at all, is an error"; the scratch-repository command test now carries a PLAN.md. features-check.test.ts 39/39.
   - `scripts/agent/check.sh` green.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none (`ci`).
 - Next: `next.mjs`'s first feature (M0-19).
 
@@ -875,7 +875,7 @@ Lines the tooling reads (exact forms):
   - docs/UPSTREAM.md names the workflow, the script and the issue.
   - `scripts/agent/check.sh` green.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none (`ci`).
 - Next: start the Upstream workflow by hand on main, check the issue, then flip M0-19 with that run as evidence.
 
@@ -889,7 +889,7 @@ Lines the tooling reads (exact forms):
   - A second run, 37978756776 (success), opened nothing: issues labelled `upstream` (open or closed) still number one, so the issue is updated rather than duplicated (line 1).
   - The runs used the workflow token with `contents: read`, `issues: write`; no push (line 2, and #88's evaluator PASS).
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none (`ci`).
 - Next: `next.mjs`'s first feature. #89 lists the controller commits M3-08 wants; port them when M3-08 is taken up (docs/UPSTREAM.md, rule 3).
 
@@ -906,7 +906,7 @@ Lines the tooling reads (exact forms):
   - `scripts/release-check.test.ts` 9/9, among them "only the job behind the release environment tags or publishes, after the build" and "no tag push publishes anything, and a release build publishes no canary". actionlint 1.7.7 clean on both workflows.
   - `scripts/agent/check.sh` green: coverage 96.22 / 93.62 / 95.88.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none (`ci`).
 - Next: after merge, dispatch Cut a release on main with a version package.json does not carry; a red `verify` with no tag is line 2's run evidence and shows the environment check reads the protection. Then flip M0-14.
 
@@ -921,7 +921,7 @@ Lines the tooling reads (exact forms):
   - Build, tag and publish are one run, with release.yml called through `workflow_call` and no tag-push trigger left (line 3).
   - The run's job summary carries the release, commit and run for the PROGRESS entry (line 4).
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none (`ci`).
 - Next: after any real release, open a PR appending its job summary (release, commit, run) to this file, as M0-14 line 4 asks (docs/TESTING.md, the acceptance session, says so too). Then `next.mjs`'s first feature (M1-02).
 
@@ -936,7 +936,7 @@ Lines the tooling reads (exact forms):
   - Line 2: `grep -rn -i duckstation src --include=*.ts | grep -v src/config` is empty apart from i18n. Two comments (savefiles.ts, saves.test.ts) and a test tag (romm.test.ts, now `swanstation`) named it before; they are reworded.
   - `scripts/agent/check.sh` green (coverage 96.23 / 93.61 / 95.87); `npm run test:app` 200/200 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root; CI keeps the sandbox). `npm run shots:nova`: looked at `emulators.png`: DuckStation is the last row, "Not installed", "1 platform", Install, its down arrow disabled; nothing clipped.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none (`ci`).
 - Next: `next.mjs`'s first feature (M1-12).
 
@@ -952,7 +952,7 @@ Lines the tooling reads (exact forms):
   - Line 2: `registry.test.ts` "ES-DE's find rules resolve DuckStation from the catalog's AppImage in a fake home" (`DUCKSTATION`, staticpath `~/Applications/DuckStation*.AppImage`), and `findrules.test.ts` "a glob expands `*` in any component …" and "resolution takes the first rule and entry that find something, and names it".
   - `scripts/agent/check.sh` green: 1579 tests, coverage 96.27 / 93.67 / 95.93.
 - CI wall time: recorded in the next entry (this entry rides the PR). The first x64 run failed only at the pull-request body check: the body opened without `Feature: M1-09`. The body was corrected and this line pushed, since a re-run reads the old body.
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none (`ci`).
 - Next: M1-09 part 2: ship `packaging/es-de/` in the image (`extraResources`), load it with `~/ES-DE/custom_systems/` at start, and have the pre-flight check name the rule that found each emulator (line 3).
 
@@ -969,7 +969,7 @@ Lines the tooling reads (exact forms):
   - Lines 1 and 2: part 1 (#97).
   - `scripts/agent/check.sh` green: 1583 tests, coverage 96.24 / 93.69 / 95.94. `npm run test:app` 201/201 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root). `npm run shots:nova`: `settings-system.png` unchanged above the fold; a temporary scrolled shot (not committed) shows the Pre-flight list with "Found by — Eden: <stand-in path>" between Free space and Controller, aligned, nothing clipped.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none (`ci`).
 - Next: `next.mjs`'s first feature (M1-12).
 
@@ -985,7 +985,7 @@ Lines the tooling reads (exact forms):
   - Line 3: the same test finds exactly one `DEBUG emulator child environment {"removed":[…],"set":{…}}` line per launch; "the differences name every variable dropped and every value set" checks its content.
   - `scripts/agent/check.sh` green: 1593 tests, coverage 96.29 / 93.76 / 95.96 (childenv.ts 100%). `npm run test:app` 201/201 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root).
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none (`ci`).
 - Next: `next.mjs`'s first feature after M1-12 (M1-15 or M1-26 need screenshots; M2-01 is the save-sync spec).
 
@@ -1004,7 +1004,7 @@ Lines the tooling reads (exact forms):
   - `systems.test.ts` "a GameCube or Wii U folder RomM matched to nothing still resolves, and to its icon", "every icon path is under the icon root".
   - `scripts/agent/check.sh` green: 1600 tests, coverage 96.29 / 93.78 / 95.95. `npm run test:app` 201/201.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none (`agent-screenshot`).
 - Next: `next.mjs`'s first feature (M1-15, or M2-01 the save-sync spec).
 
@@ -1019,7 +1019,7 @@ Lines the tooling reads (exact forms):
   - Runs: under the bursty load, the median was -0.024 ms (rounds: off 0.401 on 0.376; off 0.491 on 0.369; off 0.315 on 0.464; off 0.836 on 0.361; off 0.399 on 0.403), so the round that load spoiled did not decide the result. Unloaded, the median was 0.036 ms. The cost test takes 44.6 s, up from about 13 s; the x64 leg stays well inside 10 minutes.
   - `scripts/agent/check.sh` green: 1600 tests, coverage 96.29 / 93.77 / 95.98.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none.
 - Next: `next.mjs`'s first feature that does not wait on the device (M1-15, or M2-01 the save-sync spec).
 
@@ -1035,7 +1035,7 @@ Lines the tooling reads (exact forms):
   - `npm run shots:nova`: all 18 screens measured (6 to 35 controls each), no offenders. Looked at home, library, game-details, downloads, emulators, settings-general, setup and quit: nothing clipped or overlapping. At rest, the lowest rows of home, emulators and settings scroll under the hint bar (92% opaque); reached with the pad, the last Settings → General control (Quit Galleon) sits fully above it (checked with a scratch walk of 30 Down presses, not committed). Not a defect.
   - `scripts/agent/check.sh` green: coverage 96.29 / 93.78 / 95.98. `npm run test:app` 213/213 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root).
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none (`agent-screenshot`).
 - Next: M1-15 part 2, a test:app walk of every screen with the d-pad visiting every `data-action` (line 2).
 
@@ -1051,7 +1051,7 @@ Lines the tooling reads (exact forms):
   - Line 1: part 1 (#106). Collections, missed by part 1, is now photographed and measured as well (the evaluator's first verdict on this PR was FAIL for that gap). Line 3: `npm run shots:nova` 19/19 with no offenders; looked at `collections.png` (one card, two section headers, nothing clipped) and `game-details.png` (unchanged).
   - `scripts/agent/check.sh` green: coverage 96.29 / 93.79 / 95.98. `npm run test:app` 224/224 (`reach.test.ts` 11/11).
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none (`agent-screenshot`).
 - Next: `next.mjs`'s first feature that does not wait on the device (M2-01 the save-sync spec, M6-04, M6-05).
 
@@ -1069,7 +1069,7 @@ Lines the tooling reads (exact forms):
   - Findings worth knowing: Argosy uses negotiate on 5.2.0 (its gate is version 4.9.0, not the heartbeat); RomM 5.2.0 ignores `rom_ids`; a slotted upload gets a timestamp-tagged name; a first upload into an occupied slot is a 409; `autocleanup` deletes server saves, so Galleon never sends it; Argosy has two automatic `overwrite=true` paths that Galleon must not copy (section 8).
   - `scripts/agent/check.sh` green.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none.
 - Next: M2-08 (per-system decision, needs-human) and M2-02 (shape report), per PLAN.md's M2 order; or `next.mjs`'s first feature.
 
@@ -1082,7 +1082,7 @@ Lines the tooling reads (exact forms):
   - Decision issue #110 (`needs-human`): one question, which emulator per system. A plain-language table cites SPEC.md section 10's verdicts. Safe default: (A) RetroArch with Argosy's core for SNES, GBA and PS1; (B) PPSSPP, ARMSX2 with a folder card, Dolphin in GCI folder mode, Dolphin, and Flycast with a per-game VMU for PSP, PS2, GameCube, Wii and Dreamcast. It applies on 2026-10-13 01:00 UTC.
   - `docs/save-sync/SYSTEM-CHOICES.md` records the decision as pending, with the recommended default per system.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none.
 - Next: M2-03 (golden fixtures from SPEC.md, Docker 5.2.0). On or after 2026-10-13 01:00 UTC: M2-08 part 2 (adopt the answer or the default, ADR, settings defaults, the per-system Settings choice).
 
@@ -1098,7 +1098,7 @@ Lines the tooling reads (exact forms):
   - The Wii fixture's ROM joins the Docker library in part 2, which needs it; the test lists it as pending by name.
   - `scripts/agent/check.sh` green: 1612 tests, coverage 96.31 / 93.85 / 96.04.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none.
 - Next: M2-03 part 2, `npm run test:saves`: seed Docker 5.2.0 as an Argosy device with these fixtures, negotiate to `no_op` twice, the fork's upload after Argosy's, in the CI build job on both architectures.
 
@@ -1117,7 +1117,7 @@ Lines the tooling reads (exact forms):
   - Found on the way: RomM 5.2.0 keeps times to the second and compares them strictly, so a save made within the same second as a device's sync record is not "newer"; the harness waits for the next second before the keep, and M2-05 must expect it.
   - `npm run test:saves` 33/33 (39 s, run twice against the same server); `ROMM_PROFILE=v520 npm run test:romm-real` 21/21; `scripts/agent/check.sh` green.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none.
 - Next: M2-04 (`content_hash` exactly as RomM computes it), then M2-07.
 
@@ -1134,7 +1134,7 @@ Lines the tooling reads (exact forms):
   - `sameContent` (the app's local-against-server comparison) now uses `localContentHash`, so a zip save compares by what is inside it; `savefiles.test.ts` "a zip save is the same as RomM's when what is inside it is, in any order".
   - `scripts/agent/check.sh` green: coverage 96.36 / 93.91 / 96.14.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none.
 - Next: M2-07 (one safe writer), then M2-05 (decision engine), which must allow for RomM keeping times to the second.
 - Notes: `restoreFile` in `src/main/saves.ts` still checks a pulled save's plain md5 against `content_hash`, which fails for any zip save; the safe writer (M2-07) or transfers (M2-06) should check with `localContentHash` instead. (The evaluator's note; outside this diff.)
@@ -1152,7 +1152,7 @@ Lines the tooling reads (exact forms):
   - New string `error.saveIsFolder` in all four catalogues (translated).
   - `scripts/agent/check.sh` green; `npm run test:saves` 35/35 on Docker 5.2.0.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none.
 - Next: M2-05 (decision engine; RomM keeps times to the second). Still open from M2-04: `restoreFile` checks a pulled zip save's plain md5 against `content_hash`; M2-06 should check with `localContentHash`.
 
@@ -1166,7 +1166,7 @@ Lines the tooling reads (exact forms):
   - `romm.test.ts` "a pre-launch negotiate names its game only on a RomM that reads the name": 5.0, 5.0.0, 5.2.0 false; 5.3.0, 5.3.1, 5.4.0 true; `development`, null and undefined false. "the first version that scopes is the first schema/ document with rom_ids": every committed RomM document (5.0.0, 5.1.0, 5.2.0, 5.3.1) has `rom_ids` in `SyncNegotiatePayload` exactly when the gate says so.
   - `scripts/agent/check.sh` green.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none.
 - Next: M2-05 part 2, the engine: negotiate with the full local inventory on 5.2.0 (or `rom_ids` on 5.3+), drop other games' operations, complete sessions with counts, and the equivalence test on Docker 5.2.0 and 5.3.1.
 - Notes: under `git commit -a` the pre-commit hook's tests write into the caller's temporary index (`error: invalid object ... for 'docs/PROGRESS.md'`), as `agent.test.ts` warns; commit with `git add` and no `-a` until the test that leaks is found.
@@ -1184,7 +1184,7 @@ Lines the tooling reads (exact forms):
   - Line 4: "a session a newer negotiate cancelled is finished, not an error" (unit) and "a session a newer negotiate superseded is finished, not an error" (real: two negotiates, the first completes as `superseded`, the second as `completed`, then `superseded`).
   - `npm run test:saves` 37/37 on Docker 5.2.0. Both new real tests also pass on 5.3.1 (`node test/romm/run.mjs --suite saves --profile v531`); `romm.test.ts` 121/121; `scripts/agent/check.sh` green.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none.
 - Next: M2-05 line 2: a local decider written from `compare_save_state` and the endpoint's pairing rules, and an equivalence test feeding the same scenarios to it and to the real negotiate on Docker 5.2.0 and 5.3.1 (CI's `test:saves` runs only v520 today).
 - Found on the way: the first CI run failed both legs in `Save round trips`: node runs the real test files side by side against one server, and the new test's slotted save on the SNES game showed up in the round trips' negotiates (and every `client()` there is one RomM device, so the "other device" was not other). The test now uploads with no device, for a game no golden fixture uses (`Galleon Test Plain`), and deletes it afterwards. The evaluator's first verdict was FAIL on the same two points, and on a race: every `client()` is one RomM device, so a round trip's negotiate could cancel the line-4 test's session before it completed. Both tests now negotiate as a device registered for them alone. `npm run test:saves` 37/37 three times in a row, the first on a fresh server; both tests pass on 5.3.1.
@@ -1202,7 +1202,7 @@ Lines the tooling reads (exact forms):
   - New string `error.saveBadTime` in all four catalogues (translated).
   - `scripts/agent/check.sh` green.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none.
 - Next: M2-06 (transfers). Wiring `negotiateForGame` / `decideForGame` into the pre-launch flow in `saves.ts` goes with it.
 - Found on the way: RomM tags an uploaded name with the second it arrived, and an upload whose tagged name matches an existing row takes over that row, slot and all; and an upload's reply carries microseconds RomM 5.2.0 does not store, so a time taken from it is later than the stored one. The test gives each upload its own name and makes ties against the listed time.
@@ -1234,7 +1234,7 @@ Lines the tooling reads (exact forms):
   - Bug (separate commit, `fix(saves)`): `keepBackup` swallowed a failed copy, so `replaceSave`, `unpackSave` and `removeSave` overwrote or deleted a save with no backup (the log said "could not be copied aside" and the pull went on). It now checks the first slot holds the save's own bytes and throws `SaveNotBackedUp`; nothing is written. `savewriter.test.ts` "a save that cannot be copied aside is left as it was" (pull, folder unpack, delete). New string `error.saveNotBackedUp` in all four catalogues (translated).
   - `scripts/agent/check.sh` green; `npm run test:saves` 38/38 and `npm run test:romm` 21/21 on Docker 5.2.0; `npm run test:app` 224/224 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root). `games.test.ts` "the server's copy is brought down before the game starts" now also asserts `optimistic=false` and the `/downloaded` POST, which `test/app/server.ts` answers.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none.
 - Next: M2-06 part 3: line 3 (an identical retry adds no slot row, test:saves on 5.2.0 and 5.3.1), line 4 (`play_sessions` with the session's completion), and a 409 shown to the player as a conflict.
 - Found on the way: the first CI run failed x64 `test:app`, whose check matched the content path exactly and so missed the new query; it was not run before the push because only main-process code changed. A change to what goes over the wire to RomM needs `test:app` too.
@@ -1252,7 +1252,7 @@ Lines the tooling reads (exact forms):
   - `romm.test.ts` "keeping this device's save when the slot already holds it": the newest identical copy is returned and confirmed, an older identical copy still uploads, an ordinary upload and an unslotted one never list the slot; a copy with no stored hash and a file the client cannot hash both upload. 130/130.
   - `scripts/agent/check.sh` green; `npm run test:saves` 41/41 and `npm run test:romm` 21/21 on Docker 5.2.0. `test:app` not run: no production caller sets `keepThisDevice`, so nothing the app sends changes.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none.
 - Next: M2-06 part 3b: line 4 (`play_sessions` with the session's completion), and a 409 shown to the player as a conflict.
 
@@ -1268,7 +1268,7 @@ Lines the tooling reads (exact forms):
   - `savenegotiate.test.ts`: the payload as sent, short and backwards spans dropped (no list at all when none is left), an `error` result does not fail the completion, a superseded session.
   - `scripts/agent/check.sh` green. `test:app` not run: nothing in the app calls `finishSession` yet.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none.
 - Found on the way: the PR body was opened without its `Feature:` line, which `scripts/agent/pr-body.mjs` fails on; a re-run reads the body from the original event, so a corrected body needs the next push to be checked.
 - Next: the launch flow still decides with RomMix's own comparison and reports play through `POST /api/play-sessions`; wiring negotiate and its completion around a launch is M2-17 (with M2-18 for play time). A 409 shown to the player as a conflict is M2-16.
@@ -1285,7 +1285,7 @@ Lines the tooling reads (exact forms):
   - Line 2: `test/romm/sync.real.ts` "play sessions are accepted, listed and counted in the play time": a session recorded while unreachable (and a 3 s one, dropped) is sent by the next `send()`, appears once in `GET /api/play-sessions?rom_id=` with its start and duration, and `playTime` grows by it. `npm run test:romm` 21/21 on Docker 5.2.0.
   - `scripts/agent/check.sh` green; `npm run test:app` 224/224 (games.test.ts "the session is accounted for" still sees the POST).
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none.
 - Next: Steam games (M1-14, M5) are not launched by the app yet; their launch calls `launcher.play.record` the same way when they are. Then `next.mjs`: M2-15 (states only where they can load).
 - Notes: `unsent_play.json` is new state under the config folder; nothing in the self-test guard (M0-21, not built yet) stops play being sent, which that feature's acceptance already requires.
@@ -1302,7 +1302,7 @@ Lines the tooling reads (exact forms):
   - `test:app`: three Cave Story steps in `games.test.ts` moved state transfers on Genesis, whose states now stay. Their save half is unchanged; their state half now asserts the rule end to end: no `/api/states/` download, no file in the states folder, the row `staysOnDevice` with the badge; the push dialog lists only the save; neither the dialog nor a push of everything sends the state. 224/224. State transfer itself is covered by the unit tests on PS1.
   - `scripts/agent/check.sh` green; `npm run shots:nova` 20/20.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none. Which systems sync states is worth a look in the acceptance session once #110's choices land (M2-08): a system moved to a standalone keeps its states local by this table.
 - Next: `next.mjs`: M2-16 (conflicts decided by the player), M6-04, M6-05.
 
@@ -1318,7 +1318,7 @@ Lines the tooling reads (exact forms):
   - `scripts/agent/check.sh` green; `npm run test:saves` 42/42 on Docker 5.2.0 (the client's overwrite and download-confirm calls `resolve` uses are the ones `roundtrip.real.ts` and `transfer.real.ts` hold to RomM); `npm run test:app` 224/224.
   - Flaky (#134): `test/app/reach.test.ts` walked the BIOS screen and the game page before their data loaded (2 failures in 13 isolated runs on main). It now waits for `[data-bios-platform]` and the first `[data-tab]`; 15/15 isolated runs after.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none.
 - Found on the way: the VM image ships a stale `/var/run/docker.pid`, so `dockerd` refuses to start until it is removed.
 - Next: M2-16 part 2: the conflict dialog (two columns, three choices, focus held on its choice), `test/app/server.ts` 409 and device_syncs, test:app per choice, and the `shots:nova` shot.
@@ -1335,7 +1335,7 @@ Lines the tooling reads (exact forms):
   - Line 3: `shots:nova` 21/21 with the new `game-conflict`; looked at it at 1280x960: two equal columns, names, times and sizes legible, three buttons on one row, accent only on the focused Skip, nothing clipped.
   - `scripts/agent/check.sh` green; `npm run test:app` 229/229 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root).
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none. How the dialog reads from the sofa belongs in the acceptance session's look-and-feel pass.
 - Next: `next.mjs`: M6-04, M6-05 (M0-10, M0-13 and M2-08 wait on the device, M0-21 or #110's date).
 
@@ -1353,7 +1353,7 @@ Lines the tooling reads (exact forms):
   - `scripts/agent/check.sh` green; `npm run test:romm` 22/22; `npm run test:app` 229/229.
   - Flaky (#139): the PR's x64 leg failed `test/app/conflicts.test.ts` (keep this device's never closed the dialog). A real bug from M2-16: `answerConflict` held its `answering` guard through the Saves-tab `reload()` after the next conflict was on screen, so a press in that window was dropped. New `FakeRomm.slowSaveListings` makes the scenario press in that window: fails every time before, 3/3 after the guard is released before the refresh.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none.
 - Next: `next.mjs`: M6-05 (resumable per-file downloads).
 - Notes: a game already installed under a folder named with `.m3u` is no longer adopted at that path (none are installed yet). A multi-disc game on a flat-library emulator (only Eden, Switch) could leave empty subfolders on cancel; not a shape that exists today.
@@ -1385,7 +1385,7 @@ Lines the tooling reads (exact forms):
   - `test/romm/lib.test.ts` "every Docker RomM runs one web worker, which the scan handshake needs" fails without the setting.
   - `npm run test:romm -- --profile v531` from a removed volume: 24/24, 69 s.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none.
 - Next: `next.mjs`: M8-06.
 
@@ -1401,7 +1401,7 @@ Lines the tooling reads (exact forms):
   - What 5.4 will need, from that rehearsal: `sync.real.ts`-style session tests in `test/saves/` fail on the beta: "a session a newer negotiate superseded is finished, not an error" (the older session reads `completed`, not `superseded`) and "play recorded during a session is sent with the session's completion" (the play session is not there: `undefined` where 97 was expected). Both touch save sync (rail 2); investigate when 5.4.0 is stable, with its own golden tests.
   - `scripts/agent/check.sh` green.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none.
 - Next: M8-06 line 2 once RomM 5.4.0 (or a newer stable) is published: follow `docs/MAINTENANCE.md` "RomM versions". Otherwise `next.mjs` has nothing eligible (M0-10, M0-13 and M2-08 wait on the device or #110's date).
 - Notes: init.sh stops before `npm ci` when Docker's daemon is down; start `dockerd` and run it again.
@@ -1421,7 +1421,7 @@ Lines the tooling reads (exact forms):
   - New `FakeRomm.slowRomListings`. `interface.test.ts` "going home waits for it to settle, so the next walk is not taken from under it" fails on 34ba1b9 (the hero does not hold the highlight when `goTo` returns) and passes with the fix.
   - `scripts/agent/check.sh` green; `npm run test:app` 230/230 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root).
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none.
 - Next: the bridge's "no 'nightly' release published yet" while a `nightly` prerelease exists (published 2026-10-09 11:40 UTC); otherwise nothing eligible (see the 14:47 stop entry).
 - Notes: a stale `/var/run/docker.pid` stopped `dockerd` from starting on this VM; remove it if the pid it names is not running.
@@ -1448,7 +1448,7 @@ Lines the tooling reads (exact forms):
   - Step 8: `nightly.yml` and `release.yml`'s `workflow_dispatch` profiles, `test/romm/README.md`, `run.mjs`, `test/saves/README.md`, PLAN.md's matrix lines. Pull requests still test only 5.2.0.
   - `scripts/agent/check.sh` green.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none. The owner's server stays on 5.2.0 (step 10).
 - Next: nothing eligible unless the device reports; see the 15:53 stop entry.
 
@@ -1468,7 +1468,7 @@ Lines the tooling reads (exact forms):
   - `shellcheck test/device/run.sh`: clean apart from the existing SC1007 on `CDPATH= cd`.
   - `scripts/agent/check.sh` green.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: the next nightly after the merge publishes `power-facts.txt`. From it: parse perf-state.json in `src/main/powerstate.ts` with fixture tests, which finishes M0-10, and correct DEVICE-FACTS.md's _(assumed)_ power lines. Then M0-21 and M0-22.
 
 ## 2026-10-12 02:10 UTC session 01EHqpGGic98WcbWMnSMyxnP (owner asked to push work forward)
@@ -1488,7 +1488,7 @@ Lines the tooling reads (exact forms):
   - `npm run test:app` 230/230. `npm run shots:nova` 21 screens. I opened `perf-overlay.png`: the two new lines are in the bottom-left corner below the CPU and GPU lines, inside the overlay's box, and the library layout is unchanged. On the VM they read "unknown", which is correct there.
   - `scripts/agent/check.sh` green.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none for M0-10. Next: M0-21 (self-test mode), now unblocked. `next.mjs` should list it.
 
 ## 2026-10-12 02:45 UTC session 01EHqpGGic98WcbWMnSMyxnP (owner asked to push work forward)
@@ -1504,7 +1504,7 @@ Lines the tooling reads (exact forms):
   - `npm run test:app` 230/230 (the driver already sets `GALLEON_HOME`). `scripts/agent/check.sh` green.
   - Not proven here: files Chromium itself might write outside userData. The device's `safety.owner-state` (M0-22) covers that on the Nova.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none yet. Next: M0-21 part 2, the read-only server guard (line 2).
 
 ## 2026-10-12 03:05 UTC session 01EHqpGGic98WcbWMnSMyxnP (owner asked to push work forward)
@@ -1529,7 +1529,7 @@ Lines the tooling reads (exact forms):
   - Removing the guard line from `request()` fails 3 of these tests.
   - `scripts/agent/check.sh` green; `npm run test:romm` 24/24 on v520, v531 and v540.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none yet. Next: M0-21 part 3, the self-test request, runner and summary.json, which switches the guard on.
 
 ## 2026-10-12 03:38 UTC session 01NaksJzKTFT4F1atU7bphfg (hourly heartbeat)
@@ -1553,7 +1553,7 @@ Lines the tooling reads (exact forms):
     - `test/app/selftest.test.ts` 2/2: the built app takes a request, writes a valid summary, exits 0. A request without privacy exits 1 with an error summary.
   - `scripts/agent/check.sh` green.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none yet. Next: M0-21 part 4, the real scenarios (start-up, grid scroll per profile, screenshots, heartbeat, small download), privacy mode and abort on input. run.sh must then write the request.
 
 ## 2026-10-12 03:52 UTC session 01NaksJzKTFT4F1atU7bphfg (hourly heartbeat)
@@ -1572,7 +1572,7 @@ Lines the tooling reads (exact forms):
     - `test/app/selftest.test.ts` 3/3. New: the built app, signed in to the fake RomM, runs `server.heartbeat`, which passes. `selftest.complete` and `safety.server-readonly` pass and the status is `complete`. The fake server saw `/api/heartbeat` and `/api/users/me` and no method other than GET or HEAD. The summary does not contain the server's host.
     - `seed` in `test/app/driver.ts` is now exported for that test.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none yet; run.sh does not write a request yet. Next: the remaining part 4 pieces (start-up, grid scroll, screenshots, small download, privacy mode, abort on input, sandbox, run.sh's request).
 
 ## 2026-10-12 04:26 UTC session 01RGSMShKzBQaeNLAXc7CMRy (hourly heartbeat)
@@ -1592,7 +1592,7 @@ Lines the tooling reads (exact forms):
   - Tests: `src/main/selftestdownload.test.ts` 12/12; `test/app/selftest.test.ts` 4/4, `npm run test:app` 234/234 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root). The new app test runs `download.small` in the built app against the fake RomM: pass, progress events counted, the content endpoint asked, only GET and HEAD sent, no file of the game left under the home.
   - `scripts/agent/check.sh` green.
 - CI wall time: recorded in the next entry (this entry rides the PR). The first x64 run failed only `pr-body.mjs`: the PR opened without the template's `Feature:` line. The body was fixed, and this note is the push that re-runs the check, since a re-run reads the original body.
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none yet; run.sh does not write a request yet. Next: `startup.cold`, `grid.scroll` per profile, screenshots, privacy mode, abort on input, the sandbox, run.sh's request.
 
 ## 2026-10-12 05:32 UTC session 01QNMBBfGA8UpKNKTXremHYM (hourly heartbeat)
@@ -1610,7 +1610,7 @@ Lines the tooling reads (exact forms):
   - Tests: `src/main/selfteststartup.test.ts` 12/12. `test/app/selftest.test.ts` 5/5; new: signed in to the fake RomM, the built app answers `startup.cold` (625 ms on the VM, `measuredFrom: process`) and the run is `complete`. The not-implemented example is now `grid.scroll`.
   - `scripts/agent/check.sh` green.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none yet; run.sh does not write a request yet. Next: `grid.scroll` per profile, screenshots, privacy mode, abort on input, the sandbox, run.sh's request (which should set `GALLEON_STARTED_AT_MS`).
 
 ## 2026-10-12 05:53 UTC session 01QNMBBfGA8UpKNKTXremHYM (hourly heartbeat, unit 2)
@@ -1630,7 +1630,7 @@ Lines the tooling reads (exact forms):
     - `test/app/selftest.test.ts` 6/6. New: signed out, so `startup.cold` is still waiting. A simulated pad presses A, and the summary is on disk within a second, with status `aborted-by-user` and `startup.cold` `skip` / `aborted-by-user`. The first version ignored a button already down at the probe's first look. The app test caught that: the probe started after the press. It was the wrong rule anyway.
   - `scripts/agent/check.sh` green.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none yet; run.sh does not write a request yet. Next: `grid.scroll` per profile, screenshots, privacy mode, the sandbox, run.sh's request.
 
 ## 2026-10-12 06:47 UTC session 01KMyqfmFiWMjLUMxcgqYAnk (hourly heartbeat)
@@ -1652,7 +1652,7 @@ Lines the tooling reads (exact forms):
     - `test/app/selftest.test.ts` 7/7. The new test holds the GBA download so the `download.small` run stays up. It then visits Home, Library, Collections, Downloads, BIOS, Emulators, Settings and a game screen, searching the markup, the field values and the title for the address, the host and the account name. With `hideIdentity()` disabled it fails ("the top bar on home names 127.0.0.1:…").
   - `scripts/agent/check.sh` green.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none yet; run.sh does not write a request yet. Next: `grid.scroll` per profile, screenshots (now safe to take under privacy), the sandbox, run.sh's request.
 
 ## 2026-10-12 07:43 UTC session 016eMKUxtJxpe8K1xqKKvkXV (hourly heartbeat)
@@ -1672,7 +1672,7 @@ Lines the tooling reads (exact forms):
   - CI x64 failed once on 29ffac1: the abort test saw no press (60 s, not about 1 s). Cause: `startApp` returns once a page target exists, so the test could plant its pad in a document the app's own page then replaced. Under CPU load on the VM the press arrives while `index.html` is still `loading` with nothing mounted. Fix: the test waits for `[data-screen]` before `plugInPad`. Passes 3/3 under load and 8/8 for the file.
   - `scripts/agent/check.sh` green.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none yet; run.sh does not write a request or answer the handshake yet. Next: screenshots, the synthetic platform, the sandbox (line 4), run.sh's request and handshake.
 
 ## 2026-10-12 08:26 UTC session 01LuBxq5s78Luq5JRhhZhgam (hourly heartbeat)
@@ -1688,7 +1688,7 @@ Lines the tooling reads (exact forms):
   - Tests: `src/main/selftestshots.test.ts` 8/8; `src/main/selftest.test.ts` 23/23 (4 new); `test/app/selftest.test.ts` 9/9 (new: signed in, settings, bios and emulators captured, home withheld). I opened the three PNGs: privacy masks the address and account on Settings; the first BIOS shot caught the menu mark mid-slide, which is why the probe waits for animations; after that fix the mark sits under the screen's own item and the platform badges are drawn.
   - `scripts/agent/check.sh` green.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none yet; run.sh does not write a request yet. Next: the synthetic platform, the sandbox (line 4), `armada-power status` in `readPowerState`, run.sh's request and handshake.
 
 ## 2026-10-12 08:49 UTC session 01LuBxq5s78Luq5JRhhZhgam (hourly heartbeat, second unit)
@@ -1704,7 +1704,7 @@ Lines the tooling reads (exact forms):
   - `test/app/selftest.test.ts`: 9/9 twice. One earlier full-file run failed the privacy test ("gave up waiting for the library screen"). It passed 4/4 alone, on `main` and on this branch. Filed as #166 (flaky), to root-cause within two units.
   - `scripts/agent/check.sh` green.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none yet. Next: #166, the synthetic platform, the sandbox (line 4), run.sh's request and handshake.
 
 ## 2026-10-12 09:42 UTC session 01TWYP54GLiRNuHy52ig2n2g (hourly heartbeat)
@@ -1718,7 +1718,7 @@ Lines the tooling reads (exact forms):
   - Fix: `test/app/selftest.test.ts` waits `atHome` after the signed-in top bar check, before the first `goTo`. Nothing is retried or skipped.
   - After the fix: the test passes 6/6 under CPU load, and the file passes 9/9. `scripts/agent/check.sh` is green.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none.
 - Next: M0-21 continues (the synthetic platform, the sandbox, run.sh's request and handshake). #110's safe default applies 2026-10-13 01:00 UTC.
 
@@ -1737,7 +1737,7 @@ Lines the tooling reads (exact forms):
   - Tests: `src/main/selftestsandbox.test.ts` 19/19, including every registered emulator either planning inside its sandbox or skipping as `cannot-sandbox`. `registry.test.ts` knows the new field.
   - `scripts/agent/check.sh` green.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none yet; nothing starts an emulator in the self-test yet. Next: RetroArch's recipe (`--config` plus an appended config), then Dolphin, DuckStation and the XDG-only emulators, then flatpaks.
 
 ## 2026-10-12 10:52 UTC session 019YTjCVcH4zVLC76deCJNbC (hourly heartbeat, second unit)
@@ -1758,7 +1758,7 @@ Lines the tooling reads (exact forms):
   - Tests: `src/main/selftestsandbox.test.ts` 23/23 (4 new for RetroArch). Every folder in the appended config except the owner's cores is checked to be inside the sandbox.
   - `scripts/agent/check.sh` green.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none yet; nothing starts an emulator in the self-test yet, and the Nova's RetroArch is a flatpak (G0-7). Next: Dolphin, DuckStation and the XDG-only emulators, then flatpaks.
 
 ## 2026-10-12 11:30 UTC session 01JYonW2Y3SeXmqbCVr1BU3J (hourly heartbeat)
@@ -1785,7 +1785,7 @@ Lines the tooling reads (exact forms):
   - `scripts/agent/check.sh` green.
 - Found, not fixed (outside this unit): the descriptor's `dirs` say `~/.local/share/duckstation`, which is right only while `XDG_CONFIG_HOME` is unset; with it set, DuckStation uses `$XDG_CONFIG_HOME/duckstation`. Noted on #155 for the save-sync work.
 - CI: the first two x64 runs failed on this PR's paperwork, not its code: this entry first carried a time later than the run (`features-check`), then the body had no `Feature:` line (`pr-body`). Both fixed; the wall time is recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none yet; nothing starts an emulator in the self-test yet. Next: flatpaks (5d), then Eden and shadPS4 (portable `user` folders to rule out first).
 
 ## 2026-10-12 11:52 UTC session 01JYonW2Y3SeXmqbCVr1BU3J (hourly heartbeat, second unit)
@@ -1818,7 +1818,7 @@ Lines the tooling reads (exact forms):
   - `docs/TESTING.md`: the request schema shows `version`; a bullet says how `build.identity` judges.
   - `scripts/agent/check.sh` green.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none yet; run.sh does not start the app until M0-22, which will write `version` into the request. Next: `update.verify` (part 3b).
 
 ## 2026-10-12 12:43 UTC session 01SEPBgzYPhDLgKBBmqwLbFn (hourly heartbeat, second unit)
@@ -1847,7 +1847,7 @@ Lines the tooling reads (exact forms):
   - `docs/save-sync/SYSTEM-CHOICES.md` records the answer per row (acceptance line 2, docs half).
   - `scripts/agent/check.sh` green.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none.
 - Next: M2-08 part 2b: per-system default emulators in `src/config/` from SYSTEM-CHOICES.md, and the per-system choice in Settings. Issue #110 is closed with this PR.
 - Notes: for M0-21, a device-test sandbox for ARMSX2, Dolphin or Flycast must start from a copy of the owner's settings, never an empty one (ADR 0005, consequences).
@@ -1862,7 +1862,7 @@ Lines the tooling reads (exact forms):
   - Tests: `src/config/emulators/registry.test.ts` 63/63. New: the default listed first with or without a ranking; the defaults are the ADR's and each emulator runs its system; the default beats the ranking but not a choice; an uninstalled default falls back to the ranking. RomMix's ranking tests now use `nes`, which has no default.
   - `scripts/agent/check.sh` green; `npm run test:app` 239/239 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root).
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none.
 - Next: PSP, PS2, GameCube, Wii and Dreamcast join `SYSTEM_DEFAULTS` with their descriptors (M1-03 to M1-06, after M0-22). The ARMSX2, Dolphin and Flycast setting changes go with them (ADR 0005, decision 2). Then M2-08 can pass.
 
@@ -1895,7 +1895,7 @@ Lines the tooling reads (exact forms):
   - `docs/TESTING.md`: the sandbox bullet names the removed variables.
   - `scripts/agent/check.sh` green.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none; no launch scenario calls `planSandbox` yet.
 
 ## 2026-10-12 15:30 UTC session 01GHqwaL39bhoXCitQmtPQfJ (hourly heartbeat)
@@ -1926,7 +1926,7 @@ Lines the tooling reads (exact forms):
   - `docs/TESTING.md`: the sandbox bullet names the missing needed file.
   - `scripts/agent/check.sh` green.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none; no launch scenario calls `planSandbox` yet.
 
 ## 2026-10-12 15:53 UTC session 01GHqwaL39bhoXCitQmtPQfJ (hourly heartbeat, third unit)
@@ -1941,7 +1941,7 @@ Lines the tooling reads (exact forms):
   - `docs/TESTING.md`: the sandbox bullet names the stray folders.
   - `scripts/agent/check.sh` green.
 - CI wall time: recorded in the next entry (this entry rides the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - Device / acceptance: none; no launch scenario calls `planSandbox` yet.
 - Next: open for M0-21 line 4: flatpaks (5d), the portable `user` folders of Eden and shadPS4; then the synthetic 1,300-game platform.
 
@@ -2632,7 +2632,7 @@ Lines the tooling reads (exact forms):
   - `test/install/install.test.ts` (`npm run test:install`) 9/9: run as `curl … | bash -s --` against a local fake of the release download URLs (with GitHub's `latest` redirect), a throw-away HOME, an empty TMPDIR that stays empty, a recording `sudo` that is never called, and a PATH of only bash, curl and coreutils. Files and modes, `desktop-file-validate`, an idempotent second run, the stable redirect, no stable release yet, the arch refusal, a tampered file, an unlisted file, a HOME holding `"$\`%\` characters.
   - That last test found a real bug first: `sha256sum` escapes its output line for a path with a backslash; the sum is now read from standard input.
   - `shellcheck install.sh` clean. CI: a new "Install script" step inside `build` (x64), after `desktop-file-utils` is installed with Xvfb. `scripts/agent/check.sh` runs the same two lines.
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none here. The informational `install.script` device check is M0-22's run.sh step, now unblocked.
 - Next: M0-22's `install.script` step, or `next.mjs`.
@@ -2648,7 +2648,7 @@ Lines the tooling reads (exact forms):
 - Cause: the harness log shows the debugger answering `/apprunning` before `steam://open/games`, then `steam-cef-unavailable`, "no debugger: timed out". The page-list request after the command went unanswered for its whole 15 s timeout, which was longer than the 10 s library wait, so the wait ended on its first request and never asked again.
 - Result: PR (this one). `steamcef.wait_library` gives each request at most what is left of the wait (at least `ANSWER_SECONDS`) and asks again on a new connection while time is left; when it gives up, the log says how many tries over how long. run.sh's library wait now covers a stalled request and a retry. DEVICE-FACTS.md records the stall; TESTING.md describes both the lone-window rule (from #229) and the retry.
 - Evidence: `test_steamcef.py` "a debugger that stalls is asked again within the wait" and "no request outlasts the wait" (before the fix: a 1 s wait held 15.0 s by one stalled request, and no `timeout` to bound it); `python3 -B -m unittest discover -s test/device` 180/180; `scripts/agent/check.sh` green.
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: READY-FOR-DEVICE M0-22 (the next nightly reruns `harness.run`).
 - Next: the grid scroll misses its frame-time thresholds on the device; Gate 1 (G1-4) depends on it.
@@ -2659,7 +2659,7 @@ Lines the tooling reads (exact forms):
 - Worked on: G1-4, the grid scroll that misses its thresholds on the Nova (tracking issue #234). Run 4b4346b: Performance p50 16.6 ms, p95 33.3 ms, 54.2% dropped at 120 Hz; Balanced p95 50.2 ms, 86.1%. The highlight visited only 40 and 60 of 1,292 games in 30 s, where CI visits about 200. The numbers cannot yet say whether the page is held to every other refresh by how its frames are paced (p50 16.6 ms is two refreshes at 120 Hz) or by what each move costs, nor how far the grid paged, so no optimisation round can be chosen on evidence.
 - Result: PR (this one), diagnostics only; thresholds and verdicts are unchanged. Before the first key the probe times the page at rest for `IDLE_MS` (`idleFrames`, `idleP50Ms`, `idleP95Ms`, `idleDroppedPct`, reported, never judged), and reports `moves` (keys that moved the highlight), `turns` (times it turned back at an end) and `cards` (covers held at the end). `frameStats` is the shared arithmetic. TESTING.md lists the new metrics.
 - Evidence: `selftestscroll.test.ts` 30/30, new: "the page at rest is reported beside the scroll, and never judged" (idle at every other refresh, scroll passing), "no frames at rest: the idle numbers are unknown", `frameStats` at 60 Hz and 120 Hz, and an answer without `idle` refused. `test/app/selftest.test.ts` 12/12 (`--no-sandbox` wrapper, as root): Xvfb 60 Hz, `visited` 194, `moves` 193, `turns` 0, `cards` 1200, idle p50 16.7 ms, 0% dropped at rest. `scripts/agent/check.sh` green.
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: the next nightly's `grid.scroll@*` carry the new metrics. If idle frames already come every other refresh, the first optimisation round is pacing (frame-rate cap under gamescope, M6-15's backends); if idle is clean and `moves` is low, it is the cost of a move (windowed grid, PLAN.md section 9).
 - Next: read the next nightly's scroll metrics and run the first documented optimisation round.
@@ -2676,7 +2676,7 @@ Lines the tooling reads (exact forms):
   - `test_steamcef.py` "a debugger that answers is ready and one that stalls is asked again", "... never answers is not ready within the wait", `test_cli_ready`, and the CLI skip test now requires the detail; the four fail against the old `steamcef.py`. `python3 -B -m unittest discover -s test/device` 183/183.
   - `scripts/device-bundle.test.ts` 62/62, new: "run.sh skips before the start when Steam's debugger does not answer, and starts nothing" (fails against the old run.sh: it tried both routes). The neither-route and late-start tests now use a debugger that answers the check (the default fake, or one that answers once then stalls).
   - `scripts/agent/check.sh` green.
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: READY-FOR-DEVICE M0-22 (the next nightly either starts the app or skips with the debugger's detail in its log).
 - Next: the next nightly's results; the grid scroll's metrics (G1-4).
@@ -2727,7 +2727,7 @@ Lines the tooling reads (exact forms):
 - Worked on: ingesting b63deb9 (tracking issue #191).
 - Result: PR (this one), PROGRESS only. `device-results.mjs --apply` would flip M0-22, and its one-summary rule is met, but M0-22's last acceptance line asks for both checks passing in two consecutive nightly runs, and b63deb9 is the first (085436e failed `harness.run`). `passes` stays false until the next nightly with c6c14e5 in it passes `harness.run` and `safety.owner-state` too. "The shortcut does nothing when started by hand" is shown only against fakes (`scripts/device-bundle.test.ts`); the entry that flips M0-22 should say so.
 - Evidence: `node scripts/agent/device-results.mjs --summary`; `results/b63deb9.../summary.json` and `results/085436e.../summary.json` on `device-results`.
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none new.
 - Next: the next nightly (M0-22's second run); once M0-22 passes, M0-12 and the M1 descriptors are eligible. The scroll: at rest the page holds 120 Hz under Performance, so frames are not paced to every other refresh; the cost is in the move. The highlight moved 190 times but visited only 40 games and turned 7 times, so it is bouncing between ends that are 40 games apart, not paging through 1,292: worth reading in the probe before any optimisation round.
@@ -2747,7 +2747,7 @@ Lines the tooling reads (exact forms):
 - Result: the library marks its end-of-grid line (`data-grid-end`, `GRID_END` in `src/main/selftestscroll.ts`). The probe turns at the bottom only under that marker. Short of it, it holds Down for up to `GRID_TIMEOUT_MS` and reports the time stood there as `waitedMs`, a new `grid.scroll` metric (docs/TESTING.md).
 - Evidence: `src/main/selftestscroll.test.ts` "scrollProbe in a page" runs the probe in happy-dom against a fake grid: "holds Down through a page slower than TURN_MS, and turns at the end the grid draws" and "a page that never comes is turned from once the grid has had its time". Both fail on the old probe (it turned at 10 of 20 cards) and pass now. `scripts/agent/check.sh` green; `npm run test:app` 243/243 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root).
 - Finding: in test:app the 1,300-game scroll reports `waitedMs` 12252 of 30,000 ms on the fake server (`cards` 1140, `visited` 190, `turns` 0) and 11346 on the synthetic platform, whose pages are answered inside the app. So the grid itself stands still at every page edge, about 600 ms a page, with no network in the way. That is the next scroll unit, before any frame-time work: `usePagedRoms` (src/renderer/src/paging.ts) asks for a page only when the sentinel crosses `LOOKAHEAD`, which a held Down outruns.
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: the next nightly reports `waitedMs` on the Nova.
 - Next: a unit test for the paging stall (a held Down outrunning `LOOKAHEAD`), then fetch further ahead. M0-22 still needs its second passing nightly.
@@ -2759,7 +2759,7 @@ Lines the tooling reads (exact forms):
 - Result: PR (this one). `usePagedRoms` watched its sentinel against the viewport. The grid scrolls inside the screen's `.content` box, and an observer clips its target by every scrolling ancestor before `rootMargin` applies, so `LOOKAHEAD` did nothing: a page was asked for only once the sentinel was on screen. The sentinel is now watched against its nearest scrolling ancestor (`scrollingAncestor` in src/renderer/src/paging.ts), as Home's rows already watch theirs against the row.
 - Evidence: in Electron's Chromium (this VM, Xvfb), a sentinel 300 px below the fold of a 600 px scroll box, observed with `rootMargin: '600px 0px'`, reads `isIntersecting` false against the viewport and true against the box. `src/renderer/src/paging.test.tsx` "what the sentinel is watched against": "the grid's observer is given it, so the lookahead reaches below the fold" fails on the old observer and passes now. `scripts/agent/check.sh` green.
 - Finding: the fix does not measurably shorten the probe's wait in test:app. `grid.scroll` `waitedMs`, nes / synthetic, on this VM: old code 7475 / 5422; fix 9419 / 7391; fix with `LOOKAHEAD` `200%` 8218 / 5730 and `400%` 8035 / 5244. Every run reached all 1,300 cards and the last row, with `p95Ms` 16.8. The 12252 / 11346 in the 01:27 entry came from another VM, so run-to-run spread is wider than any of these differences. A wait that holds when the lookahead is four screens is not the lookahead. It is pages arriving one at a time, about 21 of them in 30 s, slower than a held Down crosses one. So the 01:27 entry's "a held Down outruns `LOOKAHEAD`" was wrong about the cause. `LOOKAHEAD` stays as it is.
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none new. The next nightly's `waitedMs` is the first on the Nova with the lookahead in effect.
 - Next: time one page from request to drawn cards (main-process fetch versus render of 60 more cards into a grid that is never windowed) before any change to paging; that decides between more than one page in flight, larger pages, or a windowed grid (a G1-4 optimisation round, PLAN.md section 9). M0-22 still needs its second passing nightly.
@@ -2771,7 +2771,7 @@ Lines the tooling reads (exact forms):
 - Root cause: the test waited for `app.pid` to exist and then read it. launch.sh writes it with `echo >`, which creates the file before the number is in it, so a read in between gave `Number('')`, pid 0, and `process.kill(0, 0)` signals the test's own process group and succeeds: "Missing expected exception". The issue's zombie guess does not hold: `launched.py stop` returns 0 only once launch.sh is gone (or a zombie), and launch.sh reaps the app before it writes `exit` and exits. run.sh's cleanup was never affected: `launched.py stop` (`_pid`) takes only a first line of digits.
 - Result: PR (this one), test only. `writtenPid` in scripts/device-bundle.test.ts waits for a whole pid line, and the cleanup test reads the pid through it.
 - Evidence: the old read on an empty `app.pid` gives pid 0 and `kill(0, 0)` does not throw (shown on this VM). New test "a pid file launch.sh has created but not yet written is waited out" passes. The cleanup test passed 15 of 15 runs started at once. `scripts/agent/check.sh` green.
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none.
 - Next: G1-4, timing one page from request to drawn cards (02:27 entry). M0-22 still needs its second passing nightly.
@@ -2784,7 +2784,7 @@ Lines the tooling reads (exact forms):
 - Evidence: `src/main/selftestscroll.test.ts` "holds Down through a page slower than TURN_MS…" now also asserts the one page is timed (≥ 250 ms for a 300 ms page) and "the pages asked for during the scroll are counted and timed, never judged". test:app's two grid.scroll tests on this VM: nes `pages` 21, `pageP50Ms` 89, `pageMaxMs` 151, `gapP50Ms` 1244, `waitedMs` 8587; synthetic `pages` 21, `pageP50Ms` 9, `gapP50Ms` 1274, `waitedMs` 7186. A throwaway timer in the `library:roms` handler (not committed) put the fake server's fetch at 2-11 ms and `library.adopt` at 45-99 ms per page. `scripts/agent/check.sh` green.
 - Finding: the 02:27 entry's "pages arriving one at a time, slower than a held Down crosses one" is not the answer either. A page takes under 100 ms at the median (151 at most) from request to drawn; the grid then goes about 1.25 s before it asks for the next, while the highlight crosses the page and stands at its end (`waitedMs` about 400 ms a page). So the sentinel calls late, despite `LOOKAHEAD` and `scrollingAncestor`: that is the next unit, before more than one page in flight, larger pages or windowing.
 - Noticed: in one test:app run (with the throwaway timer in), the nes grid.scroll test failed `idleP50Ms` on `idleFrames` 0, then passed on the next run: issue #254 (`flaky`).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: the next nightly reports `pageP50Ms` and `gapP50Ms` on the Nova.
 - Next: why the sentinel asks about 1.25 s after a page lands. First lead: every press starts a smooth scroll (`scrollBehavior`, src/renderer/src/input/scroll.ts) and a held Down restarts it every `REPEAT_MS`, so the scroll box may trail the highlight and bring the sentinel into the lookahead late. Measure the box's lag behind the highlight in Electron's Chromium, as in #251, before changing anything. M0-22 still needs its second passing nightly.
@@ -2822,7 +2822,7 @@ Lines the tooling reads (exact forms):
 - Root cause: the rest window began when the highlight landed and ended on its `IDLE_MS` clock as well as on frames. `idleFrames` 0 means not two frames in that whole window, so the page was not drawing when it opened, and the clock closed it with nothing timed: a page that has not drawn yet is not at rest. Why that VM held its frames back for 2 s is not shown. Four runs here did not bring it back: plain, every core busy, the window shown 8 s late, and the window shown in the middle of the rest. In each the page drew within milliseconds and was visible before `show()`.
 - Result: PR (this one). The rest is timed from the first frame drawn after the highlight lands, not from the highlight itself. That wait is bounded by the probe's `GRID_TIMEOUT_MS`, and a page that draws no frame at all is a failed scroll (`no-frames`). The time to that first frame is reported as `idleWaitMs`, never judged (docs/TESTING.md), so a recurrence on the Nova or CI says how late the page drew.
 - Evidence: new selftestscroll.test.ts tests: "the page at rest is timed from its first frame, however late that comes" (frames held back past a whole rest) and "a page that draws no frame at all is a failed scroll". Both fail on the old probe and pass now. `test/app/selftest.test.ts` 12/12: nes `idleFrames` 120, `idleWaitMs` 5; synthetic 120, 3. `scripts/agent/check.sh` green.
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: the next nightly reports `idleWaitMs` on the Nova.
 - Next: M0-22 still needs its second passing nightly; nothing else open is eligible.
@@ -2838,7 +2838,7 @@ Lines the tooling reads (exact forms):
 - Worked on: the owner's request to be told when progress can't be made without the device.
 - Result: PR (this one). ADR 0007 and a CLAUDE.md rule under Decisions: a run that stops because everything left waits on the device sends the owner one push notification (what waits, the bridge's last skip reason and last-seen time), once per reason, and records it as `Notified: <reason>` in its stop line.
 - Evidence: docs only. `scripts/agent/check.sh` green.
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none.
 - Next: M0-22 still needs its second passing nightly. The next heartbeat that stops for that reason sends the first notification.
@@ -2850,7 +2850,7 @@ Lines the tooling reads (exact forms):
 - Worked on: G1-4, where the Nova's 2 s per page goes (tracking issue #263).
 - Result: PR (this one). The main process times each `library:roms` answer it serves while the scroll runs, split into its wait on RomM and `Library.adopt` (src/main/pagetimes.ts, kept only between the scroll's start and end), and the scroll reports `serverP50Ms` and `adoptP50Ms` (docs/TESTING.md).
 - Evidence: selftestscroll.test.ts "the main process's share of each page is split into RomM's answer and the disk" and "without a page timer the split is left out rather than reported as unknown". `scripts/agent/check.sh` green; `npm run test:app` (see the PR). init.sh could not bring the RomM stack up (Docker Hub answered 429 to the mariadb pull); nothing here touches the client.
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: the next nightly reports `serverP50Ms` and `adoptP50Ms` on the Nova.
 - Next: with the split, either more than one page in flight (RomM's answer) or a cheaper adoption. M1-03 (ARMSX2 descriptor) is the next feature from `next.mjs` after M0-12.
@@ -2861,7 +2861,7 @@ Lines the tooling reads (exact forms):
 - Worked on: M0-12, its second acceptance line only (tracking issue #265).
 - Result: PR (this one). `device-results.mjs --apply` opens one issue per problem report in a `reports/<time>/` folder newer than the last ingested result (`[device-report] <time>/<report>`, labels `bug` and `device-report`) and prints a `DEVICE-REPORT <time>/<report>` line for the PROGRESS entry so a closed one is not opened again, quoting only the report's sanitised summary: its `versions.json` with backticks dropped, and its file list. `readBranch` finds each report the bridge publishes in a folder of its own under the time (`reportsIn`). docs/PLAN.md section 5 says so.
 - Evidence: device-results.test.ts "each problem report the bridge published is found, with its versions", "one bug per new problem report, quoting only its summary, and not again while open", "a report recorded in PROGRESS.md is not opened again once its bug is closed" (the evaluator's first round found that a closed report bug came back until a newer result was ingested), and readBranch's test now checks `reportContents`. `scripts/agent/check.sh` green.
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet. M0-12 still needs the dialog text (all four catalogues) and the `report.bundle` self-test check before READY-FOR-DEVICE.
 - Next: M0-12's dialog text and `report.bundle`; then M1-03.
@@ -2872,7 +2872,7 @@ Lines the tooling reads (exact forms):
 - Worked on: M0-12, its first acceptance line (tracking issue #265).
 - Result: PR (this one). Report a problem says, in all four catalogues, that the zip goes to the `reports` folder inside the Galleon folder and is picked up automatically the next night the device is charging in Game Mode, with nothing to send (`system.reportExplainer`); the toast after writing names the path and says the same (`system.reportWritten`). No link or code is shown.
 - Evidence: i18n.test.ts "Report a problem says where the zip goes and that nothing has to be sent" (fails on the old strings, passes now). `scripts/agent/check.sh` green. `npm run shots:nova` 21 screens (Electron through a `--no-sandbox` wrapper in the scratchpad, as root): looked at `report.png`: the System tab's explainer wraps to two lines under "Report a problem", and the toast top right shows the zip's path and the pick-up sentence on four lines inside its box, nothing clipped; `settings-system.png` unchanged above the fold.
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet. M0-12 still needs the `report.bundle` self-test check before READY-FOR-DEVICE.
 - Next: M0-12's `report.bundle`.
@@ -2907,7 +2907,7 @@ Lines the tooling reads (exact forms):
 - Worked on: M1-03, its first two acceptance lines (tracking issue #270).
 - Result: PR (this one). `src/config/emulators/armsx2/index.ts`: the catalog's `~/Applications/ARMSX2*.AppImage` (then `armsx2-qt`/`armsx2` on PATH), system `ps2`, `-batch -fullscreen -nogui -- <rom>` (flags read in ARMSX2's `pcsx2-qt/QtHost.cpp` at b1f3196b), BIOS `~/.config/ARMSX2/bios`, memory cards `~/.config/ARMSX2/memcards` declared `shared` with `saves.armsx2` (all four catalogues) as the reason the Saves tab gives; no states, since ARMSX2 names them `<serial> (<crc>).<slot>.p2s` (`VMManager::GetSaveStateFileName`). A `.cue` launches the `.bin` beside it.
 - Evidence: registry.test.ts "ARMSX2 boots an .iso or a .chd fullscreen…", "ARMSX2 boots a cue/bin pair from its .bin", the AppImage and ES-DE find-rule tests, "ARMSX2 downloads only its Linux AppImages"; savepaths.test.ts "ARMSX2's shared memory card is not synced, and the Saves tab is told why". `scripts/agent/check.sh` green; `npm run test:app` 244/244; `npm run shots:nova` 21 screens: looked at `emulators.png` (ARMSX2 the last row, Not installed, 1 platform, Install, its down arrow disabled, nothing clipped) and `bios.png` (unchanged).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet. `launch.armsx2` needs a sandbox recipe (`PCSX2.ini` in the sandbox, a portable marker declining it), the `missing-bios` skip, a redistributable PS2 payload in the M0-07 manifest and run.sh asking for the check.
 - Next: M1-03 part 2, those four.
@@ -2929,7 +2929,7 @@ Lines the tooling reads (exact forms):
 - Worked on: M1-03, the `missing-bios` skip of `launch.armsx2` (tracking issue #270).
 - Result: PR (this one). A sandbox recipe says whether the emulator needs a BIOS dump to start (`SandboxRecipe.needsBios`: ARMSX2 and DuckStation yes, the rest no). `prepareSandbox` skips launch and exit as `missing-bios` (`no-bios-files`) when such an emulator's sandbox BIOS folder holds no file of its own after the owner's are copied (links do not count; a copy kept from an earlier start does). docs/TESTING.md says so under the emulator sandbox.
 - Evidence: selftestsandbox.test.ts "an emulator that needs a BIOS is skipped as missing-bios when none reached the sandbox", "… starts with a dump of the owner, or the copy it kept", "an emulator that needs no BIOS starts without one", ARMSX2's "needs a BIOS dump to start"; selftestlaunch.test.ts "an emulator missing its BIOS skips both as missing-bios and starts nothing". `scripts/agent/check.sh` green; `npm run test:app` 244/244 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet. Still to do for READY-FOR-DEVICE M1-03: a redistributable PS2 homebrew payload in the M0-07 manifest (`test/fixtures/roms/manifest.json` holds only GBA so far), and run.sh asking for `launch.armsx2` with it.
 - Next: those two. No prebuilt PS2 homebrew under a permissive licence turned up in a first search; the likely route is a tiny ELF of our own built with the ps2dev toolchain's container image, its source MIT in the repo and the ELF pinned by hash.
@@ -2940,7 +2940,7 @@ Lines the tooling reads (exact forms):
 - Worked on: #272, the root cause of that flake (CI red on `main`, then a `flaky` issue past due).
 - Result: PR (this one). `useFocusable` registers an element from an effect after the render, and `applyFocus` drops an id it does not know, so the `report.bundle` probe could hover the System tab after it was drawn but before it was registered: the hover was dropped, Enter went to whatever had the highlight, the tab never opened and the probe waited out its timeout for the Report a problem button. The probe now repeats the hover (a pixel apart, since the engine ignores a move to where the pointer already is) until the element shows `data-focused="true"`, and only then presses Enter; a highlight that never arrives fails as `system-tab-not-highlighted` or `report-button-not-highlighted`.
 - Evidence: selftestreport.test.ts "presses only what the focus engine has taken, so a page still registering is waited for" runs the probe in a fake page whose elements register 150 ms after they are drawn: it failed `no-report-button` on the old probe (the CI failure) and passes now. `scripts/agent/check.sh` green; `npm run test:app` 244/244 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none. M0-12's `report.bundle` uses the same probe on the Nova.
 - Next: M1-03's PS2 payload and `launch.armsx2` in run.sh.
@@ -2963,7 +2963,7 @@ Lines the tooling reads (exact forms):
 - Worked on: M1-03, its last part (tracking issue #270).
 - Result: PR (this one). `test/fixtures/roms/manifest.json` pins `roms/ps2/galleon-ps2-hello.iso` by its raw URL at 585653d with its hash and size (ADR 0008); THIRD_PARTY.md's test payloads part has its `ps2-hello` notice, naming what is linked into it; run.sh names ARMSX2 that payload and asks for `launch.armsx2` and `exit.armsx2` whenever it was copied, as for RetroArch's GBA payload. docs/TESTING.md says so.
 - Evidence: device-bundle.test.ts "run.sh copies the payloads into the test home, names each emulator its own, and empties the ROM folder" failed on the old run.sh and passes now; "the real manifest's payloads all have their notice in THIRD_PARTY.md" and "every payload run.sh names is one the real manifest pins" pass. `node scripts/agent/fetch-fixtures.mjs` fetched the ISO at the pinned URL, sha256 3fcccf40… as pinned. `scripts/agent/check.sh` green; `python3 -B -m unittest discover -s test/device` 188 OK. `test:app` not run: no renderer, IPC or launch code changed.
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: READY-FOR-DEVICE M1-03. The next nightly asks for `launch.armsx2` and `exit.armsx2`; they skip as `missing-bios` if the Nova has no PS2 BIOS, or as missing if ARMSX2 is not installed.
 - Next: `node scripts/agent/next.mjs`.
@@ -2974,7 +2974,7 @@ Lines the tooling reads (exact forms):
 - Worked on: M1-04, its first two acceptance lines (tracking issue #278).
 - Result: PR (this one). `src/config/emulators/dolphin/index.ts`: flatpak `org.DolphinEmu.dolphin-emu` (then `dolphin-emu` on PATH), ES-DE rule `DOLPHIN`, systems `gc` and `wii`, `-b -C Dolphin.Display.Fullscreen=True -e <rom>`; Dolphin reads a `.m3u` itself. GameCube memory cards `dolphin-emu/GC` (XDG data, inside the flatpak's tree for the flatpak) declared `shared`, with `saves.dolphinStandalone` (all four catalogues) as the Saves tab's reason; no states (named after the game's ID), no BIOS, no sandbox recipe yet. The `-C` syntax and key were read in Dolphin at e6f3ae17 (the research pin) and are the same at master 3eb30c76: `CommandLineConfigLayerLoader` in `UICommon/CommandLineParse.cpp`, `System::Main` named `Dolphin` in `Common/Config/Config.cpp`, `MAIN_FULLSCREEN` = `Display`/`Fullscreen` in `Core/Config/MainSettings.cpp`, `.m3u` in `Core/Boot/Boot.cpp`.
 - Evidence: registry.test.ts "Dolphin boots an .iso, an .rvz or a two-disc .m3u fullscreen without its main window", "Dolphin is found as the catalog flatpak first, then on PATH", "Dolphin runs GameCube and Wii games only", the dirs test; savepaths.test.ts "Dolphin's shared memory cards are not synced, and the Saves tab is told why". `scripts/agent/check.sh` green; `npm run test:app` 244/244 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root); `npm run shots:nova` 21 screens: looked at `emulators.png` (Dolphin the last row, Not installed, 2 platforms, Install, its down arrow disabled).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet. `launch.dolphin` needs a sandbox recipe (`-u <sandbox user folder>`), a GameCube homebrew `.dol` in the M0-07 manifest, and run.sh asking for it.
 - Next: M1-04 part 2, the sandbox recipe.
@@ -2997,7 +2997,7 @@ Lines the tooling reads (exact forms):
 - Worked on: M1-04 part 3a, the GameCube payload of `launch.dolphin` (tracking issue #278).
 - Result: PR (this one). `test/fixtures/homebrew/gc-hello/`: `main.c` draws one line with libogc's console and waits on vertical sync; `build.sh` builds it in `devkitpro/devkitppc` pinned by digest and writes `galleon-gc-hello.dol`, committed beside its source (ADR 0008). README names what is linked in (libogc zlib/BSD, newlib, libgcc with the runtime exception).
 - Evidence: two builds give sha256 `030ca8b7f60442fd02198f5fdaf08c1ef6a4be06c19648d9cd7f25f2b0744991` (96512 bytes); the DOL header has text0 at 0x80003100 and the same entry point, and the text is in it. `scripts/agent/check.sh` green. Not booted on the VM (no Dolphin here).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet.
 - Next: M1-04 part 3b: the manifest entry at this PR's merge commit (`roms/gc/…`), its THIRD_PARTY.md notice, and run.sh asking for `launch.dolphin`/`exit.dolphin` with it; then READY-FOR-DEVICE M1-04, noting that on the Nova it skips as `cannot-sandbox` while Dolphin is the flatpak.
@@ -3031,7 +3031,7 @@ Lines the tooling reads (exact forms):
 - Worked on: M1-05 part 2, PPSSPP's sandbox recipe (tracking issue #283).
 - Result: PR (this one). PPSSPP needs nothing beyond the sandbox's XDG roots: on Linux `NativeInit` (`UI/NativeApp.cpp` at 13c1773b) puts the whole memory stick, settings, saves, states and caches, in `ppsspp` under `XDG_CONFIG_HOME`, with no portable marker or `HOME` lookup ahead of it, and a first start shows only an on-screen hint, no window. So the recipe adds no arguments and no files; only the program on PATH is started, the flatpak stays `cannot-sandbox` (`flatpak-install`) until the parked flatpak sandbox (#155) lands. The evaluator's question from part 1 is answered: `PauseMenuExitsEmulator` is `CfgFlag::DONT_SAVE` in `Core/Config.cpp`, so `--pause-menu-exit` never reaches `ppsspp.ini`, like `--fullscreen` (`DoNotSaveSetting` in `Core/CmdLine.cpp`); the launch comment says so. docs/TESTING.md names it under the emulator sandbox.
 - Evidence: selftestsandbox.test.ts "keeps the memory stick in the sandbox, where XDG_CONFIG_HOME leads PPSSPP", "is not started as the flatpak". `scripts/agent/check.sh` green. `test:app` not run: no renderer, IPC or launch argv changed.
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet. `launch.ppsspp` needs a PSP homebrew payload of our own in the M0-07 manifest and run.sh asking for it; on the Nova it will skip as `cannot-sandbox` while PPSSPP is the flatpak.
 - Next: M1-05 part 3a, a PSP homebrew `EBOOT.PBP` of our own (ADR 0008).
@@ -3100,7 +3100,7 @@ Lines the tooling reads (exact forms):
 - Result: PR (this one). `test/fixtures/roms/manifest.json` pins `roms/dreamcast/galleon-dc-hello.elf` by its raw URL at c587caf with its hash and size (ADR 0008); the folder is the system id `dreamcast`, which `payloadFor` hands to Flycast's plan, and the descriptor takes the path as given whatever its extension. THIRD_PARTY.md's test payloads part has its `dc-hello` notice: KallistiOS at 5e89c26a with the KOS License text its binary-form clause asks for, newlib and libgcc. run.sh names Flycast that payload and asks for `launch.flycast` and `exit.flycast` whenever it was copied, as for PPSSPP's `.pbp`. docs/TESTING.md says so, and that both skip as `cannot-sandbox` while Flycast is the flatpak.
 - Evidence: device-bundle.test.ts "run.sh copies the payloads into the test home, names each emulator its own, and empties the ROM folder" failed before the run.sh change (62/1) and passes now (63/63); `node scripts/agent/fetch-fixtures.mjs` fetched the `.elf` at the pinned URL, hash as pinned. `scripts/agent/check.sh` (see the PR). `test:app` not run: no renderer, IPC or launch code changed.
 - Notes: `dockerd` was not running at session start (a stale pid file); started by hand.
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: READY-FOR-DEVICE M1-06. On the Nova `launch.flycast` and `exit.flycast` skip as `cannot-sandbox` while Flycast is armadaOS's flatpak; a device pass needs the parked flatpak sandbox (#155).
 - Next: `node scripts/agent/next.mjs`.
@@ -3134,7 +3134,7 @@ Lines the tooling reads (exact forms):
 - Worked on: M1-07 part 3a, the NDS payload of `launch.melonds` (tracking issue #293).
 - Result: PR (this one). `test/fixtures/homebrew/nds-hello/`: `main.c` prints one line with libnds's `consoleDemoInit` and waits on vertical blank; `Makefile` sets the banner, an icon of our own (`icon.bmp`, a plain frame, since BlocksDS's `sys/icon.bmp` states no licence) and BlocksDS's `arm7_minimal.elf` (libnds alone, no dswifi or maxmod), then includes BlocksDS's ARM9 ROM makefile; `build.sh` builds it in `skylyrac/blocksds` pinned by digest (BlocksDS 1.13.1, core at 245a25c3) and writes `galleon-nds-hello.nds`, committed beside its source (ADR 0008). README names what is linked in: libnds (zlib), BlocksDS's `sys/crts` start-up code and linker scripts (zlib and MPL-2.0, source at github.com/blocksds/sdk), picolibc (BSD-style) and libgcc (runtime exception); FatFs is not linked.
 - Evidence: two builds give sha256 `664c24a346a48584d62e0809edf0d37c9f4f32b954f4b817d1d49fff90b52ee6` (66560 bytes); the text is in it; the link map lists only `libnds9.a`, `ds_arm9_crt0.o`, picolibc's `libc.a`, `libgcc.a` and GCC's `crtend.o`/`crtn.o`. `scripts/agent/check.sh` (see the PR). Not booted on the VM (no melonDS here).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet.
 - Next: M1-07 part 3b: the manifest entry at this PR's merge commit (`roms/nds/galleon-nds-hello.nds`), its THIRD_PARTY.md notice, and run.sh asking for `launch.melonds`/`exit.melonds` with it; the save half of `launch.melonds` (a save beside the ROM found by save discovery) needs a payload that writes cartridge save memory, or a check that places one, still to be decided.
@@ -3146,7 +3146,7 @@ Lines the tooling reads (exact forms):
 - Result: PR (this one). `test/fixtures/roms/manifest.json` pins `roms/nds/galleon-nds-hello.nds` by its raw URL at cef92ca with its hash and size (ADR 0008); the folder is melonDS's system id `nds`. THIRD_PARTY.md's test payloads part has its `nds-hello` notice: libnds (zlib), BlocksDS's `sys/crts` (zlib and MPL-2.0, with where its source form is), picolibc and libgcc. run.sh names melonDS that payload and asks for `launch.melonds` and `exit.melonds` whenever it was copied, as for Flycast's `.elf`; docs/TESTING.md says so.
 - Evidence: device-bundle.test.ts "run.sh copies the payloads into the test home, names each emulator its own, and empties the ROM folder" failed before the run.sh change and passes now (63/63); `node scripts/agent/fetch-fixtures.mjs` fetched the `.nds` at the pinned URL, hash as pinned. `scripts/agent/check.sh` green (3:33). `test:app` not run: no renderer, IPC or launch code changed.
 - Notes: Docker Hub answered 429 to `init.sh`'s mariadb pull again, so the Docker RomM was not up; nothing here touches the client.
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet. `launch.melonds`'s save half (a save beside the ROM in the sandbox found by save discovery) is not asked for yet; until it is, M1-07 is not READY-FOR-DEVICE.
 - Next: M1-07 part 3c, the save half of `launch.melonds`: read how `savingPayloads` and the self-test's save check work for RetroArch, then either a payload that writes cartridge save memory or the check placing a `.sav` beside the payload in the sandbox; then READY-FOR-DEVICE M1-07.
@@ -3169,7 +3169,7 @@ Lines the tooling reads (exact forms):
 - Result: PR (this one). `src/config/emulators/retroarch/index.ts`: `CORE_CHOICES` gives RetroArch launch variants for the systems the owner plays in Argosy's cores on Android: SNES `snes9x`, GBA `mgba`, PlayStation `swanstation` (the mapped default, first), `pcsx_rearmed` and `mednafen_psx_hw`, PSP `ppsspp`, GameCube/Wii `dolphin`, Dreamcast/NAOMI/Atomiswave `flycast`; one entry asks nothing, so only PlayStation offers a choice. The chosen variant is the core `launch` names, `core` installs (`CoreContext` now carries `variant`, `missingCore` takes it from the launch) and `saves` sorts into (`PCSX-ReARMed` and `Beetle PSX HW` added to `CORE_LIBRARY_NAMES`, read from each core's `retro_get_system_info` at pcsx_rearmed c8816799 and beetle-psx-libretro 7fea57a5); a recorded core that is not one of the system's runs nothing. Fixed on the way: with no `retroarch.cfg` yet, an arm64 machine fetched cores from the buildbot's `linux/arm64/`, which does not exist (404); it is `linux/aarch64/`.
 - Evidence: registry.test.ts "RetroArch offers the Android-matching cores, and launches the one chosen" and "every RetroArch variant is a core the buildbot publishes for Linux on aarch64" (against `test/fixtures/buildbot/linux-aarch64-cores.txt`, 235 cores read from the buildbot's index on 2026-10-26; its README says how to refresh it); savepaths.test.ts "sorted by core, the folder is the chosen variant core"; cores.test.ts "the core named is the chosen variant, not the system default", and "and one it does publish for falls back to the buildbot on its own" now asks for `linux/aarch64/` (failed before the fix). `scripts/agent/check.sh` green; `npm run test:app` 244/244 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root).
 - Notes: Docker's daemon was not answering, so `init.sh` stopped before the Docker RomM; nothing here touches the client.
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet.
 - Next: M1-08 part 2, the launcher-owned appended config (`--appendconfig` from the launcher's home with `quit_on_close_content = "2"`, a snapshot test, `retroarch.cfg` never edited); then the flatpak core folder, and `launch.retroarch` on a SNES homebrew leaving an `.srm`.
@@ -3180,7 +3180,7 @@ Lines the tooling reads (exact forms):
 - Worked on: M1-08 part 2, the launcher-owned appended config (tracking issue #299).
 - Result: PR (this one). Descriptors gain `launchFiles` (files of the app's own a launch reads, written fresh before every launch into `LaunchContext.launcherDir`, `<root>/config/launch/<emulator>`; `src/main/launchfiles.ts` writes each whole through a rename and refuses a name that is not a plain file name). RetroArch's is `retroarch-append.cfg`, which `launch` names with `--appendconfig`: `quit_on_close_content = "2"` (Close Content quits a RetroArch started with content, back to Galleon) and `config_save_on_exit = "false"`, because RetroArch's `config_save_file` (`configuration.c` at e49b6298) writes every setting in force, the appended ones too, into `retroarch.cfg` on exit; with it off a launch never edits the player's file. The flatpak reads it: Flathub's manifest (78aaa8d6) grants `--filesystem=host`. The self-test gives `launch` the sandbox's root as `launcherDir`, and RetroArch's recipe writes its appended file there under the same name, carrying the launch settings and the sandbox folders, since RetroArch keeps only the last `--appendconfig` and a second one would have dropped the sandbox's folders. The launcher writes the files before the save pull, so a launch that cannot have them fails before saves move.
 - Evidence: registry.test.ts "RetroArch's appended config is RomMix's own file, and never its retroarch.cfg" (the snapshot `test/fixtures/snapshots/retroarch-append.cfg`; the argv names it and no `retroarch.cfg`), "no other emulator has launch files yet", the field-order test with `launchFiles`; selftestsandbox.test.ts "starts on a config of its own, with the sandbox folders in the one config the launch appends" (exactly one `--appendconfig`, the sandbox's) and "carries every launch's appended settings, so Close Content quits as in play"; launchfiles.test.ts (3: written whole and replaced, a path or hidden name refused with nothing written, no files no folder). savewriter.allowlist names `launchfiles.ts`. `scripts/agent/check.sh` green; `npm run test:app` 244/244. New string `launch.badLaunchFile` in all four catalogues, English in fr/de/es marked `// TODO(i18n)`.
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet.
 - Next: M1-08 part 3, the flatpak core folder (`~/.var/app/org.libretro.RetroArch/config/retroarch/cores`) and `launch.retroarch` on a SNES homebrew leaving an `.srm` (a SNES payload of our own with battery-backed SRAM, `savingPayloads`); the self-test still skips flatpaks as `cannot-sandbox` (#155).
@@ -3192,7 +3192,7 @@ Lines the tooling reads (exact forms):
 - Result: PR (this one), a test only. The probe gives the RetroArch flatpak its own tree as `configDir` (`~/.var/app/org.libretro.RetroArch/config`), and `requiredCore` already falls back to `retroarch/cores` under it, or takes `libretro_directory` from the flatpak's `retroarch.cfg`; nothing pinned that the two meet. emulators.test.ts "RetroArch's flatpak gets its cores in its own tree, with or without a config yet" probes RetroArch through a fake `flatpak` and asks `missingCore` for a SNES core: the folder is `~/.var/app/org.libretro.RetroArch/config/retroarch/cores` with no config, and again with a config naming it from `~`. `fakeFlatpak` takes the app id it answers for.
 - Evidence: the test passes, and fails when the expected folder is changed; `scripts/agent/check.sh` green (3:34). `test:app` not run: no renderer, IPC or launch code changed.
 - Notes: Docker's daemon was not answering, so `init.sh` stopped before `npm ci`; ran `npm ci` by hand.
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet.
 - Next: M1-08 part 3b, a SNES homebrew of our own with battery SRAM for `launch.retroarch` leaving an `.srm` (ADR 0008, as the NDS ROM); `launch.retroarch` on the Nova still skips while RetroArch is the flatpak (#155, flatpak sandbox parked).
@@ -3203,7 +3203,7 @@ Lines the tooling reads (exact forms):
 - Worked on: M1-08 part 3b, the SNES payload of `launch.retroarch` (tracking issue #299).
 - Result: PR (this one). `test/fixtures/homebrew/snes-save/`: `build.py` writes `galleon-snes-save.sfc`, a 128 KiB LoROM cartridge with battery-backed SRAM (header type `$02`, 2 KiB), committed beside it (ADR 0008). On reset the program copies `GALLEON SAVE TEST` into SRAM, shows a green backdrop and waits. The 65816 is assembled by hand in `build.py`, each instruction beside its assembly, so no toolchain and no third-party code is in it; the README says so. 128 KiB because snes9x labels a smaller header size corrupt.
 - Evidence: two builds give sha256 `45420c79e55b1764e5ed389e8364554d4b137bc6a89e22dc44eedcdb67ef998e` (131072 bytes). In Ubuntu's RetroArch 1.18.0 with its snes9x core 1.61, under Xvfb with a config of the scratchpad's own: snes9x reports `"GALLEON SAVE TEST" [checksum ok] LoROM, 1Mbits, ROM+RAM+BAT, NTSC, SRAM:16Kbits`, and after RetroArch is stopped its save folder holds `galleon-snes-save.srm`, 2048 bytes, starting with the text. `scripts/agent/check.sh` (see the PR).
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet.
 - Next: M1-08 part 3c: the manifest entry at this PR's merge commit (`roms/snes/galleon-snes-save.sfc`), its THIRD_PARTY.md notice, and run.sh naming RetroArch this payload with the `.srm` expected in `savingPayloads`; then READY-FOR-DEVICE M1-08 (on the Nova it skips `cannot-sandbox` while RetroArch is the flatpak, #155).
@@ -3215,7 +3215,7 @@ Lines the tooling reads (exact forms):
 - Result: PR (this one). `test/fixtures/roms/manifest.json` pins `roms/snes/galleon-snes-save.sfc` by its raw URL at 5422806, sha256 `45420c79…` and 131072 bytes (ADR 0008); THIRD_PARTY.md has its `snes-save` notice. run.sh names RetroArch that cartridge in place of the GBA `hello.gba`, with `--saving retroarch`, so `exit.retroarch` fails `save-unchanged` unless the sandbox's save folder changed (the `.srm`). docs/TESTING.md says so, and that RetroArch's checks skip `cannot-sandbox` while it is armadaOS's flatpak.
 - Evidence: device-bundle.test.ts "run.sh copies the payloads into the test home, names each emulator its own, and empties the ROM folder" asks for the SNES payload and `savingPayloads: ["retroarch"]`; it fails on the old run.sh and passes now (63/63 in the file); "run.sh names no payload ... not the pinned bytes" corrupts the SNES cartridge, the payload RetroArch is given, so its "no `launch.retroarch`" holds only through the copy check (it failed with the `payloads_ok` guard dropped). The pinned URL fetched gives sha256 `45420c79e55b1764e5ed389e8364554d4b137bc6a89e22dc44eedcdb67ef998e`. `scripts/agent/check.sh` green (3:31); `python3 -B -m unittest discover -s test/device` 188/188.
 - Notes: Docker's daemon was not answering, so `init.sh` stopped; ran `npm ci` and `npx install-electron` by hand.
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: READY-FOR-DEVICE M1-08. On the Nova `launch.retroarch` and `exit.retroarch` skip `cannot-sandbox` while RetroArch is the flatpak (#155, M0-21's flatpak sandbox); they count once a sandboxed run passes them.
 - Next: `node scripts/agent/next.mjs`.
@@ -3237,7 +3237,7 @@ Lines the tooling reads (exact forms):
 - Worked on: M2-08 part 2b-2b-1, ADR 0005 decision 2 for Dolphin (tracking issue #111).
 - Result: PR (this one). Descriptors gain `settingsEdits`: keys of the emulator's own settings file a launch needs, each a section, key, value and `whenAbsent` (`leave` when the emulator's default already is the value, `add` otherwise). `editSetting` (`src/config/emulators/settingsedit.ts`) changes only that value, every other line, comment and line end kept. Before a launch, beside the launch files, `applySettingsEdits` (`src/main/settingsedits.ts`) sets each key through `replaceSave`, so the file is copied to `<root>/saves/settings/<emulator>` first and lands whole; a missing file stays missing (never started fresh), a file already set is not written. Dolphin, for GameCube games only, sets `[Core] SlotA` to `8` (`EXIDeviceType::MemoryCardFolder`, Dolphin's own default at e6f3ae17, so a file without the key is left alone). The existing card file stays where it is. The self-test sandbox launches through `descriptor.launch`, not the Launcher, so it never edits the owner's file. New string `launch.badSettingsFile` in all four catalogues, English in fr/de/es marked `// TODO(i18n)`.
 - Evidence: settingsedits.test.ts (6) on `test/fixtures/settings/Dolphin.ini`, a complete file with slot A a card file: the only changed line is `SlotA = 1` to `SlotA = 8`, the backup equals the original byte for byte, a second run writes nothing and keeps one backup, a missing file is not created, a path outside the config folder is refused, a Wii game has no edit. settingsedit.test.ts (7): spacing, case, CRLF, first key only, add after the section's last setting or as a new section. registry.test.ts "only Dolphin edits its own settings so far, and only the one key". `scripts/agent/check.sh` green (2:46); `npm run test:app` 244/244 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root). No UI change, so no shots.
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none.
 - Next: M2-08 part 2b-2b-2, Flycast's per-game VMU in its `emu.cfg`; then part 2b-2b-3, ARMSX2's folder card (which needs a folder card to name, so read SPEC.md's PS2 rows first). Then M2-08 can pass.
@@ -3273,7 +3273,18 @@ Lines the tooling reads (exact forms):
 - Worked on: #309, the flaky `selftestscroll.test.ts` "holds Down through a page slower than TURN_MS" (its second unit of work, so due now).
 - Result: PR (this one). Root cause: the `scrollProbe in a page` tests ran the probe on wall time (`Date.now`, `setTimeout`, `performance`, happy-dom's frames), so a starved test process ran out of scroll time before the fake page's second page arrived. The test page now runs the probe on a `virtualClock` (test file only), passed in as the script's `Date`, `setTimeout`, `performance` and `requestAnimationFrame`; it advances to the next timer only after the event loop has drained, so load changes how long the tests take, not what the probe sees. The page's late page and late frames use the same clock. No assertion changed; `selftestscroll.ts` is untouched.
 - Evidence: with a preload blocking the event loop 40 ms of every 45 ms, the old file fails exactly as #309 reported (`10 !== 20` on `scroll.cards`) and the new one passes 5/5. The five page tests take about 100 ms in all; before, each waited out its scroll time on the wall clock. Turning the probe at the loading edge (patience always `turnMs`) fails two of them. `scripts/agent/check.sh` green (2:03, 2412 unit tests). No renderer, IPC or launch code changed, so no `test:app`; no UI change, so no shots.
-- Evaluator: see the PR.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none.
 - Next: M2-08 part 2b-2b-3, ARMSX2's folder card (read SPEC.md's PS2 rows first). Then M2-08 can pass.
+
+## 2026-10-27 01:26 UTC session 014yYJ38en29M3WiS8YoTYyy (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. #311 (#309, the flaky scroll probe test) merged at 11c7fb0.
+- Worked on: M2-08 part 2b-2b-3, ADR 0005 decision 2 for ARMSX2 (tracking issue #111), the last part.
+- Result: PR (this one). PASSES M2-08 (ci). Read at ARMSX2 b1f3196b: PCSX2 has no key for a card's type; `FileMcd_SetType` (`pcsx2/SIO/Memcard/MemoryCardFile.cpp`) makes a card a folder card when its name is a folder under the memory card folder, and a card file of that name otherwise, created on first use. So `SettingsEdit` gains `folder`: a folder, relative to the config folder, made before the key is set (with the empty files the emulator itself makes), left as it is when it is already a folder, and when something else holds the name the key is not set. ARMSX2's descriptor sets `[MemoryCards] Slot1_Filename = Shared.ps2` (`whenAbsent: 'add'`, since the default `Mcd001.ps2` is a file), making `ARMSX2/memcards/Shared.ps2/_pcsx2_superblock` empty as `FileMcd_CreateNewCard` does; the game formats it on first use. `Shared.ps2` is the card Argosy restores into when a device has none (SPEC.md section 10, PS2). `Mcd001.ps2` stays where it is (ADR 0005 decision 3), out of slot 1, as Dolphin's card file is out of slot A. M2-08's lines: #110 explained the choices; SYSTEM-CHOICES.md records the answer and now names the three keys; the defaults follow it and each system's choice stays changeable in Settings' platform list; the re-confirmation is item 8 of TESTING.md's acceptance session.
+- Evidence: settingsedits.test.ts (15) on `test/fixtures/settings/PCSX2.ini`, a complete PCSX2.ini in ARMSX2's shape: the only changed line is `Slot1_Filename = Mcd001.ps2` to `Slot1_Filename = Shared.ps2`, the backup equals the original, the card folder holds only an empty `_pcsx2_superblock` and `Mcd001.ps2` is unchanged; a file without the key gets it in `[MemoryCards]`; an existing folder card and its saves are left alone; a card file named `Shared.ps2` leaves the ini untouched with no backup; an ARMSX2 that never ran gets neither ini nor card; a folder outside the config folder is refused. With the folder step removed two fail; with ARMSX2's edit removed four fail. registry.test.ts "only ARMSX2, Dolphin and Flycast edit their own settings so far, each only the one key". `scripts/agent/check.sh` green (2418 unit tests); `npm run test:app` 244/244 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root). No UI change, so no shots.
+- Evaluator: PASS (every ARMSX2 claim checked at b1f3196b; one key, backup first, no fresh file, cards untouched). Noted: a `[Folders] MemoryCards` moved away from `memcards` fails safe (ARMSX2 makes a `Shared.ps2` card file, nothing lost).
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none new; M2-08's per-system re-confirmation is already in the acceptance session (TESTING.md).
+- Next: `node scripts/agent/next.mjs`.

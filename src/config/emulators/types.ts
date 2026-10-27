@@ -334,6 +334,22 @@ export interface SettingsEdit {
    * is already the value, `add` when it is not.
    */
   whenAbsent: 'leave' | 'add'
+  /**
+   * A folder the value names, which has to be one before the key is set.
+   *
+   * For an emulator that decides what the value is by what is on disk, as
+   * PCSX2 makes a memory card a folder card only when its name is a folder
+   * and creates a card file of that name otherwise.
+   */
+  folder: SettingsFolder | undefined
+}
+
+/** A folder `SettingsEdit.folder` makes when nothing is there yet. */
+export interface SettingsFolder {
+  /** The folder, relative to the install's `configDir`. */
+  path: string
+  /** Plain file names created empty inside it, as the emulator itself does. */
+  files: readonly string[]
 }
 
 /** A file RomMix writes into `LaunchContext.launcherDir` before a launch. */

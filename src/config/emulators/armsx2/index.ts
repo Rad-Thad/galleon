@@ -65,6 +65,20 @@ function sandboxRecipe(ctx: SandboxContext): SandboxRecipe | null {
 }
 
 /**
+ * Slot 1 a folder memory card; see `armsx2.settingsEdits`.
+ *
+ * `Shared.ps2` is the card Argosy restores a game's folders into when a
+ * device has none, so a save sync can find it by the same name.
+ */
+const ARMSX2_FOLDER_CARD = {
+  section: 'MemoryCards',
+  key: 'Slot1_Filename',
+  value: 'Shared.ps2',
+  whenAbsent: 'add',
+  folder: { path: 'ARMSX2/memcards/Shared.ps2', files: ['_pcsx2_superblock'] }
+} as const
+
+/**
  * ARMSX2 — the ARM build of PCSX2, and what armadaOS's catalog installs for
  * PS2.
  *
@@ -72,9 +86,11 @@ function sandboxRecipe(ctx: SandboxContext): SandboxRecipe | null {
  *    way to have it: it is not on Flathub.
  *  - It covers **exactly one system**.
  *  - It needs a **BIOS dump**, which it looks for in its own `bios` folder.
- *  - Its memory cards are **shared** by every game (`Mcd001.ps2`), so nothing
- *    in them can be attributed to one ROM, and its states are named after the
- *    disc's serial and checksum rather than the ROM. Neither is synced.
+ *  - Its memory cards are **shared** by every game, so nothing in them can be
+ *    attributed to one ROM, and its states are named after the disc's serial
+ *    and checksum rather than the ROM. Neither is synced yet. Slot 1 is a
+ *    folder card, which Galleon sets (see `armsx2.settingsEdits`); the card
+ *    file it named before stays where it is.
  *
  * It keeps everything under `~/.config/ARMSX2`, settings in
  * `inis/PCSX2.ini`, whatever the install.
@@ -151,5 +167,15 @@ export const armsx2: EmulatorDescriptor = {
   ],
   sandbox: sandboxRecipe,
   launchFiles: undefined,
-  settingsEdits: undefined
+  /**
+   * Slot 1 a folder card, so a PS2 save is one folder per game, the shape
+   * Argosy syncs (ADR 0005). PCSX2 has no key for a card's type: a card is a
+   * folder card when its name is a folder under the memory card folder, and
+   * a name with nothing there gets a new card file (`FileMcd_SetType` in
+   * `pcsx2/SIO/Memcard/MemoryCardFile.cpp`). So the folder is made first, as
+   * ARMSX2's own "new folder card" makes it (`FileMcd_CreateNewCard`), and
+   * the game formats it on first use. The default card is `Mcd001.ps2`
+   * (`FileMcd_GetDefaultName`), a file, so a file without the key gets it.
+   */
+  settingsEdits: () => [{ file: 'ARMSX2/inis/PCSX2.ini', ...ARMSX2_FOLDER_CARD }]
 }

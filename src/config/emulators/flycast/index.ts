@@ -52,7 +52,8 @@ const FLYCAST_PER_GAME_VMU = {
   section: 'config',
   key: 'PerGameVmu',
   value: 'yes',
-  whenAbsent: 'leave'
+  whenAbsent: 'leave',
+  folder: undefined
 } as const
 
 /**

@@ -1292,18 +1292,29 @@ test('melonDS keeps no save, state or BIOS folder of its own', () => {
   assert.equal(melonds.dirs.bios, undefined)
 })
 
-test('only Dolphin and Flycast edit their own settings so far, each only the one key', () => {
+test('only ARMSX2, Dolphin and Flycast edit their own settings so far, each only the one key', () => {
   for (const descriptor of EMULATORS) {
-    if (descriptor.id !== 'dolphin' && descriptor.id !== 'flycast')
+    if (!['armsx2', 'dolphin', 'flycast'].includes(descriptor.id))
       assert.equal(descriptor.settingsEdits, undefined, descriptor.id)
   }
+  assert.deepEqual(armsx2.settingsEdits?.({ system: 'ps2' }), [
+    {
+      file: 'ARMSX2/inis/PCSX2.ini',
+      section: 'MemoryCards',
+      key: 'Slot1_Filename',
+      value: 'Shared.ps2',
+      whenAbsent: 'add',
+      folder: { path: 'ARMSX2/memcards/Shared.ps2', files: ['_pcsx2_superblock'] }
+    }
+  ])
   assert.deepEqual(flycast.settingsEdits?.({ system: 'dreamcast' }), [
     {
       file: 'flycast/emu.cfg',
       section: 'config',
       key: 'PerGameVmu',
       value: 'yes',
-      whenAbsent: 'leave'
+      whenAbsent: 'leave',
+      folder: undefined
     }
   ])
   assert.deepEqual(dolphin.settingsEdits?.({ system: 'gc' }), [
@@ -1312,7 +1323,8 @@ test('only Dolphin and Flycast edit their own settings so far, each only the one
       section: 'Core',
       key: 'SlotA',
       value: '8',
-      whenAbsent: 'leave'
+      whenAbsent: 'leave',
+      folder: undefined
     }
   ])
 })
