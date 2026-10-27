@@ -879,6 +879,20 @@ export const de: Catalog = {
   'libraryMove.stoppedTitle': 'Das Verschieben wurde angehalten',
   'libraryMove.stopped':
     'Es hielt bei {name} an: {reason}. Die Bibliothek bleibt in {path}, und die bereits verschobenen Spiele liegen im neuen Ordner. Wählen Sie den Ordner erneut, um fortzufahren.',
+  'stockLibrary.title': 'Spiele aus RomMix',
+  'stockLibrary.unknown_one': '{count} Spiel, das RomMix vor Galleon heruntergeladen hat',
+  'stockLibrary.unknown_other': '{count} Spiele, die RomMix vor Galleon heruntergeladen hat',
+  'stockLibrary.known_one': '{count} Spiel liegt noch im Ordner von RomMix',
+  'stockLibrary.known_other': '{count} Spiele liegen noch im Ordner von RomMix',
+  'stockLibrary.size': '{size} zu verschieben',
+  'stockLibrary.adopt': 'Dort verwenden, wo sie sind',
+  'stockLibrary.move': 'In die Bibliothek verschieben',
+  'stockLibrary.adopted_one': 'Galleon hat jetzt {count} Spiel aus RomMix',
+  'stockLibrary.adopted_other': 'Galleon hat jetzt {count} Spiele aus RomMix',
+  'stockLibrary.moveTitle': 'Spiele aus RomMix verschieben?',
+  'stockLibrary.nothingToCarry': 'Es gibt keine Spiele zu verschieben.',
+  'stockLibrary.stopped':
+    'Es hielt bei {name} an: {reason}. Die noch nicht verschobenen Spiele bleiben in {path} und lassen sich dort spielen. Wählen Sie erneut Verschieben, um fortzufahren.',
   'settings.saveSync': 'Spielstand-Abgleich',
   'settings.syncDown': 'Neuere Spielstände vor dem Spielen herunterladen',
   'settings.syncDownHint':

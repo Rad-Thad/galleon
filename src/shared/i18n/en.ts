@@ -863,6 +863,20 @@ export const en = {
   'libraryMove.stoppedTitle': 'The move stopped',
   'libraryMove.stopped':
     'It stopped at {name}: {reason}. The library stays in {path}, and the games already moved are in the new folder. Choose the folder again to carry on.',
+  'stockLibrary.title': 'Games from RomMix',
+  'stockLibrary.unknown_one': '{count} game RomMix downloaded before Galleon',
+  'stockLibrary.unknown_other': '{count} games RomMix downloaded before Galleon',
+  'stockLibrary.known_one': '{count} game is still in RomMix’s folder',
+  'stockLibrary.known_other': '{count} games are still in RomMix’s folder',
+  'stockLibrary.size': '{size} to move',
+  'stockLibrary.adopt': 'Use them where they are',
+  'stockLibrary.move': 'Move into the library',
+  'stockLibrary.adopted_one': 'Galleon now has {count} game from RomMix',
+  'stockLibrary.adopted_other': 'Galleon now has {count} games from RomMix',
+  'stockLibrary.moveTitle': 'Move RomMix’s games?',
+  'stockLibrary.nothingToCarry': 'There are no games to carry.',
+  'stockLibrary.stopped':
+    'It stopped at {name}: {reason}. The games not moved yet stay in {path} and can be played there. Choose Move again to carry on.',
   'settings.saveSync': 'Save sync',
   'settings.syncDown': 'Download newer saves before playing',
   'settings.syncDownHint':
