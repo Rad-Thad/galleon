@@ -156,8 +156,8 @@ export function useGamepad(
       repeats: boolean
     ): void => {
       // Reported here rather than at each call site: every path that reaches a
-      // fire is a button someone pressed, and the poll runs sixty times a
-      // second whether or not anything is held.
+      // fire is a button someone pressed, and the poll runs on every frame
+      // whether or not anything is held.
       const fire = (repeat: boolean): void => {
         noteRef.current('gamepad')
         rawFire(repeat)

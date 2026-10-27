@@ -3494,7 +3494,8 @@ Lines the tooling reads (exact forms):
 - Evidence:
   - `gamepad.test.tsx` (+3, harness now steps timers on the test's clock): no frame waiting and one read on the timer while suspended; back on every frame once the game has gone; nothing left waiting on unmount. Two existing tests now let go of Start, or wait after the game ends, for a timer period rather than one frame.
   - `test/app/running.test.ts`: every `requestAnimationFrame` callback the page runs is counted at the global, with the perf overlay on. Frames are drawn at the game page; zero over 2 s while the stubborn stand-in has the screen and the overlay is down; drawn again and the overlay back after it is forced closed. Without the source change it fails (overlay still up). The file passes 3/3 in a row.
-  - `scripts/agent/check.sh` green.
+  - `scripts/agent/check.sh` green; `npm run test:app` 262/262. No screen changed, so no shots.
+- Evaluator: PASS (two of three hand mutations caught; the third, the frame cancel on unmount, is now caught by the unmount test, checked by hand). Its note on a stale "sixty times a second" comment in `edge` is fixed.
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet.
 - Next: M1-13 part 2: notices raised during play are queued and shown after the game ends.

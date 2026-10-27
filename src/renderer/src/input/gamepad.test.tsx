@@ -425,10 +425,14 @@ describe('the poll', () => {
   })
 
   test('leaves nothing waiting once unmounted, on a frame or on the timer', () => {
-    setSuspended(true)
     step()
     for (const root of roots.splice(0)) act(() => root.unmount())
-    assert.equal(timers.size, 0)
+    assert.equal(frames.length, 0, 'the frame read should be cancelled')
+
+    mount(<Pad suspended={true} />)
+    step(2)
+    for (const root of roots.splice(0)) act(() => root.unmount())
+    assert.equal(timers.size, 0, 'the timed read should be cancelled')
   })
 })
 
