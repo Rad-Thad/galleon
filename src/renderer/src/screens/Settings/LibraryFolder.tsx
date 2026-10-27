@@ -142,12 +142,15 @@ function LibraryMoveNotice({
     try {
       change = await window.rommix.library.move(target.libraryRoot)
     } catch {
-      // Refused before anything moved; reported centrally on `app:error`.
+      // Refused, or stopped by an index that would not take a game; either way
+      // the setting is unchanged. Reported centrally on `app:error`.
       onClose()
       return
+    } finally {
+      // The setting may have changed even when the move did not finish.
+      await reloadSettings().catch(() => undefined)
+      setMoving(false)
     }
-    await reloadSettings()
-    setMoving(false)
     if (change.leftovers.length > 0) {
       notify(
         t('libraryMove.leftovers', {
@@ -192,7 +195,12 @@ function LibraryMoveNotice({
 
   if (!plan || moving) {
     return (
-      <Overlay title={t('libraryMove.title')} icon="folder">
+      // Measuring can be put away, since nothing has moved yet; moving cannot.
+      <Overlay
+        title={t('libraryMove.title')}
+        icon="folder"
+        onDismiss={moving ? undefined : onClose}
+      >
         {moving && plan ? (
           <p className="muted">{t('libraryMove.moving', { count: carried(plan).length })}</p>
         ) : (
