@@ -1,7 +1,8 @@
 import { type JSX, useCallback, useEffect, useMemo, useState, type Ref } from 'react'
 import { resolveSystem } from '@config/systems'
-import type { RommPlatform } from '@shared/types'
+import type { RommPlatform, SteamGameEntry } from '@shared/types'
 import {
+  CoverArt,
   GameCard,
   Hints,
   PageTitle,
@@ -70,6 +71,16 @@ export function LibraryScreen({ view }: { view?: LibraryView }): JSX.Element {
    */
   const [searchCounts, setSearchCounts] = useState<Record<number, number> | null>(null)
   const [selectedPlatform, setSelectedPlatform] = useState<number | undefined>(view?.platformId)
+  /**
+   * The Steam games installed here, offered as a platform of their own.
+   *
+   * Not the server's, so neither scope nor the connection changes them, and
+   * choosing them stands the server's grid down. Kept apart from
+   * `selectedPlatform` because they have no RomM platform id to share its
+   * numbers with.
+   */
+  const [steamGames, setSteamGames] = useState<SteamGameEntry[]>([])
+  const [steamChosen, setSteamChosen] = useState(false)
   const [search, setSearch] = useState(view?.search ?? '')
   /**
    * Seeded from the route as well, so a return lands on the filtered grid.
@@ -100,8 +111,22 @@ export function LibraryScreen({ view }: { view?: LibraryView }): JSX.Element {
       // their collection. Which versions there are is on the game's own page.
       group_by_meta_id: true
     },
-    { enabled: offline === false && scope === 'all', onError: setError }
+    { enabled: offline === false && scope === 'all' && !steamChosen, onError: setError }
   )
+
+  // A machine without Steam lists nothing, which is no platform to offer.
+  useEffect(() => {
+    let listening = true
+    void window.rommix.steam
+      .games()
+      .then((games) => {
+        if (listening) setSteamGames(games)
+      })
+      .catch(() => undefined)
+    return () => {
+      listening = false
+    }
+  }, [])
 
   /**
    * The platforms, which the server's last list stands in for while it is away.
@@ -181,7 +206,12 @@ export function LibraryScreen({ view }: { view?: LibraryView }): JSX.Element {
     () => platforms.find((p) => p.id === selectedPlatform),
     [platforms, selectedPlatform]
   )
-  const platformName = chosen?.display_name
+  const platformName = steamChosen ? t('library.steamPlatform') : chosen?.display_name
+
+  const steamMatching = useMemo(() => {
+    const term = search.trim().toLowerCase()
+    return steamGames.filter((game) => (term ? game.name.toLowerCase().includes(term) : true))
+  }, [steamGames, search])
 
   /**
    * The downloaded games, narrowed by whatever the two filters above say.
@@ -250,11 +280,15 @@ export function LibraryScreen({ view }: { view?: LibraryView }): JSX.Element {
   )
   // What the server counted, or what is actually here when it counted
   // nothing — which is the whole of it once there are no more pages.
-  const count = scope === 'downloaded' ? tiles.length : (total ?? roms.length)
+  const count = steamChosen
+    ? steamMatching.length
+    : scope === 'downloaded'
+      ? tiles.length
+      : (total ?? roms.length)
   // Only the server scope has anything to wait for — and until the connection
   // has answered, every scope does: which one this screen is showing is not
   // settled yet.
-  const busy = (loading && scope === 'all') || offline === null
+  const busy = !steamChosen && ((loading && scope === 'all') || offline === null)
 
   return (
     <div className="content">
@@ -308,8 +342,11 @@ export function LibraryScreen({ view }: { view?: LibraryView }): JSX.Element {
             <PlatformChip
               id="all"
               label={t('library.allPlatforms')}
-              active={selectedPlatform === undefined}
-              onSelect={() => setSelectedPlatform(undefined)}
+              active={selectedPlatform === undefined && !steamChosen}
+              onSelect={() => {
+                setSteamChosen(false)
+                setSelectedPlatform(undefined)
+              }}
             />
             {platforms.map((platform) => {
               const matching = countFor(platform)
@@ -341,11 +378,29 @@ export function LibraryScreen({ view }: { view?: LibraryView }): JSX.Element {
                       label={platform.display_name}
                     />
                   }
-                  active={platform.id === selectedPlatform}
-                  onSelect={() => setSelectedPlatform(platform.id)}
+                  active={platform.id === selectedPlatform && !steamChosen}
+                  onSelect={() => {
+                    setSteamChosen(false)
+                    setSelectedPlatform(platform.id)
+                  }}
                 />
               )
             })}
+            {steamMatching.length > 0 || steamChosen ? (
+              <PlatformChip
+                id="steam"
+                label={t('library.platformChip', {
+                  name: t('library.steamPlatform'),
+                  count: steamMatching.length
+                })}
+                icon={<PlatformIcon slug="steam" size={20} label={t('library.steamPlatform')} />}
+                active={steamChosen}
+                onSelect={() => {
+                  setSteamChosen(true)
+                  setSelectedPlatform(undefined)
+                }}
+              />
+            ) : null}
           </div>
         </div>
       </div>
@@ -353,25 +408,41 @@ export function LibraryScreen({ view }: { view?: LibraryView }): JSX.Element {
       {error ? <div className="notice notice--error">{error}</div> : null}
 
       <div className="grid">
-        {tiles.map((tile) => (
-          <GameCard
-            key={tile.romId}
-            tile={tile}
-            installed={tileInstalled(tile, installedIds)}
-            onSelect={() => {
-              // What was filtered for goes onto this screen's own step first,
-              // so B off the game comes back to the grid it was picked out of.
-              // Written here rather than as the filters change, which would
-              // redraw the shell around a screen for a keystroke in it.
-              revise({
-                name: 'library',
-                view: { scope: chosenScope, search, platformId: selectedPlatform }
-              })
-              navigate({ name: 'game', romId: romToOpen(tile, installedIds) })
-            }}
-            showPlatform={selectedPlatform === undefined}
-          />
-        ))}
+        {steamChosen
+          ? steamMatching.map((game) => (
+              <SteamCard
+                key={game.appid}
+                game={game}
+                onSelect={() => {
+                  setError(null)
+                  window.rommix.steam.launch(game.appid).catch((cause: Error) => {
+                    setError(cause.message)
+                  })
+                }}
+              />
+            ))
+          : null}
+        {steamChosen
+          ? null
+          : tiles.map((tile) => (
+              <GameCard
+                key={tile.romId}
+                tile={tile}
+                installed={tileInstalled(tile, installedIds)}
+                onSelect={() => {
+                  // What was filtered for goes onto this screen's own step first,
+                  // so B off the game comes back to the grid it was picked out of.
+                  // Written here rather than as the filters change, which would
+                  // redraw the shell around a screen for a keystroke in it.
+                  revise({
+                    name: 'library',
+                    view: { scope: chosenScope, search, platformId: selectedPlatform }
+                  })
+                  navigate({ name: 'game', romId: romToOpen(tile, installedIds) })
+                }}
+                showPlatform={selectedPlatform === undefined}
+              />
+            ))}
       </div>
 
       {/* Sits directly below the grid: crossing it is what pulls the next page. */}
@@ -381,9 +452,9 @@ export function LibraryScreen({ view }: { view?: LibraryView }): JSX.Element {
 
       {/* A scope with nothing in it at all is not a search that found nothing,
           and on a fresh install the downloaded grid is the empty one. */}
-      {!busy && tiles.length === 0 && !error ? (
+      {!busy && count === 0 && !error ? (
         <div className="empty">
-          {scope === 'downloaded' && !search && selectedPlatform === undefined
+          {scope === 'downloaded' && !search && selectedPlatform === undefined && !steamChosen
             ? t('library.noneDownloaded')
             : t('library.noMatches')}
         </div>
@@ -391,7 +462,7 @@ export function LibraryScreen({ view }: { view?: LibraryView }): JSX.Element {
 
       {/* Also how the grid-scroll self-test tells the end from a page still
           on its way. See `GRID_END`. */}
-      {!busy && scope === 'all' && roms.length > 0 && !more ? (
+      {!busy && !steamChosen && scope === 'all' && roms.length > 0 && !more ? (
         <div className="empty" style={{ padding: '28px 0' }} data-grid-end>
           {t('library.thatIsAll', { count })}
         </div>
@@ -432,6 +503,27 @@ function PlatformChip({
     >
       {icon}
       {label}
+    </button>
+  )
+}
+
+/**
+ * A Steam game on the grid. A press hands it to Steam, which has no page of
+ * Galleon's to open first: what there is to know about it is Steam's.
+ */
+function SteamCard({
+  game,
+  onSelect
+}: {
+  game: SteamGameEntry
+  onSelect: () => void
+}): JSX.Element {
+  const { t } = useI18n()
+  const { ref, props } = useFocusable({ onSelect, actionLabel: t('game.play') })
+  return (
+    <button ref={ref as Ref<HTMLButtonElement>} className="card" data-steam={game.appid} {...props}>
+      <CoverArt path={null} name={game.name} />
+      <div className="card__title">{game.name}</div>
     </button>
   )
 }

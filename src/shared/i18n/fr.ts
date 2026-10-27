@@ -257,6 +257,7 @@ export const fr: Catalog = {
   'library.scopeDownloaded': 'Téléchargés uniquement',
   'library.noneDownloaded': 'Aucun jeu téléchargé pour l’instant.',
   'library.platformChip': '{name} ({count})',
+  'library.steamPlatform': 'Steam',
   'library.noMatches': 'Aucun jeu ne correspond à cette recherche.',
   'library.thatIsAll_one': 'C’est le seul.',
   'library.thatIsAll_other': 'C’est tout : {count} en tout.',

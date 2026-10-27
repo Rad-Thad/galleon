@@ -256,6 +256,7 @@ export const es: Catalog = {
   'library.scopeDownloaded': 'Solo descargados',
   'library.noneDownloaded': 'Todavía no hay juegos descargados.',
   'library.platformChip': '{name} ({count})',
+  'library.steamPlatform': 'Steam',
   'library.noMatches': 'Ningún juego coincide con esa búsqueda.',
   'library.thatIsAll_one': 'Es el único.',
   'library.thatIsAll_other': 'Eso es todo: {count} en total.',

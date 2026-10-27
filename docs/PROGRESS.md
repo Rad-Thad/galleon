@@ -3623,3 +3623,18 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet.
 - Next: M1-14 part 2b-ii: a 'Steam' platform in the library from `steam.games()`, with Play calling `steam.launch` (`test:app`, shots).
+
+## 2026-10-27 20:26 UTC session 0178hDCDU5sJNVBtuhwiYAx9 (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. #339 (M1-14 part 2b-i) merged at 4d1374e.
+- Worked on: M1-14 part 2b-ii (tracking issue #336): installed Steam games shown as a 'Steam' platform, with Play handing one to Steam.
+- Result: PR (this one).
+  - The library offers a 'Steam (n)' chip beside the server's platforms when `steam.games()` lists anything. The games are this machine's, so the chip is there in either scope and with the server away.
+  - Choosing it stands the server's grid and paging down and shows Steam's games as cards (`data-steam`), narrowed by the search box. Pressing one calls `steam.launch`, which raises 'Playing on Steam'. 'All platforms' or a server platform brings the server's grid back.
+  - New key `library.steamPlatform` in all four catalogues (a proper noun, the same in each).
+  - M1-14 stays false. The device checks `steam.list` and `steam.launch` come next.
+- Evidence: `test/app/steam.test.ts` 6/6. Covered: the chip counts 1, the grid holds only the Steam card, and pressing it shows the overlay; leaving by 'All platforms' and by a server platform; the search narrows the card away, says nothing matched, and keeps the chip at 0. `npm run test:app` 267/267 before the last two tests were added. Electron ran through a `--no-sandbox` wrapper as root. `scripts/agent/check.sh` green. `npm run shots:nova` 27 screens. I opened `library-steam.png`: chip 'Steam (1)' selected, '1 game on Steam', one Hades card, nothing clipped. `running-steam.png` is now reached by pressing that card, and the overlay is unchanged.
+- Evaluator: FAIL, then PASS. The first round's survivors (search not narrowing, Steam left chosen after 'All platforms' or a server platform) are caught by the two tests added on its notes. Second round: 10 mutants, 8 caught. The two survivors, server paging left on and the end-of-grid line under Steam, cannot be seen on the Steam grid.
+- CI wall time: recorded in the next entry (this entry rides the PR). The first x64 run failed only at `pr-body.mjs`: the PR body had no `Feature:` line.
+- Device / acceptance: none yet.
+- Next: M1-14 part 3, the device checks `steam.list` (counts and art found, never names) and `steam.launch` (the 'Galleon Device Test Target' shortcut, 'Launch Multiple Games' seen, Galleon survived, `needs-attended` on a prompt left up).

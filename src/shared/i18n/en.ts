@@ -263,6 +263,7 @@ export const en = {
   'library.scopeDownloaded': 'Downloaded only',
   'library.noneDownloaded': 'No games downloaded yet.',
   'library.platformChip': '{name} ({count})',
+  'library.steamPlatform': 'Steam',
   'library.noMatches': 'No games match that search.',
   'library.thatIsAll_one': 'That is the only one.',
   'library.thatIsAll_other': 'That is all {count} of them.',
