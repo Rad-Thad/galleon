@@ -18,6 +18,7 @@ import {
   truncateSync,
   writeFileSync
 } from 'node:fs'
+import { cp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { SHARED_LIBRARY, type InstalledRom } from '@shared/types'
@@ -231,7 +232,7 @@ for (const sameDrive of [true, false]) {
     const plan = { ...(await planLibraryMove(games, from, to)), sameDrive }
     const result = await moveLibrary(plan, index)
 
-    assert.deepEqual(result, { moved: [1, 2, 3], skipped: [], failed: null })
+    assert.deepEqual(result, { moved: [1, 2, 3], skipped: [], failed: null, leftovers: [] })
     assert.equal(readFileSync(join(to, 'psx', 'Disc Game', 'game.bin')).length, 5000)
     assert.equal(readFileSync(join(to, 'psx', 'loose.bin')).length, 300)
     for (const gone of ['gc/one.rvz', 'psx/Disc Game', 'psx/loose.cue', 'psx/loose.bin'])
@@ -261,7 +262,7 @@ test('a game whose new place is taken stays where it is, and nothing there is re
   writeFileSync(join(to, 'psx', 'loose.bin'), 'someone else')
 
   const result = await moveLibrary(plan, index)
-  assert.deepEqual(result, { moved: [1, 2], skipped: [3], failed: null })
+  assert.deepEqual(result, { moved: [1, 2], skipped: [3], failed: null, leftovers: [] })
   assert.equal(readFileSync(join(to, 'psx', 'loose.bin'), 'utf8'), 'someone else')
   assert.equal(existsSync(join(from, 'psx', 'loose.cue')), true)
   assert.equal(index.entries.get(3)?.path, join(from, 'psx', 'loose.cue'))
@@ -296,6 +297,67 @@ test('a refused plan moves nothing', async () => {
   const { from, games } = looseLibrary()
   const index = memoryIndex(games)
   const plan = await planLibraryMove(games, from, from)
-  assert.deepEqual(await moveLibrary(plan, index), { moved: [], skipped: [], failed: null })
+  assert.deepEqual(await moveLibrary(plan, index), {
+    moved: [],
+    skipped: [],
+    failed: null,
+    leftovers: []
+  })
   assert.equal(existsSync(join(from, 'gc', 'one.rvz')), true)
+})
+
+test('a copy that comes out short is never named, and the original is kept', async () => {
+  const { from, to, games } = looseLibrary()
+  const index = memoryIndex(games)
+  const plan = { ...(await planLibraryMove(games, from, to)), sameDrive: false }
+  // A copy that stops early without saying so, as a card pulled mid-write can.
+  const short = async (source: string, target: string): Promise<void> => {
+    if (source.endsWith('loose.bin')) writeFileSync(target, Buffer.alloc(10))
+    else await cp(source, target, { recursive: true })
+  }
+
+  const result = await moveLibrary(plan, index, short)
+  assert.deepEqual(result.moved, [1, 2])
+  assert.equal(result.failed?.romId, 3)
+  assert.match(result.failed?.reason ?? '', /Game 3/)
+  assert.equal(readFileSync(join(from, 'psx', 'loose.bin')).length, 300)
+  assert.equal(existsSync(join(from, 'psx', 'loose.cue')), true)
+  assert.deepEqual(readdirSync(join(to, 'psx')), ['Disc Game'])
+  assert.equal(index.entries.get(3)?.path, join(from, 'psx', 'loose.cue'))
+})
+
+test('on one drive a game that fails part-way is renamed back, whole, where it was', async () => {
+  const { from, to, games } = looseLibrary()
+  const index = memoryIndex(games)
+  const plan = await planLibraryMove([games[2]], from, to)
+  // Gone after the plan, so the second rename fails after the first is done.
+  rmSync(join(from, 'psx', 'loose.bin'))
+
+  const result = await moveLibrary(plan, index)
+  assert.equal(result.failed?.romId, 3)
+  assert.equal(existsSync(join(from, 'psx', 'loose.cue')), true)
+  assert.equal(existsSync(join(to, 'psx', 'loose.cue')), false)
+  assert.equal(index.entries.get(3)?.path, join(from, 'psx', 'loose.cue'))
+})
+
+test('a game the index has somewhere else since the plan is not moved', async () => {
+  const { from, to, games } = looseLibrary()
+  const index = memoryIndex(games)
+  const plan = await planLibraryMove(games, from, to)
+  index.addInstalled({ ...games[0], path: join(from, 'gc', 'reinstalled.rvz') })
+
+  const result = await moveLibrary(plan, index)
+  assert.deepEqual(result.moved, [2, 3])
+  assert.equal(existsSync(join(from, 'gc', 'one.rvz')), true)
+  assert.equal(index.entries.get(1)?.path, join(from, 'gc', 'reinstalled.rvz'))
+})
+
+test('a link inside a game folder still leads to its file after a copy to another drive', async () => {
+  const { from, to, games } = looseLibrary()
+  symlinkSync('game.bin', join(from, 'psx', 'Disc Game', 'alias.bin'))
+  const index = memoryIndex(games)
+  const plan = { ...(await planLibraryMove([games[1]], from, to)), sameDrive: false }
+
+  assert.deepEqual((await moveLibrary(plan, index)).moved, [2])
+  assert.equal(readFileSync(join(to, 'psx', 'Disc Game', 'alias.bin')).length, 5000)
 })

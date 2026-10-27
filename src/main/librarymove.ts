@@ -32,8 +32,9 @@ async function deviceOf(path: string): Promise<number | null> {
 
 /**
  * What a game is on the disk: its folder, or a loose game's files beside its
- * path. `files` names those relative to the system folder (see `InstalledRom`);
- * a name that would reach outside it is not the game's to carry.
+ * path. A loose game's `files` are named relative to the system folder it is
+ * in, as the download records them; a name that would reach outside it is not
+ * the game's to carry.
  */
 function partsOf(rom: InstalledRom, real: string): string[] {
   if (rom.isDirectory) return [real]
@@ -136,7 +137,17 @@ export interface LibraryMoveResult {
   skipped: number[]
   /** The game the move stopped at, and why, when it did not finish. */
   failed: { romId: number; reason: string } | null
+  /** Originals of moved games that could not be removed, still taking room. */
+  leftovers: string[]
 }
+
+/** How a part is copied to another drive. Replaceable so tests can break it. */
+export type CopyPart = (from: string, to: string) => Promise<void>
+
+const copyPart: CopyPart = (from, to) =>
+  // Links are copied as they are: resolved, a link inside a game folder would
+  // point back at the original, which is about to go.
+  cp(from, to, { recursive: true, errorOnExist: true, force: false, verbatimSymlinks: true })
 
 /** The suffix a copy is made under until it is whole. */
 const COPYING = '.galleon-moving'
@@ -146,29 +157,32 @@ const COPYING = '.galleon-moving'
  *
  * On one drive each part is renamed. On another, each is copied under a
  * temporary name, its size checked against the original, and only then given
- * its name; the originals are removed once every part of the game is in its
- * new place. Each game is recorded in the index as soon as it has moved, so a
- * move that stops part-way leaves every game findable where it now is. The
- * first failure stops the move: a full disk would fail every game after it.
- * Something found at a game's new place, even one the plan did not see, leaves
- * that game where it is rather than replacing it.
+ * its name. A game is recorded in the index once every part of it is in its
+ * new place, and only then are the originals removed, so an interrupted move
+ * leaves every game findable: at worst a moved game's original is left behind
+ * as well. A game that fails is put back as it was and stops the move, since
+ * a full disk would fail every game after it. Something found at a game's new
+ * place, even one the plan did not see, leaves that game where it is rather
+ * than replacing it, as does a game the index no longer has where the plan
+ * found it.
  */
 export async function moveLibrary(
   plan: LibraryMovePlan,
-  index: MoveIndex
+  index: MoveIndex,
+  copy: CopyPart = copyPart
 ): Promise<LibraryMoveResult> {
-  const result: LibraryMoveResult = { moved: [], skipped: [], failed: null }
+  const result: LibraryMoveResult = { moved: [], skipped: [], failed: null, leftovers: [] }
   if (plan.refused) return result
 
   for (const game of plan.games) {
     const entry = index.getInstalled(game.romId)
-    if (!entry) continue
+    if (!entry || resolveExisting(entry.path) !== game.from) continue
     if (await anyPresent(game.parts.map((part) => part.to))) {
       result.skipped.push(game.romId)
       continue
     }
     try {
-      await carry(game, plan.sameDrive, entry.isDirectory)
+      await place(game, plan.sameDrive, entry.isDirectory, copy)
     } catch (cause) {
       result.failed = { romId: game.romId, reason: (cause as Error).message }
       log.warn('library', 'the library move stopped', {
@@ -183,6 +197,17 @@ export async function moveLibrary(
     }
     index.addInstalled({ ...entry, path: game.to, launchPath: moved(entry.launchPath) })
     result.moved.push(game.romId)
+    if (!plan.sameDrive) {
+      for (const part of game.parts) {
+        await rm(part.from, { recursive: true, force: true }).catch((cause: Error) => {
+          log.warn('library', 'a moved game left its original behind', {
+            path: part.from,
+            reason: cause.message
+          })
+          result.leftovers.push(part.from)
+        })
+      }
+    }
   }
 
   log.info('library', 'the library move finished', {
@@ -190,7 +215,8 @@ export async function moveLibrary(
     to: plan.to,
     moved: result.moved.length,
     skipped: result.skipped.length,
-    failed: result.failed !== null
+    failed: result.failed !== null,
+    leftovers: result.leftovers.length
   })
   return result
 }
@@ -200,39 +226,52 @@ async function anyPresent(paths: readonly string[]): Promise<boolean> {
   return false
 }
 
-async function carry(
+/**
+ * Put every part of a game in its new place, or none of them.
+ *
+ * Originals are left for the caller to remove once the index says where the
+ * game is. A failure part-way undoes what was done: renamed parts are renamed
+ * back, copies are removed.
+ */
+async function place(
   game: LibraryMoveGame,
   sameDrive: boolean,
-  isDirectory: boolean
+  isDirectory: boolean,
+  copy: CopyPart
 ): Promise<void> {
-  const parts = game.parts
   if (sameDrive) {
-    for (const part of parts) {
-      await mkdir(dirname(part.to), { recursive: true })
-      await rename(part.from, part.to)
+    const renamed: LibraryMoveGame['parts'] = []
+    try {
+      for (const part of game.parts) {
+        await mkdir(dirname(part.to), { recursive: true })
+        await rename(part.from, part.to)
+        renamed.push(part)
+      }
+    } catch (cause) {
+      for (const part of renamed.toReversed()) await rename(part.to, part.from)
+      throw cause
     }
     return
   }
 
   const made: string[] = []
   try {
-    for (const part of parts) {
+    for (const part of game.parts) {
       await mkdir(dirname(part.to), { recursive: true })
       const copying = `${part.to}${COPYING}`
       made.push(copying)
-      await cp(part.from, copying, { recursive: true, errorOnExist: true, force: false })
+      await copy(part.from, copying)
       const [want, got] = [await sizeOf(part.from, isDirectory), await sizeOf(copying, isDirectory)]
       if (want !== got) throw new Error(t('error.libraryMoveIncomplete', { name: game.name }))
     }
-    for (const part of parts) {
+    for (const part of game.parts) {
       await rename(`${part.to}${COPYING}`, part.to)
       made.push(part.to)
     }
   } catch (cause) {
-    // Nothing of the original has been touched yet, so taking the copies away
+    // Nothing of the original has been touched, so taking the copies away
     // leaves the game as it was.
     for (const path of made) await rm(path, { recursive: true, force: true })
     throw cause
   }
-  for (const part of parts) await rm(part.from, { recursive: true, force: true })
 }
