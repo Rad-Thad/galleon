@@ -65,12 +65,24 @@ export async function prepareFolder(dir: string): Promise<boolean> {
   }
 }
 
+/**
+ * The user the card would be mounted for. `userInfo` throws for a uid with no
+ * passwd entry, as in some containers, and this runs before the window opens.
+ */
+function currentUser(): string {
+  try {
+    return userInfo().username
+  } catch {
+    return process.env.USER ?? ''
+  }
+}
+
 /** The library a fresh installation starts with. Never throws. */
 export async function chooseDefaultLibrary(
   sources: DefaultLibrarySources = {}
 ): Promise<DefaultLibrary> {
   const volumes = await (sources.volumes ?? readVolumes)()
-  const choice = chooseLibraryVolume(volumes, sources.user ?? userInfo().username)
+  const choice = chooseLibraryVolume(volumes, sources.user ?? currentUser())
   if (choice.kind === 'internal') return { libraryRoot: '', volume: null, reason: choice.reason }
 
   const dir = join(choice.volume.mountPoint, ...CARD_LIBRARY_PATH)
