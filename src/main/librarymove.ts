@@ -158,9 +158,10 @@ const COPYING = '.galleon-moving'
  * On one drive each part is renamed. On another, each is copied under a
  * temporary name, its size checked against the original, and only then given
  * its name. A game is recorded in the index once every part of it is in its
- * new place, and only then are the originals removed, so an interrupted move
- * leaves every game findable: at worst a moved game's original is left behind
- * as well. A game that fails is put back as it was and stops the move, since
+ * new place, and only then are the originals removed, so a copy interrupted
+ * at any point leaves every game findable: at worst a moved game's original is
+ * left behind as well. An index that cannot be written throws, with the
+ * original still in place. A game that fails is put back as it was and stops the move, since
  * a full disk would fail every game after it. Something found at a game's new
  * place, even one the plan did not see, leaves that game where it is rather
  * than replacing it, as does a game the index no longer has where the plan

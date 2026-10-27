@@ -361,3 +361,31 @@ test('a link inside a game folder still leads to its file after a copy to anothe
   assert.deepEqual((await moveLibrary(plan, index)).moved, [2])
   assert.equal(readFileSync(join(to, 'psx', 'Disc Game', 'alias.bin')).length, 5000)
 })
+
+test('a game copied to another drive is in the index before its original goes', async () => {
+  const { from, to, games } = looseLibrary()
+  const index = memoryIndex(games)
+  const originalsWhenIndexed: boolean[] = []
+  const add = index.addInstalled
+  index.addInstalled = (entry) => {
+    originalsWhenIndexed.push(existsSync(join(from, 'psx', 'Disc Game')))
+    add(entry)
+  }
+  const plan = { ...(await planLibraryMove([games[1]], from, to)), sameDrive: false }
+
+  assert.deepEqual((await moveLibrary(plan, index)).moved, [2])
+  assert.deepEqual(originalsWhenIndexed, [true])
+  assert.equal(existsSync(join(from, 'psx', 'Disc Game')), false)
+})
+
+test('an index that cannot be written leaves the original in place', async () => {
+  const { from, to, games } = looseLibrary()
+  const index = memoryIndex(games)
+  index.addInstalled = () => {
+    throw new Error('disk full')
+  }
+  const plan = { ...(await planLibraryMove([games[1]], from, to)), sameDrive: false }
+
+  await assert.rejects(moveLibrary(plan, index), /disk full/)
+  assert.equal(readFileSync(join(from, 'psx', 'Disc Game', 'game.bin')).length, 5000)
+})
