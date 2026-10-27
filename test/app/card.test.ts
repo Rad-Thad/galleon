@@ -78,6 +78,15 @@ describe('a game on a card that is not inserted', () => {
     )
     assert.ok(!lit.includes(en['library.downloadedMark']), `lit chips: ${lit}`)
 
+    // Opening the page asks nothing that is refused for want of the card: a
+    // refusal would surface as an error toast nobody pressed anything for.
+    // Every request the page makes on opening has answered well within this.
+    await new Promise((done) => setTimeout(done, 1500))
+    const toasts = await app.read<string[]>(
+      `[...document.querySelectorAll('.toast')].map((one) => one.textContent)`
+    )
+    assert.deepEqual(toasts, [])
+
     for (const action of ['play', 'download', 'uninstall', 'pull-saves', 'push-saves']) {
       assert.ok(!offered.includes(action), `${action} should not be offered, got ${offered}`)
     }
