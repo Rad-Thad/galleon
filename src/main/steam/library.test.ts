@@ -162,6 +162,20 @@ describe('installedSteamGames', () => {
     assert.deepEqual(ids, ['1145360', '413150'])
   })
 
+  test('a library after a card that is out is still read, and the list is by name', async () => {
+    const { sources } = machine({
+      ...NOVA,
+      [`${STEAM}/steamapps/libraryfolders.vdf`]:
+        '"libraryfolders" { "1" { "path" "/run/media/deck/OLDCARD" } "2" { "path" "/run/media/deck/NovaSD" } }',
+      [`${CARD}/steamapps/appmanifest_999999.acf`]:
+        '"AppState" { "appid" "999999" "name" "Aardvark" "StateFlags" "4" }'
+    })
+    assert.deepEqual(
+      (await installedSteamGames(sources)).map((game) => game.name),
+      ['Aardvark', 'Hades', 'Stardew Valley: "Collector\'s" \\ Edition']
+    )
+  })
+
   test('no Steam at all is an empty list', async () => {
     const { sources } = machine({})
     assert.deepEqual(await installedSteamGames(sources), [])

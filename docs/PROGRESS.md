@@ -3579,3 +3579,17 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: READY-FOR-DEVICE M1-13 (`focus.no-new-window`, `focus.return`).
 - Next: the next feature from `node scripts/agent/next.mjs`.
+
+## 2026-10-27 18:27 UTC session 0178hDCAKrCQWPecCCL2r4hA (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. #335 (M1-13 part 4b-ii) merged at 0ee1bd3; CI x64 8:08, arm64 1:02. M1-13 waits on the device.
+- Worked on: M1-14 part 1 (tracking issue #336): acceptance line 1, the text-VDF parser and the installed-game scan.
+- Result: PR (this one).
+  - `parseVdf` (`src/main/steam/vdf.ts`): Valve's text KeyValues, quoted and unquoted strings, escapes (an unknown one kept as written), `//` comments, platform conditions read past. A file cut short or unbalanced is null, never half read. `field`/`text`/`block` look keys up without regard to case, as Steam does (`LibraryFolders` and `AppState` in older files).
+  - `installedSteamGames` (`src/main/steam/library.ts`): Steam's own folder plus every library either `libraryfolders.vdf` names (`steamapps/` and `config/`, both shapes), each library's `appmanifest_*.acf` read for appid, name, installdir, StateFlags and SizeOnDisk. Only `StateFlags & 4` counts. A game in two libraries is listed once; a card that is out or a malformed file costs only what it describes.
+  - Nothing calls it yet. M1-14 stays false.
+- Evidence: `vdf.test.ts` and `library.test.ts` 27/27, from fixtures in `src/main/fixtures/steam/` shaped like a Deck-style install: a card library under `/run/media/deck/NovaSD`, a game still downloading (StateFlags 1026, excluded), one awaiting an update (6, kept), a manifest cut short (excluded), the older `config/` list naming a card that is out. `scripts/agent/check.sh` green. No app code path or screen changed, so no `test:app` and no shots.
+- Evaluator: PASS (25 mutants; 17 caught. Of the survivors, a scan that stopped at a card that is out and a list sorted by appid rather than name are now caught by a test added on its notes; the rest change nothing for a well-formed file).
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet.
+- Next: M1-14 part 2: a 'Steam' platform built from `installedSteamGames`, and the launch through `/usr/bin/steam steam://rungameid/<appid>` with the clean environment, logged and not waited on, the overlay saying 'Playing on Steam'. Tools Steam installs as apps (Steamworks Common Redistributables, Proton, the runtimes) carry the installed flag too; telling them from games needs more than a manifest, so decide that with part 2.
