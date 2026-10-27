@@ -3499,3 +3499,18 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet.
 - Next: M1-13 part 2: notices raised during play are queued and shown after the game ends.
+
+## 2026-10-27 15:00 UTC session 0178hDCCfEKa4shai8LVS3FD (hourly heartbeat, second unit)
+
+- Device results: none new (as above). #330 (M1-13 part 1) merged at 46b0c2e; CI x64 8:30, arm64 0:57.
+- Worked on: M1-13 part 2 (tracking issue #329): line 2, "Notifications raised during play are queued and shown after the game ends".
+- Result: PR (this one).
+  - `NoticeGate` (`src/renderer/src/notices.ts`, pure) holds every notice offered while something covers RomMix, in order, and shows them when nothing does.
+  - `notify` in `state.tsx` offers each toast to the gate. A toast's time on screen starts when it is shown.
+  - The gate is told about cover in the `running:state` handler itself, not from a later render, so nothing raised in between slips out in front of the game.
+  - M1-13 stays false.
+- Evidence: `notices.test.ts` (4): shown at once with nothing in front; two raised during play wait and come out in order after; shown once only across later launches; a repeated "covered" keeps them waiting. `scripts/agent/check.sh` green; `npm run test:app` 262/262. No screen changed, so no shots.
+- Evaluator: PASS (three hand mutations of the gate, each caught). Its note: nothing yet tests the wiring in `state.tsx`, so dropping `setCovered` would pass today. Part 3's app scenario must assert the download's toast is absent while the game runs and present after it exits.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet.
+- Next: M1-13 part 3: test:app counts BrowserWindow instances through a launch with a download finishing mid-game, and its notice appears after the exit; refocus and redraw once after exit. Then part 4, the device checks.
