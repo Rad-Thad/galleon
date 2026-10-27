@@ -18,8 +18,14 @@ import { RommClient } from './romm/index.ts'
 import type { ReadOnlyGuard } from './romm/guard.ts'
 import { Privacy } from './privacy.ts'
 import { SaveSync } from './saves.ts'
-import { homeFromEnvironment, rootPaths } from './root.ts'
-import { chooseDefaultLibrary, type DefaultLibrarySources } from './librarydefault.ts'
+import { homeFromEnvironment, libraryFolder, rootPaths } from './root.ts'
+import {
+  chooseDefaultLibrary,
+  libraryFolderChoices,
+  prepareFolder,
+  type DefaultLibrarySources
+} from './librarydefault.ts'
+import { changeLibraryFolder, planLibraryFolder, type FolderChangeSources } from './librarymove.ts'
 import { Store } from './store.ts'
 import { Updater } from './update.ts'
 import { isWebAddress } from './weblink.ts'
@@ -31,6 +37,9 @@ import {
   isStopped,
   NOTICES,
   type EmulatorState,
+  type LibraryFolderChange,
+  type LibraryFolderChoice,
+  type LibraryMovePlan,
   type SavesWaiting
 } from '@shared/types'
 import type { CoreObservation } from './core-socket/service.ts'
@@ -533,6 +542,44 @@ export class RomMixApp {
       reason: chosen.reason
     })
     if (chosen.libraryRoot) this.store.updateSettings({ libraryRoot: chosen.libraryRoot })
+  }
+
+  /** The folders Settings offers to move the library to. See `libraryFolderChoices`. */
+  libraryFolders(): Promise<LibraryFolderChoice[]> {
+    return libraryFolderChoices(this.store.settings.libraryRoot, rootPaths().roms)
+  }
+
+  /** What moving the library to `libraryRoot` would carry. See `planLibraryFolder`. */
+  planLibraryFolder(libraryRoot: string): Promise<LibraryMovePlan> {
+    return planLibraryFolder(this.folderSources(), libraryRoot)
+  }
+
+  /**
+   * Move the library's games and then the library. See `changeLibraryFolder`.
+   *
+   * The emulators are probed again once the folder changes: each one's ROM
+   * folder is resolved from the setting.
+   */
+  async changeLibraryFolder(libraryRoot: string): Promise<LibraryFolderChange> {
+    const change = await changeLibraryFolder(this.folderSources(), libraryRoot)
+    this.send('library:installed', this.library.installed)
+    return change
+  }
+
+  private folderSources(): FolderChangeSources {
+    return {
+      installed: () => this.store.installed,
+      index: this.store,
+      libraryRoot: () => this.store.settings.libraryRoot,
+      folderOf: (libraryRoot) => libraryFolder(libraryRoot),
+      downloading: () => this.downloads.items.some((item) => isInProgress(item.state)),
+      prepare: prepareFolder,
+      setLibraryRoot: async (libraryRoot) => {
+        log.info('library', 'the library folder changed', { libraryRoot: libraryRoot || null })
+        this.store.updateSettings({ libraryRoot })
+        await this.refreshEmulators()
+      }
+    }
   }
 
   /**

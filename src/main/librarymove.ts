@@ -1,10 +1,17 @@
 import { cp, mkdir, rename, rm, stat } from 'node:fs/promises'
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { SHARED_LIBRARY } from '@shared/types'
-import type { InstalledRom, LibraryMoveGame, LibraryMovePlan } from '@shared/types'
+import type {
+  InstalledRom,
+  LibraryFolderChange,
+  LibraryMoveGame,
+  LibraryMovePlan,
+  LibraryMoveResult
+} from '@shared/types'
 import { fits, nearest, spaceOf } from './disk.ts'
 import { t } from './i18n.ts'
 import { log } from './log.ts'
+import { RommError } from './romm/index.ts'
 import { sizeOf } from './savefiles.ts'
 import { resolveExisting } from './volumes.ts'
 
@@ -128,17 +135,6 @@ export async function planLibraryMove(
 export interface MoveIndex {
   getInstalled(romId: number): InstalledRom | undefined
   addInstalled(entry: InstalledRom): void
-}
-
-/** What a library move did, game by game. */
-export interface LibraryMoveResult {
-  moved: number[]
-  /** Left where they are: something already occupies their place. */
-  skipped: number[]
-  /** The game the move stopped at, and why, when it did not finish. */
-  failed: { romId: number; reason: string } | null
-  /** Originals of moved games that could not be removed, still taking room. */
-  leftovers: string[]
 }
 
 /** How a part is copied to another drive. Replaceable so tests can break it. */
@@ -289,4 +285,60 @@ async function place(
     throw cause
   }
   return removeCopies
+}
+
+/** What changing the library folder reads and writes. See `RomMixApp`. */
+export interface FolderChangeSources {
+  installed(): readonly InstalledRom[]
+  index: MoveIndex
+  /** `Settings.libraryRoot` as it is now. */
+  libraryRoot(): string
+  /** The folder a `Settings.libraryRoot` value stands for. See `libraryFolder`. */
+  folderOf(libraryRoot: string): string
+  /** A download is being made into the library, or waits to be. */
+  downloading(): boolean
+  /** Make the folder and say whether it can be written to. See `prepareFolder`. */
+  prepare(dir: string): Promise<boolean>
+  setLibraryRoot(libraryRoot: string): Promise<void>
+}
+
+/** What moving the library to the folder `libraryRoot` stands for would carry. */
+export function planLibraryFolder(
+  sources: FolderChangeSources,
+  libraryRoot: string
+): Promise<LibraryMovePlan> {
+  return planLibraryMove(
+    sources.installed(),
+    sources.folderOf(sources.libraryRoot()),
+    sources.folderOf(libraryRoot)
+  )
+}
+
+/**
+ * Move the library's games to another folder, then make it the library.
+ *
+ * Planned again here rather than taken from the confirmation, so what moves is
+ * what is on the disk now. Refused while a download is under way, since it
+ * writes into the folder being emptied. The setting changes only once every
+ * game is in the new folder: a move that stops part-way leaves the library
+ * where it was, with each game already moved indexed at its new place, so
+ * asking again carries on from where it stopped.
+ */
+export async function changeLibraryFolder(
+  sources: FolderChangeSources,
+  libraryRoot: string,
+  move: typeof moveLibrary = moveLibrary
+): Promise<LibraryFolderChange> {
+  if (sources.downloading()) throw new RommError(t('error.libraryMoveBusy'))
+  const plan = await planLibraryFolder(sources, libraryRoot)
+  if (plan.refused === 'inside-library') throw new RommError(t('error.libraryMoveInside'))
+  if (!plan.fits) throw new RommError(t('error.libraryMoveNoRoom', { path: plan.to }))
+  if (!(await sources.prepare(plan.to))) {
+    throw new RommError(t('error.libraryFolderNotWritable', { path: plan.to }))
+  }
+  // The same folder by another name has nothing to carry; only the setting
+  // changes, to the name asked for.
+  const result = await move(plan, sources.index)
+  if (result.failed === null) await sources.setLibraryRoot(libraryRoot)
+  return { ...result, libraryRoot: sources.libraryRoot() }
 }

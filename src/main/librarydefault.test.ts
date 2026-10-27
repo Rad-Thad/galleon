@@ -6,12 +6,17 @@
 
 import assert from 'node:assert/strict'
 import { afterEach, test } from 'node:test'
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { CARD_MIN_FREE_BYTES } from '@shared/librarycard'
 import type { Volume } from '@shared/librarycard'
-import { CARD_LIBRARY_PATH, chooseDefaultLibrary, prepareFolder } from './librarydefault.ts'
+import {
+  CARD_LIBRARY_PATH,
+  chooseDefaultLibrary,
+  libraryFolderChoices,
+  prepareFolder
+} from './librarydefault.ts'
 
 const scratches: string[] = []
 afterEach(() => {
@@ -94,4 +99,64 @@ test('the folder is made, and one that cannot be made is reported, not thrown', 
   const blocked = join(dir, 'blocked')
   writeFileSync(blocked, '')
   assert.equal(await prepareFolder(join(blocked, ...CARD_LIBRARY_PATH)), false)
+})
+
+const onCardFolder = join(card.mountPoint, ...CARD_LIBRARY_PATH)
+
+test("the folders offered are the root's own and each writable card's, the one in use marked", async () => {
+  const internal = scratch()
+  const other: Volume = { ...card, mountPoint: '/run/media/armada/OTHER', label: 'OTHER' }
+  const stuck: Volume = { ...card, mountPoint: '/run/media/armada/STUCK', readOnly: true }
+  const system: Volume = { ...card, mountPoint: '/home', label: null }
+  const sources = { volumes: async () => [card, other, stuck, system], user: 'armada' }
+
+  const choices = await libraryFolderChoices(onCardFolder, internal, sources)
+  assert.deepEqual(
+    choices.map((choice) => [choice.libraryRoot, choice.label, choice.current]),
+    [
+      ['', null, false],
+      [onCardFolder, 'NovaSD', true],
+      [join(other.mountPoint, ...CARD_LIBRARY_PATH), 'OTHER', false]
+    ]
+  )
+  assert.equal(choices[0].path, internal)
+  assert.equal(typeof choices[0].freeBytes, 'number', "the root's room is measured")
+  assert.equal(choices[1].freeBytes, card.freeBytes)
+
+  const atHome = await libraryFolderChoices('', internal, sources)
+  assert.deepEqual(
+    atHome.map((choice) => choice.current),
+    [true, false, false]
+  )
+})
+
+test('a folder in use that is none of those is offered as it is, marked', async () => {
+  const internal = scratch()
+  const own = join(scratch(), 'games')
+  const choices = await libraryFolderChoices(own, internal, {
+    volumes: async () => [],
+    user: 'armada'
+  })
+  assert.deepEqual(
+    choices.map((choice) => [choice.libraryRoot, choice.path, choice.current]),
+    [
+      ['', internal, false],
+      [own, own, true]
+    ]
+  )
+})
+
+test('a folder in use reached through a link is the folder it leads to', async () => {
+  const home = scratch()
+  const internal = join(home, 'roms')
+  mkdirSync(internal)
+  symlinkSync(internal, join(home, 'link'))
+  const choices = await libraryFolderChoices(join(home, 'link'), internal, {
+    volumes: async () => [],
+    user: 'armada'
+  })
+  assert.deepEqual(
+    choices.map((choice) => [choice.libraryRoot, choice.current]),
+    [['', true]]
+  )
 })

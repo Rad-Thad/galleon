@@ -126,6 +126,15 @@ export function registerLibraryIpc(rommix: RomMixApp, handle: Handle): void {
   handle('library:files', (romId: number) => library.localFiles(romId))
 
   /**
+   * Moving the library to another folder: where it can go, what each choice
+   * would carry, and the move itself, which sets the folder once every game
+   * is there. See `RomMixApp.changeLibraryFolder`.
+   */
+  handle('library:folders', () => rommix.libraryFolders())
+  handle('library:planMove', (libraryRoot: string) => rommix.planLibraryFolder(libraryRoot))
+  handle('library:move', (libraryRoot: string) => rommix.changeLibraryFolder(libraryRoot))
+
+  /**
    * Check the whole library against the disk, rather than only the ROMs a
    * screen has loaded. Reports progress because a large library takes a while
    * and a frozen button is indistinguishable from a broken one.

@@ -173,3 +173,23 @@ test('a home given through GALLEON_HOME keeps its library inside it', async (t) 
   })
   assert.deepEqual(written, [])
 })
+
+for (const state of ['queued', 'downloading', 'checking', 'extracting', 'installing'] as const) {
+  test(`the library does not move while a download is ${state}`, async () => {
+    // Every stage up to the index entry writes into the library folder, the
+    // last ones after the bytes have all arrived.
+    const app = Object.create(RomMixApp.prototype) as RomMixApp
+    let moved = false
+    Object.assign(app, {
+      downloads: { items: [{ romId: 1, state }] },
+      store: {
+        get settings() {
+          moved = true
+          return { libraryRoot: '' }
+        }
+      }
+    })
+    await assert.rejects(app.changeLibraryFolder('/elsewhere'), /while a game is downloading/)
+    assert.equal(moved, false, 'refused before anything is planned')
+  })
+}

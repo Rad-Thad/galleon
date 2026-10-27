@@ -1108,6 +1108,11 @@ export const es: Catalog = {
   'error.notDownloadedYet': 'Esa ROM todavía no está descargada',
   'error.cardNotInserted': 'Ese juego está en una tarjeta que no está insertada',
   'error.downloadWaitsForCard': 'Esperando la tarjeta: insértala y reanuda esta descarga',
+  'error.libraryMoveBusy':
+    'La biblioteca no se puede mover mientras se descarga un juego: deja que terminen las descargas o ponlas en pausa',
+  'error.libraryMoveInside': 'Esa carpeta está dentro de la biblioteca: elige una fuera de ella',
+  'error.libraryMoveNoRoom': 'No hay espacio suficiente en {path} para los juegos',
+  'error.libraryFolderNotWritable': 'Galleon no puede escribir en {path}',
   'error.libraryMoveIncomplete':
     'La copia de {name} quedó incompleta, así que el juego sigue donde estaba',
   'error.downloadedForOther':

@@ -2,10 +2,12 @@ import { constants } from 'node:fs'
 import { access, mkdir } from 'node:fs/promises'
 import { userInfo } from 'node:os'
 import { join } from 'node:path'
-import { chooseLibraryVolume } from '@shared/librarycard'
+import { cardVolumes, chooseLibraryVolume } from '@shared/librarycard'
 import type { InternalReason, Volume } from '@shared/librarycard'
+import type { LibraryFolderChoice } from '@shared/types'
+import { spaceOf } from './disk.ts'
 import { log } from './log.ts'
-import { readVolumes } from './volumes.ts'
+import { readVolumes, resolveExisting } from './volumes.ts'
 
 /**
  * Where a fresh installation's game library goes.
@@ -90,4 +92,55 @@ export async function chooseDefaultLibrary(
     return { libraryRoot: '', volume: null, reason: 'not-writable' }
   }
   return { libraryRoot: dir, volume: choice.volume, reason: null }
+}
+
+/**
+ * The folders Settings offers to move the library to.
+ *
+ * A list rather than a folder browser, since it is chosen with a gamepad: the
+ * root's own folder, the same `CARD_LIBRARY_PATH` folder on each card that can
+ * be written to, and the folder in use now when it is neither. Folders are
+ * compared resolved, so a library set through a link to the card is that
+ * card's folder.
+ */
+export async function libraryFolderChoices(
+  libraryRoot: string,
+  internal: string,
+  sources: Pick<DefaultLibrarySources, 'volumes' | 'user'> = {}
+): Promise<LibraryFolderChoice[]> {
+  const current = resolveExisting(libraryRoot || internal)
+  const room = async (dir: string): Promise<number | null> =>
+    (await spaceOf(dir))?.freeBytes ?? null
+  const choices: LibraryFolderChoice[] = [
+    {
+      libraryRoot: '',
+      path: internal,
+      label: null,
+      freeBytes: await room(internal),
+      current: false
+    }
+  ]
+  const cards = cardVolumes(await (sources.volumes ?? readVolumes)(), sources.user ?? currentUser())
+  for (const card of cards) {
+    if (card.readOnly) continue
+    const dir = join(card.mountPoint, ...CARD_LIBRARY_PATH)
+    choices.push({
+      libraryRoot: dir,
+      path: dir,
+      label: card.label,
+      freeBytes: card.freeBytes,
+      current: false
+    })
+  }
+  for (const choice of choices) choice.current = resolveExisting(choice.path) === current
+  if (!choices.some((choice) => choice.current)) {
+    choices.push({
+      libraryRoot,
+      path: libraryRoot,
+      label: null,
+      freeBytes: await room(libraryRoot),
+      current: true
+    })
+  }
+  return choices
 }

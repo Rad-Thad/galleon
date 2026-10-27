@@ -11,6 +11,9 @@ import type {
   PowerAction,
   DownloadItem,
   InstalledRom,
+  LibraryFolderChange,
+  LibraryFolderChoice,
+  LibraryMovePlan,
   LaunchChoice,
   LaunchResult,
   LibrarySyncResult,
@@ -212,6 +215,15 @@ export interface RomMixBridge {
      * Empty for a game that is not installed.
      */
     files(romId: number): Promise<GameFile[]>
+    /** The folders the library can be moved to, the one in use marked. */
+    folders(): Promise<LibraryFolderChoice[]>
+    /** What moving the library to that folder would carry; nothing moves. */
+    planMove(libraryRoot: string): Promise<LibraryMovePlan>
+    /**
+     * Move the games, then the library. The folder changes only once every
+     * game is there; a move that stops part-way can be asked for again.
+     */
+    move(libraryRoot: string): Promise<LibraryFolderChange>
     /**
      * Check every ROM on the server against the disk: forget what has been
      * deleted, adopt what is there. Slow by design, so it is a button.

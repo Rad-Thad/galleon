@@ -52,6 +52,11 @@ function isCardMount(mountPoint: string, user: string): boolean {
   return parts.length === 3 && parts[2] !== user
 }
 
+/** The volumes that are removable cards, in the order they were listed. */
+export function cardVolumes(volumes: readonly Volume[], user: string): Volume[] {
+  return volumes.filter((volume) => isCardMount(volume.mountPoint, user))
+}
+
 /**
  * The card a fresh install puts its library on, or why it stays internal.
  *
@@ -66,7 +71,7 @@ function isCardMount(mountPoint: string, user: string): boolean {
  * so the app can say why the library is on internal storage.
  */
 export function chooseLibraryVolume(volumes: readonly Volume[], user: string): LibraryVolume {
-  const cards = volumes.filter((volume) => isCardMount(volume.mountPoint, user))
+  const cards = cardVolumes(volumes, user)
   if (cards.length === 0) return { kind: 'internal', reason: 'no-card' }
 
   const usable: Volume[] = []

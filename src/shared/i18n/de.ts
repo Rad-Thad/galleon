@@ -1133,6 +1133,11 @@ export const de: Catalog = {
   'error.cardNotInserted': 'Dieses Spiel liegt auf einer Karte, die nicht eingelegt ist',
   'error.downloadWaitsForCard':
     'Wartet auf die Karte: legen Sie sie ein und setzen Sie diesen Download fort',
+  'error.libraryMoveBusy':
+    'Die Bibliothek kann während eines Downloads nicht verschoben werden: Lassen Sie die Downloads fertig laufen oder pausieren Sie sie',
+  'error.libraryMoveInside': 'Dieser Ordner liegt in der Bibliothek: Wählen Sie einen außerhalb',
+  'error.libraryMoveNoRoom': 'In {path} ist nicht genug Platz für die Spiele',
+  'error.libraryFolderNotWritable': 'Galleon kann nicht in {path} schreiben',
   'error.libraryMoveIncomplete':
     'Die Kopie von {name} ist unvollständig, das Spiel bleibt, wo es war',
   'error.downloadedForOther':

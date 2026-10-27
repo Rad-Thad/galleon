@@ -125,3 +125,37 @@ export interface LibraryMovePlan {
   freeBytes: number | null
   fits: boolean
 }
+
+/** What a library move did, game by game. See `moveLibrary`. */
+export interface LibraryMoveResult {
+  moved: number[]
+  /** Left where they are: something already occupies their place. */
+  skipped: number[]
+  /** The game the move stopped at, and why, when it did not finish. */
+  failed: { romId: number; reason: string } | null
+  /** Originals of moved games that could not be removed, still taking room. */
+  leftovers: string[]
+}
+
+/** A move asked for from Settings, and the library folder it left in effect. */
+export interface LibraryFolderChange extends LibraryMoveResult {
+  /**
+   * The value of `Settings.libraryRoot` now: the new folder once every game
+   * has moved, the old one when the move stopped part-way.
+   */
+  libraryRoot: string
+}
+
+/** A folder the library can be moved to, as Settings offers it. */
+export interface LibraryFolderChoice {
+  /** The value for `Settings.libraryRoot`: '' for the root's own folder. */
+  libraryRoot: string
+  /** The folder itself, '' resolved. */
+  path: string
+  /** The card's label, or null for internal storage. */
+  label: string | null
+  /** Room left there, or null where it cannot be measured. */
+  freeBytes: number | null
+  /** The library is there now. */
+  current: boolean
+}
