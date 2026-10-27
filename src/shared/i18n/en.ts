@@ -817,8 +817,52 @@ export const en = {
   'settings.storageToRomMix': 'New downloads go to the Galleon folder — add it to each emulator',
   'settings.storageToEmulator': "New downloads go to each emulator's own folder",
   'settings.sharedFolderNote':
-    'Games are written to {path}/roms/<system>. Games already downloaded into an emulator’s own ' +
+    'Games are written to {path}/<system>. Games already downloaded into an emulator’s own ' +
     'folder stay there and are offered for download again; switch back and they reappear.',
+  'settings.libraryFolder': 'Library folder',
+  'settings.libraryFolderHint':
+    'Where the games are kept. Choosing another folder shows what would move, and its size, before anything does.',
+  'settings.libraryInternal': 'This device',
+  'settings.libraryCard': 'SD card {label}',
+  'settings.libraryFree': '{size} free',
+  'settings.libraryInUse': 'In use',
+  'settings.libraryMoveHere': 'Move here',
+  'libraryMove.title': 'Move the library?',
+  'libraryMove.planning': 'Measuring the games…',
+  'libraryMove.body_one': '{count} game, {size}, moves from {from} to {to}.',
+  'libraryMove.body_other': '{count} games, {size}, move from {from} to {to}.',
+  'libraryMove.sameDrive':
+    'Both folders are on one drive, so each game is renamed rather than copied.',
+  'libraryMove.otherDrive':
+    'Each game is copied and checked, and its old copy is removed only once the new one is whole.',
+  'libraryMove.free': '{size} is free there.',
+  'libraryMove.taken_one':
+    '{count} game stays where it is: something is already in its place there.',
+  'libraryMove.taken_other':
+    '{count} games stay where they are: something is already in their place there.',
+  'libraryMove.missing_one': '{count} game has no files on the disk, so there is nothing to carry.',
+  'libraryMove.missing_other':
+    '{count} games have no files on the disk, so there is nothing to carry.',
+  'libraryMove.settingOnly': 'There are no games to carry: only the library folder changes.',
+  'libraryMove.noRoom': 'There is not enough room: the games need {size} and {free} is free there.',
+  'libraryMove.stays': 'Stays',
+  'libraryMove.more_one': 'and {count} more game',
+  'libraryMove.more_other': 'and {count} more games',
+  'libraryMove.keep': 'Keep it where it is',
+  'libraryMove.confirm': 'Move the games',
+  'libraryMove.confirmSetting': 'Use this folder',
+  'libraryMove.moving_one': 'Moving {count} game. Leave Galleon open until it finishes.',
+  'libraryMove.moving_other': 'Moving {count} games. Leave Galleon open until it finishes.',
+  'libraryMove.done_one': 'Moved {count} game to {path}',
+  'libraryMove.done_other': 'Moved {count} games to {path}',
+  'libraryMove.doneSetting': 'The library is now in {path}',
+  'libraryMove.leftovers_one':
+    '{count} old copy could not be removed and still takes room: {paths}',
+  'libraryMove.leftovers_other':
+    '{count} old copies could not be removed and still take room: {paths}',
+  'libraryMove.stoppedTitle': 'The move stopped',
+  'libraryMove.stopped':
+    'It stopped at {name}: {reason}. The library stays in {path}, and the games already moved are in the new folder. Choose the folder again to carry on.',
   'settings.saveSync': 'Save sync',
   'settings.syncDown': 'Download newer saves before playing',
   'settings.syncDownHint':

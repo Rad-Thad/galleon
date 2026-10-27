@@ -829,9 +829,56 @@ export const de: Catalog = {
     'Neue Downloads gehen in den Galleon-Ordner — tragen Sie ihn bei jedem Emulator ein',
   'settings.storageToEmulator': 'Neue Downloads gehen in den eigenen Ordner jedes Emulators',
   'settings.sharedFolderNote':
-    'Spiele werden nach {path}/roms/<System> geschrieben. Spiele, die bereits in den eigenen ' +
+    'Spiele werden nach {path}/<System> geschrieben. Spiele, die bereits in den eigenen ' +
     'Ordner eines Emulators heruntergeladen wurden, bleiben dort und werden erneut zum Download ' +
     'angeboten; schalten Sie zurück, tauchen sie wieder auf.',
+  'settings.libraryFolder': 'Bibliotheksordner',
+  'settings.libraryFolderHint':
+    'Wo die Spiele liegen. Wählen Sie einen anderen Ordner, sehen Sie zuerst, was verschoben würde und wie groß es ist.',
+  'settings.libraryInternal': 'Dieses Gerät',
+  'settings.libraryCard': 'SD-Karte {label}',
+  'settings.libraryFree': '{size} frei',
+  'settings.libraryInUse': 'In Verwendung',
+  'settings.libraryMoveHere': 'Hierher verschieben',
+  'libraryMove.title': 'Bibliothek verschieben?',
+  'libraryMove.planning': 'Spiele werden gemessen…',
+  'libraryMove.body_one': '{count} Spiel, {size}, wird von {from} nach {to} verschoben.',
+  'libraryMove.body_other': '{count} Spiele, {size}, werden von {from} nach {to} verschoben.',
+  'libraryMove.sameDrive':
+    'Beide Ordner liegen auf einem Laufwerk, daher wird jedes Spiel umbenannt statt kopiert.',
+  'libraryMove.otherDrive':
+    'Jedes Spiel wird kopiert und geprüft; die alte Kopie wird erst entfernt, wenn die neue vollständig ist.',
+  'libraryMove.free': 'Dort sind {size} frei.',
+  'libraryMove.taken_one': '{count} Spiel bleibt, wo es ist: Sein Platz dort ist schon belegt.',
+  'libraryMove.taken_other':
+    '{count} Spiele bleiben, wo sie sind: Ihr Platz dort ist schon belegt.',
+  'libraryMove.missing_one':
+    '{count} Spiel hat keine Dateien auf dem Datenträger, also gibt es nichts zu verschieben.',
+  'libraryMove.missing_other':
+    '{count} Spiele haben keine Dateien auf dem Datenträger, also gibt es nichts zu verschieben.',
+  'libraryMove.settingOnly':
+    'Es gibt keine Spiele zu verschieben: Nur der Bibliotheksordner ändert sich.',
+  'libraryMove.noRoom': 'Nicht genug Platz: Die Spiele brauchen {size}, dort sind {free} frei.',
+  'libraryMove.more_one': 'und {count} weiteres Spiel',
+  'libraryMove.more_other': 'und {count} weitere Spiele',
+  'libraryMove.stays': 'Bleibt',
+  'libraryMove.keep': 'Dort lassen, wo sie ist',
+  'libraryMove.confirm': 'Spiele verschieben',
+  'libraryMove.confirmSetting': 'Diesen Ordner verwenden',
+  'libraryMove.moving_one':
+    '{count} Spiel wird verschoben. Lassen Sie Galleon geöffnet, bis es fertig ist.',
+  'libraryMove.moving_other':
+    '{count} Spiele werden verschoben. Lassen Sie Galleon geöffnet, bis es fertig ist.',
+  'libraryMove.done_one': '{count} Spiel nach {path} verschoben',
+  'libraryMove.done_other': '{count} Spiele nach {path} verschoben',
+  'libraryMove.doneSetting': 'Die Bibliothek liegt jetzt in {path}',
+  'libraryMove.leftovers_one':
+    '{count} alte Kopie ließ sich nicht entfernen und belegt noch Platz: {paths}',
+  'libraryMove.leftovers_other':
+    '{count} alte Kopien ließen sich nicht entfernen und belegen noch Platz: {paths}',
+  'libraryMove.stoppedTitle': 'Das Verschieben wurde angehalten',
+  'libraryMove.stopped':
+    'Es hielt bei {name} an: {reason}. Die Bibliothek bleibt in {path}, und die bereits verschobenen Spiele liegen im neuen Ordner. Wählen Sie den Ordner erneut, um fortzufahren.',
   'settings.saveSync': 'Spielstand-Abgleich',
   'settings.syncDown': 'Neuere Spielstände vor dem Spielen herunterladen',
   'settings.syncDownHint':

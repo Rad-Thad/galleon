@@ -94,6 +94,11 @@ interface AppState {
   refreshStatus: () => Promise<ConnectionStatus>
   settings: Settings | null
   saveSettings: (patch: Partial<Settings>) => Promise<void>
+  /**
+   * Read the settings again, for a change the main process made itself: a
+   * library move sets `libraryRoot` only once every game is in the new folder.
+   */
+  reloadSettings: () => Promise<void>
 
   installed: InstalledRom[]
   installedIds: Set<number>
@@ -325,6 +330,10 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
 
   const saveSettings = useCallback(async (patch: Partial<Settings>): Promise<void> => {
     setSettings(await window.rommix.system.updateSettings(patch))
+  }, [])
+
+  const reloadSettings = useCallback(async (): Promise<void> => {
+    setSettings(await window.rommix.system.settings())
   }, [])
 
   const navigate = useCallback((next: Route): void => {
@@ -666,6 +675,7 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
       refreshStatus,
       settings,
       saveSettings,
+      reloadSettings,
       installed,
       installedIds,
       refreshInstalled,
@@ -690,6 +700,7 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
       refreshStatus,
       settings,
       saveSettings,
+      reloadSettings,
       installed,
       installedIds,
       refreshInstalled,

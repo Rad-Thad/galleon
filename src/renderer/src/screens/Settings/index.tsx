@@ -21,8 +21,9 @@ import { GamesTab, GeneralTab, SystemTab } from './tabs'
  * software and decides which program a platform is handed to, which is not a
  * preference, and it was longer than the whole of the rest of this page.
  *
- * What is left is the shell and the two things more than one tab reads: the
- * pre-flight report and where RomMix's folder is.
+ * What is left is the shell and what the System tab reads: the pre-flight
+ * report and where RomMix's folder is, held here so a visit to another tab does
+ * not probe the machine again.
  */
 
 type SettingsTab = 'general' | 'games' | 'system'
@@ -112,7 +113,7 @@ export function SettingsScreen({ open }: { open?: SettingsTarget }): JSX.Element
 
         <div className="panel__body">
           {tab === 'general' ? <GeneralTab open={arrival} /> : null}
-          {tab === 'games' ? <GamesTab root={root} /> : null}
+          {tab === 'games' ? <GamesTab /> : null}
           {tab === 'system' ? (
             <SystemTab diagnostics={diagnostics} root={root} onRecheck={refreshDiagnostics} />
           ) : null}

@@ -813,9 +813,53 @@ export const es: Catalog = {
     'Las descargas nuevas van a la carpeta de Galleon — indícasela a cada emulador',
   'settings.storageToEmulator': 'Las descargas nuevas van a la carpeta propia de cada emulador',
   'settings.sharedFolderNote':
-    'Los juegos se escriben en {path}/roms/<sistema>. Los juegos ya descargados en la carpeta ' +
+    'Los juegos se escriben en {path}/<sistema>. Los juegos ya descargados en la carpeta ' +
     'propia de un emulador se quedan ahí y se vuelven a ofrecer para descarga; vuelve atrás y ' +
     'reaparecen.',
+  'settings.libraryFolder': 'Carpeta de la biblioteca',
+  'settings.libraryFolderHint':
+    'Dónde se guardan los juegos. Al elegir otra carpeta verás qué se movería, y su tamaño, antes de que se mueva nada.',
+  'settings.libraryInternal': 'Este dispositivo',
+  'settings.libraryCard': 'Tarjeta SD {label}',
+  'settings.libraryFree': '{size} libres',
+  'settings.libraryInUse': 'En uso',
+  'settings.libraryMoveHere': 'Mover aquí',
+  'libraryMove.title': '¿Mover la biblioteca?',
+  'libraryMove.planning': 'Midiendo los juegos…',
+  'libraryMove.body_one': '{count} juego, {size}, pasa de {from} a {to}.',
+  'libraryMove.body_other': '{count} juegos, {size}, pasan de {from} a {to}.',
+  'libraryMove.sameDrive':
+    'Las dos carpetas están en la misma unidad, así que cada juego se renombra en vez de copiarse.',
+  'libraryMove.otherDrive':
+    'Cada juego se copia y se comprueba, y la copia antigua solo se borra cuando la nueva está completa.',
+  'libraryMove.free': 'Allí quedan {size} libres.',
+  'libraryMove.taken_one': '{count} juego se queda donde está: ya hay algo en su sitio allí.',
+  'libraryMove.taken_other': '{count} juegos se quedan donde están: ya hay algo en su sitio allí.',
+  'libraryMove.missing_one':
+    '{count} juego no tiene archivos en el disco, así que no hay nada que mover.',
+  'libraryMove.missing_other':
+    '{count} juegos no tienen archivos en el disco, así que no hay nada que mover.',
+  'libraryMove.settingOnly': 'No hay juegos que mover: solo cambia la carpeta de la biblioteca.',
+  'libraryMove.noRoom':
+    'No hay espacio suficiente: los juegos necesitan {size} y allí quedan {free} libres.',
+  'libraryMove.more_one': 'y {count} juego más',
+  'libraryMove.more_other': 'y {count} juegos más',
+  'libraryMove.stays': 'Se queda',
+  'libraryMove.keep': 'Dejarla donde está',
+  'libraryMove.confirm': 'Mover los juegos',
+  'libraryMove.confirmSetting': 'Usar esta carpeta',
+  'libraryMove.moving_one': 'Moviendo {count} juego. Deja Galleon abierto hasta que termine.',
+  'libraryMove.moving_other': 'Moviendo {count} juegos. Deja Galleon abierto hasta que termine.',
+  'libraryMove.done_one': '{count} juego movido a {path}',
+  'libraryMove.done_other': '{count} juegos movidos a {path}',
+  'libraryMove.doneSetting': 'La biblioteca está ahora en {path}',
+  'libraryMove.leftovers_one':
+    '{count} copia antigua no se pudo borrar y sigue ocupando espacio: {paths}',
+  'libraryMove.leftovers_other':
+    '{count} copias antiguas no se pudieron borrar y siguen ocupando espacio: {paths}',
+  'libraryMove.stoppedTitle': 'El traslado se detuvo',
+  'libraryMove.stopped':
+    'Se detuvo en {name}: {reason}. La biblioteca sigue en {path}, y los juegos ya movidos están en la carpeta nueva. Vuelve a elegir la carpeta para continuar.',
   'settings.saveSync': 'Sincronización de partidas',
   'settings.syncDown': 'Descargar las partidas más recientes antes de jugar',
   'settings.syncDownHint':

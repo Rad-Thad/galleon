@@ -518,6 +518,64 @@ async function cardMissing(): Promise<void> {
   }
 }
 
+/**
+ * Changing the library folder (M1-10): the confirmation, with what would move
+ * and its size, asked before anything does. The library starts in a folder of
+ * its own so the root's own folder is the one on offer.
+ */
+async function libraryMove(): Promise<void> {
+  const server = await startFakeRomm()
+  const old = join(HOMES, 'library-move-old')
+  rmSync(old, { recursive: true, force: true })
+  const games = [
+    { romId: 1, name: 'Cave Story MD', file: 'cavestory.md', sizeBytes: 4 * 1024 ** 2 },
+    { romId: 2, name: 'Tanglewood', file: 'tanglewood.md', sizeBytes: 3 * 1024 ** 2 }
+  ]
+  mkdirSync(join(old, 'genesis'), { recursive: true })
+  for (const one of games)
+    writeFileSync(join(old, 'genesis', one.file), Buffer.alloc(one.sizeBytes))
+  const app = await startApp({
+    baseUrl: server.baseUrl,
+    token: server.token,
+    viewport: NOVA,
+    home: join(HOMES, 'library-move'),
+    settings: { libraryRoot: old },
+    files: {
+      'config/downloaded_roms.json': JSON.stringify({
+        roms: games.map((one) => ({
+          romId: one.romId,
+          path: join(old, 'genesis', one.file),
+          launchPath: join(old, 'genesis', one.file),
+          name: one.name,
+          coverPath: null,
+          files: [one.file],
+          system: 'genesis',
+          platformName: 'Sega Mega Drive',
+          sizeBytes: one.sizeBytes,
+          installedAt: '2026-10-01T00:00:00.000Z',
+          isDirectory: false,
+          emulatorId: SHARED_LIBRARY
+        }))
+      })
+    }
+  })
+  try {
+    await attempt('settings-library-move', async () => {
+      await atHome(app)
+      await app.goTo('settings')
+      await app.waitFor(`document.querySelector('[data-tab="games"]')`, 'the settings tabs')
+      await app.choose('[data-tab="games"]')
+      await app.choose('[data-folder=""] [data-action="library-move-here"]')
+      await app.waitFor(`document.querySelector('[data-games] [data-rom="1"]')`, 'the plan')
+      await shoot(app, 'settings-library-move')
+    })
+  } finally {
+    await app.stop()
+    await server.close().catch(() => undefined)
+    rmSync(old, { recursive: true, force: true })
+  }
+}
+
 rmSync(OUT, { recursive: true, force: true })
 mkdirSync(OUT, { recursive: true })
 await signedIn()
@@ -525,6 +583,7 @@ if (wanted('library-iconless')) await iconless()
 if (wanted('game-saves-states')) await localStates()
 if (wanted('game-conflict')) await conflict()
 if (wanted('game-card-missing')) await cardMissing()
+if (wanted('settings-library-move')) await libraryMove()
 await setup()
 contactSheet()
 
