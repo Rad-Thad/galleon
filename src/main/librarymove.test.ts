@@ -22,7 +22,14 @@ import { cp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { SHARED_LIBRARY, type InstalledRom } from '@shared/types'
-import { moveLibrary, planLibraryMove, type MoveIndex } from './librarymove.ts'
+import {
+  changeLibraryFolder,
+  moveLibrary,
+  planLibraryMove,
+  type CopyPart,
+  type FolderChangeSources,
+  type MoveIndex
+} from './librarymove.ts'
 import { Store } from './store.ts'
 
 const scratches: string[] = []
@@ -415,4 +422,105 @@ test('with the real index, a write that fails leaves both the files and the inde
     new Store(join(home, 'config')).getInstalled(2)?.path,
     join(from, 'psx', 'Disc Game')
   )
+})
+
+/**
+ * Settings asking for the library somewhere else: `changeLibraryFolder` with
+ * an index in memory and the setting as a variable, the library folder for a
+ * `libraryRoot` of '' being the scratch library.
+ */
+function folderChange(
+  from: string,
+  games: InstalledRom[],
+  extra: Partial<FolderChangeSources> = {}
+): FolderChangeSources & { root: () => string; entries: Map<number, InstalledRom> } {
+  const index = memoryIndex(games)
+  let root = ''
+  return {
+    root: () => root,
+    entries: index.entries,
+    installed: () => [...index.entries.values()],
+    index,
+    libraryRoot: () => root,
+    folderOf: (libraryRoot) => libraryRoot || from,
+    downloading: () => false,
+    prepare: async (dir) => {
+      mkdirSync(dir, { recursive: true })
+      return true
+    },
+    setLibraryRoot: async (libraryRoot) => {
+      root = libraryRoot
+    },
+    ...extra
+  }
+}
+
+test('changing the folder moves every game, then makes the new folder the library', async () => {
+  const { from, to, games } = looseLibrary()
+  const sources = folderChange(from, games)
+  const change = await changeLibraryFolder(sources, to)
+
+  assert.deepEqual(change, {
+    moved: [1, 2, 3],
+    skipped: [],
+    failed: null,
+    leftovers: [],
+    libraryRoot: to
+  })
+  assert.equal(sources.root(), to)
+  assert.equal(sources.entries.get(2)?.path, join(to, 'psx', 'Disc Game'))
+  assert.equal(existsSync(join(from, 'gc', 'one.rvz')), false)
+})
+
+test('the same folder by another name moves nothing and takes the name', async () => {
+  const { from, games } = looseLibrary()
+  const sources = folderChange(from, games)
+  const change = await changeLibraryFolder(sources, join(from, '.'))
+  assert.deepEqual(change.moved, [])
+  assert.equal(sources.root(), join(from, '.'))
+  assert.equal(existsSync(join(from, 'gc', 'one.rvz')), true)
+})
+
+for (const [why, extra, to, key] of [
+  ['a download is under way', { downloading: () => true }, null, 'downloading'],
+  ['the folder is inside the library', {}, 'inside', 'inside the library'],
+  ['the new drive has no room', {}, '/proc/galleon', 'not enough room'],
+  ['the folder cannot be written to', { prepare: async () => false }, null, 'cannot write']
+] as const) {
+  test(`nothing moves and the library stays put when ${why}`, async () => {
+    const { from, to: card, games } = looseLibrary()
+    const target = to === 'inside' ? join(from, 'card') : (to ?? card)
+    const sources = folderChange(from, games, extra)
+    await assert.rejects(changeLibraryFolder(sources, target), new RegExp(key))
+    assert.equal(sources.root(), '')
+    assert.equal(existsSync(join(from, 'gc', 'one.rvz')), true)
+    assert.equal(existsSync(target), false, 'no folder is made for a move that is refused')
+    assert.deepEqual(
+      [...sources.entries.values()].map((entry) => entry.path),
+      games.map((game) => game.path)
+    )
+  })
+}
+
+test('a move that stops part-way leaves the library where it was, and asking again finishes it', async () => {
+  const { from, to, games } = looseLibrary()
+  const sources = folderChange(from, games)
+  let copies = 0
+  const failsSecond: CopyPart = async (source, target) => {
+    if (++copies === 2) throw new Error('the card was pulled')
+    await cp(source, target, { recursive: true })
+  }
+  const stopped = await changeLibraryFolder(sources, to, (plan, index) =>
+    moveLibrary({ ...plan, sameDrive: false }, index, failsSecond)
+  )
+  assert.deepEqual(stopped.moved, [1])
+  assert.equal(stopped.failed?.romId, 2)
+  assert.equal(stopped.libraryRoot, '', 'the setting is not changed')
+  assert.equal(sources.entries.get(1)?.path, join(to, 'gc', 'one.rvz'))
+  assert.equal(sources.entries.get(2)?.path, join(from, 'psx', 'Disc Game'))
+
+  const finished = await changeLibraryFolder(sources, to)
+  assert.deepEqual(finished.moved, [2, 3])
+  assert.equal(finished.libraryRoot, to)
+  assert.equal(sources.root(), to)
 })

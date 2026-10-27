@@ -1099,6 +1099,11 @@ export const en = {
   'error.notDownloadedYet': 'That ROM is not downloaded yet',
   'error.cardNotInserted': 'That game is on a card that is not inserted',
   'error.downloadWaitsForCard': 'Waiting for the card: insert it, then resume this download',
+  'error.libraryMoveBusy':
+    'The library cannot move while a game is downloading: let the downloads finish, or pause them',
+  'error.libraryMoveInside': 'That folder is inside the library: choose one outside it',
+  'error.libraryMoveNoRoom': 'There is not enough room in {path} for the games',
+  'error.libraryFolderNotWritable': 'Galleon cannot write to {path}',
   'error.libraryMoveIncomplete':
     'The copy of {name} came out incomplete, so it was left where it was',
   'error.downloadedForOther':

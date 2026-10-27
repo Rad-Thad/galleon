@@ -555,6 +555,10 @@ const biosReport = (): BiosPlatform[] => [
   }
 ]
 
+/** Where the stub library is, and where the stub card would hold it. */
+const STUB_LIBRARY = '/home/deck/galleon/roms'
+const STUB_CARD_LIBRARY = '/run/media/deck/NovaSD/galleon/roms'
+
 const SETTINGS: Settings = {
   systemEmulators: {},
   emulatorPaths: {},
@@ -868,6 +872,62 @@ const bridge: RomMixBridge = {
     files: (romId: number) => {
       const entry = INSTALLED.find((item) => item.romId === romId)
       return later(entry ? [{ name: fileNameOf(entry.path), sizeBytes: entry.sizeBytes }] : [])
+    },
+    folders: () =>
+      later([
+        {
+          libraryRoot: '',
+          path: STUB_LIBRARY,
+          label: null,
+          freeBytes: 40 * 1024 ** 3,
+          current: SETTINGS.libraryRoot === ''
+        },
+        {
+          libraryRoot: STUB_CARD_LIBRARY,
+          path: STUB_CARD_LIBRARY,
+          label: 'NovaSD',
+          freeBytes: 380 * 1024 ** 3,
+          current: SETTINGS.libraryRoot === STUB_CARD_LIBRARY
+        }
+      ]),
+    // Every stub game is in the shared library, on another drive from the card.
+    planMove: (libraryRoot: string) => {
+      const [from, to] = [SETTINGS.libraryRoot || STUB_LIBRARY, libraryRoot || STUB_LIBRARY]
+      const games = INSTALLED.map((entry) => ({
+        romId: entry.romId,
+        name: entry.name,
+        system: entry.system,
+        from: entry.path,
+        to: entry.path,
+        parts: [],
+        sizeBytes: entry.sizeBytes
+      }))
+      const totalBytes = games.reduce((sum, game) => sum + game.sizeBytes, 0)
+      return later({
+        from,
+        to,
+        refused: from === to ? ('same-folder' as const) : null,
+        games: from === to ? [] : games,
+        totalBytes: from === to ? 0 : totalBytes,
+        missing: [],
+        taken: [],
+        sameDrive: false,
+        freeBytes: 380 * 1024 ** 3,
+        fits: true
+      })
+    },
+    move: (libraryRoot: string) => {
+      SETTINGS.libraryRoot = libraryRoot
+      return later(
+        {
+          moved: INSTALLED.map((entry) => entry.romId),
+          skipped: [],
+          failed: null,
+          leftovers: [],
+          libraryRoot
+        },
+        900
+      )
     },
     sync: () => later({ checked: ROMS.length, removed: 0, adopted: 0 }, 900),
     onSyncProgress: noSubscription,

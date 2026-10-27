@@ -1123,6 +1123,11 @@ export const fr: Catalog = {
   'error.cardNotInserted': 'Ce jeu est sur une carte qui n’est pas insérée',
   'error.downloadWaitsForCard':
     'En attente de la carte : insérez-la, puis reprenez ce téléchargement',
+  'error.libraryMoveBusy':
+    'La bibliothèque ne peut pas être déplacée pendant un téléchargement : laissez les téléchargements finir, ou mettez-les en pause',
+  'error.libraryMoveInside': 'Ce dossier est dans la bibliothèque : choisissez-en un en dehors',
+  'error.libraryMoveNoRoom': "Il n'y a pas assez de place dans {path} pour les jeux",
+  'error.libraryFolderNotWritable': 'Galleon ne peut pas écrire dans {path}',
   'error.libraryMoveIncomplete': 'La copie de {name} est incomplète : le jeu est resté à sa place',
   'error.downloadedForOther':
     'Cette copie a été téléchargée pour un autre émulateur. Téléchargez-la de nouveau pour celui ' +
