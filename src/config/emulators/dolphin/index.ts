@@ -80,7 +80,7 @@ export const dolphin: EmulatorDescriptor = {
   dirs: {
     // Dolphin's game list is the folders the user adds; RomMix's own folder is
     // the honest answer.
-    roms: { base: 'rommix', path: 'roms' },
+    roms: { base: 'library', path: '' },
     saves: { base: 'data', path: 'dolphin-emu/GC' }
     // No `states`: a state is named after the game's ID, which nothing here
     // can pair with a ROM. No `bios`: Dolphin needs none.

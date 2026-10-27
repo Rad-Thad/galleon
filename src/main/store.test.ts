@@ -97,6 +97,27 @@ describe('settings', () => {
     assert.equal(store.server?.baseUrl, 'https://romm.example')
   })
 
+  test('only a directory with no settings file is fresh, and its library starts in the root', () => {
+    const dir = scratch()
+    const first = new Store(dir)
+    assert.equal(first.fresh, true)
+    assert.equal(first.settings.libraryRoot, '')
+
+    // The first start wrote its defaults, so the next one is not fresh.
+    assert.equal(new Store(dir).fresh, false)
+  })
+
+  test('a file written before the library folder existed keeps its games in the root', () => {
+    const dir = scratch({
+      'settings.json': JSON.stringify({ settings: { romStorage: 'rommix', setupComplete: true } })
+    })
+
+    const store = new Store(dir)
+
+    assert.equal(store.fresh, false)
+    assert.equal(store.settings.libraryRoot, '')
+  })
+
   test('a settings file that is not JSON leaves the defaults standing', () => {
     const store = new Store(scratch({ 'settings.json': '{ this is not json' }))
 

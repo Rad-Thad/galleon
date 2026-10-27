@@ -110,7 +110,7 @@ export const duckstation: EmulatorDescriptor = {
   dirs: {
     // DuckStation has no ROM folder of its own: its game list is the
     // directories the user adds. RomMix's own folder is the honest answer.
-    roms: { base: 'rommix', path: 'roms' },
+    roms: { base: 'library', path: '' },
     saves: { base: 'data', path: 'duckstation/memcards' },
     bios: { base: 'data', path: 'duckstation/bios' }
     // No `states`: DuckStation names a state after the disc's serial rather

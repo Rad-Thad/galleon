@@ -101,7 +101,7 @@ export const flycast: EmulatorDescriptor = {
   dirs: {
     // Flycast's game list is the folders the user adds; RomMix's own folder is
     // the honest answer.
-    roms: { base: 'rommix', path: 'roms' },
+    roms: { base: 'library', path: '' },
     saves: { base: 'data', path: 'flycast' },
     bios: { base: 'data', path: 'flycast' }
     // No `states`: Flycast keeps them loose in its data folder beside the

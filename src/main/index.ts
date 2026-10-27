@@ -117,6 +117,7 @@ if (!app.requestSingleInstanceLock()) {
     }
     const took = log.since()
     rommix.registerImageProtocol()
+    await rommix.chooseDefaultLibrary()
     const pruned = rommix.store.pruneInstalled()
     if (pruned > 0) log.info('library', 'dropped index entries whose files are gone', { pruned })
     // After the prune, so a game that has just left the index takes what was

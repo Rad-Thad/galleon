@@ -129,10 +129,11 @@ export interface FoundBy {
 /**
  * Base directory a path template hangs off. `config` and `data` follow the
  * install kind: a flatpak keeps them under ~/.var/app/<app id>/, a native
- * install under the XDG roots. `rommix` is RomMix's own folder, for emulators
- * that have nowhere of their own to keep ROMs.
+ * install under the XDG roots. `library` is the folder the game library is
+ * kept in (see `Settings.libraryRoot`), for emulators that have nowhere of
+ * their own to keep ROMs.
  */
-export type DirBase = 'home' | 'config' | 'data' | 'rommix'
+export type DirBase = 'home' | 'config' | 'data' | 'library'
 
 export interface DirSpec {
   base: DirBase

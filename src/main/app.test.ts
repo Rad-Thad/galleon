@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
+import { CARD_MIN_FREE_BYTES } from '@shared/librarycard'
 import { NOTICES, type Settings } from '@shared/types'
 import { RomMixApp, isAssetPath } from './app.ts'
 import { ReadOnlyGuard } from './romm/guard.ts'
@@ -105,4 +106,70 @@ test('the core socket sees the game, the live queue and the saves owed', () => {
   // Nothing is ever sent unasked with sending up switched off.
   settings.syncSavesUp = false
   assert.deepEqual(app.coreObservation().pendingUploads, [])
+})
+
+/** An app over a stand-in store, recording what it writes to the settings. */
+function libraryApp(fresh: boolean): { app: RomMixApp; written: Partial<Settings>[] } {
+  const app = Object.create(RomMixApp.prototype) as RomMixApp
+  const written: Partial<Settings>[] = []
+  Object.assign(app, {
+    store: {
+      fresh,
+      updateSettings(patch: Partial<Settings>) {
+        written.push(patch)
+      }
+    }
+  })
+  return { app, written }
+}
+
+const card = {
+  mountPoint: '/run/media/armada/NovaSD',
+  fsType: 'ext4',
+  label: 'NovaSD',
+  readOnly: false,
+  freeBytes: CARD_MIN_FREE_BYTES * 10,
+  totalBytes: CARD_MIN_FREE_BYTES * 20
+}
+const onCard = {
+  volumes: async () => [card],
+  user: 'armada',
+  prepare: async () => true
+}
+
+test('a fresh installation puts its library on the card, and only a fresh one', async (t) => {
+  const home = process.env.GALLEON_HOME
+  t.after(() => {
+    if (home === undefined) delete process.env.GALLEON_HOME
+    else process.env.GALLEON_HOME = home
+  })
+  delete process.env.GALLEON_HOME
+
+  const fresh = libraryApp(true)
+  await fresh.app.chooseDefaultLibrary(onCard)
+  assert.deepEqual(fresh.written, [{ libraryRoot: '/run/media/armada/NovaSD/galleon/roms' }])
+
+  const started = libraryApp(false)
+  await started.app.chooseDefaultLibrary(onCard)
+  assert.deepEqual(started.written, [], 'a library that may hold games is never moved')
+
+  const none = libraryApp(true)
+  await none.app.chooseDefaultLibrary({ ...onCard, volumes: async () => [] })
+  assert.deepEqual(none.written, [], 'with no card the default stands')
+})
+
+test('a home given through GALLEON_HOME keeps its library inside it', async (t) => {
+  const home = process.env.GALLEON_HOME
+  t.after(() => {
+    if (home === undefined) delete process.env.GALLEON_HOME
+    else process.env.GALLEON_HOME = home
+  })
+  process.env.GALLEON_HOME = '/tmp/galleon-selftest-home'
+
+  const { app, written } = libraryApp(true)
+  await app.chooseDefaultLibrary({
+    ...onCard,
+    volumes: async () => assert.fail('the card is not even looked at')
+  })
+  assert.deepEqual(written, [])
 })

@@ -19,7 +19,7 @@ import {
 import { log } from './log.ts'
 import type { OfflineCache } from './offline.ts'
 import { RommClient, RommError } from './romm/index.ts'
-import { rootPaths } from './root.ts'
+import { libraryFolder } from './root.ts'
 import { safeJoin } from './safepath.ts'
 import type { Store } from './store.ts'
 import { t } from './i18n.ts'
@@ -155,7 +155,8 @@ export class Library extends EventEmitter {
      * emulator, so a missing one is a refusal rather than a fallback.
      */
     const library = ((): { root: string | null; emulatorId: string } => {
-      if (this.shared) return { root: rootPaths().roms, emulatorId: SHARED_LIBRARY }
+      if (this.shared)
+        return { root: libraryFolder(this.store.settings.libraryRoot), emulatorId: SHARED_LIBRARY }
       if (emulator) return { root: emulator.paths.roms, emulatorId: emulator.id }
 
       // Named from the registry rather than written out, so this cannot go on

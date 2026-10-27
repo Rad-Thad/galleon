@@ -110,6 +110,17 @@ export function rootPaths(root = resolveRoot()): {
   }
 }
 
+/**
+ * The folder the game library is kept in. See `Settings.libraryRoot`.
+ *
+ * Every place a game is written to or looked for asks this, so a library on the
+ * SD card and one in the root's own folder are the same thing to everything
+ * below it.
+ */
+export function libraryFolder(libraryRoot: string, root = resolveRoot()): string {
+  return libraryRoot || rootPaths(root).roms
+}
+
 /** Create the root's directories if they are not there yet. */
 export function ensureRoot(root = resolveRoot()): string {
   const paths = rootPaths(root)
