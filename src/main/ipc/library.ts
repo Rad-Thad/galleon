@@ -135,6 +135,14 @@ export function registerLibraryIpc(rommix: RomMixApp, handle: Handle): void {
   handle('library:move', (libraryRoot: string) => rommix.changeLibraryFolder(libraryRoot))
 
   /**
+   * Stock RomMix's games: what there is, adopting them where they are, and
+   * moving them into the library. See `RomMixApp.stockLibrary`.
+   */
+  handle('library:stock', () => rommix.stockLibrary())
+  handle('library:adoptStock', () => rommix.adoptStockLibrary())
+  handle('library:moveStock', () => rommix.moveStockLibrary())
+
+  /**
    * Check the whole library against the disk, rather than only the ROMs a
    * screen has loaded. Reports progress because a large library takes a while
    * and a frozen button is indistinguishable from a broken one.

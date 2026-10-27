@@ -70,6 +70,9 @@ const bridge: RomMixBridge = {
     folders: () => ipcRenderer.invoke('library:folders'),
     planMove: (libraryRoot: string) => ipcRenderer.invoke('library:planMove', libraryRoot),
     move: (libraryRoot: string) => ipcRenderer.invoke('library:move', libraryRoot),
+    stock: () => ipcRenderer.invoke('library:stock'),
+    adoptStock: () => ipcRenderer.invoke('library:adoptStock'),
+    moveStock: () => ipcRenderer.invoke('library:moveStock'),
     sync: () => ipcRenderer.invoke('library:sync'),
     onSyncProgress: (listener: (progress: SyncProgress) => void) =>
       subscribe<SyncProgress>('library:syncProgress', listener),

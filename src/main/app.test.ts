@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { dirname, join } from 'node:path'
 import { CARD_MIN_FREE_BYTES } from '@shared/librarycard'
-import { NOTICES, type Settings } from '@shared/types'
+import { NOTICES, SHARED_LIBRARY, type InstalledRom, type Settings } from '@shared/types'
 import { RomMixApp, isAssetPath } from './app.ts'
 import { ReadOnlyGuard } from './romm/guard.ts'
 
@@ -193,3 +196,73 @@ for (const state of ['queued', 'downloading', 'checking', 'extracting', 'install
     assert.equal(moved, false, 'refused before anything is planned')
   })
 }
+
+test("stock RomMix's games are offered, adopted and announced through the app", async (t) => {
+  const saved = [process.env.GALLEON_HOME, process.env.HOME, process.env.XDG_CONFIG_HOME]
+  t.after(() => {
+    for (const [name, value] of [
+      ['GALLEON_HOME', saved[0]],
+      ['HOME', saved[1]],
+      ['XDG_CONFIG_HOME', saved[2]]
+    ] as const) {
+      if (value === undefined) delete process.env[name]
+      else process.env[name] = value
+    }
+  })
+  const home = mkdtempSync(join(tmpdir(), 'galleon-app-stock-test-'))
+  t.after(() => rmSync(home, { recursive: true, force: true }))
+  delete process.env.GALLEON_HOME
+  delete process.env.XDG_CONFIG_HOME
+  process.env.HOME = home
+  const game = join(home, 'rommix', 'roms', 'gc', 'one.rvz')
+  mkdirSync(join(home, 'rommix', 'config'), { recursive: true })
+  mkdirSync(dirname(game), { recursive: true })
+  writeFileSync(game, Buffer.alloc(10))
+  writeFileSync(
+    join(home, 'rommix', 'config', 'settings.json'),
+    JSON.stringify({ server: { baseUrl: 'http://romm.test' } })
+  )
+  writeFileSync(
+    join(home, 'rommix', 'config', 'downloaded_roms.json'),
+    JSON.stringify({
+      roms: [{ romId: 1, path: game, launchPath: game, system: 'gc', emulatorId: SHARED_LIBRARY }]
+    })
+  )
+
+  const entries = new Map<number, InstalledRom>()
+  const sent: string[] = []
+  let server: { baseUrl: string } | null = null
+  const app = Object.create(RomMixApp.prototype) as RomMixApp
+  Object.assign(app, {
+    downloads: { items: [] },
+    library: { installed: [] },
+    send: (channel: string) => sent.push(channel),
+    store: {
+      get server() {
+        return server
+      },
+      settings: { libraryRoot: '' },
+      get installed() {
+        return [...entries.values()]
+      },
+      getInstalled: (romId: number) => entries.get(romId),
+      addInstalledMany: (roms: InstalledRom[]) => {
+        for (const rom of roms) entries.set(rom.romId, rom)
+      }
+    }
+  })
+
+  assert.equal(await app.stockLibrary(), null, 'nothing before sign-in')
+  server = { baseUrl: 'http://romm.test' }
+  const offer = await app.stockLibrary()
+  assert.equal(offer?.adoptable, 1)
+  assert.deepEqual(
+    offer?.plan.games.map((each) => [each.romId, each.sizeBytes, each.to]),
+    [[1, 10, join(home, 'galleon', 'roms', 'gc', 'one.rvz')]]
+  )
+
+  assert.equal(app.adoptStockLibrary(), 1)
+  assert.equal(entries.get(1)?.path, game)
+  assert.deepEqual(sent, ['library:installed'])
+  assert.equal((await app.stockLibrary())?.adoptable, 0, 'still offered for the move')
+})

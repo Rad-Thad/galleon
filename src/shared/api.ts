@@ -14,6 +14,7 @@ import type {
   LibraryFolderChange,
   LibraryFolderChoice,
   LibraryMovePlan,
+  LibraryMoveResult,
   LaunchChoice,
   LaunchResult,
   LibrarySyncResult,
@@ -37,6 +38,7 @@ import type {
   SavesWaiting,
   SaveSyncResult,
   Settings,
+  StockLibraryOffer,
   AuthMode
 } from './types/index.ts'
 import type { GameFile } from './gamefiles.ts'
@@ -224,6 +226,16 @@ export interface RomMixBridge {
      * game is there; a move that stops part-way can be asked for again.
      */
     move(libraryRoot: string): Promise<LibraryFolderChange>
+    /**
+     * Stock RomMix's games, from before Galleon, when there are any for the
+     * server signed in to: how many are not in the index, and what moving them
+     * into the library would carry.
+     */
+    stock(): Promise<StockLibraryOffer | null>
+    /** Record stock RomMix's games where they are; how many were. */
+    adoptStock(): Promise<number>
+    /** Adopt stock RomMix's games, then move them into the library. */
+    moveStock(): Promise<LibraryMoveResult>
     /**
      * Check every ROM on the server against the disk: forget what has been
      * deleted, adopt what is there. Slow by design, so it is a button.
