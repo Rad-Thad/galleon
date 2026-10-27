@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { after, before, describe, test } from 'node:test'
 import type { SteamGameEntry } from '@shared/types'
+import { en } from '@shared/i18n/en.ts'
 import { startScenario, type Scenario } from './harness.ts'
 
 /**
@@ -15,6 +16,8 @@ import { startScenario, type Scenario } from './harness.ts'
  * brings the game up.
  */
 let scenario: Scenario
+/** The chip's words, without the badge drawn while its icon has not loaded. */
+const STEAM_CHIP_LABEL = `document.querySelector('[data-platform="steam"]')?.lastChild?.textContent`
 const home = mkdtempSync(join(tmpdir(), 'galleon-steam-home-'))
 
 function manifest(appid: string, name: string, flags: string): string {
@@ -71,10 +74,7 @@ describe('Steam games', () => {
     const { app } = scenario
     await app.goTo('library')
     await app.waitFor(`document.querySelector('[data-platform="steam"]')`, 'the Steam chip')
-    assert.equal(
-      await app.read<string>(`document.querySelector('[data-platform="steam"]').innerText.trim()`),
-      'Steam (1)'
-    )
+    assert.equal(await app.read<string>(STEAM_CHIP_LABEL), 'Steam (1)')
     await app.choose('[data-platform="steam"]')
     await app.waitFor(`document.querySelector('[data-steam="1145360"]')`, 'the Steam card')
     assert.equal(
@@ -92,5 +92,45 @@ describe('Steam games', () => {
       `!document.body.innerText.includes('Playing on Steam')`,
       'the overlay gone after Back'
     )
+  })
+  test("leaving Steam's chip, either way, brings the server's grid back", async () => {
+    const { app } = scenario
+    const steamActive = `document.querySelector('[data-platform="steam"]').dataset.active === 'true'`
+    await app.goTo('library')
+    for (const way of [
+      '[data-platform="all"]',
+      '[data-platform]:not([data-platform="all"]):not([data-platform="steam"])'
+    ]) {
+      await app.choose('[data-platform="steam"]')
+      await app.waitFor(`!document.querySelector('.grid [data-rom]')`, 'the server grid stood down')
+      await app.choose(way)
+      await app.waitFor(
+        `document.querySelector('.grid [data-rom]')`,
+        `the server grid back after ${way}`
+      )
+      assert.equal(await app.read<boolean>(steamActive), false)
+      assert.equal(await app.read<number>(`document.querySelectorAll('[data-steam]').length`), 0)
+    }
+  })
+
+  test("the search box narrows Steam's games, and the chip stays to leave by", async () => {
+    const { app } = scenario
+    await app.goTo('library')
+    await app.choose('[data-platform="steam"]')
+    await app.press('Search')
+    await app.waitFor(`document.activeElement?.tagName === 'INPUT'`, 'the caret in the box')
+    await app.type('hAd')
+    await app.waitFor(`${STEAM_CHIP_LABEL} === 'Steam (1)'`, 'the chip counting the match')
+    assert.ok(await app.read<boolean>(`!!document.querySelector('[data-steam="1145360"]')`))
+    await app.type('zz')
+    await app.waitFor(`!document.querySelector('[data-steam]')`, 'the Steam card gone')
+    await app.waitFor(
+      `[...document.querySelectorAll('.empty')].some((one) => one.textContent === ${JSON.stringify(en['library.noMatches'])})`,
+      'the screen saying nothing matched'
+    )
+    assert.equal(await app.read<string>(STEAM_CHIP_LABEL), 'Steam (0)')
+    await app.press('Escape')
+    await app.waitFor(`document.activeElement?.tagName !== 'INPUT'`, 'the caret to come back')
+    await app.goTo('home')
   })
 })
