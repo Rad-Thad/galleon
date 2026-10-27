@@ -1107,6 +1107,7 @@ export const es: Catalog = {
     'Esa ROM no está descargada para el emulador que usa esta plataforma',
   'error.notDownloadedYet': 'Esa ROM todavía no está descargada',
   'error.cardNotInserted': 'Ese juego está en una tarjeta que no está insertada',
+  'error.downloadWaitsForCard': 'Esperando la tarjeta: insértala y reanuda esta descarga',
   'error.downloadedForOther':
     'Esta copia se descargó para otro emulador. Descárgala otra vez para el que usa ahora esta ' +
     'plataforma.',

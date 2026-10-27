@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { existsSync } from 'node:fs'
 import { after, before, describe, test } from 'node:test'
 import { en } from '@shared/i18n/en.ts'
 import { SHARED_LIBRARY, type InstalledRom } from '@shared/types'
@@ -12,7 +13,8 @@ import { startScenario, type Scenario } from './harness.ts'
  * on the Nova once the card is gone (see `isOnMissingCard`).
  */
 
-const CARD_GAME = '/run/media/galleon-app-test/NovaSD/galleon/roms/genesis/cavestory.md'
+const CARD = '/run/media/galleon-app-test/NovaSD'
+const CARD_GAME = `${CARD}/galleon/roms/genesis/cavestory.md`
 
 const onCard: InstalledRom = {
   romId: 1,
@@ -34,7 +36,9 @@ let app: Scenario['app']
 
 before(async () => {
   scenario = await startScenario({
-    files: { 'config/downloaded_roms.json': JSON.stringify({ roms: [onCard] }) }
+    files: { 'config/downloaded_roms.json': JSON.stringify({ roms: [onCard] }) },
+    // The library itself on the card, so a new download has nowhere to go.
+    settings: { libraryRoot: `${CARD}/galleon/roms` }
   })
   ;({ app } = scenario)
 })
@@ -123,5 +127,25 @@ describe('a game on a card that is not inserted', () => {
     )
     assert.ok(row.meta.includes(en['game.cardNotInserted']), row.meta)
     assert.equal(row.remove, false)
+  })
+
+  test('a new download waits for the card, saying so, and writes nothing where it was', async () => {
+    await app.read(`await window.rommix.downloads.start(2)`)
+    await app.waitFor(
+      `(await window.rommix.downloads.list()).some((one) => one.romId === 2 && one.state === 'paused')`,
+      'the download to wait'
+    )
+    const item = await app.read<{ state: string; error: string | null }>(
+      `(await window.rommix.downloads.list()).find((one) => one.romId === 2)`
+    )
+    assert.equal(item.error, en['error.downloadWaitsForCard'])
+    assert.equal(existsSync(CARD), false)
+
+    await app.goTo('downloads')
+    await app.choose('[data-tab="activity"]')
+    await app.waitFor(
+      `[...document.querySelectorAll('[data-download="2"] .download__state')].some((one) => one.textContent === ${JSON.stringify(en['error.downloadWaitsForCard'])})`,
+      'the reason on the paused row'
+    )
   })
 })

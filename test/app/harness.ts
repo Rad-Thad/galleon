@@ -19,7 +19,7 @@ export interface Scenario {
 }
 
 export async function startScenario(
-  options: Pick<StartOptions, 'viewport' | 'home' | 'env' | 'files'> & {
+  options: Pick<StartOptions, 'viewport' | 'home' | 'env' | 'files' | 'settings'> & {
     server?: FakeRommOptions
   } = {}
 ): Promise<Scenario> {
@@ -39,7 +39,8 @@ export async function startScenario(
       emulatorPaths: { eden: emulator.path },
       // The push after a session would otherwise stop to ask, and there is
       // nobody here to answer it.
-      confirmSavePush: false
+      confirmSavePush: false,
+      ...appOptions.settings
     }
   })
 

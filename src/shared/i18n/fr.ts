@@ -1121,6 +1121,8 @@ export const fr: Catalog = {
     'Cette ROM n’est pas téléchargée pour l’émulateur qu’utilise cette plateforme',
   'error.notDownloadedYet': 'Cette ROM n’est pas encore téléchargée',
   'error.cardNotInserted': 'Ce jeu est sur une carte qui n’est pas insérée',
+  'error.downloadWaitsForCard':
+    'En attente de la carte : insérez-la, puis reprenez ce téléchargement',
   'error.downloadedForOther':
     'Cette copie a été téléchargée pour un autre émulateur. Téléchargez-la de nouveau pour celui ' +
     'que cette plateforme utilise désormais.',

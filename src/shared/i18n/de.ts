@@ -1131,6 +1131,8 @@ export const de: Catalog = {
     'Diese ROM ist nicht für den Emulator heruntergeladen, den diese Plattform verwendet',
   'error.notDownloadedYet': 'Diese ROM ist noch nicht heruntergeladen',
   'error.cardNotInserted': 'Dieses Spiel liegt auf einer Karte, die nicht eingelegt ist',
+  'error.downloadWaitsForCard':
+    'Wartet auf die Karte: legen Sie sie ein und setzen Sie diesen Download fort',
   'error.downloadedForOther':
     'Diese Kopie wurde für einen anderen Emulator heruntergeladen. Laden Sie sie erneut für den ' +
     'herunter, den diese Plattform jetzt verwendet.',
