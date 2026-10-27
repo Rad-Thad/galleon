@@ -1,7 +1,8 @@
 import { type JSX, useState } from 'react'
-import type { RomStorage, RootLocation } from '@shared/types'
+import type { RomStorage } from '@shared/types'
 import { RomStorageChoice, Toggle } from '../../../components'
 import { useApp, useI18n } from '../../../state'
+import { LibraryFolder } from '../LibraryFolder'
 import { RomStorageNotice } from '../RomStorageNotice'
 
 /**
@@ -11,7 +12,7 @@ import { RomStorageNotice } from '../RomStorageNotice'
  * One tab because they are one story told in order — download, play, sync — and
  * because every switch here is answered with On or Off and reads as a list.
  */
-export function GamesTab({ root }: { root: RootLocation | null }): JSX.Element {
+export function GamesTab(): JSX.Element {
   const { t } = useI18n()
   const { settings, saveSettings, notify } = useApp()
   /**
@@ -22,6 +23,8 @@ export function GamesTab({ root }: { root: RootLocation | null }): JSX.Element {
    * is one line. See `RomStorageNotice`.
    */
   const [confirming, setConfirming] = useState<RomStorage | null>(null)
+  /** The library's folder, resolved, as `LibraryFolder` last read it. */
+  const [library, setLibrary] = useState<string | null>(null)
 
   if (!settings) return <></>
 
@@ -44,13 +47,18 @@ export function GamesTab({ root }: { root: RootLocation | null }): JSX.Element {
           if (next !== settings.romStorage) setConfirming(next)
         }}
       />
-      {/* The folder to add to Eden, RetroArch and the rest. Only worth naming
-          where it is the one being used — otherwise it is a path to a folder
-          nothing writes to. */}
-      {settings.romStorage === 'rommix' && root ? (
-        <p className="faint" style={{ fontSize: 14 }}>
-          {t('settings.sharedFolderNote', { path: root.current })}
-        </p>
+      {/* The folder to add to Eden, RetroArch and the rest, and where it is
+          kept. Only worth naming where it is the one being used — otherwise
+          it is a path to a folder nothing writes to. */}
+      {settings.romStorage === 'rommix' ? (
+        <>
+          {library ? (
+            <p className="faint" style={{ fontSize: 14 }}>
+              {t('settings.sharedFolderNote', { path: library })}
+            </p>
+          ) : null}
+          <LibraryFolder onCurrent={setLibrary} />
+        </>
       ) : null}
 
       <h2 className="section-title">{t('settings.saveSync')}</h2>

@@ -821,9 +821,55 @@ export const fr: Catalog = {
   'settings.storageToEmulator':
     'Les nouveaux téléchargements vont dans le dossier propre à chaque émulateur',
   'settings.sharedFolderNote':
-    'Les jeux sont écrits dans {path}/roms/<système>. Les jeux déjà téléchargés dans le dossier ' +
+    'Les jeux sont écrits dans {path}/<système>. Les jeux déjà téléchargés dans le dossier ' +
     'd’un émulateur y restent et sont de nouveau proposés au téléchargement ; revenez en arrière ' +
     'et ils réapparaissent.',
+  'settings.libraryFolder': 'Dossier de la bibliothèque',
+  'settings.libraryFolderHint':
+    'Là où les jeux sont gardés. Choisir un autre dossier montre ce qui serait déplacé, et sa taille, avant que rien ne bouge.',
+  'settings.libraryInternal': 'Cet appareil',
+  'settings.libraryCard': 'Carte SD {label}',
+  'settings.libraryFree': '{size} libres',
+  'settings.libraryInUse': 'Utilisé',
+  'settings.libraryMoveHere': 'Déplacer ici',
+  'libraryMove.title': 'Déplacer la bibliothèque ?',
+  'libraryMove.planning': 'Mesure des jeux…',
+  'libraryMove.body_one': '{count} jeu, {size}, passe de {from} à {to}.',
+  'libraryMove.body_other': '{count} jeux, {size}, passent de {from} à {to}.',
+  'libraryMove.sameDrive':
+    'Les deux dossiers sont sur le même disque : chaque jeu est renommé plutôt que copié.',
+  'libraryMove.otherDrive':
+    'Chaque jeu est copié et vérifié, et l’ancienne copie n’est supprimée qu’une fois la nouvelle complète.',
+  'libraryMove.free': '{size} libres à cet endroit.',
+  'libraryMove.taken_one':
+    '{count} jeu reste où il est : quelque chose occupe déjà sa place là-bas.',
+  'libraryMove.taken_other':
+    '{count} jeux restent où ils sont : quelque chose occupe déjà leur place là-bas.',
+  'libraryMove.missing_one':
+    '{count} jeu n’a aucun fichier sur le disque : il n’y a rien à déplacer.',
+  'libraryMove.missing_other':
+    '{count} jeux n’ont aucun fichier sur le disque : il n’y a rien à déplacer.',
+  'libraryMove.settingOnly': 'Aucun jeu à déplacer : seul le dossier de la bibliothèque change.',
+  'libraryMove.noRoom':
+    'Pas assez de place : les jeux demandent {size} et il reste {free} à cet endroit.',
+  'libraryMove.more_one': 'et {count} autre jeu',
+  'libraryMove.more_other': 'et {count} autres jeux',
+  'libraryMove.stays': 'Reste',
+  'libraryMove.keep': 'Le laisser où il est',
+  'libraryMove.confirm': 'Déplacer les jeux',
+  'libraryMove.confirmSetting': 'Utiliser ce dossier',
+  'libraryMove.moving_one': 'Déplacement de {count} jeu. Laissez Galleon ouvert jusqu’à la fin.',
+  'libraryMove.moving_other': 'Déplacement de {count} jeux. Laissez Galleon ouvert jusqu’à la fin.',
+  'libraryMove.done_one': '{count} jeu déplacé vers {path}',
+  'libraryMove.done_other': '{count} jeux déplacés vers {path}',
+  'libraryMove.doneSetting': 'La bibliothèque est maintenant dans {path}',
+  'libraryMove.leftovers_one':
+    '{count} ancienne copie n’a pas pu être supprimée et prend encore de la place : {paths}',
+  'libraryMove.leftovers_other':
+    '{count} anciennes copies n’ont pas pu être supprimées et prennent encore de la place : {paths}',
+  'libraryMove.stoppedTitle': 'Le déplacement s’est arrêté',
+  'libraryMove.stopped':
+    'Il s’est arrêté à {name} : {reason}. La bibliothèque reste dans {path}, et les jeux déjà déplacés sont dans le nouveau dossier. Choisissez à nouveau le dossier pour continuer.',
   'settings.saveSync': 'Synchronisation des sauvegardes',
   'settings.syncDown': 'Télécharger les sauvegardes plus récentes avant de jouer',
   'settings.syncDownHint':

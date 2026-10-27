@@ -105,3 +105,70 @@ describe('moving the library to another folder', () => {
     assert.equal(settings.libraryRoot, TO)
   })
 })
+
+/**
+ * The same move from Settings, the way it is reached with a pad: the folder
+ * list on the Games tab, the confirmation with the plan, then the move. Runs
+ * after the move above, so the library starts in `TO` and goes back to the
+ * root's own folder.
+ */
+describe('moving the library from Settings', () => {
+  const home = `[data-folder=""] [data-action="library-move-here"]`
+  let target: string
+
+  before(async () => {
+    const choices = await app.read<LibraryFolderChoice[]>(`await window.rommix.library.folders()`)
+    target = choices.find((choice) => choice.libraryRoot === '')!.path
+    await app.goTo('settings')
+    await app.waitFor(`document.querySelector('[data-tab="games"]')`, 'the settings tabs')
+    await app.choose('[data-tab="games"]')
+    await app.waitFor(`document.querySelector(${JSON.stringify(home)})`, 'the folder list')
+  })
+
+  test('the folder in use is marked rather than offered', async () => {
+    const offered = await app.read<string[]>(
+      `[...document.querySelectorAll('[data-folder]')]
+         .filter((row) => row.querySelector('[data-action="library-move-here"]'))
+         .map((row) => row.dataset.folder)`
+    )
+    assert.equal(offered.includes(TO), false)
+    assert.equal(offered.includes(''), true)
+  })
+
+  test('choosing a folder shows the game and its size, and keeping it moves nothing', async () => {
+    await app.choose(home)
+    await app.waitFor(
+      `document.querySelector('[data-games] [data-rom="1"]')`,
+      'the plan to list the game'
+    )
+    const row = await app.read<string>(
+      `document.querySelector('[data-games] [data-rom="1"]').textContent`
+    )
+    assert.match(row, /Cave Story MD/)
+    assert.match(row, /4(\.0)?\s?KB/)
+    await app.choose('[data-action="library-move-keep"]')
+    await app.waitFor(`!document.querySelector('.overlay')`, 'the confirmation to close')
+    assert.equal(existsSync(join(TO, 'genesis', 'cavestory.md')), true)
+    const settings = await app.read<Settings>(`await window.rommix.system.settings()`)
+    assert.equal(settings.libraryRoot, TO)
+  })
+
+  test('moving carries the game and the folder list follows', async () => {
+    await app.choose(home)
+    await app.waitFor(
+      `document.querySelector('[data-action="library-move-confirm"]')`,
+      'the Move button'
+    )
+    await app.choose('[data-action="library-move-confirm"]')
+    await app.waitFor(`!document.querySelector('.overlay')`, 'the move to finish')
+    assert.equal(existsSync(join(TO, 'genesis', 'cavestory.md')), false)
+    assert.equal(readFileSync(join(target, 'genesis', 'cavestory.md')).length, 4096)
+    const settings = await app.read<Settings>(`await window.rommix.system.settings()`)
+    assert.equal(settings.libraryRoot, '')
+    // The root's own folder is in use now, so it is marked rather than offered.
+    await app.waitFor(
+      `!document.querySelector(${JSON.stringify(home)}) && document.querySelector('[data-folder=""]')`,
+      'the list to mark the new folder'
+    )
+  })
+})
