@@ -151,6 +151,19 @@ describe('focus.no-new-window', () => {
     assert.equal((await run(f)).reason, 'new-window')
   })
 
+  test('a window left after the exit fails, though none was seen during the download', async () => {
+    const f = fake()
+    f.readings = [
+      [11, 12],
+      [11, 12],
+      [11, 12],
+      [11, 12, 40]
+    ]
+    const result = await run(f)
+    assert.equal(result.reason, 'new-window')
+    assert.equal(result.metrics.windowsAfter, 3)
+  })
+
   test('a BrowserWindow added while the game is shown fails, mapped or not', async () => {
     const f = fake({ during: (g) => (g.browser.count = 2) })
     const result = await run(f)
