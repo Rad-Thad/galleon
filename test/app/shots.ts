@@ -1,6 +1,7 @@
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
+import { SHARED_LIBRARY } from '@shared/types'
 import { atHome, standInEmulator, startApp, type App } from './driver.ts'
 import { startScenario } from './harness.ts'
 import { layoutOffenders, MEASURE_LAYOUT, type Layout } from './layout.ts'
@@ -466,12 +467,64 @@ async function conflict(): Promise<void> {
   }
 }
 
+/**
+ * A downloaded game whose SD card is out (M1-10): the page says so in place of
+ * Play, and offers nothing that would need the game's files.
+ */
+async function cardMissing(): Promise<void> {
+  const server = await startFakeRomm()
+  const path = '/run/media/galleon-shots/NovaSD/galleon/roms/genesis/cavestory.md'
+  const app = await startApp({
+    baseUrl: server.baseUrl,
+    token: server.token,
+    viewport: NOVA,
+    home: join(HOMES, 'card-missing'),
+    files: {
+      'config/downloaded_roms.json': JSON.stringify({
+        roms: [
+          {
+            romId: 1,
+            path,
+            launchPath: path,
+            name: 'Cave Story MD',
+            coverPath: null,
+            files: ['cavestory.md'],
+            system: 'genesis',
+            platformName: 'Sega Mega Drive',
+            sizeBytes: 4096,
+            installedAt: '2026-10-01T00:00:00.000Z',
+            isDirectory: false,
+            emulatorId: SHARED_LIBRARY
+          }
+        ]
+      })
+    }
+  })
+  try {
+    await attempt('game-card-missing', async () => {
+      await atHome(app)
+      await app.goTo('library')
+      await app.waitFor(`document.querySelector('[data-rom="1"]')`, 'the library to fill')
+      await app.choose('[data-rom="1"]')
+      await app.waitFor(
+        `document.querySelector('[data-action="card-not-inserted"]')`,
+        'the card-not-inserted button'
+      )
+      await shoot(app, 'game-card-missing')
+    })
+  } finally {
+    await app.stop()
+    await server.close().catch(() => undefined)
+  }
+}
+
 rmSync(OUT, { recursive: true, force: true })
 mkdirSync(OUT, { recursive: true })
 await signedIn()
 if (wanted('library-iconless')) await iconless()
 if (wanted('game-saves-states')) await localStates()
 if (wanted('game-conflict')) await conflict()
+if (wanted('game-card-missing')) await cardMissing()
 await setup()
 contactSheet()
 

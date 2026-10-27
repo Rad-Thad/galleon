@@ -73,6 +73,11 @@ describe('a game on a card that is not inserted', () => {
     const offered = await app.read<string[]>(
       `[...document.querySelectorAll('[data-action]')].map((one) => one.dataset.action)`
     )
+    const lit = await app.read<string[]>(
+      `[...document.querySelectorAll('.chip--on')].map((one) => one.textContent.trim())`
+    )
+    assert.ok(!lit.includes(en['library.downloadedMark']), `lit chips: ${lit}`)
+
     for (const action of ['play', 'download', 'uninstall', 'pull-saves', 'push-saves']) {
       assert.ok(!offered.includes(action), `${action} should not be offered, got ${offered}`)
     }
