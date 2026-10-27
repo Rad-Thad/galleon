@@ -3481,3 +3481,20 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - READY-FOR-DEVICE M1-10
 - Next: the next feature from `next.mjs`; M1-10 passes once a device run shows `storage.sdcard` passing.
+
+## 2026-10-27 14:28 UTC session 0178hDCCfEKa4shai8LVS3FD (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. #328 (M1-10 line 5) merged at ee34b76; CI x64 8:44, arm64 1:07.
+- Worked on: M1-13 part 1 (tracking issue #329): line 3, renderer frame callbacks drop to zero while an emulator has the screen.
+- Result: PR (this one).
+  - While a game has the screen, `useGamepad` (`src/renderer/src/input/gamepad.ts`) reads the pad on a `SUSPENDED_POLL_MS` timer instead of every animation frame. The Start hold, the way back from a hung emulator, is still found.
+  - The perf overlay is taken down while anything covers RomMix (`App.tsx`). Its unmount reports the screen's summary and stops its frame loop and its timers.
+  - Nothing else in the renderer asks for frames.
+  - M1-13 stays false.
+- Evidence:
+  - `gamepad.test.tsx` (+3, harness now steps timers on the test's clock): no frame waiting and one read on the timer while suspended; back on every frame once the game has gone; nothing left waiting on unmount. Two existing tests now let go of Start, or wait after the game ends, for a timer period rather than one frame.
+  - `test/app/running.test.ts`: every `requestAnimationFrame` callback the page runs is counted at the global, with the perf overlay on. Frames are drawn at the game page; zero over 2 s while the stubborn stand-in has the screen and the overlay is down; drawn again and the overlay back after it is forced closed. Without the source change it fails (overlay still up). The file passes 3/3 in a row.
+  - `scripts/agent/check.sh` green.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet.
+- Next: M1-13 part 2: notices raised during play are queued and shown after the game ends.

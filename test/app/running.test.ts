@@ -32,6 +32,34 @@ let stubborn: ReturnType<typeof standInEmulator>
 /** Its own, so the core socket is this application's and no other run's. */
 let runtime: string
 
+/** How long frame callbacks are counted for, each time. */
+const FRAME_WINDOW_MS = 2000
+/** Ample time for the pad's read to have moved from frames to its timer. */
+const SWITCH_MS = 500
+
+/**
+ * Counts every animation-frame callback the page runs from here on.
+ *
+ * Wrapped at the global rather than counted inside RomMix: each loop asks for
+ * its next frame through `window.requestAnimationFrame` again, so every one of
+ * them, the overlay's and the pad's alike, is counted without naming it.
+ */
+const COUNT_FRAMES = `(() => {
+  if (window.__frameCallbacks !== undefined) return true
+  window.__frameCallbacks = 0
+  const ask = window.requestAnimationFrame.bind(window)
+  window.requestAnimationFrame = (callback) =>
+    ask((timestamp) => { window.__frameCallbacks += 1; callback(timestamp) })
+  return true
+})()`
+
+/** The frame callbacks the page ran over one window. */
+async function framesOver(app: App): Promise<number> {
+  const first = await app.read<number>('window.__frameCallbacks')
+  await new Promise((done) => setTimeout(done, FRAME_WINDOW_MS))
+  return (await app.read<number>('window.__frameCallbacks')) - first
+}
+
 /** One request over the core socket, and its answer. See `docs/core-socket.md`. */
 function ask(cmd: string): Promise<unknown> {
   return new Promise((resolve, reject) => {
@@ -59,7 +87,9 @@ before(async () => {
     settings: {
       systemEmulators: { switch: 'eden' },
       emulatorPaths: { eden: stubborn.path },
-      confirmSavePush: false
+      confirmSavePush: false,
+      // On, so the overlay's own loop is among the ones that must stop.
+      perfOverlay: true
     }
   })
 })
@@ -84,8 +114,26 @@ describe('while an emulator owns the screen', () => {
       `(await window.rommix.library.installed()).some((one) => one.romId === 3)`,
       'the game to arrive'
     )
+    await stuck.read(COUNT_FRAMES)
+    await stuck.waitFor(`document.querySelector('[data-perf-overlay]')`, 'the perf overlay')
+    assert.ok((await framesOver(stuck)) > 0, 'the interface should draw while it has the screen')
+
     await stuck.choose('[data-action="play"]')
     await stuck.waitFor(`document.querySelector('.overlay')`, 'the running overlay')
+  })
+
+  test('nothing in the renderer asks for a frame while it does', async () => {
+    // The pad is read on a timer and the perf overlay is down, so the window
+    // behind the game wakes nothing every refresh. Counted from a moment after
+    // the overlay is drawn: the pad's read already waiting on a frame when the
+    // game started still runs, and it is that read which puts the next one on
+    // the timer.
+    await new Promise((done) => setTimeout(done, SWITCH_MS))
+    assert.equal(
+      await stuck.read<boolean>(`!!document.querySelector('[data-perf-overlay]')`),
+      false
+    )
+    assert.equal(await framesOver(stuck), 0)
   })
 
   test('the core socket asks it to quit the way holding Start does, never by force', async () => {
@@ -161,5 +209,12 @@ describe('while an emulator owns the screen', () => {
     // emulator being gone rather than a message about it.
     await stuck.waitFor(`!document.querySelector('.overlay')`, 'the emulator to go', 20_000)
     await stuck.waitFor(`document.querySelector('[data-screen="game"]')`, 'the game screen back')
+
+    // And the interface's loops are back with it.
+    await stuck.waitFor(`document.querySelector('[data-perf-overlay]')`, 'the perf overlay back')
+    assert.ok(
+      (await framesOver(stuck)) > 0,
+      'the interface should draw again once the game is gone'
+    )
   })
 })
