@@ -1123,6 +1123,7 @@ export const fr: Catalog = {
   'error.cardNotInserted': 'Ce jeu est sur une carte qui n’est pas insérée',
   'error.downloadWaitsForCard':
     'En attente de la carte : insérez-la, puis reprenez ce téléchargement',
+  'error.libraryMoveIncomplete': 'La copie de {name} est incomplète : le jeu est resté à sa place',
   'error.downloadedForOther':
     'Cette copie a été téléchargée pour un autre émulateur. Téléchargez-la de nouveau pour celui ' +
     'que cette plateforme utilise désormais.',

@@ -541,8 +541,23 @@ export class Store {
    */
   addInstalledMany(entries: readonly InstalledRom[]): void {
     if (entries.length === 0) return
+    const before = new Map(
+      entries.map((entry) => [entry.romId, this.installedCache.get(entry.romId)])
+    )
     for (const entry of entries) this.installedCache.set(entry.romId, entry)
-    this.persistInstalled()
+    try {
+      this.persistInstalled()
+    } catch (cause) {
+      // The index in memory keeps agreeing with the one on disk. A caller that
+      // has to undo what it wrote down, such as `moveLibrary` putting a game
+      // back, would otherwise leave every later read pointing at the new place
+      // and the next write recording it.
+      for (const [romId, previous] of before) {
+        if (previous) this.installedCache.set(romId, previous)
+        else this.installedCache.delete(romId)
+      }
+      throw cause
+    }
   }
 
   removeInstalled(romId: number): void {

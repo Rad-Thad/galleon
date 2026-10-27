@@ -1099,6 +1099,8 @@ export const en = {
   'error.notDownloadedYet': 'That ROM is not downloaded yet',
   'error.cardNotInserted': 'That game is on a card that is not inserted',
   'error.downloadWaitsForCard': 'Waiting for the card: insert it, then resume this download',
+  'error.libraryMoveIncomplete':
+    'The copy of {name} came out incomplete, so it was left where it was',
   'error.downloadedForOther':
     'This copy was downloaded for a different emulator. Download it again for the one this ' +
     'platform now uses.',
