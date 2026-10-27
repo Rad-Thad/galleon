@@ -6,7 +6,15 @@
 
 import assert from 'node:assert/strict'
 import { afterEach, test } from 'node:test'
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import {
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  statfsSync,
+  symlinkSync,
+  truncateSync,
+  writeFileSync
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { SHARED_LIBRARY, type InstalledRom } from '@shared/types'
@@ -128,6 +136,28 @@ test('the same folder, or one inside the library, is refused with nothing listed
   const sibling = await planLibraryMove(games, from, `${from}-sd`)
   assert.equal(sibling.refused, null)
   assert.equal(sibling.games.length, 1)
+
+  // A folder whose name only starts with dots is inside the library's parent,
+  // not above it, and the parent itself is a place the library can go.
+  const dotted = await planLibraryMove(games, from, join(home, '..roms'))
+  assert.equal(dotted.refused, null)
+  const parent = await planLibraryMove(games, from, home)
+  assert.equal(parent.refused, null)
+  assert.deepEqual(
+    parent.games.map((game) => game.to),
+    [join(home, 'gc', 'one.rvz')]
+  )
+})
+
+test('on one drive the games fit however big they are, since they are renamed', async () => {
+  const { from, to } = library()
+  // Sparse: bigger than the room left to `stat`, nothing on the disk.
+  const room = statfsSync(from)
+  truncateSync(join(from, 'gc', 'one.rvz'), room.bavail * room.bsize + 2 ** 30)
+  const plan = await planLibraryMove([rom(1, join(from, 'gc', 'one.rvz'))], from, to)
+  assert.equal(plan.sameDrive, true)
+  assert.ok(plan.freeBytes !== null && plan.totalBytes > plan.freeBytes)
+  assert.equal(plan.fits, true)
 })
 
 test('a library reached through a link is planned from the folder it leads to', async () => {
