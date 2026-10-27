@@ -3603,7 +3603,7 @@ Lines the tooling reads (exact forms):
   - Only an appid of digits reaches the URL, since a manifest on the card is anyone's to write.
   - Nothing calls it yet. M1-14 stays false.
 - Evidence: `launch.test.ts` 8/8 (argv; non-digit appids start nothing; stdio ignored and unref'd; APPDIR, APPIMAGE and the overlay preload removed, DISPLAY kept; the info line carries the argv; a spawn error logs a warning). `scripts/agent/check.sh` green. No app code path or screen changed, so no `test:app` and no shots.
-- Evaluator: EVALUATOR_LINE
+- Evaluator: PASS (8 mutants on `launch.ts`, all caught: no unref, piped output, the parent environment whole, a loosened appid check, no info line, no error listener, no guard, another URL scheme).
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet.
 - Next: M1-14 part 2b: a 'Steam' platform in the library from `installedSteamGames`, Play calling `launchSteamGame` over IPC, and the running overlay saying 'Playing on Steam' (all four catalogues, `test:app`, shots). Decide how to keep Steam's tools (redistributables, Proton, runtimes) out of the list.
