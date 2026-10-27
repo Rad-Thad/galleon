@@ -387,6 +387,40 @@ test('download.small fetches the GBA game into the test home, verifies it and re
   }
 })
 
+test('storage.sdcard in the real app: with no card, a card that is out keeps its game and the home is as it was', async () => {
+  const server = await startFakeRomm({ gba: true })
+  try {
+    const { code, home, results } = await runWithRequest(
+      { ...REQUEST, checks: [RUN_CHECKS.complete, 'storage.sdcard'] },
+      server
+    )
+    assert.equal(code, 0)
+    const summary = JSON.parse(readFileSync(join(results, SUMMARY_FILE), 'utf8')) as Summary
+    assert.deepEqual(summaryErrors(summary), [])
+    const check = summary.checks.find((c) => c.id === 'storage.sdcard')
+    // CI has no card, so the card's own parts are a skip, never a pass.
+    assert.equal(check?.result, 'skip', String(check?.reason))
+    assert.equal(check?.reason, 'card-no-card')
+    assert.equal(check?.metrics.cardMissing, 1)
+    assert.equal(check?.metrics.pruned, 0)
+    const config = join(home, 'config')
+    const index = JSON.parse(readFileSync(join(config, 'downloaded_roms.json'), 'utf8')) as {
+      roms: { romId: number }[]
+    }
+    assert.deepEqual(index.roms, [])
+    const settings = JSON.parse(readFileSync(join(config, 'settings.json'), 'utf8')) as {
+      libraryRoot?: string
+    }
+    assert.equal(settings.libraryRoot ?? '', '')
+    assert.deepEqual(
+      server.asked.filter((a) => a.method !== 'GET' && a.method !== 'HEAD'),
+      []
+    )
+  } finally {
+    await server.close()
+  }
+})
+
 /** Every file under the home with the downloaded game's name. */
 function gamesUnder(dir: string): string[] {
   return readdirSync(dir, { recursive: true, encoding: 'utf8' }).filter((name) =>

@@ -8,6 +8,7 @@ import { ensureRoot, profilePath, resolveRoot } from './root.ts'
 import { ReadOnlyGuard } from './romm/guard.ts'
 import { reportRefusal, runAndReport, takeRequest } from './selftest.ts'
 import { DOWNLOAD_CHECK, downloadScenario } from './selftestdownload.ts'
+import { SDCARD_CHECK, sdCardScenario } from './selftestsdcard.ts'
 import { deviceCycle, devicePlan, emulatorScenarios, placeSaveBeside } from './selftestemulators.ts'
 import { IDENTITY_CHECK, identityScenario } from './selftestidentity.ts'
 import { REPORT_CHECK, pressReport, reportScenario } from './selftestreport.ts'
@@ -18,6 +19,8 @@ import { GRID_CHECK, askForProfile, runScroll, scrollScenario } from './selftest
 import { STARTUP_CHECK, startupScenario, startupStart, watchHome } from './selfteststartup.ts'
 import { UPDATE_CHECK, updateScenario } from './selftestupdate.ts'
 import { buildStamp } from './update.ts'
+import { missingCardTest, readVolumes } from './volumes.ts'
+import { currentUser } from './librarydefault.ts'
 
 /** RomMix main process bootstrap. */
 
@@ -179,6 +182,24 @@ if (!app.requestSingleInstanceLock()) {
               library: rommix.library,
               store: rommix.store,
               home: resolveRoot()
+            })
+          ],
+          [
+            SDCARD_CHECK,
+            sdCardScenario({
+              volumes: () => readVolumes(),
+              user: currentUser(),
+              missingCards: () => missingCardTest(),
+              store: rommix.store,
+              library: rommix.library,
+              download: (home) =>
+                downloadScenario({
+                  client: rommix.client,
+                  downloads: rommix.downloads,
+                  library: rommix.library,
+                  store: rommix.store,
+                  home
+                })
             })
           ],
           [

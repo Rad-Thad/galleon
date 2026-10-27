@@ -71,7 +71,7 @@ export async function prepareFolder(dir: string): Promise<boolean> {
  * The user the card would be mounted for. `userInfo` throws for a uid with no
  * passwd entry, as in some containers, and this runs before the window opens.
  */
-function currentUser(): string {
+export function currentUser(): string {
   try {
     return userInfo().username
   } catch {
