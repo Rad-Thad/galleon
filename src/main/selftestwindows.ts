@@ -46,6 +46,12 @@ function uint32s(value: Buffer): number[] {
 
 export interface WindowFinder {
   findWindow: (group: number) => Promise<WindowSighting | null>
+  /**
+   * Every window of the group, by id in ascending order, so two readings
+   * compare equal exactly when no window was mapped or taken away between
+   * them. Null when the display cannot tie a window to a process.
+   */
+  windowsOf: (group: number) => Promise<number[] | null>
 }
 
 export function windowFinder(
@@ -94,14 +100,24 @@ export function windowFinder(
     return x11.inputFocus()
   }
 
+  const ofGroup = async (named: Map<Atom, number | null>, group: number): Promise<number[]> => {
+    const ours: number[] = []
+    for (const window of await candidates(named)) {
+      const pid = await pidOf(window, named.get('_NET_WM_PID'))
+      if (pid !== null && groupOf(pid) === group) ours.push(window)
+    }
+    return ours
+  }
+
   return {
+    windowsOf: async (group) => {
+      const named = await atoms()
+      if (!named.get('_NET_WM_PID')) return null
+      return [...new Set(await ofGroup(named, group))].sort((a, b) => a - b)
+    },
     findWindow: async (group) => {
       const named = await atoms()
-      const ours: number[] = []
-      for (const window of await candidates(named)) {
-        const pid = await pidOf(window, named.get('_NET_WM_PID'))
-        if (pid !== null && groupOf(pid) === group) ours.push(window)
-      }
+      const ours = await ofGroup(named, group)
       if (ours.length === 0) return null
       const focus = await focusedWindow(named)
       // The keyboard focus may sit in a window inside the emulator's own.

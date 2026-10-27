@@ -3543,3 +3543,22 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet.
 - Next: M1-13 part 4b: device check `focus.no-new-window` (a download finishing while the sandboxed emulator has the screen maps no window; its notice appears after the exit), then READY-FOR-DEVICE M1-13.
+
+## 2026-10-27 16:51 UTC session 0178hDCAtZx71yLBTnm5xNCE (hourly heartbeat, second unit)
+
+- Device results: none new (as above). #333 (M1-13 part 4a) merged at 68c9011; CI x64 8:00, arm64 1:07.
+- Worked on: M1-13 part 4b-i (tracking issue #329): the two pieces `focus.no-new-window` stands on, both tested against fakes. Part 4b-ii wires them into the scenario.
+- Result: PR (this one).
+  - `WindowFinder.windowsOf(group)` (`selftestwindows.ts`) lists every window of a process group by id, in ascending order. Two readings compare equal exactly when nothing was mapped or taken away between them. It returns null on a display that cannot tie a window to a process.
+  - `LaunchDeps.whileShown` (`selftestlaunch.ts`) is work started once the emulator's focused window is seen, such as the download that must finish behind the game. The window stays up until the work has settled as well as for the settle, up to `WHILE_SHOWN_MS`. The work's signal is aborted before the stop is asked, and on the player's abort. Work that throws has settled. With no window, or after an early exit, it is never started.
+  - Nothing calls either yet. M1-13 stays false.
+- Evidence: `selftestwindows.test.ts` +3: the group's windows in order, nested and from the tree; the client list, deduplicated; empty versus unknown. `selftestlaunch.test.ts` 41/41, +6: started on the focused window and kept up until done; a quick task still gets the settle; a task that never ends is stopped past the limit; a task that throws or rejects; none without a window or after an early exit; the player's abort. `scripts/agent/check.sh` green. No app code path changed, so no `test:app`; no shots.
+- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet.
+- Next: M1-13 part 4b-ii, the `focus.no-new-window` scenario:
+  - tell the renderer a game covers it;
+  - run the sandboxed cycle with a small download as `whileShown`;
+  - compare Galleon's `windowsOf` before, during and after;
+  - read the toast after the exit;
+  - then READY-FOR-DEVICE M1-13.
