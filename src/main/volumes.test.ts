@@ -15,6 +15,7 @@ import {
   isMediaMount,
   isOnMissingCard,
   missingCardTest,
+  resolveExisting,
   mountOf,
   parseMounts,
   readVolumes,
@@ -314,4 +315,35 @@ test('the mount table is read for the missing-card test, and unreadable keeps ev
   const unreadable = missingCardTest(join(dir, 'absent'))
   assert.equal(unreadable('/run/media/deck/NovaSD/roms/a.iso'), true)
   assert.equal(unreadable('/home/deck/roms/a.iso'), false)
+})
+
+test('a path through a link onto a mounted card is on that card, not a missing one', () => {
+  const dir = scratch()
+  writeFileSync(join(dir, 'mounts'), '/dev/mmcblk0p1 /run/media/deck/NovaSD ext4 rw 0 0\n')
+  // DEVICE-FACTS' `/run/media/NovaSD`, a link to the card's mount point.
+  const throughLink = (path: string): string =>
+    path.replace(/^\/run\/media\/NovaSD(?=\/|$)/, '/run/media/deck/NovaSD')
+  const missing = missingCardTest(join(dir, 'mounts'), throughLink)
+  assert.equal(missing('/run/media/NovaSD/galleon/roms/gc/a.iso'), false)
+  assert.equal(missing('/run/media/Other/galleon/roms/gc/a.iso'), true)
+
+  // A link left dangling by the unmount resolves to nothing, so it is a card that has gone.
+  const unmounted = missingCardTest(join(dir, 'absent'), throughLink)
+  assert.equal(unmounted('/run/media/NovaSD/galleon/roms/gc/a.iso'), true)
+})
+
+test('a path resolves through its nearest folder that exists', () => {
+  const dir = realpathSync(scratch())
+  mkdirSync(join(dir, 'card', 'galleon'), { recursive: true })
+  symlinkSync(join(dir, 'card'), join(dir, 'link'))
+  symlinkSync(join(dir, 'nowhere'), join(dir, 'dangling'))
+
+  assert.equal(resolveExisting(join(dir, 'link', 'galleon')), join(dir, 'card', 'galleon'))
+  // Not made yet: the part that exists is resolved, the rest kept as it is.
+  assert.equal(
+    resolveExisting(join(dir, 'link', 'galleon', 'roms', 'gc')),
+    join(dir, 'card', 'galleon', 'roms', 'gc')
+  )
+  assert.equal(resolveExisting(join(dir, 'dangling', 'roms')), join(dir, 'dangling', 'roms'))
+  assert.equal(resolveExisting('/'), '/')
 })

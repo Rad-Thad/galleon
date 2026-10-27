@@ -3366,3 +3366,14 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet.
 - Next: `isOnMissingCard` resolving links (a root picked by hand through `/run/media/NovaSD`) before line 3's folder picker can choose one; then line 3 (moving the library) and `storage.sdcard`.
+
+## 2026-10-27 06:53 UTC session 0178hDCV4qs1ht (hourly heartbeat, second unit)
+
+- Device results: unchanged since the entry above. #320 (M1-10 part 3c) merged at 451aabd; CI x64 8:10, arm64 1:17.
+- Worked on: M1-10 part 3d (tracking issue #313): the evaluator's note from part 3a, `isOnMissingCard` not following links.
+- Result: PR (this one). `missingCardTest` resolves each path before asking `isOnMissingCard`. It uses `resolveExisting` (`src/main/volumes.ts`), which follows links through the nearest folder that exists and keeps the not-yet-made rest as written. So a library reached through DEVICE-FACTS' `/run/media/NovaSD` link counts as on the card while the card is mounted. Once the unmount leaves the link dangling, the card counts as gone. Before this, such a library's games read "Card not inserted" and its downloads waited even with the card in. Every caller (the prune, the game page and Downloads marks, the launch and save refusals, the download wait) goes through `missingCardTest`, so all of them follow links now. M1-10 stays false.
+- Evidence: volumes.test.ts (+2): through the link onto a mounted card it is not missing, another card is, and a dangling link is; `resolveExisting` on scratch fixtures (an existing folder through a link, a not-yet-made folder under it, a dangling link, `/`). With the resolution removed, the link test fails. `scripts/agent/check.sh` green (2474 unit tests; volumes.ts 99.3% lines). No renderer, IPC or launch code changed, so no `test:app`; no UI change, so no shots.
+- Evaluator: PASS (3 hand mutations, 2 killed; the survivor is `missingCardTest`'s default resolver set to identity, wiring that only a `/run/media` path exercises, so `storage.sdcard` covers it). Noted: a hand-picked root outside `/run/media` linking onto the card is not marked once the link dangles, as before; prune still keeps those games (`Store.hasGone`). This matters for line 3's folder picker.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet.
+- Next: M1-10 line 3 (changing the ROM folder offers to move existing games with sizes first; Phase 0's `~/rommix/roms` adopted or moved), then `storage.sdcard`.
