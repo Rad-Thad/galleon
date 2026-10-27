@@ -23,6 +23,12 @@ export const WINDOW_TIMEOUT_MS = 30_000
  * a player makes.
  */
 export const SETTLE_MS = 3000
+/**
+ * The longest a `whileShown` task keeps the emulator on the screen past the
+ * settle: past it the task is told to stop and the emulator is stopped, so a
+ * task that never ends cannot hold the run.
+ */
+export const WHILE_SHOWN_MS = 120_000
 /** How long after SIGTERM an emulator has to exit before it is killed. */
 export const EXIT_GRACE_MS = 10_000
 /**
@@ -71,6 +77,15 @@ export interface LaunchDeps {
    * gets back, not whatever the compositor picked on its own.
    */
   reclaim?: () => void
+  /**
+   * Work done while the emulator has the screen, such as a download that
+   * must finish behind a game. Started once its focused window is seen; the
+   * window is kept up until the task has settled, as well as for the
+   * settle, up to `WHILE_SHOWN_MS`. Its signal is aborted when the stop is
+   * asked, and what it found is the caller's to keep: the cycle's checks say
+   * nothing about it.
+   */
+  whileShown?: (signal: AbortSignal) => Promise<unknown>
   /** Signals the group the cycle started, and nothing else. */
   signalGroup: (group: number, signal: NodeJS.Signals) => void
   /**
@@ -143,9 +158,18 @@ export async function launchCycle(
   const launch = await watchForWindow(started.pid, deps, signal, now, sleep, exit)
   const launchMs = now() - startedAt
   if (launch.sighting && !launch.early) {
+    const shown = runWhileShown(deps, signal)
     // In steps, so the player's abort is still answered within a second.
     const settleUntil = now() + SETTLE_MS
-    while (!signal.aborted && exit() === null && now() < settleUntil) await sleep(POLL_MS)
+    const shownUntil = settleUntil + WHILE_SHOWN_MS
+    while (
+      !signal.aborted &&
+      exit() === null &&
+      (now() < settleUntil || (!shown.settled() && now() < shownUntil))
+    ) {
+      await sleep(POLL_MS)
+    }
+    shown.stop()
   }
   const stop = await stopGroup(started, deps, now, sleep, exit)
   const removed = deps.clearStrays(strays)
@@ -211,6 +235,37 @@ export async function launchCycle(
     Object.assign(exitResult, { result: 'fail', reason: 'save-unchanged' })
   }
   return [launchResult, exitResult]
+}
+
+interface Shown {
+  settled: () => boolean
+  stop: () => void
+}
+
+/** Starts `whileShown`, if any. Never throws; a task that fails has settled. */
+function runWhileShown(deps: LaunchDeps, signal: AbortSignal): Shown {
+  const controller = new AbortController()
+  const stop = (): void => controller.abort()
+  signal.addEventListener('abort', stop, { once: true })
+  let settled = deps.whileShown === undefined
+  if (deps.whileShown) {
+    let task: Promise<unknown>
+    try {
+      task = Promise.resolve(deps.whileShown(controller.signal))
+    } catch (cause) {
+      task = Promise.reject(cause)
+    }
+    void task
+      .catch((cause) => log.warn('selftest', 'the work done behind an emulator failed', { cause }))
+      .finally(() => (settled = true))
+  }
+  return {
+    settled: () => settled,
+    stop: () => {
+      signal.removeEventListener('abort', stop)
+      stop()
+    }
+  }
 }
 
 /** Never throws: a reclaim that fails is what the refocus watch then measures. */

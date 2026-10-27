@@ -4,13 +4,14 @@ import {
   EXIT_GRACE_MS,
   REFOCUS_MS,
   SETTLE_MS,
+  WHILE_SHOWN_MS,
   WINDOW_TIMEOUT_MS,
   launchCycle,
   type Exited,
   type LaunchDeps,
   type WindowSighting
 } from './selftestlaunch.ts'
-import type { CheckResult } from './selftest.ts'
+import { SKIP, type CheckResult } from './selftest.ts'
 import type { SandboxPlan } from './selftestsandbox.ts'
 
 /**
@@ -327,6 +328,112 @@ describe('launchCycle', () => {
     killed.deps.reclaim = () => (reclaimed += 1)
     assert.equal((await cycle(killed))[1].metrics.refocused, null)
     assert.equal(reclaimed, 0)
+  })
+
+  test('work done while shown starts on the focused window and keeps it up until it is done', async () => {
+    let finish: () => void = () => {}
+    let startedAt = -1
+    let stoppedAt = -1
+    let abortedAtStop = false
+    const doneAt = SETTLE_MS + 5000
+    const f = fake({ windowAt: 1000, onSleep: (t) => t >= doneAt && finish() })
+    const signalGroup = f.deps.signalGroup
+    f.deps.signalGroup = (group, sig) => {
+      stoppedAt = f.clock()
+      signalGroup(group, sig)
+    }
+    f.deps.whileShown = (signal) => {
+      startedAt = f.clock()
+      signal.addEventListener('abort', () => (abortedAtStop = stoppedAt === -1))
+      return new Promise<void>((r) => (finish = r))
+    }
+    const [launch, exit] = await cycle(f)
+    assert.equal(launch.result, 'pass', launch.reason ?? '')
+    assert.equal(exit.result, 'pass', exit.reason ?? '')
+    assert.equal(startedAt, 1000)
+    assert.ok(stoppedAt >= 1000 + doneAt - 1000, `stopped at ${stoppedAt}`)
+    assert.ok(stoppedAt < doneAt + 1000, `stopped at ${stoppedAt}`)
+    assert.ok(abortedAtStop, 'its signal is aborted before the group is asked to stop')
+  })
+
+  test('work done quickly still leaves the window up for the settle', async () => {
+    let stoppedAt = -1
+    const f = fake({ windowAt: 0 })
+    const signalGroup = f.deps.signalGroup
+    f.deps.signalGroup = (group, sig) => {
+      stoppedAt = f.clock()
+      signalGroup(group, sig)
+    }
+    f.deps.whileShown = async () => {}
+    await cycle(f)
+    assert.ok(stoppedAt >= SETTLE_MS)
+  })
+
+  test('work that never ends is told to stop past the limit, and so is the emulator', async () => {
+    let aborted = false
+    let stoppedAt = -1
+    const f = fake({ windowAt: 0 })
+    const signalGroup = f.deps.signalGroup
+    f.deps.signalGroup = (group, sig) => {
+      stoppedAt = f.clock()
+      signalGroup(group, sig)
+    }
+    f.deps.whileShown = (signal) => {
+      signal.addEventListener('abort', () => (aborted = true))
+      return new Promise(() => {})
+    }
+    const [, exit] = await cycle(f)
+    assert.equal(exit.result, 'pass', exit.reason ?? '')
+    assert.ok(aborted)
+    assert.ok(stoppedAt >= SETTLE_MS + WHILE_SHOWN_MS)
+    assert.ok(stoppedAt < SETTLE_MS + WHILE_SHOWN_MS + 1000)
+  })
+
+  test('work that throws or rejects has settled, and the cycle goes on', async () => {
+    for (const whileShown of [
+      async () => {
+        throw new Error('download failed')
+      },
+      () => {
+        throw new Error('could not start')
+      }
+    ]) {
+      let stoppedAt = -1
+      const f = fake({ windowAt: 0 })
+      const signalGroup = f.deps.signalGroup
+      f.deps.signalGroup = (group, sig) => {
+        stoppedAt = f.clock()
+        signalGroup(group, sig)
+      }
+      f.deps.whileShown = whileShown
+      const [launch, exit] = await cycle(f)
+      assert.deepEqual([launch.result, exit.result], ['pass', 'pass'])
+      // Settled, so the window is not kept up past the settle.
+      assert.ok(stoppedAt < SETTLE_MS + 1000, `stopped at ${stoppedAt}`)
+    }
+  })
+
+  test('no work is started without a focused window, or after an early exit', async () => {
+    for (const options of [{}, { exitsAt: 500 }]) {
+      let started = 0
+      const f = fake(options)
+      f.deps.whileShown = async () => (started += 1)
+      await cycle(f)
+      assert.equal(started, 0)
+    }
+  })
+
+  test("the player's abort stops the work too", async () => {
+    const controller = new AbortController()
+    let aborted = false
+    const f = fake({ windowAt: 0, onSleep: (t) => t >= 1000 && controller.abort() })
+    f.deps.whileShown = (signal) => {
+      signal.addEventListener('abort', () => (aborted = true))
+      return new Promise(() => {})
+    }
+    const [launch] = await cycle(f, PLAN, controller.signal)
+    assert.equal(launch.reason, SKIP.aborted)
+    assert.ok(aborted)
   })
 
   test('a payload that saves passes exit once the save folder has changed', async () => {

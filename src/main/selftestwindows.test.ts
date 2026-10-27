@@ -200,6 +200,43 @@ describe('findWindow', () => {
   })
 })
 
+describe('windowsOf', () => {
+  test("the group's windows in id order, wherever they sit, and no one else's", async () => {
+    const x11 = display({
+      children: { [ROOT]: [40, 10, 30], 30: [31] },
+      props: {
+        10: { _NET_WM_PID: [7] },
+        30: { _NET_WM_PID: [42] },
+        31: { _NET_WM_PID: [41] },
+        40: { _NET_WM_PID: [41] }
+      }
+    })
+    assert.deepEqual(await windowFinder(x11, groupOf).windowsOf(GROUP), [30, 31, 40])
+    assert.deepEqual(await windowFinder(x11, groupOf).windowsOf(7), [10])
+  })
+
+  test('the client list when there is one, each window once', async () => {
+    const x11 = display({
+      atoms: DESKTOP,
+      children: { [ROOT]: [99] },
+      props: {
+        [ROOT]: { _NET_CLIENT_LIST: [20, 10, 20] },
+        10: { _NET_WM_PID: [7] },
+        20: { _NET_WM_PID: [7] },
+        99: { _NET_WM_PID: [7] }
+      }
+    })
+    assert.deepEqual(await windowFinder(x11, groupOf).windowsOf(7), [10, 20])
+  })
+
+  test('none of its windows is an empty list; a display without _NET_WM_PID cannot say', async () => {
+    const empty = display({ children: { [ROOT]: [10] }, props: { 10: { _NET_WM_PID: [7] } } })
+    assert.deepEqual(await windowFinder(empty, groupOf).windowsOf(GROUP), [])
+    const blind = display({ atoms: [], children: { [ROOT]: [10] } })
+    assert.equal(await windowFinder(blind, groupOf).windowsOf(7), null)
+  })
+})
+
 describe('processGroup', () => {
   const stat = (comm: string, group: string) =>
     `4242 (${comm}) S 1 ${group} 4000 0 -1 4194560 100 0 0 0`
