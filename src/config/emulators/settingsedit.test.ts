@@ -8,7 +8,8 @@ const SLOT: SettingsEdit = {
   section: 'Core',
   key: 'SlotA',
   value: '8',
-  whenAbsent: 'leave'
+  whenAbsent: 'leave',
+  folder: undefined
 }
 
 test('changes only the value of the key, in its own section', () => {

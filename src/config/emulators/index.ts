@@ -219,6 +219,7 @@ export function isInstallableAsset(assetName: string, source: ReleaseSource): bo
 }
 
 export { duckstation } from './duckstation/index.ts'
+export { armsx2 } from './armsx2/index.ts'
 export { dolphin } from './dolphin/index.ts'
 export { eden } from './eden/index.ts'
 export { ppsspp } from './ppsspp/index.ts'
@@ -257,7 +258,8 @@ export type {
   SandboxFolders,
   SandboxRecipe,
   SaveFileConventions,
-  SettingsEdit
+  SettingsEdit,
+  SettingsFolder
 } from './types.ts'
 
 export type {

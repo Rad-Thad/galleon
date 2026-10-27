@@ -36,7 +36,8 @@ const DOLPHIN_SLOT_A = {
   section: 'Core',
   key: 'SlotA',
   value: '8',
-  whenAbsent: 'leave'
+  whenAbsent: 'leave',
+  folder: undefined
 } as const
 
 /**
