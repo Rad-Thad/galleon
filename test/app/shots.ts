@@ -649,7 +649,7 @@ async function stockLibrary(): Promise<void> {
   }
 }
 
-/** A Steam game handed to Steam (M1-14): the overlay that stands in for it. */
+/** Steam's games in the library, and one handed to Steam (M1-14): the overlay for it. */
 async function steamRunning(): Promise<void> {
   const user = mkdtempSync(join(tmpdir(), 'galleon-shots-steam-'))
   const steamapps = join(user, '.local', 'share', 'Steam', 'steamapps')
@@ -665,8 +665,14 @@ async function steamRunning(): Promise<void> {
   })
   const { app } = scenario
   try {
+    await attempt('library-steam', async () => {
+      await app.goTo('library')
+      await app.choose('[data-platform="steam"]')
+      await app.waitFor(`document.querySelector('[data-steam="1145360"]')`, 'the Steam card')
+      await shoot(app, 'library-steam')
+    })
     await attempt('running-steam', async () => {
-      await app.read(`window.rommix.steam.launch('1145360'), true`)
+      await app.choose('[data-steam="1145360"]')
       await app.waitFor(`document.querySelector('[data-action="back-from-steam"]')`, 'the overlay')
       await shoot(app, 'running-steam')
     })
@@ -685,7 +691,7 @@ if (wanted('game-conflict')) await conflict()
 if (wanted('game-card-missing')) await cardMissing()
 if (wanted('settings-library-move')) await libraryMove()
 if (wanted('settings-stock')) await stockLibrary()
-if (wanted('running-steam')) await steamRunning()
+if (wanted('library-steam') || wanted('running-steam')) await steamRunning()
 await setup()
 contactSheet()
 

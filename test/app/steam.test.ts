@@ -67,4 +67,30 @@ describe('Steam games', () => {
       'the overlay gone after Back'
     )
   })
+  test('the library offers Steam as a platform, and Play hands the game to Steam', async () => {
+    const { app } = scenario
+    await app.goTo('library')
+    await app.waitFor(`document.querySelector('[data-platform="steam"]')`, 'the Steam chip')
+    assert.equal(
+      await app.read<string>(`document.querySelector('[data-platform="steam"]').innerText.trim()`),
+      'Steam (1)'
+    )
+    await app.choose('[data-platform="steam"]')
+    await app.waitFor(`document.querySelector('[data-steam="1145360"]')`, 'the Steam card')
+    assert.equal(
+      await app.read<number>(`document.querySelectorAll('.grid [data-rom]').length`),
+      0,
+      "the server's games are not on Steam's grid"
+    )
+    await app.choose('[data-steam="1145360"]')
+    await app.waitFor(
+      `document.body.innerText.includes('Hades is running in Steam')`,
+      'the overlay for the game Play started'
+    )
+    await app.click('[data-action="back-from-steam"]')
+    await app.waitFor(
+      `!document.body.innerText.includes('Playing on Steam')`,
+      'the overlay gone after Back'
+    )
+  })
 })

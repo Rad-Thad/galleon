@@ -263,6 +263,7 @@ export const de: Catalog = {
   'library.scopeDownloaded': 'Nur heruntergeladene',
   'library.noneDownloaded': 'Noch keine Spiele heruntergeladen.',
   'library.platformChip': '{name} ({count})',
+  'library.steamPlatform': 'Steam',
   'library.noMatches': 'Kein Spiel passt zu dieser Suche.',
   'library.thatIsAll_one': 'Das ist das einzige.',
   'library.thatIsAll_other': 'Das war alles: {count} insgesamt.',
