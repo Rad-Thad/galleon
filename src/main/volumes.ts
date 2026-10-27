@@ -1,6 +1,6 @@
-import { readFileSync } from 'node:fs'
+import { readFileSync, realpathSync } from 'node:fs'
 import { readdir, readFile, realpath, statfs } from 'node:fs/promises'
-import { join } from 'node:path'
+import { basename, dirname, join } from 'node:path'
 import type { Volume } from '@shared/librarycard'
 import type { DriveVolume } from '@shared/types'
 import { log } from './log.ts'
@@ -150,19 +150,41 @@ export function isOnMissingCard(path: string, mounts: readonly MountEntry[]): bo
 }
 
 /**
+ * A path with its links followed as far as it exists.
+ *
+ * A game's folder is often not made yet, and a link anywhere above it decides
+ * which volume it will be made on, so the nearest folder that does exist is
+ * resolved and the rest kept as written. A link left dangling resolves no
+ * further than the folder it sits in.
+ */
+export function resolveExisting(path: string): string {
+  try {
+    return realpathSync.native(path)
+  } catch {
+    const parent = dirname(path)
+    return parent === path ? path : join(resolveExisting(parent), basename(path))
+  }
+}
+
+/**
  * `isOnMissingCard` against the mount table as it is now, read once.
  *
  * Synchronous, for the index's prune. A table that cannot be read leaves every
- * card counted as missing, so its games are kept rather than forgotten.
+ * card counted as missing, so its games are kept rather than forgotten. Each
+ * path is resolved first: a library reached through a link onto the card, such
+ * as `/run/media/NovaSD`, is on the card while it is mounted.
  */
-export function missingCardTest(mountsFile = MOUNTS_FILE): (path: string) => boolean {
+export function missingCardTest(
+  mountsFile = MOUNTS_FILE,
+  resolve: (path: string) => string = resolveExisting
+): (path: string) => boolean {
   let mounts: MountEntry[] = []
   try {
     mounts = parseMounts(readFileSync(mountsFile, 'utf8'))
   } catch (cause) {
     log.debug('volumes', 'mount table unreadable', { reason: (cause as Error).message })
   }
-  return (path) => isOnMissingCard(path, mounts)
+  return (path) => isOnMissingCard(resolve(path), mounts)
 }
 
 /**
