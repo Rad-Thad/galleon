@@ -322,6 +322,23 @@ describe('the index of what is downloaded', () => {
     assert.deepEqual(new Store(dir).installed, [])
   })
 
+  test('an entry the file would not take is not kept in memory either', () => {
+    const dir = scratch()
+    const store = new Store(dir)
+    store.addInstalled(installed({ romId: 7, name: 'Sonic' }))
+    // Something in the way of the index's own temporary file: its write throws.
+    mkdirSync(join(dir, 'downloaded_roms.json.tmp'))
+
+    assert.throws(() =>
+      store.addInstalledMany([
+        installed({ romId: 7, name: 'Sonic 2' }),
+        installed({ romId: 8, name: 'Streets of Rage' })
+      ])
+    )
+    assert.equal(store.getInstalled(7)?.name, 'Sonic')
+    assert.equal(store.getInstalled(8), undefined)
+  })
+
   test('an index file that is damaged is an empty library, not a crash on start', () => {
     const store = new Store(scratch({ 'downloaded_roms.json': '{"roms": [' }))
 

@@ -20,9 +20,10 @@ import {
 } from 'node:fs'
 import { cp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { SHARED_LIBRARY, type InstalledRom } from '@shared/types'
 import { moveLibrary, planLibraryMove, type MoveIndex } from './librarymove.ts'
+import { Store } from './store.ts'
 
 const scratches: string[] = []
 afterEach(() => {
@@ -392,3 +393,26 @@ for (const sameDrive of [true, false]) {
     assert.deepEqual(readdirSync(join(to, 'psx')), [])
   })
 }
+
+test('with the real index, a write that fails leaves both the files and the index on the old place', async () => {
+  const { from, to, games } = looseLibrary()
+  const home = dirname(from)
+  const store = new Store(join(home, 'config'))
+  store.addInstalledMany(games)
+  const plan = await planLibraryMove([games[1]], from, to)
+  // Something in the way of the index's own temporary file: its write throws.
+  mkdirSync(join(home, 'config', 'downloaded_roms.json.tmp'))
+
+  await assert.rejects(moveLibrary(plan, store))
+  assert.equal(readFileSync(join(from, 'psx', 'Disc Game', 'game.bin')).length, 5000)
+  assert.equal(store.getInstalled(2)?.path, join(from, 'psx', 'Disc Game'))
+  rmSync(join(home, 'config', 'downloaded_roms.json.tmp'), { recursive: true })
+  assert.equal(
+    store.pruneInstalled(() => false),
+    0
+  )
+  assert.equal(
+    new Store(join(home, 'config')).getInstalled(2)?.path,
+    join(from, 'psx', 'Disc Game')
+  )
+})
