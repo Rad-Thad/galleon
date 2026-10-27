@@ -225,6 +225,28 @@ describe('focus.no-new-window', () => {
     assert.equal((await run(f)).reason, 'new-window')
   })
 
+  test('work the cycle stopped waiting on is told to stop and awaited before anything is read', async () => {
+    const f = fake()
+    const order: string[] = []
+    f.deps.download = async (given) => {
+      await new Promise<void>((resolve) => given.signal.addEventListener('abort', () => resolve()))
+      order.push('download stopped')
+      return { ...check('download.small', 'fail'), reason: 'download-cancelled' }
+    }
+    f.cycle = async (_emulator, _signal, whileShown) => {
+      const stop = new AbortController()
+      void whileShown(stop.signal)
+      stop.abort()
+      order.push('cycle over')
+      return [check('launch.retroarch'), check('exit.retroarch')]
+    }
+    const result = await run(f)
+    assert.equal(result.result, 'skip')
+    assert.equal(result.reason, 'download-download-cancelled')
+    assert.equal(result.metrics.emulator, 'retroarch')
+    assert.deepEqual(order, ['cycle over', 'download stopped'])
+  })
+
   test('the page is uncovered and the display closed when the cycle throws', async () => {
     const f = fake()
     f.cycle = async (_emulator, _signal, whileShown) => {

@@ -94,13 +94,11 @@ export function noNewWindowScenario(
 
       for (const emulator of emulators) {
         if (context.signal.aborted) return result('skip', SKIP.aborted)
-        const held: { behind: Behind | null } = { behind: null }
-        let covered = false
+        const held: { task: Promise<Behind> | null } = { task: null }
         try {
-          await cycle(emulator, context.signal, async (shown) => {
+          await cycle(emulator, context.signal, (shown) => {
             deps.cover(emulator)
-            covered = true
-            held.behind = await downloadBehind(
+            held.task = downloadBehind(
               { ...context, signal: shown },
               before,
               browserBefore,
@@ -108,11 +106,14 @@ export function noNewWindowScenario(
               deps,
               sleep
             )
+            return held.task
           })
         } finally {
-          if (covered) deps.cover(null)
+          if (held.task) deps.cover(null)
         }
-        const behind = held.behind
+        // The cycle stops waiting on the work past its limit, and the work is
+        // then told to stop: what comes after is read only once it has.
+        const behind = held.task ? await held.task : null
         if (behind === null) continue
 
         const after = await readSafely(windows)

@@ -3562,3 +3562,20 @@ Lines the tooling reads (exact forms):
   - compare Galleon's `windowsOf` before, during and after;
   - read the toast after the exit;
   - then READY-FOR-DEVICE M1-13.
+
+## 2026-10-27 17:27 UTC session 0178hDCCG9zYCCDXQwprrCST (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. #334 (M1-13 part 4b-i) merged at 5cbf675; CI x64 8:24, arm64 1:11.
+- Worked on: M1-13 part 4b-ii (tracking issue #329): line 4, device check `focus.no-new-window`.
+- Result: PR (this one).
+  - `noNewWindowScenario` (`src/main/selftestnowindow.ts`) runs its own cycle on the first emulator the request names that is shown. It tries the rest in order.
+  - While that emulator holds the screen, the page is told a game covers it, as a launch tells it. `download.small`'s download then runs through the real queue (`whileShown`). The task is awaited after the cycle, because the cycle stops waiting on it at its limit.
+  - Galleon's windows (its process group's, from the display) and the `BrowserWindow` count are read before the cycle, at every step of the download and after the exit. Any change fails `new-window`.
+  - The game's toast must be absent while the game is shown (`notice-not-held`) and on the page within `NOTICE_MS` after the exit (`notice-not-shown`).
+  - Skips: `windows-unknown`, `no-game-shown`, `download-<reason>`. run.sh always asks for it, and TESTING.md describes it.
+  - M1-13 stays false until device results show `focus.no-new-window` and `focus.return` passing.
+- Evidence: `selftestnowindow.test.ts` 17/17: pass; a window mapped and unmapped mid-download; a swapped window; a BrowserWindow added; a notice not held; not shown; an unreadable reading; no first reading; fallback to the next emulator; none shown; download skipped; new window despite a failed download; uncovered and closed when the cycle throws; cut-off work awaited; abort; the display opened once; the probe. `selftestemulators.test.ts` +1 (offered only with its deps, on a cycle of its own carrying the work). `selftestdownload.test.ts` +1 (`picked`). `npm run test:app` 263/263: in the real app it reads Galleon's window from Xvfb, then skips `no-game-shown`. Electron ran through a `--no-sandbox` wrapper in the scratchpad, as root. `scripts/agent/check.sh` green. No screen changed, so no shots.
+- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: READY-FOR-DEVICE M1-13 (`focus.no-new-window`, `focus.return`).
+- Next: the next feature from `node scripts/agent/next.mjs`.
