@@ -1006,6 +1006,8 @@ export const es: Catalog = {
   'system.romsWritable': 'Carpetas de ROM con permiso de escritura',
   'system.freeSpace': 'Espacio libre',
   'system.freeOf': '{free} libres de {total} en {path}',
+  'system.onLabelledVolume': 'En {label} ({mount}), {fsType}',
+  'system.onVolume': 'En {mount}, {fsType}',
   'system.foundBy': 'Found by', // TODO(i18n)
   'system.foundByBundled': "{name}: ES-DE's {rule} rule, {entry}", // TODO(i18n)
   'system.foundByCustom': '{name}: custom_systems {rule} rule, {entry}', // TODO(i18n)

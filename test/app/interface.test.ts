@@ -1535,6 +1535,23 @@ describe('the folder RomMix keeps everything in', () => {
       'the button to come back'
     )
   })
+
+  test('and the pre-flight check names the volume and file system games go to', async () => {
+    // Which disk the library is on, and whether its file system is one the
+    // emulators can use, from the kernel's mount table: on the suite's machine
+    // there is always one, if only `/`.
+    await app.waitFor(
+      `document.querySelector('[data-volume]')?.textContent.includes(', ')`,
+      'the volume under the free space'
+    )
+    const { drives } = await app.read<{ drives: { volume?: { mountPoint: string } }[] }>(
+      `await window.rommix.system.diagnostics()`
+    )
+    assert.equal(
+      await app.read<string>(`document.querySelector('[data-volume]')?.dataset.volume`),
+      drives[0].volume?.mountPoint
+    )
+  })
 })
 
 /**

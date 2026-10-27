@@ -1005,6 +1005,8 @@ export const en = {
   'system.romsWritable': 'ROM folders writable',
   'system.freeSpace': 'Free space',
   'system.freeOf': '{free} free of {total} in {path}',
+  'system.onLabelledVolume': 'On {label} ({mount}), {fsType}',
+  'system.onVolume': 'On {mount}, {fsType}',
   'system.foundBy': 'Found by',
   'system.foundByBundled': "{name}: ES-DE's {rule} rule, {entry}",
   'system.foundByCustom': '{name}: custom_systems {rule} rule, {entry}',

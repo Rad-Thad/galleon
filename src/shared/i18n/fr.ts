@@ -1016,6 +1016,8 @@ export const fr: Catalog = {
   'system.romsWritable': 'Dossiers de ROM accessibles en écriture',
   'system.freeSpace': 'Espace libre',
   'system.freeOf': '{free} libres sur {total} dans {path}',
+  'system.onLabelledVolume': 'Sur {label} ({mount}), {fsType}',
+  'system.onVolume': 'Sur {mount}, {fsType}',
   'system.foundBy': 'Found by', // TODO(i18n)
   'system.foundByBundled': "{name}: ES-DE's {rule} rule, {entry}", // TODO(i18n)
   'system.foundByCustom': '{name}: custom_systems {rule} rule, {entry}', // TODO(i18n)

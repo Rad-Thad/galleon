@@ -299,6 +299,11 @@
   overflow-wrap: anywhere;
 }
 
+/* A fact about the value above it, in the dim colour so the value leads. */
+.kv__detail {
+  color: var(--text-dim);
+}
+
 /*
  * The same list, in two columns where there is room for two.
  *
