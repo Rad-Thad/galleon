@@ -398,10 +398,18 @@ describe('launchCycle', () => {
         throw new Error('could not start')
       }
     ]) {
+      let stoppedAt = -1
       const f = fake({ windowAt: 0 })
+      const signalGroup = f.deps.signalGroup
+      f.deps.signalGroup = (group, sig) => {
+        stoppedAt = f.clock()
+        signalGroup(group, sig)
+      }
       f.deps.whileShown = whileShown
       const [launch, exit] = await cycle(f)
       assert.deepEqual([launch.result, exit.result], ['pass', 'pass'])
+      // Settled, so the window is not kept up past the settle.
+      assert.ok(stoppedAt < SETTLE_MS + 1000, `stopped at ${stoppedAt}`)
     }
   })
 
