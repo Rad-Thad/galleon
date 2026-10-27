@@ -3593,3 +3593,17 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet.
 - Next: M1-14 part 2: a 'Steam' platform built from `installedSteamGames`, and the launch through `/usr/bin/steam steam://rungameid/<appid>` with the clean environment, logged and not waited on, the overlay saying 'Playing on Steam'. Tools Steam installs as apps (Steamworks Common Redistributables, Proton, the runtimes) carry the installed flag too; telling them from games needs more than a manifest, so decide that with part 2.
+
+## 2026-10-27 18:52 UTC session 0178hDCAKrCQWPecCCL2r4hA (hourly heartbeat, second unit)
+
+- Device results: none new (as above). #337 (M1-14 part 1) merged at e58a27f; CI x64 8:00, arm64 1:13.
+- Worked on: M1-14 part 2a (tracking issue #336): the half of acceptance line 2 that lives in main. The launch is logged and does not wait on Steam.
+- Result: PR (this one).
+  - `launchSteamGame` (`src/main/steam/launch.ts`) runs `/usr/bin/steam steam://rungameid/<appid>` with the clean environment (`childEnvironment`). The command is logged at info. Output is ignored and the child unref'd, so its exit is never awaited. A start failure is a warning, never a throw.
+  - Only an appid of digits reaches the URL, since a manifest on the card is anyone's to write.
+  - Nothing calls it yet. M1-14 stays false.
+- Evidence: `launch.test.ts` 8/8 (argv; non-digit appids start nothing; stdio ignored and unref'd; APPDIR, APPIMAGE and the overlay preload removed, DISPLAY kept; the info line carries the argv; a spawn error logs a warning). `scripts/agent/check.sh` green. No app code path or screen changed, so no `test:app` and no shots.
+- Evaluator: PASS (8 mutants on `launch.ts`, all caught: no unref, piped output, the parent environment whole, a loosened appid check, no info line, no error listener, no guard, another URL scheme).
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet.
+- Next: M1-14 part 2b: a 'Steam' platform in the library from `installedSteamGames`, Play calling `launchSteamGame` over IPC, and the running overlay saying 'Playing on Steam' (all four catalogues, `test:app`, shots). Decide how to keep Steam's tools (redistributables, Proton, runtimes) out of the list.
