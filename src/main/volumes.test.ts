@@ -48,8 +48,12 @@ test('the mount table gives each mount its device, type and whether it is read-o
 })
 
 test("the kernel's escapes in a path are undone", () => {
-  const [mount] = parseMounts('/dev/mmcblk0p1 /run/media/deck/My\\040Card\\011\\134x ext4 rw 0 0')
+  const [mount] = parseMounts(
+    '/srv/My\\040Share /run/media/deck/My\\040Card\\011\\134x ext4 rw 0 0'
+  )
   assert.equal(mount.mountPoint, '/run/media/deck/My Card\t\\x')
+  // The kernel escapes the source field the same way, whatever names it.
+  assert.equal(mount.device, '/srv/My Share')
 })
 
 test('a mount point mounted over is the later mount, listed once', () => {
