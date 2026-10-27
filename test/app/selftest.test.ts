@@ -297,10 +297,10 @@ test('signed in to a library with no large platform, grid.scroll scrolls the syn
   }
 })
 
-test('launch and exit ids reach their scenarios, and no payload outside the home is started', async () => {
+test('launch, exit and focus.return reach their scenarios, and no payload outside the home is started', async () => {
   const { code, home, results } = await runWithRequest({
     ...REQUEST,
-    checks: ['launch.retroarch', 'exit.retroarch', 'launch.duckstation'],
+    checks: ['launch.retroarch', 'exit.retroarch', 'launch.duckstation', 'focus.return'],
     payloads: { retroarch: '../owner/roms/snes/game.sfc' }
   })
   assert.equal(code, 0)
@@ -309,14 +309,16 @@ test('launch and exit ids reach their scenarios, and no payload outside the home
   assert.equal(summary.status, 'complete')
   const checks = new Map(summary.checks.map((c) => [c.id, c]))
   assert.deepEqual(
-    ['launch.retroarch', 'exit.retroarch', 'launch.duckstation'].map((id) => [
+    ['launch.retroarch', 'exit.retroarch', 'launch.duckstation', 'focus.return'].map((id) => [
       checks.get(id)?.result,
       checks.get(id)?.reason
     ]),
     [
       ['skip', 'payload-outside-home'],
       ['skip', 'payload-outside-home'],
-      ['skip', 'no-payload']
+      ['skip', 'no-payload'],
+      // Nothing was started, so no exit could say where the focus went.
+      ['skip', 'no-exit-measured']
     ]
   )
   assert.ok(!existsSync(join(home, 'sandbox')), 'no sandbox was made')

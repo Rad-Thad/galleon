@@ -65,6 +65,12 @@ export interface LaunchDeps {
    * cannot tell.
    */
   ownFocused: () => Promise<boolean | null>
+  /**
+   * What Galleon does when a game it started has gone (see
+   * `reclaimScreen`), so the focus measured afterwards is the one a player
+   * gets back, not whatever the compositor picked on its own.
+   */
+  reclaim?: () => void
   /** Signals the group the cycle started, and nothing else. */
   signalGroup: (group: number, signal: NodeJS.Signals) => void
   /**
@@ -146,10 +152,9 @@ export async function launchCycle(
   const saveChanged = deps.saveFingerprint(plan.folders.saves) !== savesBefore
   // Only a cycle that saw the window list working and stopped the emulator
   // cleanly can say whether the focus came back.
-  const refocusMs =
-    launch.sighting && !launch.early && !stop.killed
-      ? await watchForRefocus(deps, signal, now, sleep)
-      : undefined
+  const askRefocus = launch.sighting !== null && !launch.early && !stop.killed
+  if (askRefocus) reclaim(deps)
+  const refocusMs = askRefocus ? await watchForRefocus(deps, signal, now, sleep) : undefined
 
   const launchMetrics = {
     windowMs: launch.sighting ? launchMs : null,
@@ -164,6 +169,8 @@ export async function launchCycle(
     killed: Number(stop.killed),
     straysRemoved: removed.length,
     refocusMs: refocusMs ?? null,
+    // Null when the cycle could not ask; `focus.return` counts the rest.
+    refocused: refocusMs === undefined ? null : Number(refocusMs !== null),
     saveChanged: Number(saveChanged)
   }
   if (signal.aborted) return both('skip', SKIP.aborted)
@@ -204,6 +211,15 @@ export async function launchCycle(
     Object.assign(exitResult, { result: 'fail', reason: 'save-unchanged' })
   }
   return [launchResult, exitResult]
+}
+
+/** Never throws: a reclaim that fails is what the refocus watch then measures. */
+function reclaim(deps: LaunchDeps): void {
+  try {
+    deps.reclaim?.()
+  } catch (cause) {
+    log.warn('selftest', 'the screen could not be taken back', { cause })
+  }
 }
 
 interface Watched {

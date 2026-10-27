@@ -11,6 +11,7 @@ import {
   EXIT_PREFIX,
   LAUNCH_PREFIX,
   launchCycle,
+  REFOCUS_MS,
   type Exited,
   type LaunchDeps,
   type Started
@@ -132,7 +133,39 @@ function inside(root: string, path: string): boolean {
   return rel !== '' && !rel.startsWith('..') && !isAbsolute(rel)
 }
 
-/** One scenario per launch or exit id in `checks`. */
+/**
+ * `focus.return`: Galleon held the focus again after every emulator exit in
+ * the run, read from the exit checks' `refocused`. An exit that could not
+ * ask (no window, an early exit, a kill) counts neither way; with none
+ * asked, the check is a skip, never a pass.
+ */
+export const FOCUS_RETURN_CHECK = 'focus.return'
+
+export function focusReturn(exits: readonly CheckResult[]): CheckResult {
+  const asked = exits.filter((e) => e.metrics.refocused === 0 || e.metrics.refocused === 1)
+  const missed = asked.filter((e) => e.metrics.refocused === 0)
+  const times = asked
+    .map((e) => e.metrics.refocusMs)
+    .filter((ms): ms is number => typeof ms === 'number')
+  return {
+    id: FOCUS_RETURN_CHECK,
+    result: asked.length === 0 ? 'skip' : missed.length > 0 ? 'fail' : 'pass',
+    metrics: {
+      exits: asked.length,
+      refocused: asked.length - missed.length,
+      worstRefocusMs: times.length > 0 ? Math.max(...times) : null,
+      missed: missed.length > 0 ? missed.map((e) => e.id.slice(EXIT_PREFIX.length)).join(',') : null
+    },
+    thresholds: { worstRefocusMs: REFOCUS_MS },
+    reason: asked.length === 0 ? 'no-exit-measured' : missed.length > 0 ? 'not-refocused' : null,
+    evidence: []
+  }
+}
+
+/**
+ * One scenario per launch or exit id in `checks`, and `focus.return` over
+ * every emulator they name when it is asked.
+ */
 export function emulatorScenarios(
   checks: readonly string[],
   deps: EmulatorScenarioDeps
@@ -152,6 +185,16 @@ export function emulatorScenarios(
     if (emulator === null) continue
     const which = id.startsWith(LAUNCH_PREFIX) ? 0 : 1
     scenarios.set(id, async ({ signal }) => (await pair(emulator, signal))[which])
+  }
+  if (checks.includes(FOCUS_RETURN_CHECK)) {
+    // Each cycle runs once whichever id asks first, so the order of the ids
+    // in the request does not matter.
+    const emulators = [...new Set(checks.map(emulatorOf).filter((e) => e !== null))]
+    scenarios.set(FOCUS_RETURN_CHECK, async ({ signal }) => {
+      const exits: CheckResult[] = []
+      for (const emulator of emulators) exits.push((await pair(emulator, signal))[1])
+      return focusReturn(exits)
+    })
   }
   return scenarios
 }
@@ -470,7 +513,8 @@ export function ownFocused(
  */
 export function deviceCycle(
   env: NodeJS.ProcessEnv = process.env,
-  open: (env: NodeJS.ProcessEnv) => Promise<X11 | null> = openDisplay
+  open: (env: NodeJS.ProcessEnv) => Promise<X11 | null> = openDisplay,
+  reclaim?: LaunchDeps['reclaim']
 ): EmulatorScenarioDeps['cycle'] {
   return async (emulator, plan, state, signal, expectSave) => {
     const opened: { display: Promise<X11 | null> | null; finder: WindowFinder | null } = {
@@ -495,6 +539,7 @@ export function deviceCycle(
           prepare: (p) => prepareSandbox(p, state.paths.bios),
           findWindow,
           ownFocused: ownFocused(findWindow),
+          reclaim,
           straysToClear: (p) => straysToClear(p),
           clearStrays,
           saveFingerprint

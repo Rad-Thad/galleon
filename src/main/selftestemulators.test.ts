@@ -21,6 +21,8 @@ import {
   devicePlan,
   emulatorOf,
   emulatorScenarios,
+  FOCUS_RETURN_CHECK,
+  focusReturn,
   groupAlive,
   ownFocused,
   payloadFor,
@@ -279,6 +281,90 @@ describe('the scenarios', () => {
     assert.deepEqual(h.cycles, [{ emulator: 'retroarch', plan: SKIP_PLAN, expectSave: false }])
   })
 })
+
+function exitWith(
+  emulator: string,
+  refocused: number | null,
+  refocusMs: number | null
+): CheckResult {
+  return {
+    ...pass(`exit.${emulator}`),
+    result: refocused === 0 ? 'fail' : 'pass',
+    metrics: { refocused, refocusMs }
+  }
+}
+
+describe('focus.return', () => {
+  test('passes when the focus came back after every exit, with the slowest return', () => {
+    const result = focusReturn([exitWith('retroarch', 1, 400), exitWith('dolphin', 1, 1200)])
+    assert.equal(result.id, FOCUS_RETURN_CHECK)
+    assert.equal(result.result, 'pass', result.reason ?? '')
+    assert.deepEqual(result.metrics, { exits: 2, refocused: 2, worstRefocusMs: 1200, missed: null })
+  })
+
+  test('fails when any exit left Galleon without the focus, naming it', () => {
+    const result = focusReturn([exitWith('retroarch', 1, 400), exitWith('dolphin', 0, null)])
+    assert.equal(result.result, 'fail')
+    assert.equal(result.reason, 'not-refocused')
+    assert.equal(result.metrics.refocused, 1)
+    assert.equal(result.metrics.missed, 'dolphin')
+  })
+
+  test('an exit that could not ask counts neither way', () => {
+    const result = focusReturn([exitWith('retroarch', 1, 400), exitWith('dolphin', null, null)])
+    assert.equal(result.result, 'pass')
+    assert.equal(result.metrics.exits, 1)
+  })
+
+  test('with no exit measured it is a skip, never a pass', () => {
+    for (const exits of [[], [exitWith('retroarch', null, null)], [skipped('exit.dolphin')]]) {
+      const result = focusReturn(exits)
+      assert.equal(result.result, 'skip')
+      assert.equal(result.reason, 'no-exit-measured')
+    }
+  })
+
+  test('asked first, it runs every named cycle once, which the exits then share', async () => {
+    const h = harness({ retroarch: 'payloads/snes/hello.sfc', dolphin: 'payloads/gc/hello.dol' }, [
+      state('retroarch'),
+      state('dolphin')
+    ])
+    h.deps.cycle = async (emulator) => {
+      h.cycles.push({ emulator, plan: SKIP_PLAN, expectSave: false })
+      return [pass(`launch.${emulator}`), exitWith(emulator, emulator === 'dolphin' ? 0 : 1, 10)]
+    }
+    const scenarios = emulatorScenarios(
+      [FOCUS_RETURN_CHECK, 'launch.retroarch', 'exit.retroarch', 'exit.dolphin'],
+      h.deps
+    )
+    const result = (await scenarios.get(FOCUS_RETURN_CHECK)!(context)) as CheckResult
+    await scenarios.get('exit.retroarch')!(context)
+    await scenarios.get('exit.dolphin')!(context)
+    assert.equal(result.result, 'fail')
+    assert.equal(result.metrics.missed, 'dolphin')
+    assert.deepEqual(
+      h.cycles.map((c) => c.emulator),
+      ['retroarch', 'dolphin']
+    )
+  })
+
+  test('not asked, there is no scenario for it', () => {
+    const { deps } = harness({}, [])
+    assert.equal(emulatorScenarios(['exit.retroarch'], deps).has(FOCUS_RETURN_CHECK), false)
+  })
+
+  test('asked with no emulator, it skips', async () => {
+    const { deps } = harness({}, [])
+    const result = (await emulatorScenarios([FOCUS_RETURN_CHECK], deps).get(FOCUS_RETURN_CHECK)!(
+      context
+    )) as CheckResult
+    assert.equal(result.result, 'skip')
+  })
+})
+
+function skipped(id: string): CheckResult {
+  return { ...pass(id), result: 'skip', reason: 'no-payload' }
+}
 
 describe('a save placed beside the payload', () => {
   function placing(found: boolean): { h: Harness; log: string[] } {

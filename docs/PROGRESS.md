@@ -3528,3 +3528,18 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet.
 - Next: M1-13 part 4: device checks `focus.no-new-window` and `focus.return` (self-test scenario or run.sh step, TESTING.md catalogue), then READY-FOR-DEVICE M1-13. Refocus and redraw once after exit goes with `focus.return`.
+
+## 2026-10-27 16:26 UTC session 0178hDCAtZx71yLBTnm5xNCE (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. #332 (M1-13 part 3) merged at 986d38e; CI x64 8:29, arm64 1:06.
+- Worked on: M1-13 part 4a (tracking issue #329): line 5, device check `focus.return`, and the description's "re-focus and redraw the launcher window once" after an exit.
+- Result: PR (this one).
+  - `reclaimScreen` (`src/main/reclaim.ts`): the window restored if minimised, focused, and drawn once (`webContents.invalidate`). `RomMix.reclaimScreen` calls it when a game launch ends (`ipc/game.ts`) and when an emulator started on its own exits (`ipc/emulators.ts`).
+  - `launchCycle` calls the same reclaim (`LaunchDeps.reclaim`, wired in `index.ts`) once the group is gone and before it looks for the focus, so `refocusMs` measures what a player gets back. Each exit check now carries `refocused` (1, 0, or null when the cycle could not ask).
+  - `focus.return` (`focusReturn`, `emulatorScenarios`): reads every emulator cycle the request names, running any not yet run (each still once). Fails `not-refocused` naming the emulators in `missed`; skips `no-exit-measured` when no exit could ask. run.sh always asks for it. TESTING.md describes it.
+  - M1-13 stays false.
+- Evidence: `selftestlaunch.test.ts` 35/35 (+3: reclaim after the group is gone and before the focus is asked; a reclaim that throws is still measured; `refocused` 1/0/null, no reclaim after a kill). `selftestemulators.test.ts` (+7 `focus.return`: pass with the slowest return; fail naming the emulator; unasked exits count neither way; none measured skips; asked first it runs each cycle once; absent when not asked; skips with no emulator). `reclaim.test.ts` (3). `test/app/selftest.test.ts`: `focus.return` in the real app skips `no-exit-measured`. `scripts/agent/check.sh` green; `npm run test:app` 263/263 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root). No screen changed, so no shots.
+- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet.
+- Next: M1-13 part 4b: device check `focus.no-new-window` (a download finishing while the sandboxed emulator has the screen maps no window; its notice appears after the exit), then READY-FOR-DEVICE M1-13.

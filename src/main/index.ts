@@ -212,7 +212,7 @@ if (!app.requestSingleInstanceLock()) {
             savingPayloads: selfTest.request.savingPayloads,
             emulators: () => rommix.ensureEmulators(),
             plan: devicePlan(resolveRoot()),
-            cycle: deviceCycle(),
+            cycle: deviceCycle(process.env, undefined, () => rommix.reclaimScreen()),
             placeSave: placeSaveBeside(resolveRoot())
           })
         ]),

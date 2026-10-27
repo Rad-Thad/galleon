@@ -54,9 +54,10 @@ export function registerEmulatorIpc(rommix: RomMixApp, handle: Handle): void {
     // user is inside it with no way back. Sent after it has survived long
     // enough to count as started — before that, `runEmulator` rejects and there
     // is nothing to be in front of.
-    const command = await launcher.runEmulator(state, () =>
+    const command = await launcher.runEmulator(state, () => {
       rommix.send('running:state', { running: false, romId: null, emulator: null, stage: null })
-    )
+      rommix.reclaimScreen()
+    })
     rommix.send('running:state', { running: true, romId: null, emulator: state.name, stage: null })
     return command
   })

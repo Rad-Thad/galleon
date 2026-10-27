@@ -290,6 +290,45 @@ describe('launchCycle', () => {
     assert.equal(exit.metrics.code, 0)
   })
 
+  test('the screen is taken back once, after the group is gone and before the focus is looked for', async () => {
+    const order: string[] = []
+    const f = fake({ windowAt: 0 })
+    const signalGroup = f.deps.signalGroup
+    f.deps.signalGroup = (group, sig) => {
+      order.push(sig)
+      signalGroup(group, sig)
+    }
+    const ownFocused = f.deps.ownFocused
+    f.deps.ownFocused = () => {
+      order.push('asked')
+      return ownFocused()
+    }
+    f.deps.reclaim = () => order.push('reclaim')
+    const [, exit] = await cycle(f)
+    assert.equal(exit.result, 'pass', exit.reason ?? '')
+    assert.deepEqual(order, ['SIGTERM', 'reclaim', 'asked'])
+  })
+
+  test('a reclaim that throws still has the focus measured', async () => {
+    const f = fake({ windowAt: 0, refocusAt: 'never' })
+    f.deps.reclaim = () => {
+      throw new Error('window gone')
+    }
+    const [, exit] = await cycle(f)
+    assert.equal(exit.reason, 'not-refocused')
+    assert.equal(exit.metrics.refocused, 0)
+  })
+
+  test('refocused is 1 when the focus came back, 0 when it did not, null when not asked', async () => {
+    assert.equal((await cycle(fake({ windowAt: 0 })))[1].metrics.refocused, 1)
+    assert.equal((await cycle(fake({ windowAt: 0, refocusAt: 'never' })))[1].metrics.refocused, 0)
+    let reclaimed = 0
+    const killed = fake({ windowAt: 0, onTerm: 'ignore' })
+    killed.deps.reclaim = () => (reclaimed += 1)
+    assert.equal((await cycle(killed))[1].metrics.refocused, null)
+    assert.equal(reclaimed, 0)
+  })
+
   test('a payload that saves passes exit once the save folder has changed', async () => {
     const f = fake({ windowAt: 0, savesAt: 1000 })
     const [, exit] = await cycle(f, PLAN, undefined, true)

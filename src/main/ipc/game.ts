@@ -91,6 +91,7 @@ export function registerGameIpc(rommix: RomMixApp, handle: Handle): void {
       return result
     } finally {
       rommix.send('running:state', { running: false, romId: null, stage: null })
+      rommix.reclaimScreen()
     }
   })
 
