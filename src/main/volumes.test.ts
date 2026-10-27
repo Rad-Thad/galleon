@@ -13,6 +13,8 @@ import { chooseLibraryVolume } from '@shared/librarycard'
 import {
   decodeLabelLink,
   isMediaMount,
+  isOnMissingCard,
+  missingCardTest,
   mountOf,
   parseMounts,
   readVolumes,
@@ -287,4 +289,29 @@ test('without a mount table, or off every mount, a folder has no volume', async 
     `/dev/mmcblk0p1 ${join(at, 'media', 'deck', 'NovaSD')} ext4 rw 0 0`
   ])
   assert.equal(await (await volumeNamer(sources))(other), null)
+})
+
+test('a path under /run/media is on a missing card unless a card is mounted over it', () => {
+  const mounts = parseMounts(
+    ['/dev/nvme0n1p8 / ext4 rw 0 0', '/dev/mmcblk0p1 /run/media/deck/NovaSD ext4 rw 0 0'].join('\n')
+  )
+  assert.equal(isOnMissingCard('/run/media/deck/NovaSD/galleon/roms/gc/a.iso', mounts), false)
+  // Only the root covers it: the card is out, whatever folder is left there.
+  assert.equal(isOnMissingCard('/run/media/deck/Other/galleon/roms/gc/a.iso', mounts), true)
+  assert.equal(isOnMissingCard('/run/media/deck/NovaSDX/a.iso', mounts), true)
+  // Internal storage is never a missing card.
+  assert.equal(isOnMissingCard('/home/deck/galleon/roms/gc/a.iso', mounts), false)
+  assert.equal(isOnMissingCard('/home/deck/a.iso', []), false)
+})
+
+test('the mount table is read for the missing-card test, and unreadable keeps every card', () => {
+  const dir = scratch()
+  writeFileSync(join(dir, 'mounts'), '/dev/mmcblk0p1 /run/media/deck/NovaSD ext4 rw 0 0\n')
+  const missing = missingCardTest(join(dir, 'mounts'))
+  assert.equal(missing('/run/media/deck/NovaSD/roms/a.iso'), false)
+  assert.equal(missing('/run/media/deck/Gone/roms/a.iso'), true)
+
+  const unreadable = missingCardTest(join(dir, 'absent'))
+  assert.equal(unreadable('/run/media/deck/NovaSD/roms/a.iso'), true)
+  assert.equal(unreadable('/home/deck/roms/a.iso'), false)
 })

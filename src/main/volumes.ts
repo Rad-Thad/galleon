@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { readdir, readFile, realpath, statfs } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { Volume } from '@shared/librarycard'
@@ -132,6 +133,36 @@ export function mountOf(path: string, mounts: readonly MountEntry[]): MountEntry
     if (covers && (!best || point.length > best.mountPoint.length)) best = mount
   }
   return best
+}
+
+/**
+ * Whether a path is on removable media that is not mounted now.
+ *
+ * A path under `/run/media` whose deepest mount is not itself on removable
+ * media is on a card that has gone: what is left at its mount point, if
+ * anything, is a folder on internal storage, and nothing in it says anything
+ * about the games on the card.
+ */
+export function isOnMissingCard(path: string, mounts: readonly MountEntry[]): boolean {
+  if (!isMediaMount(path)) return false
+  const mount = mountOf(path, mounts)
+  return !mount || !isMediaMount(mount.mountPoint)
+}
+
+/**
+ * `isOnMissingCard` against the mount table as it is now, read once.
+ *
+ * Synchronous, for the index's prune. A table that cannot be read leaves every
+ * card counted as missing, so its games are kept rather than forgotten.
+ */
+export function missingCardTest(mountsFile = MOUNTS_FILE): (path: string) => boolean {
+  let mounts: MountEntry[] = []
+  try {
+    mounts = parseMounts(readFileSync(mountsFile, 'utf8'))
+  } catch (cause) {
+    log.debug('volumes', 'mount table unreadable', { reason: (cause as Error).message })
+  }
+  return (path) => isOnMissingCard(path, mounts)
 }
 
 /**

@@ -375,6 +375,29 @@ describe('pruning the index against the disk', () => {
     assert.equal(existsSync(empty), true)
   })
 
+  test('a game on a card that is not mounted is kept, whatever is left at its mount point', () => {
+    // An unmount can leave the mount point behind as a folder on internal
+    // storage, and a folder made under it there would make the game look
+    // deleted from a folder still present.
+    const dir = scratch()
+    const card = join(dir, 'media', 'NovaSD')
+    const roms = join(card, 'galleon', 'roms', 'gc')
+    mkdirSync(roms, { recursive: true })
+    const store = new Store(dir)
+    store.addInstalled(installed({ romId: 4, path: join(roms, 'game.iso') }))
+
+    assert.equal(
+      store.pruneInstalled((path) => path.startsWith(card)),
+      0
+    )
+    assert.equal(store.installed.length, 1)
+    // The same game on a card that is mounted is pruned as any other.
+    assert.equal(
+      store.pruneInstalled(() => false),
+      1
+    )
+  })
+
   test('nothing to prune leaves the file alone', () => {
     const store = new Store(scratch())
 
