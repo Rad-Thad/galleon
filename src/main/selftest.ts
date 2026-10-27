@@ -53,6 +53,11 @@ export interface SelfTestRequest {
   payloads: Record<string, string>
   /** Emulators whose payload writes a save; see `launchCycle`'s `expectSave`. */
   savingPayloads: string[]
+  /**
+   * The game id of the shortcut `steam.launch` starts, as `steam://rungameid/`
+   * takes it, or null when the harness made none.
+   */
+  steamTarget: string | null
   fakeRomm: unknown
   readOnlyServer: true
   privacy: true
@@ -203,6 +208,11 @@ export function parseRequest(raw: unknown): Taken {
   if (r.savingPayloads !== undefined && !isStringArray(r.savingPayloads)) {
     return refuse('request-saving-payloads')
   }
+  const steamTarget = r.steamTarget ?? null
+  // Digits only: it becomes part of a URL Steam acts on.
+  if (steamTarget !== null && (typeof steamTarget !== 'string' || !/^\d+$/.test(steamTarget))) {
+    return refuse('request-steam-target')
+  }
   return {
     kind: 'request',
     request: {
@@ -217,6 +227,7 @@ export function parseRequest(raw: unknown): Taken {
       profiles: r.profiles ?? [],
       payloads: payloads as Record<string, string>,
       savingPayloads: r.savingPayloads ?? [],
+      steamTarget,
       fakeRomm: r.fakeRomm ?? null,
       readOnlyServer: true,
       privacy: true,

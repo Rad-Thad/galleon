@@ -1420,6 +1420,7 @@ describe('device-bundle', () => {
         profiles: ['performance', 'balanced'],
         payloads: { retroarch: 'payloads/snes/hello.sfc' },
         savingPayloads: ['retroarch'],
+        steamTarget: null,
         fakeRomm: null,
         readOnlyServer: true,
         privacy: true,

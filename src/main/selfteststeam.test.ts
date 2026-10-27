@@ -1,7 +1,19 @@
 import assert from 'node:assert/strict'
+import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { describe, test } from 'node:test'
 import { type ScenarioContext, summaryErrors } from './selftest.ts'
-import { STEAM_LIST_CHECK, steamListScenario } from './selfteststeam.ts'
+import {
+  STEAM_LAUNCH_CHECK,
+  STEAM_LAUNCHED,
+  STEAM_LIST_CHECK,
+  STEAM_PROMPT,
+  TARGET_ENDED,
+  TARGET_STARTED,
+  steamLaunchScenario,
+  steamListScenario
+} from './selfteststeam.ts'
 import { binaryVdf, shortcut } from './fixtures/steam/binaryvdf.ts'
 
 const HOME = '/home/deck'
@@ -148,5 +160,164 @@ describe('steam.list', () => {
     const check = await run(null)
     assert.equal(check.reason, 'test-shortcut-not-found')
     assert.equal(check.metrics.steamGames, 2)
+  })
+})
+
+const GAMEID = '13835058055282163712'
+
+interface Harness {
+  /** Files already in the handshake folder before the check starts. */
+  before?: Record<string, string>
+  /** What Steam does when asked: the files the target and run.sh write. */
+  onLaunch?: (dir: string) => void
+  /** Files run.sh writes once it has read `steam-launched`. */
+  answer?: Record<string, string>
+  launch?: (gameid: string) => string[] | null
+  steamTarget?: string | null
+  handshake?: boolean
+  signal?: AbortSignal
+}
+
+async function launchRun(harness: Harness = {}) {
+  const dir = mkdtempSync(join(tmpdir(), 'galleon-steam-launch-'))
+  for (const [name, text] of Object.entries(harness.before ?? {})) {
+    writeFileSync(join(dir, name), text)
+  }
+  const asked: string[] = []
+  let launchedSaid: string | null = null
+  const timer = setInterval(() => {
+    try {
+      launchedSaid ??= readFileSync(join(dir, STEAM_LAUNCHED), 'utf8')
+    } catch {
+      return
+    }
+    for (const [name, text] of Object.entries(harness.answer ?? {})) {
+      writeFileSync(join(dir, name), text)
+    }
+  }, 5)
+  try {
+    const answered = await steamLaunchScenario({
+      launch:
+        harness.launch ??
+        ((gameid) => {
+          asked.push(gameid)
+          harness.onLaunch?.(dir)
+          return ['/usr/bin/steam', `steam://rungameid/${gameid}`]
+        }),
+      promptWaitMs: 300,
+      targetEndMs: 300,
+      pollMs: 5
+    })({
+      ...context,
+      request: {
+        steamTarget: harness.steamTarget === undefined ? GAMEID : harness.steamTarget,
+        handshakeDir: harness.handshake === false ? null : dir
+      } as ScenarioContext['request'],
+      signal: harness.signal ?? new AbortController().signal
+    })
+    assert.ok(!Array.isArray(answered))
+    assert.equal(answered.id, STEAM_LAUNCH_CHECK)
+    return { check: answered, asked, launchedSaid, left: readdirSync(dir) }
+  } finally {
+    clearInterval(timer)
+  }
+}
+
+const started = (dir: string): void => writeFileSync(join(dir, TARGET_STARTED), '')
+const startedAndEnded = (dir: string): void => {
+  started(dir)
+  writeFileSync(join(dir, TARGET_ENDED), '')
+}
+
+describe('steam.launch', () => {
+  test('passes when the target starts and no prompt shows, and survives its end', async () => {
+    const outcome = await launchRun({
+      onLaunch: startedAndEnded,
+      answer: { [STEAM_PROMPT]: 'none\n' }
+    })
+    assert.deepEqual(outcome.asked, [GAMEID])
+    assert.equal(outcome.launchedSaid, `${GAMEID}\n`)
+    assert.equal(outcome.check.result, 'pass')
+    assert.equal(outcome.check.reason, null)
+    const { startMs, ...rest } = outcome.check.metrics
+    assert.equal(typeof startMs, 'number')
+    assert.deepEqual(rest, { started: 1, prompt: 'none', targetEnded: 1, galleonSurvived: 1 })
+    assert.deepEqual(outcome.left, [], 'the handshake folder is left empty')
+  })
+
+  test('records a target that has not ended in time', async () => {
+    const outcome = await launchRun({ onLaunch: started, answer: { [STEAM_PROMPT]: 'none' } })
+    assert.equal(outcome.check.result, 'pass')
+    assert.equal(outcome.check.metrics.targetEnded, 0)
+  })
+
+  test('a prompt shown and answered is an outcome, started or not', async () => {
+    const outcome = await launchRun({ answer: { [STEAM_PROMPT]: 'shown' } })
+    assert.equal(outcome.check.result, 'pass')
+    assert.equal(outcome.check.metrics.prompt, 'shown')
+    assert.equal(outcome.check.metrics.started, 0)
+    assert.equal(outcome.check.metrics.startMs, null)
+  })
+
+  test('a target that starts after the answer still counts as started', async () => {
+    const outcome = await launchRun({ answer: { [STEAM_PROMPT]: 'shown', [TARGET_STARTED]: '' } })
+    assert.equal(outcome.check.metrics.started, 1)
+  })
+
+  test('a prompt left on screen is needs-attended', async () => {
+    const outcome = await launchRun({ answer: { [STEAM_PROMPT]: 'left' } })
+    assert.equal(outcome.check.result, 'skip')
+    assert.equal(outcome.check.reason, 'needs-attended')
+    assert.equal(outcome.check.metrics.prompt, 'left')
+  })
+
+  test('fails when nothing started and no prompt showed', async () => {
+    const outcome = await launchRun({ answer: { [STEAM_PROMPT]: 'none' } })
+    assert.equal(outcome.check.result, 'fail')
+    assert.equal(outcome.check.reason, 'not-started')
+  })
+
+  test('fails without an answer from run.sh, or with one it cannot read', async () => {
+    for (const answer of [{}, { [STEAM_PROMPT]: 'maybe' }] as Record<string, string>[]) {
+      const outcome = await launchRun({ onLaunch: startedAndEnded, answer })
+      assert.equal(outcome.check.result, 'fail')
+      assert.equal(outcome.check.reason, 'no-prompt-answer')
+      assert.equal(outcome.check.metrics.prompt, 'no-answer')
+      assert.equal(outcome.check.metrics.started, 1)
+      assert.deepEqual(outcome.left, [])
+    }
+  })
+
+  test("an earlier run's marks are not read as this one's", async () => {
+    const outcome = await launchRun({
+      before: { [TARGET_STARTED]: '', [TARGET_ENDED]: '', [STEAM_PROMPT]: 'shown' },
+      answer: { [STEAM_PROMPT]: 'none' }
+    })
+    assert.equal(outcome.check.result, 'fail')
+    assert.equal(outcome.check.reason, 'not-started')
+  })
+
+  test('fails when Steam was never asked', async () => {
+    const outcome = await launchRun({ launch: () => null, answer: { [STEAM_PROMPT]: 'none' } })
+    assert.equal(outcome.check.reason, 'launch-refused')
+    assert.equal(outcome.launchedSaid, null, 'run.sh is not told of a launch that did not happen')
+  })
+
+  test('skips without a target or a handshake folder, and asks Steam nothing', async () => {
+    const none = await launchRun({ steamTarget: null })
+    assert.equal(none.check.result, 'skip')
+    assert.equal(none.check.reason, 'no-steam-target')
+    assert.deepEqual(none.asked, [])
+    const noHandshake = await launchRun({ handshake: false })
+    assert.equal(noHandshake.check.reason, 'no-handshake')
+    assert.deepEqual(noHandshake.asked, [])
+  })
+
+  test('a stopped run is skipped as aborted', async () => {
+    const stop = new AbortController()
+    const outcome = await launchRun({ onLaunch: () => stop.abort(), signal: stop.signal })
+    assert.equal(outcome.check.result, 'skip')
+    assert.equal(outcome.check.reason, 'aborted-by-user')
+    assert.deepEqual(outcome.left, [])
   })
 })
