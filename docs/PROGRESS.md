@@ -3524,7 +3524,7 @@ Lines the tooling reads (exact forms):
   - `test/app/running.test.ts`: a second game's download is held in flight (`holdContent`) while the stubborn stand-in is launched. One window before the launch. The download is let through during play: still one window, and no "Download complete" toast for that game while the game has the screen. After the game is forced closed, the toast is shown and there is still one window. This also tests the `NoticeGate` wiring in `state.tsx` that part 2's evaluator noted as untested.
   - M1-13 stays false.
 - Evidence: `running.test.ts` 7/7. With `notices.setCovered(...)` removed from `state.tsx` by hand, "a download finishing during play opens no window, and its notice waits" fails ("its notice should wait"); restored. `scripts/agent/check.sh` green; `npm run test:app` 263/263 (Electron through a `--no-sandbox` wrapper in the scratchpad, as root; CI keeps the sandbox). No screen changed, so no shots.
-- Evaluator: see the PR.
+- Evaluator: PASS (its own mutation, a hidden `BrowserWindow` opened when a second game is installed, is caught: 2 windows, expected 1). First CI run red only on the PR-body check (no `Feature:` line); fixed in the body.
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet.
 - Next: M1-13 part 4: device checks `focus.no-new-window` and `focus.return` (self-test scenario or run.sh step, TESTING.md catalogue), then READY-FOR-DEVICE M1-13. Refocus and redraw once after exit goes with `focus.return`.
