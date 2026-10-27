@@ -3333,3 +3333,14 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet. `storage.sdcard` comes with lines 2 and 3.
 - Next: M1-10 line 2: games on an unmounted card show 'card not inserted', are never pruned (`Store.pruneInstalled` skips unmounted roots) or offered for re-download, and queued downloads wait with a message. Then line 3 (moving the library) and `storage.sdcard`.
+
+## 2026-10-27 05:00 UTC session 0178hDCCnkFfUtySXbLF1Za7 (hourly heartbeat, second unit)
+
+- Device results: unchanged since the entry above. #317 (M1-10 part 2b-2) merged at efa7ac0; CI x64 8:10, arm64 0:57.
+- Worked on: M1-10 part 3a (tracking issue #313): the part of line 2 that says `Store.pruneInstalled` skips unmounted roots.
+- Result: PR (this one). `isOnMissingCard` (`src/main/volumes.ts`): a path under `/run/media` whose deepest mount is not itself on removable media is on a card that has gone. `pruneInstalled` reads the mount table once (`missingCardTest`) and never looks at such a game. The existing rule (a game whose whole folder is gone is kept) did not cover an unmount that leaves the mount point behind as a folder on internal storage with the game's folder made under it. A mount table that cannot be read counts every card as missing, so its games are kept. Internal storage is unaffected. The rest of line 2 ('card not inserted' instead of 'not downloaded', no re-download offer, downloads that wait) is still to do. M1-10 stays false.
+- Evidence: store.test.ts "a game on a card that is not mounted is kept, whatever is left at its mount point" failed before the change (pruned 1) and passes now; the same game with its card mounted is pruned as before. volumes.test.ts (+2): a mounted card, another card, a `NovaSDX` prefix, internal storage, no table. `scripts/agent/check.sh` green (2464 unit tests; volumes.ts 99.2% lines). No renderer, IPC or launch code changed, so no `test:app`; no UI change, so no shots.
+- Evaluator: PASS (5 hand mutations, 4 killed; the survivor is `pruneInstalled`'s default no longer reading the mount table, wiring that `storage.sdcard`'s "nothing is pruned" step must go through with a `/run/media` path). Noted: `isOnMissingCard` does not resolve links, so a library root picked by hand through `/run/media/NovaSD` (DEVICE-FACTS' symlink) counts as a missing card and its games are kept rather than pruned; the default root is the mount point. Revisit with the rest of line 2.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet.
+- Next: the rest of M1-10 line 2 ('card not inserted' instead of 'not downloaded', no re-download offer, queued downloads wait with a message), then line 3 and `storage.sdcard`.

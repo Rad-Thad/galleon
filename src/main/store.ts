@@ -22,6 +22,7 @@ import type {
   UnsentSaves
 } from '@shared/types'
 import { log } from './log.ts'
+import { missingCardTest } from './volumes.ts'
 
 /**
  * On-disk state for RomMix.
@@ -563,11 +564,14 @@ export class Store {
    * believes it the game reads as installed on every screen and cannot be
    * downloaded, because RomMix thinks it already has it. Nothing is deleted
    * here — the folder is left where it is, and only the claim about it goes.
+   *
+   * A game on a card that is not mounted is never looked at: see
+   * `isOnMissingCard`. `onMissingCard` is replaceable so tests need no card.
    */
-  pruneInstalled(): number {
+  pruneInstalled(onMissingCard: (path: string) => boolean = missingCardTest()): number {
     let removed = 0
     for (const [romId, entry] of this.installedCache) {
-      if (!this.hasGone(entry)) continue
+      if (onMissingCard(entry.path) || !this.hasGone(entry)) continue
       this.installedCache.delete(romId)
       removed += 1
     }
