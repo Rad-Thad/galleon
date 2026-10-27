@@ -26,6 +26,11 @@ import {
   straysToClear,
   type SandboxPlan
 } from './selftestsandbox.ts'
+import {
+  NO_NEW_WINDOW_CHECK,
+  noNewWindowScenario,
+  type NoNewWindowDeps
+} from './selftestnowindow.ts'
 import { processGroup, windowFinder, type WindowFinder } from './selftestwindows.ts'
 import { openDisplay, type X11 } from './x11.ts'
 import { realHome } from './xdg.ts'
@@ -64,7 +69,8 @@ export interface EmulatorScenarioDeps {
     plan: SandboxPlan,
     state: EmulatorState,
     signal: AbortSignal,
-    expectSave: boolean
+    expectSave: boolean,
+    whileShown?: LaunchDeps['whileShown']
   ) => Promise<[CheckResult, CheckResult]>
   /** See `PlacedSave`; absent, no save is ever placed. */
   placeSave?: (
@@ -75,6 +81,8 @@ export interface EmulatorScenarioDeps {
   ) => PlacedSave | null
   /** See `resolveLinks`. */
   realPath?: (path: string) => string | null
+  /** What `focus.no-new-window` needs; absent, the check is not offered. */
+  noNewWindow?: NoNewWindowDeps
 }
 
 /**
@@ -163,8 +171,8 @@ export function focusReturn(exits: readonly CheckResult[]): CheckResult {
 }
 
 /**
- * One scenario per launch or exit id in `checks`, and `focus.return` over
- * every emulator they name when it is asked.
+ * One scenario per launch or exit id in `checks`, and `focus.return` and
+ * `focus.no-new-window` over every emulator they name when they are asked.
  */
 export function emulatorScenarios(
   checks: readonly string[],
@@ -196,13 +204,25 @@ export function emulatorScenarios(
       return focusReturn(exits)
     })
   }
+  if (checks.includes(NO_NEW_WINDOW_CHECK) && deps.noNewWindow) {
+    const emulators = [...new Set(checks.map(emulatorOf).filter((e) => e !== null))]
+    scenarios.set(
+      NO_NEW_WINDOW_CHECK,
+      noNewWindowScenario(
+        emulators,
+        (emulator, signal, whileShown) => runOne(emulator, deps, signal, whileShown),
+        deps.noNewWindow
+      )
+    )
+  }
   return scenarios
 }
 
 async function runOne(
   emulator: string,
   deps: EmulatorScenarioDeps,
-  signal: AbortSignal
+  signal: AbortSignal,
+  whileShown?: LaunchDeps['whileShown']
 ): Promise<[CheckResult, CheckResult]> {
   const both = (reason: string): [CheckResult, CheckResult] => [
     skipped(`${LAUNCH_PREFIX}${emulator}`, reason),
@@ -226,7 +246,8 @@ async function runOne(
       plan,
       state,
       signal,
-      deps.savingPayloads?.includes(emulator) ?? false
+      deps.savingPayloads?.includes(emulator) ?? false,
+      whileShown
     )
     return [placed ? await withSaveFound(launch, placed) : launch, exit]
   } finally {
@@ -516,7 +537,7 @@ export function deviceCycle(
   open: (env: NodeJS.ProcessEnv) => Promise<X11 | null> = openDisplay,
   reclaim?: LaunchDeps['reclaim']
 ): EmulatorScenarioDeps['cycle'] {
-  return async (emulator, plan, state, signal, expectSave) => {
+  return async (emulator, plan, state, signal, expectSave, whileShown) => {
     const opened: { display: Promise<X11 | null> | null; finder: WindowFinder | null } = {
       display: null,
       finder: null
@@ -540,6 +561,7 @@ export function deviceCycle(
           findWindow,
           ownFocused: ownFocused(findWindow),
           reclaim,
+          whileShown,
           straysToClear: (p) => straysToClear(p),
           clearStrays,
           saveFingerprint

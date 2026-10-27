@@ -34,6 +34,7 @@ import {
   startPlan,
   type EmulatorScenarioDeps
 } from './selftestemulators.ts'
+import { NO_NEW_WINDOW_CHECK } from './selftestnowindow.ts'
 import type { SandboxPlan } from './selftestsandbox.ts'
 import { processGroup } from './selftestwindows.ts'
 import type { X11 } from './x11.ts'
@@ -359,6 +360,34 @@ describe('focus.return', () => {
       context
     )) as CheckResult
     assert.equal(result.result, 'skip')
+  })
+})
+
+describe('focus.no-new-window among the emulator scenarios', () => {
+  test('offered only with its deps, on a cycle of its own that carries the work', async () => {
+    const h = harness({ retroarch: 'payloads/snes/hello.sfc' }, [state('retroarch')])
+    const shown: boolean[] = []
+    h.deps.cycle = async (emulator, _plan, _state, _signal, _expectSave, whileShown) => {
+      shown.push(whileShown !== undefined)
+      await whileShown?.(new AbortController().signal)
+      return [pass(`launch.${emulator}`), pass(`exit.${emulator}`)]
+    }
+    const checks = ['launch.retroarch', NO_NEW_WINDOW_CHECK]
+    assert.equal(emulatorScenarios(checks, h.deps).has(NO_NEW_WINDOW_CHECK), false)
+    const covers: (string | null)[] = []
+    h.deps.noNewWindow = {
+      windows: () => ({ read: async () => [1], close: () => {} }),
+      browserWindows: () => 1,
+      cover: (emulator) => covers.push(emulator),
+      download: async () => ({ ...pass('download.small'), result: 'skip', reason: 'none' }),
+      noticeShown: async () => false
+    }
+    const scenarios = emulatorScenarios(checks, h.deps)
+    await scenarios.get('launch.retroarch')!(context)
+    const result = (await scenarios.get(NO_NEW_WINDOW_CHECK)!(context)) as CheckResult
+    assert.equal(result.reason, 'download-none')
+    assert.deepEqual(shown, [false, true])
+    assert.deepEqual(covers, ['retroarch', null])
   })
 })
 

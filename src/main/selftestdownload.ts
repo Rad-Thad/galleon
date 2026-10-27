@@ -55,6 +55,8 @@ export interface DownloadScenarioDeps {
   store: { getInstalled(romId: number): InstalledRom | undefined }
   /** The test home. A game that lands anywhere else fails the check. */
   home: string
+  /** Told the game once it is picked, before anything is fetched. */
+  picked?: (rom: RommRom) => void
 }
 
 /**
@@ -132,6 +134,7 @@ export function downloadScenario(deps: DownloadScenarioDeps): Scenario {
     // The listener below hears only an abort still to come.
     if (signal.aborted) return result('skip', 'aborted')
 
+    deps.picked?.(rom)
     const digest = keptDigest(rom)!
     // Only updates that carry bytes: the queue announces every transfer as it
     // starts, before anything has arrived, and counting that would pass a
