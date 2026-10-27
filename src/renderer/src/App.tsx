@@ -360,7 +360,10 @@ export function App(): JSX.Element {
 
       {covered ? <RunningOverlay /> : null}
       <Toasts />
-      {perfOverlay ? <PerfOverlay screen={route.name} /> : null}
+      {/* Not while something is in front of RomMix either: its loop asks for
+          every frame, and nothing it would measure is on screen. Taking it
+          down also ends the screen's summary at the launch. */}
+      {perfOverlay && !covered ? <PerfOverlay screen={route.name} /> : null}
     </div>
   )
 }

@@ -10,7 +10,8 @@ const window = installDom()
 
 const { act } = await import('react')
 const { createRoot } = await import('react-dom/client')
-const { PERF_CHORD_MS, gamepadPresent, useGamepad, useGamepadName } = await import('./gamepad.ts')
+const { PERF_CHORD_MS, SUSPENDED_POLL_MS, gamepadPresent, useGamepad, useGamepadName } =
+  await import('./gamepad.ts')
 
 /**
  * What a pad does to the interface, one polled frame at a time.
@@ -20,6 +21,8 @@ const { PERF_CHORD_MS, gamepadPresent, useGamepad, useGamepadName } = await impo
  * in front keeps the pad to itself) is a decision about successive frames.
  * Here the frames are stepped by hand and the clock is the test's, so each of
  * those is a fact about input rather than a race against a real animation loop.
+ * The timer the pad is read on while a game has the screen runs on the same
+ * clock.
  */
 
 /** A frame's worth of time on the clock the hook reads. */
@@ -27,6 +30,9 @@ const FRAME_MS = 16
 
 let clock = 0
 let frames: FrameRequestCallback[] = []
+/** Timers waiting, by the time on `clock` they are due. */
+let timers = new Map<number, { due: number; run: () => void }>()
+let nextTimer = 1
 let pads: (Gamepad | null)[] = []
 
 Object.defineProperty(globalThis, 'requestAnimationFrame', {
@@ -41,6 +47,19 @@ Object.defineProperty(globalThis, 'cancelAnimationFrame', {
   configurable: true,
   writable: true
 })
+Object.defineProperty(window, 'setTimeout', {
+  value: (run: () => void, ms: number) => {
+    timers.set(nextTimer, { due: clock + ms, run })
+    return nextTimer++
+  },
+  configurable: true,
+  writable: true
+})
+Object.defineProperty(window, 'clearTimeout', {
+  value: (id: number) => timers.delete(id),
+  configurable: true,
+  writable: true
+})
 Object.defineProperty(navigator, 'getGamepads', {
   value: () => pads,
   configurable: true,
@@ -48,13 +67,18 @@ Object.defineProperty(navigator, 'getGamepads', {
 })
 mock.method(performance, 'now', () => clock)
 
-/** Run the frames that are waiting, a frame's worth of time apart. */
+/** Run the frames that are waiting, and the timers that have come due, a frame's worth of time apart. */
 function step(count = 1): void {
   for (let index = 0; index < count; index += 1) {
     clock += FRAME_MS
     const due = frames
     frames = []
     for (const frame of due) frame(clock)
+    for (const [id, timer] of timers) {
+      if (timer.due > clock) continue
+      timers.delete(id)
+      timer.run()
+    }
   }
 }
 
@@ -135,6 +159,7 @@ function mount(element: JSX.Element): Root {
 beforeEach(() => {
   clock = 0
   frames = []
+  timers = new Map()
   pads = []
   heard = { moves: [], held: [], actions: [], activations: 0, kinds: [] }
   const root = mount(<Pad suspended={false} />)
@@ -355,8 +380,9 @@ describe('while a game has the screen', () => {
     setSuspended(true)
     pads = [pad({ pressed: [START] })]
     hold(1000)
+    // Let go for long enough to be read: the pad is read on a timer then.
     pads = [pad()]
-    step()
+    hold(SUSPENDED_POLL_MS)
     pads = [pad({ pressed: [START] })]
     hold(1000)
 
@@ -369,11 +395,44 @@ describe('while a game has the screen', () => {
     setSuspended(true)
     hold(1000)
     setSuspended(false)
-    step()
+    hold(SUSPENDED_POLL_MS)
 
     // Down again, as a fresh press once the game is gone, and no repeat
     // inherited from before it.
     assert.deepEqual(heard.moves, ['down', 'down'])
+  })
+})
+
+describe('the poll', () => {
+  test('asks for no frames while a game has the screen, and reads the pad on a timer', () => {
+    setSuspended(true)
+    step()
+    assert.equal(frames.length, 0, 'no frame should be waiting')
+    assert.equal(timers.size, 1, 'one read should be waiting on the timer')
+
+    step(20)
+    assert.equal(frames.length, 0)
+    assert.equal(timers.size, 1)
+  })
+
+  test('is back on every frame once the game has gone', () => {
+    setSuspended(true)
+    step()
+    setSuspended(false)
+    hold(SUSPENDED_POLL_MS)
+    assert.equal(frames.length, 1)
+    assert.equal(timers.size, 0)
+  })
+
+  test('leaves nothing waiting once unmounted, on a frame or on the timer', () => {
+    step()
+    for (const root of roots.splice(0)) act(() => root.unmount())
+    assert.equal(frames.length, 0, 'the frame read should be cancelled')
+
+    mount(<Pad suspended={true} />)
+    step(2)
+    for (const root of roots.splice(0)) act(() => root.unmount())
+    assert.equal(timers.size, 0, 'the timed read should be cancelled')
   })
 })
 

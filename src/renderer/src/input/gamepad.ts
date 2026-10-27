@@ -100,6 +100,16 @@ const REPEAT_INTERVAL_MS = 90
 const SUSPENDED_HOLD_MS = 1500
 
 /**
+ * How often the pad is read while an emulator has the screen.
+ *
+ * A timer rather than animation frames, because a frame asked for by a window
+ * nobody is looking at is still a frame the compositor and the GPU are woken
+ * for, every refresh, for the whole game. Only the Start hold is looked for
+ * then, and a hold of `SUSPENDED_HOLD_MS` is found as well at this rate.
+ */
+export const SUSPENDED_POLL_MS = 100
+
+/**
  * How long L3 and R3 must be held together to show or hide the performance
  * overlay. Long enough that no ordinary press makes it: both sticks clicked at
  * once is rare, and held is rarer still.
@@ -129,6 +139,7 @@ export function useGamepad(
 
   useEffect(() => {
     let frame = 0
+    let timer = 0
     // Per-control state so a held stick repeats but a tap fires once.
     const held = new Map<string, { since: number; last: number }>()
     /** When Start went down while suspended, and whether the hold has fired. */
@@ -145,8 +156,8 @@ export function useGamepad(
       repeats: boolean
     ): void => {
       // Reported here rather than at each call site: every path that reaches a
-      // fire is a button someone pressed, and the poll runs sixty times a
-      // second whether or not anything is held.
+      // fire is a button someone pressed, and the poll runs on every frame
+      // whether or not anything is held.
       const fire = (repeat: boolean): void => {
         noteRef.current('gamepad')
         rawFire(repeat)
@@ -271,10 +282,19 @@ export function useGamepad(
         // One connected pad drives the UI; a second would double every input.
         break
       }
-      frame = requestAnimationFrame(poll)
+      next()
     }
 
-    frame = requestAnimationFrame(poll)
-    return () => cancelAnimationFrame(frame)
+    /** The next read: on the next frame while the interface has the pad, on a timer while a game does. */
+    const next = (): void => {
+      if (suspendedRef.current) timer = window.setTimeout(poll, SUSPENDED_POLL_MS)
+      else frame = requestAnimationFrame(poll)
+    }
+
+    next()
+    return () => {
+      cancelAnimationFrame(frame)
+      window.clearTimeout(timer)
+    }
   }, [])
 }
