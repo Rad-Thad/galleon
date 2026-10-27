@@ -512,6 +512,7 @@ export const en = {
   'game.biosSetup': '{platform} needs its BIOS set up before games will run.',
   'setup.hidden': 'Setup steps hidden for {emulator}',
   'game.alreadyDownloaded': 'Already downloaded',
+  'game.cardNotInserted': 'Card not inserted',
   'game.downloadStarted': 'Download started',
   'game.downloadQueued': 'Added to the queue',
   'game.couldNotStart': 'The game could not be started',
@@ -1096,6 +1097,7 @@ export const en = {
   'error.notDownloadedForEmulator':
     'That ROM is not downloaded for the emulator this platform uses',
   'error.notDownloadedYet': 'That ROM is not downloaded yet',
+  'error.cardNotInserted': 'That game is on a card that is not inserted',
   'error.downloadedForOther':
     'This copy was downloaded for a different emulator. Download it again for the one this ' +
     'platform now uses.',

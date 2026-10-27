@@ -151,6 +151,7 @@ export async function saveContext(rommix: RomMixApp, romId: number): Promise<Sav
   if (!installed) {
     throw new RommError(t('error.notDownloadedForEmulator'))
   }
+  if (installed.cardMissing) throw new RommError(t('error.cardNotInserted'))
   const emulator = rommix.activeEmulator(installed.system)
   if (!emulator) {
     throw new RommError(t('error.noEmulatorForSystem', { system: installed.system }))
@@ -186,6 +187,7 @@ export async function launchContext(
       store.getInstalled(romId) ? t('error.downloadedForOther') : t('error.notDownloadedYet')
     )
   }
+  if (installed.cardMissing) throw new RommError(t('error.cardNotInserted'))
 
   const emulator = rommix.activeEmulator(installed.system)
   if (!emulator) {

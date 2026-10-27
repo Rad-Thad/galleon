@@ -515,6 +515,7 @@ export const fr: Catalog = {
   'game.biosSetup': '{platform} a besoin que son BIOS soit en place avant que les jeux démarrent.',
   'setup.hidden': 'Étapes de configuration masquées pour {emulator}',
   'game.alreadyDownloaded': 'Déjà téléchargé',
+  'game.cardNotInserted': 'Carte non insérée',
   'game.downloadStarted': 'Téléchargement lancé',
   'game.downloadQueued': 'Ajouté à la file',
   'game.couldNotStart': 'Le jeu n’a pas pu démarrer',
@@ -1119,6 +1120,7 @@ export const fr: Catalog = {
   'error.notDownloadedForEmulator':
     'Cette ROM n’est pas téléchargée pour l’émulateur qu’utilise cette plateforme',
   'error.notDownloadedYet': 'Cette ROM n’est pas encore téléchargée',
+  'error.cardNotInserted': 'Ce jeu est sur une carte qui n’est pas insérée',
   'error.downloadedForOther':
     'Cette copie a été téléchargée pour un autre émulateur. Téléchargez-la de nouveau pour celui ' +
     'que cette plateforme utilise désormais.',

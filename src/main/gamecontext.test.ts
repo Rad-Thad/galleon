@@ -254,6 +254,12 @@ describe("what syncing a game's saves needs", () => {
     await assert.rejects(saveContext(app, 7), { message: t('error.notDownloadedForEmulator') })
   })
 
+  test('says the card is not inserted when the game is on one that is out', async () => {
+    const { app } = gameApp({ installed: { ...onDisk, cardMissing: true } })
+
+    await assert.rejects(saveContext(app, 7), { message: t('error.cardNotInserted') })
+  })
+
   test('says so when no emulator can run the system', async () => {
     const { app } = gameApp({ installed: onDisk, emulator: null })
 
@@ -282,6 +288,12 @@ describe('what launching a game needs', () => {
 
     const nowhere = gameApp()
     await assert.rejects(launchContext(nowhere.app, 7), { message: t('error.notDownloadedYet') })
+  })
+
+  test('says the card is not inserted rather than starting an emulator on nothing', async () => {
+    const { app } = gameApp({ installed: { ...onDisk, cardMissing: true } })
+
+    await assert.rejects(launchContext(app, 7), { message: t('error.cardNotInserted') })
   })
 
   test('says so when no emulator can run the system', async () => {

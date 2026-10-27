@@ -58,7 +58,9 @@ export function useGameLaunch(options: {
   // are the same three values. Depending on `entry?.emulatorId` while using
   // `entry` is the shape that goes wrong quietly: the entry can be replaced by
   // one the effect never re-runs for.
-  const installedFor = entry ? `${entry.emulatorId}:${entry.system}` : null
+  // A game whose card is out has nothing to run, and asking would be refused
+  // with an error nobody pressed anything for.
+  const installedFor = entry && !entry.cardMissing ? `${entry.emulatorId}:${entry.system}` : null
   /** Which request the answer on screen belongs to. See `Game`'s own guard. */
   const run = useRef(0)
   useEffect(() => {

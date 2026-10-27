@@ -309,6 +309,63 @@ describe('which copies still count', () => {
   })
 })
 
+describe('a game on a card that is not mounted', () => {
+  const card = '/run/media/armada/NovaSD/galleon/roms'
+  const mounted = new Set<string>()
+  function onCard(): { library: Library; store: Store } {
+    const { store, client } = manager()
+    const library = new Library(
+      store,
+      client,
+      cache(client),
+      () => null,
+      () => (path) => path.startsWith('/run/media/') && !mounted.has('NovaSD')
+    )
+    store.addInstalled(entry({ romId: 1, path: `${card}/genesis/sonic.md` }))
+    store.addInstalled(entry({ romId: 2, path: '/home/armada/roms/genesis/streets.md' }))
+    return { library, store }
+  }
+  afterEach(() => mounted.clear())
+
+  test('is still listed, marked as on a missing card, and nothing else is', () => {
+    const { library } = onCard()
+
+    assert.deepEqual(
+      library.installed.map((item) => [item.romId, item.cardMissing]),
+      [
+        [1, true],
+        [2, undefined]
+      ]
+    )
+    assert.equal(library.installedNow(1)?.cardMissing, true)
+    assert.equal(library.installedNow(2)?.cardMissing, undefined)
+  })
+
+  test('is marked on the copy handed out, never in the index', () => {
+    const { library, store } = onCard()
+
+    assert.equal(library.installedNow(1)?.cardMissing, true)
+    assert.equal(store.getInstalled(1)?.cardMissing, undefined)
+    assert.equal(
+      store.installed.some((item) => 'cardMissing' in item),
+      false
+    )
+  })
+
+  test('is unmarked as soon as the card is back', () => {
+    const { library } = onCard()
+    assert.equal(library.installedNow(1)?.cardMissing, true)
+
+    mounted.add('NovaSD')
+
+    assert.equal(library.installedNow(1)?.cardMissing, undefined)
+    assert.equal(
+      library.installed.some((item) => item.cardMissing),
+      false
+    )
+  })
+})
+
 describe('planning where a download goes', () => {
   test('a shared library is RomMix own tree, under the ES-DE system name', async () => {
     const { library, root } = manager()

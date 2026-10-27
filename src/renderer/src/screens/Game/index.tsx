@@ -148,6 +148,12 @@ export function GameScreen({
   )
 
   const entry: InstalledRom | undefined = installed.find((item) => item.romId === romId)
+  /**
+   * The game is here but its card is not: nothing on this screen can reach its
+   * files, so the buttons that would are not offered, and neither is a second
+   * download onto whatever is left where the card was mounted.
+   */
+  const cardMissing = entry?.cardMissing === true
   const download = downloads.find((item) => item.romId === romId)
   const active =
     download?.state === 'downloading' ||
@@ -427,7 +433,17 @@ export function GameScreen({
   return (
     <div className="content">
       <GameHero rom={rom} entry={entry} system={system} status={status}>
-        {entry ? (
+        {cardMissing ? (
+          <FocusButton
+            icon="play"
+            action="card-not-inserted"
+            variant="primary"
+            disabled
+            onSelect={() => {}}
+          >
+            {t('game.cardNotInserted')}
+          </FocusButton>
+        ) : entry ? (
           <FocusButton
             icon="play"
             action="play"
@@ -553,7 +569,7 @@ export function GameScreen({
         {/* The way back to a choice already made: without it, a platform
             answered once could only be changed by editing settings. Shown only
             where there is genuinely more than one answer. */}
-        {entry && variants.length > 1 ? (
+        {entry && !cardMissing && variants.length > 1 ? (
           <FocusButton
             icon="emulator"
             action="run-with"
@@ -569,7 +585,7 @@ export function GameScreen({
             while RomM is away, since neither direction has anywhere to go —
             the saves a session writes are still written, they simply do not go
             up until something can reach the server. */}
-        {entry ? (
+        {entry && !cardMissing ? (
           <>
             <FocusButton
               icon="pull"
@@ -595,7 +611,7 @@ export function GameScreen({
           </>
         ) : null}
 
-        {entry ? (
+        {entry && !cardMissing ? (
           <FocusButton
             icon="uninstall"
             action="uninstall"
@@ -903,7 +919,9 @@ export function GameScreen({
 
       <Hints
         items={[
-          { key: 'A', label: entry ? t('game.play') : t('action.download') },
+          ...(cardMissing
+            ? []
+            : [{ key: 'A', label: entry ? t('game.play') : t('action.download') }]),
           { key: 'LB', label: t('action.previousTab') },
           { key: 'RB', label: t('action.nextTab') },
           { key: 'B', label: t('action.back') }

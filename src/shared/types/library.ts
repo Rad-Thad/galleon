@@ -67,6 +67,14 @@ export interface InstalledRom {
    *
    */
   emulatorId: EmulatorId
+  /**
+   * The game is on a card that is not mounted now (see `isOnMissingCard`).
+   *
+   * Worked out each time the list is read and never written to the index: the
+   * card can come back at any moment, and the game with it. Until then it is
+   * neither playable nor something to download again.
+   */
+  cardMissing?: true
 }
 
 /** What a "sync downloaded games" pass changed. */

@@ -362,7 +362,8 @@ export interface StartOptions {
   executable?: string
   /**
    * Files to put in the home after it is seeded, by path relative to it: a
-   * self-test request, which the application takes at start-up.
+   * self-test request, which the application takes at start-up, or an index
+   * of downloaded games no runner could produce by downloading.
    */
   files?: Record<string, string>
 }

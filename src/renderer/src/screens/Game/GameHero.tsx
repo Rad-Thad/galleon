@@ -101,7 +101,14 @@ export function GameHero({
               <Icon name="size" size={14} />
               {formatBytes(rom.fs_size_bytes)}
             </span>
-            {entry ? (
+            {/* A game whose card is out is not lit as here: it is on this
+                device only once the card is back in. */}
+            {entry?.cardMissing ? (
+              <span className="chip chip--icon">
+                <Icon name="download" size={14} />
+                {t('game.cardNotInserted')}
+              </span>
+            ) : entry ? (
               <span className="chip chip--icon chip--on">
                 <Icon name="download" size={14} />
                 {t('library.downloadedMark')}
