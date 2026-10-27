@@ -262,7 +262,8 @@ if [ -n "$home_ok" ] && rm -rf -- "$app_results" "$handshake" &&
     --results "$app_results" --handshake "$handshake" \
     --check selftest.complete --check build.identity --check startup.cold \
     --check grid.scroll --check server.heartbeat --check download.small \
-    --check update.verify --check report.bundle --check storage.sdcard "$@" \
+    --check update.verify --check report.bundle --check storage.sdcard \
+    --check focus.return "$@" \
     --screenshot settings --screenshot bios --screenshot emulators 2>>"$log"; then
   selftest_ok=1
 fi

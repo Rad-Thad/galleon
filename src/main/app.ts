@@ -41,6 +41,7 @@ import { isWebAddress } from './weblink.ts'
 import { saveContext } from './gamecontext.ts'
 import { realHome } from './xdg.ts'
 import { PageTimes } from './pagetimes.ts'
+import { reclaimScreen } from './reclaim.ts'
 import {
   isInProgress,
   isStopped,
@@ -699,6 +700,11 @@ export class RomMixApp {
     if (this.window && !this.window.isDestroyed()) {
       this.window.webContents.send(channel, this.shown(payload))
     }
+  }
+
+  /** See `reclaimScreen`: called once whenever a game or emulator has gone. */
+  reclaimScreen(): void {
+    if (this.window) reclaimScreen(this.window)
   }
 
   createWindow(): BrowserWindow {
