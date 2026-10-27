@@ -12,8 +12,9 @@ function manifest(appid: string, name: string, flags = '4'): string {
 }
 
 /** A Nova with two games, a tool, one partial install and three shortcuts. */
-function nova(shortcutList: Uint8Array | null) {
+function nova(shortcutList: Uint8Array | null, extra: Record<string, string> = {}) {
   const text: Record<string, string> = {
+    ...extra,
     [`${STEAM}/steamapps/appmanifest_1145360.acf`]: manifest('1145360', 'Hades'),
     [`${STEAM}/steamapps/appmanifest_413150.acf`]: manifest('413150', 'Stardew Valley'),
     [`${STEAM}/steamapps/appmanifest_1493710.acf`]: manifest('1493710', 'Proton Experimental'),
@@ -51,8 +52,8 @@ const LIST = binaryVdf({
 
 const context = {} as ScenarioContext
 
-async function run(list: Uint8Array | null) {
-  const answered = await steamListScenario(nova(list))(context)
+async function run(list: Uint8Array | null, extra: Record<string, string> = {}) {
+  const answered = await steamListScenario(nova(list, extra))(context)
   assert.ok(!Array.isArray(answered))
   return answered
 }
@@ -71,6 +72,7 @@ describe('steam.list', () => {
       shortcuts: 2,
       shortcutsWithCover: 1,
       testShortcuts: 2,
+      steamFilesUnreadable: 0,
       shortcutListsUnreadable: 0
     })
     const published = JSON.stringify(check)
@@ -123,6 +125,23 @@ describe('steam.list', () => {
     assert.equal(check.result, 'fail')
     assert.equal(check.reason, 'shortcuts-unreadable')
     assert.equal(check.metrics.shortcutListsUnreadable, 1)
+  })
+
+  test("fails when a game's manifest cannot be read, though the rest are listed", async () => {
+    const check = await run(LIST, {
+      [`${STEAM}/steamapps/appmanifest_620.acf`]: '"AppState" { "appid" "620"'
+    })
+    assert.equal(check.result, 'fail')
+    assert.equal(check.reason, 'steam-files-unreadable')
+    assert.equal(check.metrics.steamFilesUnreadable, 1)
+    assert.equal(check.metrics.steamGames, 2)
+  })
+
+  test('fails when a library list cannot be read', async () => {
+    const check = await run(LIST, {
+      [`${STEAM}/steamapps/libraryfolders.vdf`]: '"libraryfolders" { "0" {'
+    })
+    assert.equal(check.reason, 'steam-files-unreadable')
   })
 
   test('no shortcut list at all fails on the missing harness shortcut', async () => {

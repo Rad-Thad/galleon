@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { describe, test } from 'node:test'
-import { installedSteamGames, isInstalled, libraryPaths, readManifest } from './library.ts'
+import {
+  installedSteamGames,
+  isInstalled,
+  libraryPaths,
+  readManifest,
+  scanSteamGames
+} from './library.ts'
 import { parseVdf } from './vdf.ts'
 
 const fixture = (name: string): string =>
@@ -99,6 +105,28 @@ describe('readManifest', () => {
     assert.equal(game.stateFlags, 0)
     assert.equal(game.sizeOnDisk, 0)
     assert.equal(game.installdir, '')
+  })
+})
+
+describe('scanSteamGames', () => {
+  test('counts the files that are there but not VDF, and only those', async () => {
+    // The card's manifest cut short is one; a card that is out is none.
+    assert.equal((await scanSteamGames(machine(NOVA).sources)).malformed, 1)
+    const { sources } = machine({
+      ...NOVA,
+      [`${STEAM}/config/libraryfolders.vdf`]: '"libraryfolders" {',
+      [`${STEAM}/steamapps/appmanifest_1.acf`]: '"AppState" { "name" "No appid" }'
+    })
+    const scan = await scanSteamGames(sources)
+    assert.equal(scan.malformed, 3)
+    assert.deepEqual(
+      scan.games.map((g) => g.appid),
+      (await installedSteamGames(machine(NOVA).sources)).map((g) => g.appid)
+    )
+  })
+
+  test('no Steam at all is nothing malformed', async () => {
+    assert.deepEqual(await scanSteamGames(machine({}).sources), { games: [], malformed: 0 })
   })
 })
 

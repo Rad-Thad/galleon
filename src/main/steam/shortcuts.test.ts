@@ -40,6 +40,14 @@ describe('parseBinaryVdf', () => {
     assert.notEqual(parseBinaryVdf(whole), null)
   })
 
+  test('a uint64 is eight bytes, and the field after it is read', () => {
+    const eight = Uint8Array.from([1, 2, 3, 4, 5, 6, 7, 8])
+    assert.deepEqual(parseBinaryVdf(binaryVdf({ big: eight, after: 'x' })), {
+      big: eight,
+      after: 'x'
+    })
+  })
+
   test('an unknown field type is null, since the next field cannot be found', () => {
     assert.equal(parseBinaryVdf(Uint8Array.from([0x09, 0x61, 0x00, 0x08])), null)
   })

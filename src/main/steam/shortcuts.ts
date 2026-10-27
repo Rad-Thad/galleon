@@ -128,7 +128,8 @@ export async function nonSteamShortcuts(sources: ShortcutSources = {}): Promise<
     const list = parseBinaryVdf(data)
     const entries = list && field(list, 'shortcuts')
     if (!entries || typeof entries !== 'object' || entries instanceof Uint8Array) {
-      log.warn('steam', 'a shortcut list could not be read', { path })
+      // Without the path: its folder is the owner's Steam account number.
+      log.warn('steam', 'a shortcut list could not be read')
       unreadable++
       continue
     }

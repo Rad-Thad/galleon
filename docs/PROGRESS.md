@@ -3638,3 +3638,17 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR). The first x64 run failed only at `pr-body.mjs`: the PR body had no `Feature:` line.
 - Device / acceptance: none yet.
 - Next: M1-14 part 3, the device checks `steam.list` (counts and art found, never names) and `steam.launch` (the 'Galleon Device Test Target' shortcut, 'Launch Multiple Games' seen, Galleon survived, `needs-attended` on a prompt left up).
+
+## 2026-10-27 21:26 UTC session 0178hDCBQ3yaEDpFaFQzx4rE (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. #340 (M1-14 part 2b-ii) merged at 112ba5a. Docker Hub answered 429 to `init.sh`'s RomM pull. Nothing in this unit needs it.
+- Worked on: M1-14 part 3a (tracking issue #336): acceptance line 3, the device check `steam.list`.
+- Result: PR #341.
+  - `src/main/steam/shortcuts.ts`: a binary-VDF reader for `shortcuts.vdf`. A file cut short, an unknown type, or nesting past what Steam writes is null. `nonSteamShortcuts` reads every user's list with appids unsigned. A list that is there but unreadable is counted, and its path is not logged, because the folder is the owner's account number. `coverArt` finds portrait covers in users' `config/grid/` and in both `librarycache` layouts: flat, and a folder per app, one level down too.
+  - `scanSteamGames` (`library.ts`) is `installedSteamGames` plus a count of library lists and manifests that are there but malformed.
+  - `steam.list` (`src/main/selfteststeam.ts`) publishes counts only: games, games with a cover, the owner's shortcuts, shortcuts with a cover, test shortcuts, unreadable Steam files and shortcut lists, and the time taken. It fails on any unreadable file, or when the harness's 'Galleon Device Test' shortcut is not among those read. `run.sh` requests it.
+- Evidence: `shortcuts.test.ts`, `library.test.ts`, `selfteststeam.test.ts` and the rest of `src/main/steam/` 63/63. `test/app/selftest.test.ts` 15/15. Its new test runs the built app against a test HOME: `steam.list` passes with counts 1/1/1/1, and no name or path appears in `summary.json`. Electron ran through a `--no-sandbox` wrapper as root. `scripts/agent/check.sh` green.
+- Evaluator: FAIL, then see the PR. First round: the games half could not fail (a malformed manifest would read as a smaller library), and there was no PROGRESS entry. Both are fixed: `steamFilesUnreadable` and its tests, and this entry. Its notes are also done: the uint64 width is tested, and the shortcut-list path is no longer logged.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: READY-FOR-DEVICE M1-14 (`steam.list`). M1-14 stays false until `steam.launch` lands and both pass on the device.
+- Next: M1-14 part 3b, `steam.launch`. run.sh ensures the 'Galleon Device Test Target' shortcut. The app starts it through `steam://rungameid/` and records whether it started, whether 'Launch Multiple Games' showed, and whether Galleon survived. A prompt left on screen gives `needs-attended`.
