@@ -94,6 +94,12 @@ export interface LibraryMoveGame {
   system: string
   from: string
   to: string
+  /**
+   * Everything carried, by where it is and where it goes. A folder for a game
+   * in a folder of its own; for a loose one, each of its files in the system
+   * folder, since a disc image's companions sit beside it under their own names.
+   */
+  parts: Array<{ from: string; to: string }>
   /** Measured off the disk now, not the size recorded at install. */
   sizeBytes: number
 }

@@ -7,6 +7,9 @@
 import assert from 'node:assert/strict'
 import { afterEach, test } from 'node:test'
 import {
+  existsSync,
+  readFileSync,
+  readdirSync,
   mkdirSync,
   mkdtempSync,
   rmSync,
@@ -18,7 +21,7 @@ import {
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { SHARED_LIBRARY, type InstalledRom } from '@shared/types'
-import { planLibraryMove } from './librarymove.ts'
+import { moveLibrary, planLibraryMove, type MoveIndex } from './librarymove.ts'
 
 const scratches: string[] = []
 afterEach(() => {
@@ -182,4 +185,117 @@ test('on another drive the games have to fit in the room there', async () => {
   assert.equal(plan.sameDrive, false)
   assert.equal(plan.freeBytes, 0)
   assert.equal(plan.fits, false)
+})
+
+function memoryIndex(entries: InstalledRom[]): MoveIndex & { entries: Map<number, InstalledRom> } {
+  const map = new Map(entries.map((entry) => [entry.romId, entry]))
+  return {
+    entries: map,
+    getInstalled: (romId) => map.get(romId),
+    addInstalled: (entry) => void map.set(entry.romId, entry)
+  }
+}
+
+function looseLibrary(): { from: string; to: string; games: InstalledRom[] } {
+  const { from, to } = library()
+  writeFileSync(join(from, 'psx', 'loose.cue'), 'cue')
+  writeFileSync(join(from, 'psx', 'loose.bin'), Buffer.alloc(300))
+  const games = [
+    rom(1, join(from, 'gc', 'one.rvz'), { files: ['one.rvz'] }),
+    rom(2, join(from, 'psx', 'Disc Game'), {
+      isDirectory: true,
+      system: 'psx',
+      launchPath: join(from, 'psx', 'Disc Game', 'game.cue'),
+      files: ['game.bin', 'game.cue']
+    }),
+    rom(3, join(from, 'psx', 'loose.cue'), { system: 'psx', files: ['loose.bin', 'loose.cue'] })
+  ]
+  return { from, to, games }
+}
+
+test("a loose game's files beside it are carried and counted with it", async () => {
+  const { from, to, games } = looseLibrary()
+  const plan = await planLibraryMove(games, from, to)
+  const loose = plan.games.find((game) => game.romId === 3)
+  assert.deepEqual(
+    loose?.parts.map((part) => part.to),
+    [join(to, 'psx', 'loose.cue'), join(to, 'psx', 'loose.bin')]
+  )
+  assert.equal(loose?.sizeBytes, 303)
+})
+
+for (const sameDrive of [true, false]) {
+  test(`${sameDrive ? 'renamed on one drive' : 'copied to another drive'}, every game ends up in the new folder and the index says so`, async () => {
+    const { from, to, games } = looseLibrary()
+    const index = memoryIndex(games)
+    const plan = { ...(await planLibraryMove(games, from, to)), sameDrive }
+    const result = await moveLibrary(plan, index)
+
+    assert.deepEqual(result, { moved: [1, 2, 3], skipped: [], failed: null })
+    assert.equal(readFileSync(join(to, 'psx', 'Disc Game', 'game.bin')).length, 5000)
+    assert.equal(readFileSync(join(to, 'psx', 'loose.bin')).length, 300)
+    for (const gone of ['gc/one.rvz', 'psx/Disc Game', 'psx/loose.cue', 'psx/loose.bin'])
+      assert.equal(existsSync(join(from, gone)), false, gone)
+    assert.deepEqual(readdirSync(join(to, 'psx')).sort(), ['Disc Game', 'loose.bin', 'loose.cue'])
+    assert.deepEqual(
+      [...index.entries.values()].map((entry) => [entry.path, entry.launchPath, entry.files]),
+      [
+        [join(to, 'gc', 'one.rvz'), join(to, 'gc', 'one.rvz'), ['one.rvz']],
+        [
+          join(to, 'psx', 'Disc Game'),
+          join(to, 'psx', 'Disc Game', 'game.cue'),
+          ['game.bin', 'game.cue']
+        ],
+        [join(to, 'psx', 'loose.cue'), join(to, 'psx', 'loose.cue'), ['loose.bin', 'loose.cue']]
+      ]
+    )
+  })
+}
+
+test('a game whose new place is taken stays where it is, and nothing there is replaced', async () => {
+  const { from, to, games } = looseLibrary()
+  const index = memoryIndex(games)
+  const plan = await planLibraryMove(games, from, to)
+  // Appears after the plan was made, so only the move itself can see it.
+  mkdirSync(join(to, 'psx'), { recursive: true })
+  writeFileSync(join(to, 'psx', 'loose.bin'), 'someone else')
+
+  const result = await moveLibrary(plan, index)
+  assert.deepEqual(result, { moved: [1, 2], skipped: [3], failed: null })
+  assert.equal(readFileSync(join(to, 'psx', 'loose.bin'), 'utf8'), 'someone else')
+  assert.equal(existsSync(join(from, 'psx', 'loose.cue')), true)
+  assert.equal(index.entries.get(3)?.path, join(from, 'psx', 'loose.cue'))
+})
+
+test('a copy that fails takes its copies away, keeps the original, and stops the move', async () => {
+  const { from, to, games } = looseLibrary()
+  const index = memoryIndex(games)
+  const planned = await planLibraryMove(games, from, to)
+  // The loose game first, with a part that has gone since the plan.
+  const loose = planned.games[2]
+  const broken = {
+    ...loose,
+    parts: [
+      ...loose.parts,
+      { from: join(from, 'psx', 'loose.sub'), to: join(to, 'psx', 'loose.sub') }
+    ]
+  }
+  const plan = { ...planned, sameDrive: false, games: [broken, ...planned.games.slice(0, 2)] }
+
+  const result = await moveLibrary(plan, index)
+  assert.deepEqual(result.moved, [])
+  assert.equal(result.failed?.romId, 3)
+  assert.equal(existsSync(join(from, 'psx', 'loose.cue')), true)
+  assert.equal(existsSync(join(from, 'psx', 'loose.bin')), true)
+  assert.deepEqual(readdirSync(join(to, 'psx')), [])
+  assert.equal(existsSync(join(to, 'gc')), false)
+  assert.equal(index.entries.get(3)?.path, join(from, 'psx', 'loose.cue'))
+})
+
+test('a refused plan moves nothing', async () => {
+  const { from, games } = looseLibrary()
+  const index = memoryIndex(games)
+  const plan = await planLibraryMove(games, from, from)
+  assert.deepEqual(await moveLibrary(plan, index), { moved: [], skipped: [], failed: null })
+  assert.equal(existsSync(join(from, 'gc', 'one.rvz')), true)
 })

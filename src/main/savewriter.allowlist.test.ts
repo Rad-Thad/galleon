@@ -54,6 +54,7 @@ const ALLOWED: Record<string, string> = {
   'main/integrity.ts': 'a download that failed its digest',
   'main/launchfiles.ts': "an emulator's launch files in the app root's config folder",
   'main/library.ts': 'an uninstalled game under the ROMs folder',
+  'main/librarymove.ts': 'games of the shared library, carried to the folder the player chose',
   'main/log.ts': 'the log file',
   'main/offline.ts': 'the offline cache',
   'main/releases.ts': 'emulator releases in the emulators folder',

@@ -3388,3 +3388,14 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet.
 - Next: M1-10 part 4b: carrying out the plan (rename on one drive; copy, verify, then remove on another; the index rewritten; nothing removed until its copy is whole), then 4c the Settings folder picker with the confirmation, and 4d adopting or moving Phase 0's `~/rommix/roms`. Then `storage.sdcard`.
+
+## 2026-10-27 07:49 UTC session 0178hDCE2E9DNMXDgMEeNLeS (hourly heartbeat, second unit)
+
+- Device results: unchanged since the entry above. #322 (M1-10 part 4a) merged at cd3c01f; CI x64 8:16, arm64 1:04.
+- Worked on: M1-10 part 4b (tracking issue #313): carrying out the plan of line 3's library move.
+- Result: PR (this one). `moveLibrary` (`src/main/librarymove.ts`) moves the plan's games one at a time. On one drive each part is renamed. On another, each part is copied under a `.galleon-moving` name, its size checked against the original, and only then given its name; the originals go once every part is in place. Each game is recorded in the index (path and launch path) as soon as it has moved. The first failure stops the move, takes that game's copies away and leaves its original as it was; the message is `error.libraryMoveIncomplete` (all four catalogues). A game whose new place is occupied, even if that happened after the plan, is skipped and nothing is replaced. The plan now carries each game's `parts`: a loose game's companion files (named in `files`, beside its path in the system folder) move and count with it, which 4a missed. Nothing calls it yet. `librarymove.ts` is on the write allow-list. M1-10 stays false.
+- Evidence: librarymove.test.ts (+6, 13 total): a loose game's companions planned and sized with it; renamed on one drive and copied to "another" (the plan's `sameDrive` turned off), all three kinds of game end up in the new folder, nothing is left behind and the index has the new paths and launch paths; a place taken after the plan is skipped and its occupant kept; a copy that fails part-way removes its copies, keeps the originals and the index entry, and moves nothing after it; a refused plan moves nothing. `scripts/agent/check.sh` green (2487 unit tests; librarymove.ts 100% lines). No renderer, IPC or launch code changed, so no `test:app`; no UI change, so no shots.
+- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet.
+- Next: M1-10 part 4c: the Settings folder picker, the confirmation listing the plan's games and sizes (and what is skipped), and the IPC that plans, moves and then sets `libraryRoot`. Then 4d (Phase 0's `~/rommix/roms`) and `storage.sdcard`.

@@ -1,8 +1,10 @@
-import { stat } from 'node:fs/promises'
-import { isAbsolute, join, relative } from 'node:path'
+import { cp, mkdir, rename, rm, stat } from 'node:fs/promises'
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { SHARED_LIBRARY } from '@shared/types'
 import type { InstalledRom, LibraryMoveGame, LibraryMovePlan } from '@shared/types'
 import { fits, nearest, spaceOf } from './disk.ts'
+import { t } from './i18n.ts'
+import { log } from './log.ts'
 import { sizeOf } from './savefiles.ts'
 import { resolveExisting } from './volumes.ts'
 
@@ -26,6 +28,22 @@ async function deviceOf(path: string): Promise<number | null> {
   const at = await nearest(path)
   if (!at) return null
   return (await stat(at).catch(() => null))?.dev ?? null
+}
+
+/**
+ * What a game is on the disk: its folder, or a loose game's files beside its
+ * path. `files` names those relative to the system folder (see `InstalledRom`);
+ * a name that would reach outside it is not the game's to carry.
+ */
+function partsOf(rom: InstalledRom, real: string): string[] {
+  if (rom.isDirectory) return [real]
+  const folder = dirname(real)
+  const parts = [real]
+  for (const name of rom.files) {
+    const path = resolve(folder, name)
+    if (dirname(path) === folder && !parts.includes(path)) parts.push(path)
+  }
+  return parts
 }
 
 async function present(path: string): Promise<boolean> {
@@ -61,15 +79,26 @@ export async function planLibraryMove(
         missing.push(rom.romId)
         continue
       }
-      const target = join(toReal, relative(fromReal, real))
-      if (await present(target)) taken.push(rom.romId)
+      const moved = (path: string): string => join(toReal, relative(fromReal, path))
+      const parts = []
+      for (const path of partsOf(rom, real)) {
+        if (path === real || (await present(path))) parts.push({ from: path, to: moved(path) })
+      }
+      let sizeBytes = 0
+      let occupied = false
+      for (const part of parts) {
+        sizeBytes += await sizeOf(part.from, rom.isDirectory)
+        occupied ||= await present(part.to)
+      }
+      if (occupied) taken.push(rom.romId)
       games.push({
         romId: rom.romId,
         name: rom.name,
         system: rom.system,
         from: real,
-        to: target,
-        sizeBytes: await sizeOf(real, rom.isDirectory)
+        to: moved(real),
+        parts,
+        sizeBytes
       })
     }
   }
@@ -92,4 +121,118 @@ export async function planLibraryMove(
     // copy itself still fails cleanly on a full disk.
     fits: sameDrive || freeBytes === null || fits(totalBytes, freeBytes)
   }
+}
+
+/** The index as a move needs it. See `Store`. */
+export interface MoveIndex {
+  getInstalled(romId: number): InstalledRom | undefined
+  addInstalled(entry: InstalledRom): void
+}
+
+/** What a library move did, game by game. */
+export interface LibraryMoveResult {
+  moved: number[]
+  /** Left where they are: something already occupies their place. */
+  skipped: number[]
+  /** The game the move stopped at, and why, when it did not finish. */
+  failed: { romId: number; reason: string } | null
+}
+
+/** The suffix a copy is made under until it is whole. */
+const COPYING = '.galleon-moving'
+
+/**
+ * Carry out a plan, one game at a time.
+ *
+ * On one drive each part is renamed. On another, each is copied under a
+ * temporary name, its size checked against the original, and only then given
+ * its name; the originals are removed once every part of the game is in its
+ * new place. Each game is recorded in the index as soon as it has moved, so a
+ * move that stops part-way leaves every game findable where it now is. The
+ * first failure stops the move: a full disk would fail every game after it.
+ * Something found at a game's new place, even one the plan did not see, leaves
+ * that game where it is rather than replacing it.
+ */
+export async function moveLibrary(
+  plan: LibraryMovePlan,
+  index: MoveIndex
+): Promise<LibraryMoveResult> {
+  const result: LibraryMoveResult = { moved: [], skipped: [], failed: null }
+  if (plan.refused) return result
+
+  for (const game of plan.games) {
+    const entry = index.getInstalled(game.romId)
+    if (!entry) continue
+    if (await anyPresent(game.parts.map((part) => part.to))) {
+      result.skipped.push(game.romId)
+      continue
+    }
+    try {
+      await carry(game, plan.sameDrive, entry.isDirectory)
+    } catch (cause) {
+      result.failed = { romId: game.romId, reason: (cause as Error).message }
+      log.warn('library', 'the library move stopped', {
+        romId: game.romId,
+        reason: (cause as Error).message
+      })
+      break
+    }
+    const moved = (path: string): string => {
+      const real = resolveExisting(path)
+      return within(real, game.from) ? join(game.to, relative(game.from, real)) : path
+    }
+    index.addInstalled({ ...entry, path: game.to, launchPath: moved(entry.launchPath) })
+    result.moved.push(game.romId)
+  }
+
+  log.info('library', 'the library move finished', {
+    from: plan.from,
+    to: plan.to,
+    moved: result.moved.length,
+    skipped: result.skipped.length,
+    failed: result.failed !== null
+  })
+  return result
+}
+
+async function anyPresent(paths: readonly string[]): Promise<boolean> {
+  for (const path of paths) if (await present(path)) return true
+  return false
+}
+
+async function carry(
+  game: LibraryMoveGame,
+  sameDrive: boolean,
+  isDirectory: boolean
+): Promise<void> {
+  const parts = game.parts
+  if (sameDrive) {
+    for (const part of parts) {
+      await mkdir(dirname(part.to), { recursive: true })
+      await rename(part.from, part.to)
+    }
+    return
+  }
+
+  const made: string[] = []
+  try {
+    for (const part of parts) {
+      await mkdir(dirname(part.to), { recursive: true })
+      const copying = `${part.to}${COPYING}`
+      made.push(copying)
+      await cp(part.from, copying, { recursive: true, errorOnExist: true, force: false })
+      const [want, got] = [await sizeOf(part.from, isDirectory), await sizeOf(copying, isDirectory)]
+      if (want !== got) throw new Error(t('error.libraryMoveIncomplete', { name: game.name }))
+    }
+    for (const part of parts) {
+      await rename(`${part.to}${COPYING}`, part.to)
+      made.push(part.to)
+    }
+  } catch (cause) {
+    // Nothing of the original has been touched yet, so taking the copies away
+    // leaves the game as it was.
+    for (const path of made) await rm(path, { recursive: true, force: true })
+    throw cause
+  }
+  for (const part of parts) await rm(part.from, { recursive: true, force: true })
 }
