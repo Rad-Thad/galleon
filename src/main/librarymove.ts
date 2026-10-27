@@ -160,9 +160,9 @@ const COPYING = '.galleon-moving'
  * its name. A game is recorded in the index once every part of it is in its
  * new place, and only then are the originals removed, so a copy interrupted
  * at any point leaves every game findable: at worst a moved game's original is
- * left behind as well. An index that cannot be written throws, with the
- * original still in place. A game that fails is put back as it was and stops the move, since
- * a full disk would fail every game after it. Something found at a game's new
+ * left behind as well. An index that cannot be written throws, with the game
+ * put back where the index still says it is. A game that fails is put back as
+ * it was and stops the move, since a full disk would fail every game after it. Something found at a game's new
  * place, even one the plan did not see, leaves that game where it is rather
  * than replacing it, as does a game the index no longer has where the plan
  * found it.
@@ -182,8 +182,9 @@ export async function moveLibrary(
       result.skipped.push(game.romId)
       continue
     }
+    let undo: () => Promise<void>
     try {
-      await place(game, plan.sameDrive, entry.isDirectory, copy)
+      undo = await place(game, plan.sameDrive, entry.isDirectory, copy)
     } catch (cause) {
       result.failed = { romId: game.romId, reason: (cause as Error).message }
       log.warn('library', 'the library move stopped', {
@@ -196,7 +197,12 @@ export async function moveLibrary(
       const real = resolveExisting(path)
       return within(real, game.from) ? join(game.to, relative(game.from, real)) : path
     }
-    index.addInstalled({ ...entry, path: game.to, launchPath: moved(entry.launchPath) })
+    try {
+      index.addInstalled({ ...entry, path: game.to, launchPath: moved(entry.launchPath) })
+    } catch (cause) {
+      await undo()
+      throw cause
+    }
     result.moved.push(game.romId)
     if (!plan.sameDrive) {
       for (const part of game.parts) {
@@ -232,16 +238,20 @@ async function anyPresent(paths: readonly string[]): Promise<boolean> {
  *
  * Originals are left for the caller to remove once the index says where the
  * game is. A failure part-way undoes what was done: renamed parts are renamed
- * back, copies are removed.
+ * back, copies are removed. The same undoing is handed back, for an index that
+ * will not take the game's new place.
  */
 async function place(
   game: LibraryMoveGame,
   sameDrive: boolean,
   isDirectory: boolean,
   copy: CopyPart
-): Promise<void> {
+): Promise<() => Promise<void>> {
   if (sameDrive) {
     const renamed: LibraryMoveGame['parts'] = []
+    const renameBack = async (): Promise<void> => {
+      for (const part of renamed.toReversed()) await rename(part.to, part.from)
+    }
     try {
       for (const part of game.parts) {
         await mkdir(dirname(part.to), { recursive: true })
@@ -249,13 +259,16 @@ async function place(
         renamed.push(part)
       }
     } catch (cause) {
-      for (const part of renamed.toReversed()) await rename(part.to, part.from)
+      await renameBack()
       throw cause
     }
-    return
+    return renameBack
   }
 
   const made: string[] = []
+  const removeCopies = async (): Promise<void> => {
+    for (const path of made) await rm(path, { recursive: true, force: true })
+  }
   try {
     for (const part of game.parts) {
       await mkdir(dirname(part.to), { recursive: true })
@@ -272,7 +285,8 @@ async function place(
   } catch (cause) {
     // Nothing of the original has been touched, so taking the copies away
     // leaves the game as it was.
-    for (const path of made) await rm(path, { recursive: true, force: true })
+    await removeCopies()
     throw cause
   }
+  return removeCopies
 }

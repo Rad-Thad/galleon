@@ -378,14 +378,17 @@ test('a game copied to another drive is in the index before its original goes', 
   assert.equal(existsSync(join(from, 'psx', 'Disc Game')), false)
 })
 
-test('an index that cannot be written leaves the original in place', async () => {
-  const { from, to, games } = looseLibrary()
-  const index = memoryIndex(games)
-  index.addInstalled = () => {
-    throw new Error('disk full')
-  }
-  const plan = { ...(await planLibraryMove([games[1]], from, to)), sameDrive: false }
+for (const sameDrive of [true, false]) {
+  test(`an index that cannot be written leaves the game where it was, ${sameDrive ? 'renamed back' : 'its copy removed'}`, async () => {
+    const { from, to, games } = looseLibrary()
+    const index = memoryIndex(games)
+    index.addInstalled = () => {
+      throw new Error('disk full')
+    }
+    const plan = { ...(await planLibraryMove([games[1]], from, to)), sameDrive }
 
-  await assert.rejects(moveLibrary(plan, index), /disk full/)
-  assert.equal(readFileSync(join(from, 'psx', 'Disc Game', 'game.bin')).length, 5000)
-})
+    await assert.rejects(moveLibrary(plan, index), /disk full/)
+    assert.equal(readFileSync(join(from, 'psx', 'Disc Game', 'game.bin')).length, 5000)
+    assert.deepEqual(readdirSync(join(to, 'psx')), [])
+  })
+}
