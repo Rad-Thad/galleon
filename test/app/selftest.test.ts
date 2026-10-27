@@ -1,12 +1,22 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { after, test } from 'node:test'
 import { SETTLE_TIMEOUT_MS, atHome, electronBinary, seed, startApp } from './driver.ts'
 import { GBA_ROM, startFakeRomm } from './server.ts'
+import { binaryVdf, shortcut } from '../../src/main/fixtures/steam/binaryvdf.ts'
 import { SYNTHETIC_GAMES } from '../../src/main/selftestlibrary.ts'
+import { STEAM_LIST_CHECK, TEST_SHORTCUT } from '../../src/main/selfteststeam.ts'
 import { IDLE_MS, SCROLL_MS } from '../../src/main/selftestscroll.ts'
 import {
   REQUEST_FILE,
@@ -40,7 +50,8 @@ after(() => {
 async function runWithRequest(
   request: Record<string, unknown>,
   server?: { baseUrl: string; token: string; settings?: Record<string, unknown> },
-  timeoutMs = EXIT_TIMEOUT_MS
+  timeoutMs = EXIT_TIMEOUT_MS,
+  env: Record<string, string> = {}
 ): Promise<{
   code: number | null
   home: string
@@ -59,7 +70,8 @@ async function runWithRequest(
       GALLEON_HOME: home,
       XDG_CONFIG_HOME: join(home, 'xdg-config'),
       FLATPAK_SYSTEM_DIR: join(home, 'flatpak-system'),
-      FLATPAK_USER_DIR: join(home, 'flatpak-user')
+      FLATPAK_USER_DIR: join(home, 'flatpak-user'),
+      ...env
     }
   })
   let output = ''
@@ -333,6 +345,44 @@ test('launch, exit and the focus checks reach their scenarios, and no payload ou
     ]
   )
   assert.ok(!existsSync(join(home, 'sandbox')), 'no sandbox was made')
+})
+
+test("steam.list reads the owner's Steam files from HOME and publishes counts only", async () => {
+  const owner = mkdtempSync(join(tmpdir(), 'galleon-selftest-steam-'))
+  homes.push(owner)
+  const steam = join(owner, '.local', 'share', 'Steam')
+  mkdirSync(join(steam, 'steamapps'), { recursive: true })
+  writeFileSync(
+    join(steam, 'steamapps', 'appmanifest_1145360.acf'),
+    '"AppState" { "appid" "1145360" "name" "Hades" "StateFlags" "4" "installdir" "Hades" "SizeOnDisk" "1" }'
+  )
+  mkdirSync(join(steam, 'userdata', '1001', 'config', 'grid'), { recursive: true })
+  writeFileSync(
+    join(steam, 'userdata', '1001', 'config', 'shortcuts.vdf'),
+    binaryVdf({
+      shortcuts: { '0': shortcut(3000000000, TEST_SHORTCUT), '1': shortcut(1234, 'Owner Game') }
+    })
+  )
+  writeFileSync(join(steam, 'userdata', '1001', 'config', 'grid', '1234p.png'), '')
+  const { code, results } = await runWithRequest(
+    { ...REQUEST, checks: [STEAM_LIST_CHECK] },
+    undefined,
+    EXIT_TIMEOUT_MS,
+    { HOME: owner }
+  )
+  assert.equal(code, 0)
+  const raw = readFileSync(join(results, SUMMARY_FILE), 'utf8')
+  const summary = JSON.parse(raw) as Summary
+  assert.deepEqual(summaryErrors(summary), [])
+  const check = summary.checks.find((c) => c.id === STEAM_LIST_CHECK)
+  assert.equal(check?.result, 'pass', JSON.stringify(check))
+  assert.equal(check.metrics.steamGames, 1)
+  assert.equal(check.metrics.shortcuts, 1)
+  assert.equal(check.metrics.shortcutsWithCover, 1)
+  assert.equal(check.metrics.testShortcuts, 1)
+  for (const secret of ['Hades', 'Owner Game', owner]) {
+    assert.ok(!raw.includes(secret), `${secret} was published`)
+  }
 })
 
 test('a request without privacy is refused with an error summary and exit 1', async () => {
