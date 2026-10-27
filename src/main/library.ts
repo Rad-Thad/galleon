@@ -110,6 +110,11 @@ export class Library extends EventEmitter {
     return current.id !== entry.emulatorId
   }
 
+  /** Whether a path is on a card that is not mounted now. See `isOnMissingCard`. */
+  isOnMissingCard(path: string): boolean {
+    return this.missingCards()(path)
+  }
+
   /** The index entry for a ROM, unless it belongs to a different emulator. */
   installedNow(romId: number): InstalledRom | undefined {
     const entry = this.store.getInstalled(romId)

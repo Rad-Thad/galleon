@@ -94,6 +94,20 @@ function filesToFetch(rom: RommRom): RommRom['files'] {
   return rom.files.filter((file) => !isServerPlaylist(file.file_name))
 }
 
+/**
+ * The game's folder is on the library's card, and the card is not mounted.
+ *
+ * Its own type so `runOne` can tell it from a failure: the row waits for the
+ * card rather than failing, and nothing is written to the empty mount point,
+ * which is a folder on internal storage.
+ */
+class CardNotInsertedError extends Error {
+  constructor() {
+    super(t('error.downloadWaitsForCard'))
+    this.name = 'CardNotInsertedError'
+  }
+}
+
 async function bytesHeld(holding: Holding): Promise<number> {
   let total = 0
   for (const path of await pathsHeld(holding)) {
@@ -739,6 +753,10 @@ export class DownloadManager extends EventEmitter {
 
     try {
       const { dir, path, system, emulatorId, asDirectory, flat } = await this.library.plan(rom)
+      // Before anything is measured or made: without the card, its mount
+      // point is a folder on internal storage, which has room and can be
+      // written, and the game would land there with nothing to say so.
+      if (this.library.isOnMissingCard(dir)) throw new CardNotInsertedError()
 
       /**
        * One file at a time, where the server will do it.
@@ -939,6 +957,12 @@ export class DownloadManager extends EventEmitter {
        * else raises it. See `resumeAfterOutage` for what the difference buys.
        */
       const outage = cause instanceof UnreachableError && !cancelled && !asked && !overtaken
+      /**
+       * Waiting for the card, which is a stop with a reason rather than a
+       * failure: the row is paused, says why, and goes on when resumed with
+       * the card back.
+       */
+      const cardOut = cause instanceof CardNotInsertedError
       item.state = cancelled
         ? 'cancelled'
         : // Back into the queue rather than into a stopped row: it was not
@@ -947,7 +971,7 @@ export class DownloadManager extends EventEmitter {
           ? 'queued'
           : outage
             ? 'stalled'
-            : asked || carried > 0
+            : asked || cardOut || carried > 0
               ? 'paused'
               : 'error'
       // A stop the user asked for has nothing to explain, and neither has a
@@ -973,6 +997,7 @@ export class DownloadManager extends EventEmitter {
       if (overtaken)
         log.info('download', 'let another transfer past', { ...detail, received: carried })
       else if (cancelled) log.info('download', 'abandoned after cancellation', detail)
+      else if (cardOut) log.warn('download', 'waiting for the card', detail)
       else if (asked) log.info('download', 'stopped on request', { ...detail, received: carried })
       // Its own line: nobody paused this, and it is going to start again by
       // itself — neither of which "paused part-way" says. See `stalled`.

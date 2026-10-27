@@ -353,6 +353,8 @@ function manager(
     /** An existing folder to open again, for the case of a restart. */
     store?: Store
     hold?: Promise<void>
+    /** Whether the folder the library is in counts as on a card that is out. */
+    card?: { out: boolean }
   } = {}
 ): {
   downloads: DownloadManager
@@ -376,7 +378,13 @@ function manager(
     verifyUnpacked: (game: RommRom, path: string) =>
       new RommClient(store).verifyUnpacked(game, path)
   })
-  const library = new Library(store, client, cache(client), () => options.emulator ?? null)
+  const library = new Library(
+    store,
+    client,
+    cache(client),
+    () => options.emulator ?? null,
+    () => (path) => options.card?.out === true && path.startsWith(`${root}/`)
+  )
   const downloads = queue(store, client, library)
   return { downloads, library, store, root, client, resumed }
 }
@@ -2032,6 +2040,51 @@ describe('the room on the drive', () => {
     await downloads.enqueue(rom({ fs_size_bytes: total }))
 
     assert.equal((await settled(downloads, 1)).state, 'done')
+  })
+})
+
+describe('a library on a card that is not inserted', () => {
+  test('a queued game waits, saying why, and nothing is written where the card was', async () => {
+    const card = { out: true }
+    const { downloads, store, root } = manager({ card })
+
+    await downloads.enqueue(rom())
+    const item = await settled(downloads, 1)
+
+    assert.equal(item.state, 'paused')
+    assert.equal(item.error, 'Waiting for the card: insert it, then resume this download')
+    assert.ok(!existsSync(join(root, 'roms')))
+    assert.equal(store.getInstalled(1), undefined)
+  })
+
+  test('every game behind it waits as well, rather than going elsewhere', async () => {
+    const card = { out: true }
+    const { downloads, root } = manager({
+      card,
+      roms: { 2: rom({ id: 2, name: 'Streets of Rage', fs_name: 'Streets of Rage.md' }) }
+    })
+
+    await downloads.enqueue(rom())
+    await downloads.enqueue(rom({ id: 2, name: 'Streets of Rage', fs_name: 'Streets of Rage.md' }))
+
+    assert.equal((await settled(downloads, 1)).state, 'paused')
+    assert.equal((await settled(downloads, 2)).state, 'paused')
+    assert.ok(!existsSync(join(root, 'roms')))
+  })
+
+  test('resumed with the card back, the game lands on it', async () => {
+    const card = { out: true }
+    const { downloads, store, root } = manager({ card })
+    await downloads.enqueue(rom())
+    assert.equal((await settled(downloads, 1)).state, 'paused')
+
+    card.out = false
+    await downloads.enqueue(rom())
+    const item = await settled(downloads, 1)
+
+    assert.equal(item.state, 'done')
+    assert.equal(item.error, null)
+    assert.ok(store.getInstalled(1)?.path.startsWith(join(root, 'roms', 'genesis')))
   })
 })
 

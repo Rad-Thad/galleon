@@ -3355,3 +3355,14 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet.
 - Next: the rest of M1-10 line 2 (queued downloads wait with a message when the library's card is out), then line 3 and `storage.sdcard`.
+
+## 2026-10-27 06:26 UTC session 0178hDCV4qs1ht (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. #319 (M1-10 part 3b) merged at b51215a; CI x64 8:16, arm64 0:59.
+- Worked on: M1-10 part 3c (tracking issue #313): the last part of line 2, "queued downloads wait with a clear message instead of falling back to internal storage silently".
+- Result: PR (this one). `DownloadManager.runOne` asks `Library.isOnMissingCard` about the game's folder right after planning it, before anything is measured or made: without the card its mount point is a folder on internal storage, which has room and can be written. Such a transfer stops with `CardNotInsertedError`; the row is paused (not an error) and says "Waiting for the card: insert it, then resume this download" (`error.downloadWaitsForCard`, in all four catalogues), and every game queued behind it for the card does the same. Resumed with the card back, it downloads onto the card. A game whose folder is not on the card (an emulator's own ROM folder) is not affected. Line 2 is now complete in CI. M1-10 stays false.
+- Evidence: downloads.test.ts "a library on a card that is not inserted" (3): waits with the message, nothing made under the library folder, nothing indexed; a second queued game waits too; resumed with the card back it is done and on the card. All 3 fail with the check removed. test/app/card.test.ts (+1, the scenario's `libraryRoot` now on the absent card; `startScenario` passes `settings` through): a new download pauses with the reason, nothing is made under `/run/media/galleon-app-test`, and the Downloads activity row shows the reason. `scripts/agent/check.sh` green (2472 unit tests; downloads.ts 99.3% lines). No renderer code changed (the paused row already shows `item.error`), so no shots.
+- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet.
+- Next: `isOnMissingCard` resolving links (a root picked by hand through `/run/media/NovaSD`) before line 3's folder picker can choose one; then line 3 (moving the library) and `storage.sdcard`.
