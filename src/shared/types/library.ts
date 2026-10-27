@@ -86,3 +86,36 @@ export interface LibrarySyncResult {
   /** ROMs found sitting on disk that the index did not know about. */
   adopted: number
 }
+
+/** A game the library move would carry, as the confirmation lists it. */
+export interface LibraryMoveGame {
+  romId: number
+  name: string
+  system: string
+  from: string
+  to: string
+  /** Measured off the disk now, not the size recorded at install. */
+  sizeBytes: number
+}
+
+/**
+ * What changing the library folder would move, worked out before anything is.
+ * See `planLibraryMove`.
+ */
+export interface LibraryMovePlan {
+  from: string
+  to: string
+  /** Why the move cannot be made at all; null when it can. */
+  refused: 'same-folder' | 'inside-library' | null
+  games: LibraryMoveGame[]
+  totalBytes: number
+  /** Games in the index whose files are not on the disk now: nothing to carry. */
+  missing: number[]
+  /** Games something else already occupies the place of in the new folder. */
+  taken: number[]
+  /** Both folders on one drive: the games are renamed, not copied. */
+  sameDrive: boolean
+  /** Room left where the new folder is, or null where it cannot be measured. */
+  freeBytes: number | null
+  fits: boolean
+}

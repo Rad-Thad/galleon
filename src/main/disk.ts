@@ -22,7 +22,7 @@ import { volumeNamer, type VolumeSources } from './volumes.ts'
  * and answer for whichever drive *that* is on — a figure about the wrong disk
  * is worse than no figure, and every path RomMix holds is absolute.
  */
-async function nearest(path: string): Promise<string | null> {
+export async function nearest(path: string): Promise<string | null> {
   if (!isAbsolute(path)) return null
   let at = path
   for (;;) {

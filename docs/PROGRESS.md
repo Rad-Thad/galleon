@@ -3377,3 +3377,14 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet.
 - Next: M1-10 line 3 (changing the ROM folder offers to move existing games with sizes first; Phase 0's `~/rommix/roms` adopted or moved), then `storage.sdcard`.
+
+## 2026-10-27 07:26 UTC session 0178hDCE2E9DNMXDgMEeNLeS (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. #321 (M1-10 part 3d) merged at a04b5b4; CI x64 7:47, arm64 1:04.
+- Worked on: M1-10 part 4a (tracking issue #313): line 3's "shows sizes first", the plan a library move is confirmed from.
+- Result: PR (this one). `planLibraryMove` (`src/main/librarymove.ts`) lists the shared library's games under the current folder with each one's size measured off the disk now, the place each would go, the total, the room in the new folder and whether both folders are on one drive (then the games are renamed and always fit). It names games whose files are gone (`missing`) and games whose new place is already occupied (`taken`), and refuses the same folder and a folder inside the library. Paths are compared resolved, so a library reached through `/run/media/NovaSD` plans from the card. Games in an emulator's own folder are not carried. The plan type (`LibraryMovePlan`) is in `@shared/types` for the IPC that comes next. Nothing calls it yet; M1-10 stays false.
+- Evidence: librarymove.test.ts (6): sizes off the disk (not the recorded size) and new places for a file and a disc folder; an emulator's own game and games outside the library not carried; missing and taken; same folder through a link, a folder inside the library, and a `roms-sd` sibling not counted as inside; a library through a link; another drive (`/proc`) with no room does not fit. `scripts/agent/check.sh` green (librarymove.ts 100% lines). No renderer, IPC or launch code changed, so no `test:app`; no UI change, so no shots.
+- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet.
+- Next: M1-10 part 4b: carrying out the plan (rename on one drive; copy, verify, then remove on another; the index rewritten; nothing removed until its copy is whole), then 4c the Settings folder picker with the confirmation, and 4d adopting or moving Phase 0's `~/rommix/roms`. Then `storage.sdcard`.
