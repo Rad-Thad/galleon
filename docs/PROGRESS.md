@@ -3634,7 +3634,7 @@ Lines the tooling reads (exact forms):
   - New key `library.steamPlatform` in all four catalogues (a proper noun, the same in each).
   - M1-14 stays false. The device checks `steam.list` and `steam.launch` come next.
 - Evidence: `test/app/steam.test.ts` 6/6. Covered: the chip counts 1, the grid holds only the Steam card, and pressing it shows the overlay; leaving by 'All platforms' and by a server platform; the search narrows the card away, says nothing matched, and keeps the chip at 0. `npm run test:app` 267/267 before the last two tests were added. Electron ran through a `--no-sandbox` wrapper as root. `scripts/agent/check.sh` green. `npm run shots:nova` 27 screens. I opened `library-steam.png`: chip 'Steam (1)' selected, '1 game on Steam', one Hades card, nothing clipped. `running-steam.png` is now reached by pressing that card, and the overlay is unchanged.
-- Evaluator: see the PR.
-- CI wall time: recorded in the next entry (this entry rides the PR).
+- Evaluator: FAIL, then PASS. The first round's survivors (search not narrowing, Steam left chosen after 'All platforms' or a server platform) are caught by the two tests added on its notes. Second round: 10 mutants, 8 caught. The two survivors, server paging left on and the end-of-grid line under Steam, cannot be seen on the Steam grid.
+- CI wall time: recorded in the next entry (this entry rides the PR). The first x64 run failed only at `pr-body.mjs`: the PR body had no `Feature:` line.
 - Device / acceptance: none yet.
 - Next: M1-14 part 3, the device checks `steam.list` (counts and art found, never names) and `steam.launch` (the 'Galleon Device Test Target' shortcut, 'Launch Multiple Games' seen, Galleon survived, `needs-attended` on a prompt left up).
