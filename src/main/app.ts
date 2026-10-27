@@ -572,10 +572,7 @@ export class RomMixApp {
       index: this.store,
       libraryRoot: () => this.store.settings.libraryRoot,
       folderOf: (libraryRoot) => libraryFolder(libraryRoot),
-      downloading: () =>
-        this.downloads.items.some(
-          (item) => item.state === 'queued' || item.state === 'downloading'
-        ),
+      downloading: () => this.downloads.items.some((item) => isInProgress(item.state)),
       prepare: prepareFolder,
       setLibraryRoot: async (libraryRoot) => {
         log.info('library', 'the library folder changed', { libraryRoot: libraryRoot || null })

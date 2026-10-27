@@ -474,10 +474,12 @@ test('changing the folder moves every game, then makes the new folder the librar
 
 test('the same folder by another name moves nothing and takes the name', async () => {
   const { from, games } = looseLibrary()
+  const link = join(dirname(from), 'link')
+  symlinkSync(from, link)
   const sources = folderChange(from, games)
-  const change = await changeLibraryFolder(sources, join(from, '.'))
+  const change = await changeLibraryFolder(sources, link)
   assert.deepEqual(change.moved, [])
-  assert.equal(sources.root(), join(from, '.'))
+  assert.equal(sources.root(), link)
   assert.equal(existsSync(join(from, 'gc', 'one.rvz')), true)
 })
 
