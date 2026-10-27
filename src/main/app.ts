@@ -42,6 +42,7 @@ import { saveContext } from './gamecontext.ts'
 import { realHome } from './xdg.ts'
 import { PageTimes } from './pagetimes.ts'
 import { reclaimScreen } from './reclaim.ts'
+import { SteamSession } from './steam/session.ts'
 import {
   isInProgress,
   isStopped,
@@ -128,6 +129,8 @@ export class RomMixApp {
    * rather than something only Settings knows about.
    */
   readonly updates = new Updater(this.store, (status) => this.send('update:status', status))
+  /** A Steam game handed to Steam, and the overlay raised for it. */
+  readonly steam = new SteamSession((state) => this.send('running:state', state))
   /** How each page of the library was spent, for the self-test to read. */
   readonly pageTimes = new PageTimes()
 

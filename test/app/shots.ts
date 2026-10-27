@@ -1,4 +1,4 @@
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { SHARED_LIBRARY } from '@shared/types'
@@ -649,6 +649,33 @@ async function stockLibrary(): Promise<void> {
   }
 }
 
+/** A Steam game handed to Steam (M1-14): the overlay that stands in for it. */
+async function steamRunning(): Promise<void> {
+  const user = mkdtempSync(join(tmpdir(), 'galleon-shots-steam-'))
+  const steamapps = join(user, '.local', 'share', 'Steam', 'steamapps')
+  mkdirSync(steamapps, { recursive: true })
+  writeFileSync(
+    join(steamapps, 'appmanifest_1145360.acf'),
+    '"AppState" { "appid" "1145360" "name" "Hades" "StateFlags" "4" }'
+  )
+  const scenario = await startScenario({
+    viewport: NOVA,
+    home: join(HOMES, 'steam'),
+    env: { HOME: user }
+  })
+  const { app } = scenario
+  try {
+    await attempt('running-steam', async () => {
+      await app.read(`window.rommix.steam.launch('1145360'), true`)
+      await app.waitFor(`document.querySelector('[data-action="back-from-steam"]')`, 'the overlay')
+      await shoot(app, 'running-steam')
+    })
+  } finally {
+    await scenario.stop()
+    rmSync(user, { recursive: true, force: true })
+  }
+}
+
 rmSync(OUT, { recursive: true, force: true })
 mkdirSync(OUT, { recursive: true })
 await signedIn()
@@ -658,6 +685,7 @@ if (wanted('game-conflict')) await conflict()
 if (wanted('game-card-missing')) await cardMissing()
 if (wanted('settings-library-move')) await libraryMove()
 if (wanted('settings-stock')) await stockLibrary()
+if (wanted('running-steam')) await steamRunning()
 await setup()
 contactSheet()
 

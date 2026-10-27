@@ -166,6 +166,7 @@ export function App(): JSX.Element {
     offline,
     runningRomId,
     runningEmulator,
+    runningSteam,
     status,
     update,
     settings,
@@ -210,7 +211,7 @@ export function App(): JSX.Element {
   // to change a setting in — owns the pad. Here rather than inside the overlay
   // so it holds for the whole session, including the moment before the overlay
   // has mounted.
-  const covered = runningRomId !== null || runningEmulator !== null
+  const covered = runningRomId !== null || runningEmulator !== null || runningSteam !== null
   useSuspendGamepad(covered)
 
   // L3 and R3 held: the same switch as Settings -> System, from any screen,

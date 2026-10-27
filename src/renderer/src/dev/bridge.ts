@@ -1053,6 +1053,10 @@ const bridge: RomMixBridge = {
     },
     launch: () => refuse('demo.noEmulator')
   },
+  steam: {
+    games: () => later([]),
+    launch: () => later(undefined)
+  },
   running: {
     stop: () => later(undefined),
     forceStop: () => later(undefined),

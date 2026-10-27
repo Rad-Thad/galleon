@@ -98,6 +98,10 @@ export const de: Catalog = {
   'app.emulatorRunning': '{name} läuft',
   'app.holdToClose': '{key} gedrückt halten, um ihn von hier aus zu schließen.',
   'app.closeEmulator': 'Emulator schließen',
+  'app.playingOnSteam': 'Läuft über Steam',
+  'app.steamHasFocus': '{name} läuft in Steam. Beenden Sie es dort und kommen Sie dann zurück.',
+  'app.holdToReturn': 'Halten Sie {key}, um zu Galleon zurückzukehren.',
+  'app.backToGalleon': 'Zurück zu Galleon',
   'app.notClosing':
     'Er hat sich nicht geschlossen. Ihn zu erzwingen verliert alles, was er nicht gespeichert hat.',
   'app.holdToForce': '{key} erneut gedrückt halten, um ihn zu erzwingen.',
@@ -1254,6 +1258,7 @@ export const de: Catalog = {
     'hinzu, oder wählen Sie auf dem Emulatoren-Bildschirm einen anderen Emulator für diese ' +
     'Plattform.',
   'launch.stoppedBeforeStart': 'Vor dem Start des Spiels abgebrochen',
+  'steam.notInstalled': 'Dieses Steam-Spiel ist nicht mehr installiert.',
   'launch.badLaunchFile':
     "The emulator's launch file {name} cannot be written: it is not a plain file name", // TODO(i18n)
   'launch.badSettingsFile':

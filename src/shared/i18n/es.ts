@@ -98,6 +98,10 @@ export const es: Catalog = {
   'app.emulatorRunning': '{name} está en marcha',
   'app.holdToClose': 'Mantén {key} para cerrarlo desde aquí.',
   'app.closeEmulator': 'Cerrar el emulador',
+  'app.playingOnSteam': 'Jugando en Steam',
+  'app.steamHasFocus': '{name} se está ejecutando en Steam. Ciérralo allí y vuelve.',
+  'app.holdToReturn': 'Mantén {key} para volver a Galleon.',
+  'app.backToGalleon': 'Volver a Galleon',
   'app.notClosing': 'No se ha cerrado. Forzarlo pierde todo lo que no haya guardado.',
   'app.holdToForce': 'Mantén {key} otra vez para forzarlo.',
   'app.forceClose': 'Forzar el cierre',
@@ -1224,6 +1228,7 @@ export const es: Catalog = {
     '{emulator} no tiene ningún lanzador instalado para «{system}». Añade uno desde ' +
     '{emulator}, o elige otro emulador para esta plataforma en la pantalla Emuladores.',
   'launch.stoppedBeforeStart': 'Detenido antes de que el juego arrancara',
+  'steam.notInstalled': 'Ese juego de Steam ya no está instalado.',
   'launch.badLaunchFile':
     "The emulator's launch file {name} cannot be written: it is not a plain file name", // TODO(i18n)
   'launch.badSettingsFile':

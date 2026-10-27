@@ -107,6 +107,10 @@ export const en = {
   'app.emulatorRunning': '{name} is running',
   'app.holdToClose': 'Hold {key} to close it from here.',
   'app.closeEmulator': 'Close the emulator',
+  'app.playingOnSteam': 'Playing on Steam',
+  'app.steamHasFocus': '{name} is running in Steam. Quit it there, then come back.',
+  'app.holdToReturn': 'Hold {key} to come back to Galleon.',
+  'app.backToGalleon': 'Back to Galleon',
   'app.notClosing': 'It has not closed. Forcing it loses anything it has not saved.',
   'app.holdToForce': 'Hold {key} again to force it.',
   'app.forceClose': 'Force it to close',
@@ -1215,6 +1219,7 @@ export const en = {
     '{emulator} has no launcher installed for "{system}". Add one from {emulator}, or pick ' +
     'another emulator for this platform on the Emulators screen.',
   'launch.stoppedBeforeStart': 'Stopped before the game started',
+  'steam.notInstalled': 'That Steam game is no longer installed.',
   'launch.badLaunchFile':
     "The emulator's launch file {name} cannot be written: it is not a plain file name",
   'launch.badSettingsFile':

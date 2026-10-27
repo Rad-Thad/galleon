@@ -95,12 +95,16 @@ export function registerGameIpc(rommix: RomMixApp, handle: Handle): void {
     }
   })
 
+  // A Steam game is Steam's to close: either press only says the player is
+  // back. See `SteamSession`.
   handle('running:stop', () => {
+    if (rommix.steam.end()) return
     log.info('game', 'stop requested from the interface')
     launcher.stop()
   })
 
   handle('running:force', () => {
+    if (rommix.steam.end()) return
     log.warn('game', 'force close requested from the interface')
     launcher.stop(true)
   })

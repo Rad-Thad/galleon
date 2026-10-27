@@ -3607,3 +3607,19 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet.
 - Next: M1-14 part 2b: a 'Steam' platform in the library from `installedSteamGames`, Play calling `launchSteamGame` over IPC, and the running overlay saying 'Playing on Steam' (all four catalogues, `test:app`, shots). Decide how to keep Steam's tools (redistributables, Proton, runtimes) out of the list.
+
+## 2026-10-27 19:27 UTC session 0178hDCAvxpFDCVZVDLux34y (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. #338 (M1-14 part 2a) merged at 9340103; CI x64 8:38, arm64 1:10.
+- Worked on: M1-14 part 2b-i (tracking issue #336): the overlay half of acceptance line 2, and the Steam list over IPC.
+- Result: PR (this one).
+  - `isSteamTool` (`src/main/steam/library.ts`) keeps Steam's own tools out by the names and appid Valve gives them: Proton builds, the Steam Linux Runtimes, the Steamworks redistributables. A manifest cannot tell them from games.
+  - `listSteamGames` and `SteamSession` (`src/main/steam/session.ts`). The session raises `running:state` with `steam: <name>` before Steam is asked. Nothing reports the game's end, so it lowers only when the player says they are back. Steam's game is never signalled.
+  - IPC `steam:games` and `steam:launch`. Only an appid the list offers launches, and none while something runs. `running:stop`/`running:force` end a Steam session and never reach the launcher.
+  - Renderer: `runningSteam` covers the screen (pad held, notices wait). The overlay says 'Playing on Steam', '<name> is running in Steam', with Back to Galleon and Start held. Four catalogues.
+  - The 'Steam' platform in the library is the next part. M1-14 stays false.
+- Evidence: `session.test.ts` 8/8 (tools and look-alike names; list filtered and mapped; overlay raised before Steam is asked; ended once; a refused appid lowers it). `test/app/steam.test.ts` 3/3 (real scan of a test HOME: Hades listed, Proton and a partial install not; an unlisted appid refused; 'Playing on Steam' shown and Back lowers it). `npm run test:app` 266/266. Electron ran through a `--no-sandbox` wrapper as root. `scripts/agent/check.sh` green. `npm run shots:nova`: opened `running-steam.png` beside `running.png`; same panel, nothing clipped, title, line, hint and button all read.
+- Evaluator: PASS (17 mutants; 16 caught; the survivor, `\b` dropped from the runtime pattern, changes nothing). Its notes are not blocking: no IPC unit test for the busy refusal, which matches the repo; two simultaneous launch calls could both pass the busy check, so `steam:launch` asks again after the list is read.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet.
+- Next: M1-14 part 2b-ii: a 'Steam' platform in the library from `steam.games()`, with Play calling `steam.launch` (`test:app`, shots).
