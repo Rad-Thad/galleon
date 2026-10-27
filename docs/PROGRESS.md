@@ -3288,3 +3288,14 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none new; M2-08's per-system re-confirmation is already in the acceptance session (TESTING.md).
 - Next: `node scripts/agent/next.mjs`.
+
+## 2026-10-27 01:59 UTC session 014yYJ38en29M3WiS8YoTYyy (hourly heartbeat, second unit)
+
+- Device results: unchanged since the entry above. #312 (M2-08 part 2b-2b-3) merged at d70f54f; CI x64 9:19, arm64 1:07. #111 closed.
+- Worked on: M1-10 part 1 (tracking issue #313): acceptance line 1, the pure module that picks the default library volume.
+- Result: PR (this one). `chooseLibraryVolume` (`src/shared/librarycard.ts`) takes a list of mounted volumes and the user name. It returns the card the library goes on, or internal storage with the reason (`no-card`, `not-ext4`, `read-only`, `nearly-full`, the nearest miss of the cards passed over). A card is a mount at `/run/media/<user>/<label>`, or straight under `/run/media` as older SteamOS mounted it. Only ext4 counts, since SteamOS's automount mounts only ext4. A read-only card, or one with less than `CARD_MIN_FREE_BYTES` left, is passed over. Of several cards, `NovaSD` wins, then the one with most room, then the mount point, so the order of the mount list does not matter. Nothing calls it yet. M1-10 stays false.
+- Evidence: librarycard.test.ts (11): ext4 card present, card absent, card read-only, card nearly full (one byte under and exactly at the floor), card not ext4 (exfat, vfat, btrfs, fuseblk), two cards (label beats room both ways round, room then mount point without the label, a usable card beats one passed over, the nearest miss as the reason), the older mount shape and another user's card, and paths that are not cards. `scripts/agent/check.sh` green. No renderer, IPC or launch code changed, so no `test:app`; no UI change, so no shots.
+- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet. `storage.sdcard` comes with the setting.
+- Next: M1-10 part 2: read the mounted volumes in main (`/proc/self/mounts`, `statfs`, labels from `/dev/disk/by-label`), make the card the default ROM folder of a fresh install, and show the volume, file system and free space in pre-flight (line 4).
