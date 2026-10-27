@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, test } from 'node:test'
@@ -10,6 +10,7 @@ import {
   ABSENT_GAME_ID,
   SDCARD_CHECK,
   sdCardScenario,
+  sweepScratch,
   type SdCardScenarioDeps
 } from './selftestsdcard.ts'
 
@@ -128,6 +129,7 @@ async function run(options: Options = {}) {
     }
   }
   const scratches: string[] = []
+  const swept: string[] = []
   const deps: SdCardScenarioDeps = {
     volumes: async () => {
       if (options.volumes === 'throws') throw new Error('no mount table')
@@ -146,6 +148,9 @@ async function run(options: Options = {}) {
       )
       return options.writable ?? true
     },
+    sweep: async (mountPoint) => {
+      swept.push(mountPoint)
+    },
     makeScratch: async () => {
       const dir = mkdtempSync(join(cardDir, '.galleon-selftest-'))
       scratches.push(dir)
@@ -159,12 +164,13 @@ async function run(options: Options = {}) {
     signal: options.signal ?? new AbortController().signal
   })
   const check = answered as CheckResult
-  return { check, settings, installed, rootsSeen, downloadHomes, scratches, safety: s }
+  return { check, settings, installed, rootsSeen, downloadHomes, scratches, swept, safety: s }
 }
 
 describe('storage.sdcard', () => {
   test('passes with the card mounted: picked, landed on, and a card that is out keeps its game', async () => {
-    const { check, settings, installed, rootsSeen, downloadHomes, scratches } = await run()
+    const { check, settings, installed, rootsSeen, downloadHomes, scratches, swept } = await run()
+    assert.deepEqual(swept, [NOVA.mountPoint])
     assert.equal(check.id, SDCARD_CHECK)
     assert.equal(check.result, 'pass', String(check.reason))
     assert.equal(check.metrics.defaultRoot, `${NOVA.mountPoint}/galleon/roms`)
@@ -292,5 +298,20 @@ describe('storage.sdcard', () => {
     const { check, rootsSeen } = await run({ volumes: 'throws' })
     assert.deepEqual([check.result, check.reason], ['error', 'volumes-unreadable'])
     assert.deepEqual(rootsSeen, [])
+  })
+})
+
+describe('earlier runs on the card', () => {
+  test('a killed run’s folder is taken away, and nothing else on the card', async () => {
+    mkdirSync(join(cardDir, '.galleon-selftest-abc123', 'snes'), { recursive: true })
+    writeFileSync(join(cardDir, '.galleon-selftest-abc123', 'snes', 'game.sfc'), 'rom')
+    mkdirSync(join(cardDir, 'galleon', 'roms'), { recursive: true })
+    writeFileSync(join(cardDir, 'galleon-selftest-notes.txt'), 'the owner’s')
+    await sweepScratch(cardDir)
+    assert.deepEqual(readdirSync(cardDir).sort(), ['galleon', 'galleon-selftest-notes.txt'])
+  })
+
+  test('a card that cannot be listed is left alone', async () => {
+    await sweepScratch(join(cardDir, 'not-there'))
   })
 })

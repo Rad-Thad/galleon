@@ -3466,3 +3466,18 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet.
 - Next: M1-10 line 5, device check `storage.sdcard` (self-test or run.sh step, TESTING.md catalogue), then READY-FOR-DEVICE M1-10.
+
+## 2026-10-27 13:30 UTC session 0178hDCCh99xJBictcya6hnQ (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. #327 (M1-10 part 4d-ii) merged at a682ec3; CI x64 8:30, arm64 1:08.
+- Worked on: M1-10 line 5, device check `storage.sdcard` (tracking issue #313).
+- Result: PR (this one). `sdCardScenario` (`src/main/selftestsdcard.ts`), wired in `index.ts` and requested by `test/device/run.sh`, has three parts:
+  - The default: `chooseDefaultLibrary` asked directly, since the app's own call never runs under `GALLEON_HOME`. It must pick an ext4 card under `/run/media/<user>`. A card passed over (none, full, read-only, not ext4, not writable) is a skip.
+  - The landing: `download.small` runs with the library in a `.galleon-selftest-*` folder of the run's own on that card, never the card's `galleon/roms`, which may hold the owner's games. The folder is removed afterwards and checked gone. Folders an earlier, killed run left are swept first, by that prefix only.
+  - The card that is out: the library points at `/run/media/<user>/GalleonSelfTestAbsent-<pid>/galleon/roms`. A made-up index entry (id `ABSENT_GAME_ID`) there must survive `pruneInstalled` and be marked `cardMissing` (the screens' "card not inserted"). Nothing is made where the card would be.
+  - The setting and the entry are put back whatever happens.
+- Evidence: `selftestsdcard.test.ts` (19): pass with the card; skip without a card, full or vfat, not writable; fail outside the user's media folder; a download that fails, throws or skips, each with the setting and folder restored; fail beats error beats skip; pruned or unmarked game fails; the made-up card mounted or the id taken skips; an entry or setting left behind fails; abort; unreadable volumes; the sweep removes only prefixed folders. `test/app/selftest.test.ts` "storage.sdcard in the real app" (no card in CI: `skip card-no-card`, `cardMissing` 1, `pruned` 0, index empty, `libraryRoot` unchanged, GET/HEAD only); that file 14/14. `scripts/agent/check.sh` green. No UI change, so no shots.
+- Evaluator: first pass FAIL only for this entry missing; acceptance line 5 met, rails clean. Its note that a hard-killed run could leave its folder on the card (outside the owner-state manifest) is closed by the sweep. Second pass: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- READY-FOR-DEVICE M1-10
+- Next: the next feature from `next.mjs`; M1-10 passes once a device run shows `storage.sdcard` passing.

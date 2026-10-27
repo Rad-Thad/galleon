@@ -1,5 +1,5 @@
 import { constants, existsSync } from 'node:fs'
-import { access, mkdtemp, rm } from 'node:fs/promises'
+import { access, mkdtemp, readdir, rm } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import type { Volume } from '@shared/librarycard'
 import { SHARED_LIBRARY, type InstalledRom, type Settings } from '@shared/types'
@@ -54,6 +54,8 @@ export interface SdCardScenarioDeps {
   library: { installedNow(romId: number): InstalledRom | undefined }
   /** `download.small` with its game held to land inside `home`. */
   download: (home: string) => Scenario
+  /** Take away earlier runs' folders on the card. See `sweepScratch`. */
+  sweep?: (mountPoint: string) => Promise<void>
   /** A new empty folder inside `dir`. */
   makeScratch?: (dir: string) => Promise<string>
   /** Is this folder one the user may write in? */
@@ -94,6 +96,23 @@ function absentGame(libraryRoot: string): InstalledRom {
     installedAt: new Date(0).toISOString(),
     isDirectory: false,
     emulatorId: SHARED_LIBRARY
+  }
+}
+
+/**
+ * Take away the folders earlier runs left on the card.
+ *
+ * A run killed before its own clean-up, by the harness's deadline or a crash,
+ * leaves its folder behind, and nothing else on the device looks at the card.
+ * Only folders with the run's own prefix are touched.
+ */
+export async function sweepScratch(mountPoint: string): Promise<void> {
+  const names = await readdir(mountPoint).catch(() => [] as string[])
+  for (const name of names) {
+    if (!name.startsWith(SCRATCH_PREFIX)) continue
+    await rm(join(mountPoint, name), { recursive: true, force: true }).catch((cause: unknown) =>
+      log.info('selftest', 'removing an earlier run folder on the card failed', { cause })
+    )
   }
 }
 
@@ -151,6 +170,7 @@ export function sdCardScenario(deps: SdCardScenarioDeps): Scenario {
     if (card !== null && onCard[0] === 'pass' && !context.signal.aborted) {
       let scratch: string | null = null
       try {
+        await (deps.sweep ?? sweepScratch)(card.mountPoint)
         scratch = await makeScratch(card.mountPoint)
         deps.store.updateSettings({ libraryRoot: scratch })
         const answers = await deps.download(scratch)(context)
