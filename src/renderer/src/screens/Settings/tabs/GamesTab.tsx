@@ -4,6 +4,7 @@ import { RomStorageChoice, Toggle } from '../../../components'
 import { useApp, useI18n } from '../../../state'
 import { LibraryFolder } from '../LibraryFolder'
 import { RomStorageNotice } from '../RomStorageNotice'
+import { StockLibrary } from '../StockLibrary'
 
 /**
  * What happens to a game around playing it: where the file is written, and what
@@ -58,6 +59,7 @@ export function GamesTab(): JSX.Element {
             </p>
           ) : null}
           <LibraryFolder onCurrent={setLibrary} />
+          <StockLibrary library={library} />
         </>
       ) : null}
 

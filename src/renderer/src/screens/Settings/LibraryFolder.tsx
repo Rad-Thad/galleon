@@ -1,5 +1,5 @@
-import { type JSX, useCallback, useEffect, useState } from 'react'
-import type { LibraryFolderChange, LibraryFolderChoice, LibraryMovePlan } from '@shared/types'
+import { type JSX, useCallback, useEffect, useMemo, useState } from 'react'
+import type { LibraryFolderChoice, LibraryMovePlan, LibraryMoveResult } from '@shared/types'
 import { FocusButton, Overlay, Spinner, StatusBadge } from '../../components'
 import { useApp, useI18n } from '../../state'
 import { carried, carriedBytes, listed, moveVerdict } from './librarymove'
@@ -24,6 +24,18 @@ export function LibraryFolder({
   const { t, formatBytes } = useI18n()
   const [choices, setChoices] = useState<LibraryFolderChoice[] | null>(null)
   const [target, setTarget] = useState<LibraryFolderChoice | null>(null)
+  const request = useMemo<MoveRequest | null>(
+    () =>
+      target && {
+        title: 'libraryMove.title',
+        measure: () => window.rommix.library.planMove(target.libraryRoot),
+        carry: () => window.rommix.library.move(target.libraryRoot),
+        path: target.path,
+        settingOnly: true,
+        stopped: 'libraryMove.stopped'
+      },
+    [target]
+  )
 
   const refresh = useCallback(async (): Promise<void> => {
     try {
@@ -84,13 +96,34 @@ export function LibraryFolder({
         ))
       )}
 
-      {target ? <LibraryMoveNotice target={target} onClose={close} /> : null}
+      {request ? <LibraryMoveNotice request={request} onClose={close} /> : null}
     </>
   )
 }
 
 /**
- * The plan for one folder, asked about before anything moves, then the move.
+ * A move the confirmation asks about: the library to another folder, or stock
+ * RomMix's games into the library.
+ */
+export interface MoveRequest {
+  title: 'libraryMove.title' | 'stockLibrary.moveTitle'
+  /** Sizes every game off the disk; nothing moves. */
+  measure: () => Promise<LibraryMovePlan>
+  carry: () => Promise<LibraryMoveResult>
+  /** Where the games end up, as the toast names it. */
+  path: string
+  /**
+   * Whether a plan with nothing to carry can still be agreed to. Only a folder
+   * change has a setting to change; with nothing to carry, stock's games have
+   * nothing to ask about.
+   */
+  settingOnly: boolean
+  /** What a move that stopped part-way says, and how to carry on. */
+  stopped: 'libraryMove.stopped' | 'stockLibrary.stopped'
+}
+
+/**
+ * The plan for a move, asked about before anything moves, then the move.
  *
  * Four stages in one panel, so the highlight never leaves it between the
  * question and the answer:
@@ -106,22 +139,23 @@ export function LibraryFolder({
  *  - a move that stopped part-way: what it stopped at, and that asking again
  *    carries on. One that finished closes the panel and says so in a toast.
  */
-function LibraryMoveNotice({
-  target,
+export function LibraryMoveNotice({
+  request,
   onClose
 }: {
-  target: LibraryFolderChoice
+  /** Stable: the plan is measured again whenever it changes. */
+  request: MoveRequest
   onClose: () => void
 }): JSX.Element {
   const { t, formatBytes } = useI18n()
   const { notify, reloadSettings } = useApp()
   const [plan, setPlan] = useState<LibraryMovePlan | null>(null)
   const [moving, setMoving] = useState(false)
-  const [stopped, setStopped] = useState<LibraryFolderChange | null>(null)
+  const [stopped, setStopped] = useState<LibraryMoveResult | null>(null)
 
   useEffect(() => {
     let live = true
-    window.rommix.library.planMove(target.libraryRoot).then(
+    request.measure().then(
       (next) => {
         if (live) setPlan(next)
       },
@@ -133,14 +167,14 @@ function LibraryMoveNotice({
     return () => {
       live = false
     }
-  }, [target, onClose])
+  }, [request, onClose])
 
   const move = async (): Promise<void> => {
     if (!plan) return
     setMoving(true)
-    let change: LibraryFolderChange
+    let change: LibraryMoveResult
     try {
-      change = await window.rommix.library.move(target.libraryRoot)
+      change = await request.carry()
     } catch {
       // Refused, or stopped by an index that would not take a game; either way
       // the setting is unchanged. Reported centrally on `app:error`.
@@ -166,8 +200,8 @@ function LibraryMoveNotice({
     }
     notify(
       change.moved.length > 0
-        ? t('libraryMove.done', { count: change.moved.length, path: target.path })
-        : t('libraryMove.doneSetting', { path: target.path }),
+        ? t('libraryMove.done', { count: change.moved.length, path: request.path })
+        : t('libraryMove.doneSetting', { path: request.path }),
       'ok'
     )
     onClose()
@@ -178,7 +212,7 @@ function LibraryMoveNotice({
     return (
       <Overlay title={t('libraryMove.stoppedTitle')} icon="warn" onDismiss={onClose}>
         <p className="muted">
-          {t('libraryMove.stopped', {
+          {t(request.stopped, {
             name: at?.name ?? String(stopped.failed.romId),
             reason: stopped.failed.reason,
             path: plan?.from ?? ''
@@ -196,11 +230,7 @@ function LibraryMoveNotice({
   if (!plan || moving) {
     return (
       // Measuring can be put away, since nothing has moved yet; moving cannot.
-      <Overlay
-        title={t('libraryMove.title')}
-        icon="folder"
-        onDismiss={moving ? undefined : onClose}
-      >
+      <Overlay title={t(request.title)} icon="folder" onDismiss={moving ? undefined : onClose}>
         {moving && plan ? (
           <p className="muted">{t('libraryMove.moving', { count: carried(plan).length })}</p>
         ) : (
@@ -217,7 +247,7 @@ function LibraryMoveNotice({
   const shown = listed(plan)
 
   return (
-    <Overlay title={t('libraryMove.title')} icon="folder" onDismiss={onClose}>
+    <Overlay title={t(request.title)} icon="folder" onDismiss={onClose}>
       {verdict === 'refused' ? <p className="muted">{t('error.libraryMoveInside')}</p> : null}
       {verdict === 'no-room' ? (
         <p className="muted">
@@ -227,7 +257,11 @@ function LibraryMoveNotice({
           })}
         </p>
       ) : null}
-      {verdict === 'setting-only' ? <p className="muted">{t('libraryMove.settingOnly')}</p> : null}
+      {verdict === 'setting-only' ? (
+        <p className="muted">
+          {t(request.settingOnly ? 'libraryMove.settingOnly' : 'stockLibrary.nothingToCarry')}
+        </p>
+      ) : null}
       {verdict === 'move' ? (
         <>
           <p className="muted">
@@ -284,7 +318,7 @@ function LibraryMoveNotice({
         <FocusButton icon="cancel" action="library-move-keep" onSelect={onClose} autoFocus>
           {t('libraryMove.keep')}
         </FocusButton>
-        {verdict === 'move' || verdict === 'setting-only' ? (
+        {verdict === 'move' || (verdict === 'setting-only' && request.settingOnly) ? (
           <FocusButton
             icon="confirm"
             action="library-move-confirm"

@@ -576,6 +576,79 @@ async function libraryMove(): Promise<void> {
   }
 }
 
+/**
+ * Stock RomMix's games from before Galleon, offered on the Games tab and then
+ * the move's confirmation. Run without `GALLEON_HOME`, under which they are
+ * never offered: the user home is a scratch folder with Galleon's root named
+ * by its pointer and stock RomMix in `~/rommix` beside it.
+ */
+async function stockLibrary(): Promise<void> {
+  const server = await startFakeRomm()
+  const user = join(HOMES, 'stock-user')
+  const stock = join(user, 'rommix')
+  rmSync(user, { recursive: true, force: true })
+  const home = join(HOMES, 'stock')
+  mkdirSync(join(user, '.config', 'galleon'), { recursive: true })
+  writeFileSync(join(user, '.config', 'galleon', 'root'), home)
+  const games = [
+    { romId: 1, name: 'Cave Story MD', file: 'cavestory.md', sizeBytes: 4 * 1024 ** 2 },
+    { romId: 2, name: 'Tanglewood', file: 'tanglewood.md', sizeBytes: 3 * 1024 ** 2 }
+  ]
+  mkdirSync(join(stock, 'roms', 'genesis'), { recursive: true })
+  mkdirSync(join(stock, 'config'), { recursive: true })
+  for (const one of games)
+    writeFileSync(join(stock, 'roms', 'genesis', one.file), Buffer.alloc(one.sizeBytes))
+  writeFileSync(
+    join(stock, 'config', 'settings.json'),
+    JSON.stringify({ server: { baseUrl: server.baseUrl } })
+  )
+  writeFileSync(
+    join(stock, 'config', 'downloaded_roms.json'),
+    JSON.stringify({
+      roms: games.map((one) => ({
+        romId: one.romId,
+        path: join(stock, 'roms', 'genesis', one.file),
+        launchPath: join(stock, 'roms', 'genesis', one.file),
+        name: one.name,
+        coverPath: null,
+        files: [one.file],
+        system: 'genesis',
+        platformName: 'Sega Mega Drive',
+        sizeBytes: one.sizeBytes,
+        installedAt: '2026-09-01T00:00:00.000Z',
+        isDirectory: false,
+        emulatorId: SHARED_LIBRARY
+      }))
+    })
+  )
+  const app = await startApp({
+    baseUrl: server.baseUrl,
+    token: server.token,
+    viewport: NOVA,
+    home,
+    env: { GALLEON_HOME: '', HOME: user, XDG_CONFIG_HOME: join(user, '.config') }
+  })
+  try {
+    await attempt('settings-stock', async () => {
+      await atHome(app)
+      await app.goTo('settings')
+      await app.waitFor(`document.querySelector('[data-tab="games"]')`, 'the settings tabs')
+      await app.choose('[data-tab="games"]')
+      await app.reach('[data-action="stock-adopt"]')
+      await shoot(app, 'settings-stock')
+    })
+    await attempt('settings-stock-move', async () => {
+      await app.choose('[data-action="stock-move"]')
+      await app.waitFor(`document.querySelector('[data-games] [data-rom="2"]')`, 'the plan')
+      await shoot(app, 'settings-stock-move')
+    })
+  } finally {
+    await app.stop()
+    await server.close().catch(() => undefined)
+    rmSync(user, { recursive: true, force: true })
+  }
+}
+
 rmSync(OUT, { recursive: true, force: true })
 mkdirSync(OUT, { recursive: true })
 await signedIn()
@@ -584,6 +657,7 @@ if (wanted('game-saves-states')) await localStates()
 if (wanted('game-conflict')) await conflict()
 if (wanted('game-card-missing')) await cardMissing()
 if (wanted('settings-library-move')) await libraryMove()
+if (wanted('settings-stock')) await stockLibrary()
 await setup()
 contactSheet()
 

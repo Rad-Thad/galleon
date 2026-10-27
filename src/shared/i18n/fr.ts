@@ -870,6 +870,20 @@ export const fr: Catalog = {
   'libraryMove.stoppedTitle': 'Le déplacement s’est arrêté',
   'libraryMove.stopped':
     'Il s’est arrêté à {name} : {reason}. La bibliothèque reste dans {path}, et les jeux déjà déplacés sont dans le nouveau dossier. Choisissez à nouveau le dossier pour continuer.',
+  'stockLibrary.title': 'Jeux de RomMix',
+  'stockLibrary.unknown_one': '{count} jeu téléchargé par RomMix avant Galleon',
+  'stockLibrary.unknown_other': '{count} jeux téléchargés par RomMix avant Galleon',
+  'stockLibrary.known_one': '{count} jeu est encore dans le dossier de RomMix',
+  'stockLibrary.known_other': '{count} jeux sont encore dans le dossier de RomMix',
+  'stockLibrary.size': '{size} à déplacer',
+  'stockLibrary.adopt': 'Les utiliser où ils sont',
+  'stockLibrary.move': 'Déplacer dans la bibliothèque',
+  'stockLibrary.adopted_one': 'Galleon a maintenant {count} jeu de RomMix',
+  'stockLibrary.adopted_other': 'Galleon a maintenant {count} jeux de RomMix',
+  'stockLibrary.moveTitle': 'Déplacer les jeux de RomMix ?',
+  'stockLibrary.nothingToCarry': 'Il n’y a aucun jeu à déplacer.',
+  'stockLibrary.stopped':
+    'Il s’est arrêté à {name} : {reason}. Les jeux pas encore déplacés restent dans {path} et peuvent y être joués. Choisissez à nouveau Déplacer pour continuer.',
   'settings.saveSync': 'Synchronisation des sauvegardes',
   'settings.syncDown': 'Télécharger les sauvegardes plus récentes avant de jouer',
   'settings.syncDownHint':

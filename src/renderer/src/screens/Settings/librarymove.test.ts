@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import type { LibraryMoveGame, LibraryMovePlan } from '@shared/types'
-import { carried, carriedBytes, listed, LISTED_GAMES, moveVerdict } from './librarymove.ts'
+import {
+  carried,
+  carriedBytes,
+  listed,
+  LISTED_GAMES,
+  moveVerdict,
+  stockChoices
+} from './librarymove.ts'
 
 /**
  * What the library-move confirmation offers for a plan, which has to be what
@@ -85,5 +92,35 @@ describe('what the library-move confirmation offers', () => {
     assert.equal(two.more, 2)
     assert.deepEqual(listed(many), { games: listed(many, 4).games, more: 0 })
     assert.ok(LISTED_GAMES > 0)
+  })
+})
+
+describe("what Settings offers for stock RomMix's games", () => {
+  test('games Galleon does not know can be used where they are, and moved', () => {
+    assert.deepEqual(stockChoices({ adoptable: 2, plan: plan() }), { adopt: true, move: true })
+  })
+
+  test('games already adopted and still in its folder can only be moved', () => {
+    assert.deepEqual(stockChoices({ adoptable: 0, plan: plan() }), { adopt: false, move: true })
+  })
+
+  test('nothing to carry offers no move', () => {
+    assert.deepEqual(stockChoices({ adoptable: 1, plan: plan({ taken: [1, 2] }) }), {
+      adopt: true,
+      move: false
+    })
+    assert.deepEqual(stockChoices({ adoptable: 1, plan: plan({ games: [], totalBytes: 0 }) }), {
+      adopt: true,
+      move: false
+    })
+  })
+
+  test("stock's folder that is the library, or inside it, offers no move", () => {
+    for (const refused of ['same-folder', 'inside-library'] as const) {
+      assert.deepEqual(stockChoices({ adoptable: 1, plan: plan({ refused }) }), {
+        adopt: true,
+        move: false
+      })
+    }
   })
 })

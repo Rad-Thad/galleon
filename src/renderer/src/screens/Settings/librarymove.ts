@@ -1,4 +1,4 @@
-import type { LibraryMovePlan } from '@shared/types'
+import type { LibraryMovePlan, StockLibraryOffer } from '@shared/types'
 
 /**
  * What the confirmation can offer for a plan.
@@ -56,4 +56,19 @@ export function listed(
 ): { games: LibraryMovePlan['games']; more: number } {
   const games = [...plan.games].sort((a, b) => b.sizeBytes - a.sizeBytes)
   return { games: games.slice(0, limit), more: Math.max(0, games.length - limit) }
+}
+
+/**
+ * What Settings offers for stock RomMix's games.
+ *
+ *  - adopt: there are games Galleon's index does not have yet.
+ *  - move: there are games to carry into the library. Not when stock's folder
+ *    is the library's own or inside it: nothing would move, or the move would
+ *    be refused.
+ */
+export function stockChoices(offer: StockLibraryOffer): { adopt: boolean; move: boolean } {
+  return {
+    adopt: offer.adoptable > 0,
+    move: offer.plan.refused === null && carried(offer.plan).length > 0
+  }
 }

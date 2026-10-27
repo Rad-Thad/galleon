@@ -860,6 +860,20 @@ export const es: Catalog = {
   'libraryMove.stoppedTitle': 'El traslado se detuvo',
   'libraryMove.stopped':
     'Se detuvo en {name}: {reason}. La biblioteca sigue en {path}, y los juegos ya movidos están en la carpeta nueva. Vuelve a elegir la carpeta para continuar.',
+  'stockLibrary.title': 'Juegos de RomMix',
+  'stockLibrary.unknown_one': '{count} juego que RomMix descargó antes de Galleon',
+  'stockLibrary.unknown_other': '{count} juegos que RomMix descargó antes de Galleon',
+  'stockLibrary.known_one': '{count} juego sigue en la carpeta de RomMix',
+  'stockLibrary.known_other': '{count} juegos siguen en la carpeta de RomMix',
+  'stockLibrary.size': '{size} por mover',
+  'stockLibrary.adopt': 'Usarlos donde están',
+  'stockLibrary.move': 'Mover a la biblioteca',
+  'stockLibrary.adopted_one': 'Galleon tiene ahora {count} juego de RomMix',
+  'stockLibrary.adopted_other': 'Galleon tiene ahora {count} juegos de RomMix',
+  'stockLibrary.moveTitle': '¿Mover los juegos de RomMix?',
+  'stockLibrary.nothingToCarry': 'No hay juegos que mover.',
+  'stockLibrary.stopped':
+    'Se detuvo en {name}: {reason}. Los juegos aún no movidos siguen en {path} y se pueden jugar allí. Vuelve a elegir Mover para continuar.',
   'settings.saveSync': 'Sincronización de partidas',
   'settings.syncDown': 'Descargar las partidas más recientes antes de jugar',
   'settings.syncDownHint':
