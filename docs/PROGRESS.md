@@ -3299,3 +3299,14 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet. `storage.sdcard` comes with the setting.
 - Next: M1-10 part 2: read the mounted volumes in main (`/proc/self/mounts`, `statfs`, labels from `/dev/disk/by-label`), make the card the default ROM folder of a fresh install, and show the volume, file system and free space in pre-flight (line 4).
+
+## 2026-10-27 02:27 UTC session 0178hDCD48ihrfRWWpsb7ZyE (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. #314 (M1-10 part 1) merged at 9a83094; CI x64 8:21, arm64 1:12.
+- Worked on: M1-10 part 2a (tracking issue #313): reading the mounted volumes `chooseLibraryVolume` picks from.
+- Result: PR (this one). `readVolumes` (`src/main/volumes.ts`) reads the kernel's mount table (`/proc/self/mounts`, octal escapes undone, a mount point mounted over listed once as the later mount, read-only from the `ro` option alone), labels from udev's `/dev/disk/by-label` links (`\xHH` escapes undone, matched to the mount by resolved device, so a device named through another link still finds its label) and room from `statfs` (`bavail`, as `spaceOf`). Only mounts under `/run/media` are measured, so no network share or FUSE mount is asked. A mount that cannot be measured is left out; nothing throws. Nothing calls it yet. M1-10 stays false.
+- Evidence: volumes.test.ts (13) against fixtures in a scratch folder (devices as files, label links, mount points as folders), including a read-only card read and handed to `chooseLibraryVolume`. `scripts/agent/check.sh` green (2442 unit tests; volumes.ts 98.8% lines). No renderer, IPC or launch code changed, so no `test:app`; no UI change, so no shots.
+- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet. `storage.sdcard` comes with the setting.
+- Next: M1-10 part 2b: a library-root setting whose default on a fresh install is the chosen card (`readVolumes` then `chooseLibraryVolume`), and the volume, file system and free space in pre-flight (line 4).
