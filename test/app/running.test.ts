@@ -4,7 +4,7 @@ import { createConnection } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { after, before, describe, test } from 'node:test'
-import { atHome, standInEmulator, startApp, type App } from './driver.ts'
+import { atHome, downloadAnyway, standInEmulator, startApp, type App } from './driver.ts'
 import { startFakeRomm, type FakeRomm } from './server.ts'
 
 /**
@@ -31,6 +31,23 @@ let stuck: App
 let stubborn: ReturnType<typeof standInEmulator>
 /** Its own, so the core socket is this application's and no other run's. */
 let runtime: string
+/** Lets the second game's download finish; it is held until the game has the screen. */
+let release: () => void
+/** The windows open before the game started. */
+let windowsBefore: number
+
+/** The game whose download finishes while another one is played. */
+const MID_GAME_ROM = 2
+const MID_GAME_TITLE = 'Tobu Tobu Girl'
+
+/**
+ * Whether the toast saying the mid-game download finished is on the page. By
+ * its message as well as its title: the one saying it started may still be up
+ * when the game is launched.
+ */
+const MID_GAME_TOAST = `[...document.querySelectorAll('.toast')].some((one) =>
+  one.querySelector('.toast__title')?.textContent === ${JSON.stringify(MID_GAME_TITLE)} &&
+  one.querySelector('.toast__message')?.textContent === 'Download complete')`
 
 /** How long frame callbacks are counted for, each time. */
 const FRAME_WINDOW_MS = 2000
@@ -95,6 +112,7 @@ before(async () => {
 })
 
 after(async () => {
+  release?.()
   await stuck?.stop()
   await server?.close().catch(() => undefined)
   if (runtime) rmSync(runtime, { recursive: true, force: true })
@@ -118,6 +136,17 @@ describe('while an emulator owns the screen', () => {
     await stuck.waitFor(`document.querySelector('[data-perf-overlay]')`, 'the perf overlay')
     assert.ok((await framesOver(stuck)) > 0, 'the interface should draw while it has the screen')
 
+    // A second download, held in flight so that it finishes only once the
+    // game has the screen: the moment a launcher most often raises something.
+    release = server.holdContent(MID_GAME_ROM)
+    await stuck.goTo('library')
+    await stuck.choose(`[data-rom="${MID_GAME_ROM}"]`)
+    await downloadAnyway(stuck)
+    await stuck.goTo('library')
+    await stuck.choose('[data-rom="3"]')
+
+    windowsBefore = await stuck.windows()
+    assert.equal(windowsBefore, 1, 'the launcher should be the only window')
     await stuck.choose('[data-action="play"]')
     await stuck.waitFor(`document.querySelector('.overlay')`, 'the running overlay')
   })
@@ -134,6 +163,20 @@ describe('while an emulator owns the screen', () => {
       false
     )
     assert.equal(await framesOver(stuck), 0)
+  })
+
+  test('a download finishing during play opens no window, and its notice waits', async () => {
+    release()
+    await stuck.waitFor(
+      `(await window.rommix.library.installed()).some((one) => one.romId === ${MID_GAME_ROM})`,
+      'the second game to arrive'
+    )
+    // A moment for anything the finished download raises to have been drawn,
+    // so that its absence means held rather than not yet.
+    await new Promise((done) => setTimeout(done, SWITCH_MS))
+    assert.equal(await stuck.windows(), windowsBefore, 'no window should open while a game runs')
+    assert.equal(await stuck.read<boolean>(MID_GAME_TOAST), false, 'its notice should wait')
+    await stuck.waitFor(`document.querySelector('.overlay')`, 'the game to still have the screen')
   })
 
   test('the core socket asks it to quit the way holding Start does, never by force', async () => {
@@ -209,6 +252,11 @@ describe('while an emulator owns the screen', () => {
     // emulator being gone rather than a message about it.
     await stuck.waitFor(`!document.querySelector('.overlay')`, 'the emulator to go', 20_000)
     await stuck.waitFor(`document.querySelector('[data-screen="game"]')`, 'the game screen back')
+
+    // The notice held while it played is shown now, and still in the window
+    // that was always there.
+    await stuck.waitFor(MID_GAME_TOAST, 'the held notice to be shown')
+    assert.equal(await stuck.windows(), windowsBefore)
 
     // And the interface's loops are back with it.
     await stuck.waitFor(`document.querySelector('[data-perf-overlay]')`, 'the perf overlay back')

@@ -234,6 +234,13 @@ export interface App {
    * Measured outside the page, so asking costs the page nothing.
    */
   metrics: () => Promise<Record<string, number>>
+  /**
+   * The windows the application has open, as the debugger lists them: every
+   * BrowserWindow is one page target, and so is a DevTools window. Asked of
+   * the debugger rather than the page, because a page cannot see the windows
+   * beside it.
+   */
+  windows: () => Promise<number>
   home: string
   /**
    * Quit the way a player does, through the application's own quit, and wait
@@ -1301,6 +1308,11 @@ export async function startApp(options: StartOptions): Promise<App> {
         metrics: { name: string; value: number }[]
       }
       return Object.fromEntries(metrics.map((one) => [one.name, one.value]))
+    },
+    windows: async () => {
+      const res = await fetch(`http://127.0.0.1:${port}/json/list`)
+      const targets = (await res.json()) as { type: string }[]
+      return targets.filter((one) => one.type === 'page').length
     },
     home,
     quit: async (timeoutMs) => {
