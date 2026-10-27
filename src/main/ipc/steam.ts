@@ -10,17 +10,22 @@ import type { Handle } from './handler.ts'
 export function registerSteamIpc(rommix: RomMixApp, handle: Handle): void {
   handle('steam:games', (): Promise<SteamGameEntry[]> => listSteamGames())
 
+  // The overlay already covers the library while either runs; this is for a
+  // call that arrives anyway, which must not raise a second overlay.
+  const busy = (appid: string): boolean => {
+    if (!rommix.steam.playing && rommix.launcher.playing === null) return false
+    log.warn('steam', 'a Steam launch asked for while something runs', { appid })
+    return true
+  }
+
   handle('steam:launch', async (appid: string): Promise<void> => {
-    // The overlay already covers the library while either runs; this is for a
-    // call that arrives anyway, which must not raise a second overlay.
-    if (rommix.steam.playing || rommix.launcher.playing !== null) {
-      log.warn('steam', 'a Steam launch asked for while something runs', { appid })
-      return
-    }
+    if (busy(appid)) return
     // Only a game the list offers: the appid is the renderer's word, and the
     // list is what was read from Steam's own files.
     const game = (await listSteamGames()).find((entry) => entry.appid === appid)
     if (!game) throw new RommError(t('steam.notInstalled'))
+    // Asked again, since another launch may have started while the list was read.
+    if (busy(appid)) return
     log.info('steam', 'launch requested', { appid, name: game.name })
     rommix.steam.start(game)
   })
