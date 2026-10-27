@@ -10,6 +10,7 @@ import { reportRefusal, runAndReport, takeRequest } from './selftest.ts'
 import { DOWNLOAD_CHECK, downloadScenario } from './selftestdownload.ts'
 import { SDCARD_CHECK, sdCardScenario } from './selftestsdcard.ts'
 import { deviceCycle, devicePlan, emulatorScenarios, placeSaveBeside } from './selftestemulators.ts'
+import { noticeProbe, ownWindowsOnDisplay } from './selftestnowindow.ts'
 import { IDENTITY_CHECK, identityScenario } from './selftestidentity.ts'
 import { REPORT_CHECK, pressReport, reportScenario } from './selftestreport.ts'
 import { HEARTBEAT_CHECK, heartbeatScenario } from './selftestserver.ts'
@@ -213,7 +214,28 @@ if (!app.requestSingleInstanceLock()) {
             emulators: () => rommix.ensureEmulators(),
             plan: devicePlan(resolveRoot()),
             cycle: deviceCycle(process.env, undefined, () => rommix.reclaimScreen()),
-            placeSave: placeSaveBeside(resolveRoot())
+            placeSave: placeSaveBeside(resolveRoot()),
+            noNewWindow: {
+              windows: ownWindowsOnDisplay(),
+              browserWindows: () => BrowserWindow.getAllWindows().length,
+              cover: (emulator) =>
+                rommix.send(
+                  'running:state',
+                  emulator === null
+                    ? { running: false, romId: null, emulator: null, stage: null }
+                    : { running: true, romId: null, emulator, stage: null }
+                ),
+              download: (context, picked) =>
+                downloadScenario({
+                  client: rommix.client,
+                  downloads: rommix.downloads,
+                  library: rommix.library,
+                  store: rommix.store,
+                  home: resolveRoot(),
+                  picked
+                })(context).then((answered) => (Array.isArray(answered) ? answered[0] : answered)),
+              noticeShown: noticeProbe(window.webContents)
+            }
           })
         ]),
         guard,

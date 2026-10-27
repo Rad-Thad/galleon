@@ -297,10 +297,16 @@ test('signed in to a library with no large platform, grid.scroll scrolls the syn
   }
 })
 
-test('launch, exit and focus.return reach their scenarios, and no payload outside the home is started', async () => {
+test('launch, exit and the focus checks reach their scenarios, and no payload outside the home is started', async () => {
   const { code, home, results } = await runWithRequest({
     ...REQUEST,
-    checks: ['launch.retroarch', 'exit.retroarch', 'launch.duckstation', 'focus.return'],
+    checks: [
+      'launch.retroarch',
+      'exit.retroarch',
+      'launch.duckstation',
+      'focus.return',
+      'focus.no-new-window'
+    ],
     payloads: { retroarch: '../owner/roms/snes/game.sfc' }
   })
   assert.equal(code, 0)
@@ -309,16 +315,21 @@ test('launch, exit and focus.return reach their scenarios, and no payload outsid
   assert.equal(summary.status, 'complete')
   const checks = new Map(summary.checks.map((c) => [c.id, c]))
   assert.deepEqual(
-    ['launch.retroarch', 'exit.retroarch', 'launch.duckstation', 'focus.return'].map((id) => [
-      checks.get(id)?.result,
-      checks.get(id)?.reason
-    ]),
+    [
+      'launch.retroarch',
+      'exit.retroarch',
+      'launch.duckstation',
+      'focus.return',
+      'focus.no-new-window'
+    ].map((id) => [checks.get(id)?.result, checks.get(id)?.reason]),
     [
       ['skip', 'payload-outside-home'],
       ['skip', 'payload-outside-home'],
       ['skip', 'no-payload'],
       // Nothing was started, so no exit could say where the focus went.
-      ['skip', 'no-exit-measured']
+      ['skip', 'no-exit-measured'],
+      // Galleon's own window is read from Xvfb, then no emulator is shown.
+      ['skip', 'no-game-shown']
     ]
   )
   assert.ok(!existsSync(join(home, 'sandbox')), 'no sandbox was made')

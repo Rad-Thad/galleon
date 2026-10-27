@@ -126,7 +126,7 @@ function safety(): Safety {
 async function run(
   behaviour: Behaviour,
   games: Record<number, RommRom[]> = { 1: [rom(10, 4096), rom(11, 512)], 2: [rom(20, 2048)] },
-  options: { installed?: number[]; signal?: AbortSignal } = {}
+  options: { installed?: number[]; signal?: AbortSignal; picked?: (rom: RommRom) => void } = {}
 ) {
   const store = new Map<number, InstalledRom>()
   for (const id of options.installed ?? []) {
@@ -149,7 +149,8 @@ async function run(
     downloads: queue,
     library,
     store: { getInstalled: (id) => store.get(id) },
-    home
+    home,
+    picked: options.picked
   })({ request: {} as never, safety: sums, signal: options.signal ?? new AbortController().signal })
   assert.ok(!Array.isArray(answered))
   return { result: answered as CheckResult, queue, store, uninstalled, sums }
@@ -168,6 +169,12 @@ describe('download.small', () => {
     assert.equal(result.metrics.progressEvents, 1)
     assert.equal(sums.romsDownloadedBytes, BYTES.length)
     assert.equal(sums.romsLeft, 0)
+  })
+
+  test('the game picked is told', async () => {
+    const picked: number[] = []
+    await run('ok', undefined, { picked: (game) => picked.push(game.id) })
+    assert.deepEqual(picked, [11])
   })
 
   test('a game without a digest is never the one chosen', async () => {
