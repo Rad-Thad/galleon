@@ -25,7 +25,16 @@ import {
   prepareFolder,
   type DefaultLibrarySources
 } from './librarydefault.ts'
-import { changeLibraryFolder, planLibraryFolder, type FolderChangeSources } from './librarymove.ts'
+import { changeLibraryFolder, planLibraryFolder } from './librarymove.ts'
+import {
+  adoptStockLibrary,
+  moveStockLibrary,
+  planStockMove,
+  readStockLibrary,
+  stockRomMixRoot,
+  type StockLibrary,
+  type StockSources
+} from './stocklibrary.ts'
 import { Store } from './store.ts'
 import { Updater } from './update.ts'
 import { isWebAddress } from './weblink.ts'
@@ -40,7 +49,9 @@ import {
   type LibraryFolderChange,
   type LibraryFolderChoice,
   type LibraryMovePlan,
-  type SavesWaiting
+  type LibraryMoveResult,
+  type SavesWaiting,
+  type StockLibraryOffer
 } from '@shared/types'
 import type { CoreObservation } from './core-socket/service.ts'
 
@@ -566,7 +577,48 @@ export class RomMixApp {
     return change
   }
 
-  private folderSources(): FolderChangeSources {
+  /**
+   * Stock RomMix's games, when there are any to adopt or move. See
+   * `readStockLibrary`.
+   */
+  async stockLibrary(): Promise<StockLibraryOffer | null> {
+    const stock = this.readStock()
+    if (!stock) return null
+    const plan = await planStockMove(this.folderSources(), stock)
+    if (stock.games.length === 0 && plan.games.length === 0) return null
+    return { adoptable: stock.games.length, plan }
+  }
+
+  /** Record stock RomMix's games where they are. See `adoptStockLibrary`. */
+  adoptStockLibrary(): number {
+    const stock = this.readStock()
+    const adopted = stock ? adoptStockLibrary(this.folderSources(), stock) : 0
+    this.send('library:installed', this.library.installed)
+    return adopted
+  }
+
+  /** Carry stock RomMix's games into the library. See `moveStockLibrary`. */
+  async moveStockLibrary(): Promise<LibraryMoveResult> {
+    const stock = this.readStock()
+    if (!stock) return { moved: [], skipped: [], failed: null, leftovers: [] }
+    try {
+      return await moveStockLibrary(this.folderSources(), stock)
+    } finally {
+      this.send('library:installed', this.library.installed)
+    }
+  }
+
+  private readStock(): StockLibrary | null {
+    // Before stock RomMix's pointer is even read: see `readStockLibrary`.
+    if (homeFromEnvironment()) return null
+    return readStockLibrary(
+      stockRomMixRoot(),
+      this.store.server?.baseUrl ?? null,
+      (romId) => this.store.getInstalled(romId) !== undefined
+    )
+  }
+
+  private folderSources(): StockSources {
     return {
       installed: () => this.store.installed,
       index: this.store,

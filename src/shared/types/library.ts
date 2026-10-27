@@ -146,6 +146,14 @@ export interface LibraryFolderChange extends LibraryMoveResult {
   libraryRoot: string
 }
 
+/** Stock RomMix's games, as Settings offers to adopt or move them. */
+export interface StockLibraryOffer {
+  /** Games in stock RomMix's folder that Galleon's index does not have yet. */
+  adoptable: number
+  /** What moving them into the library would carry, with each one's size. */
+  plan: LibraryMovePlan
+}
+
 /** A folder the library can be moved to, as Settings offers it. */
 export interface LibraryFolderChoice {
   /** The value for `Settings.libraryRoot`: '' for the root's own folder. */

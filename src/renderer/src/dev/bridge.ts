@@ -929,6 +929,10 @@ const bridge: RomMixBridge = {
         900
       )
     },
+    // The preview has no stock RomMix beside it.
+    stock: () => later(null),
+    adoptStock: () => later(0),
+    moveStock: () => later({ moved: [], skipped: [], failed: null, leftovers: [] }),
     sync: () => later({ checked: ROMS.length, removed: 0, adopted: 0 }, 900),
     onSyncProgress: noSubscription,
     onInstalledChanged: noSubscription,

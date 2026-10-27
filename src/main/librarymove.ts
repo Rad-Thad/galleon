@@ -315,6 +315,22 @@ export function planLibraryFolder(
 }
 
 /**
+ * Throw what stops a plan being carried out: a folder inside the one being
+ * emptied, too little room, or a folder that will not take the games. The
+ * folder is made here, so a refused plan makes nothing.
+ */
+export async function refuseUnmovable(
+  sources: Pick<FolderChangeSources, 'prepare'>,
+  plan: LibraryMovePlan
+): Promise<void> {
+  if (plan.refused === 'inside-library') throw new RommError(t('error.libraryMoveInside'))
+  if (!plan.fits) throw new RommError(t('error.libraryMoveNoRoom', { path: plan.to }))
+  if (!(await sources.prepare(plan.to))) {
+    throw new RommError(t('error.libraryFolderNotWritable', { path: plan.to }))
+  }
+}
+
+/**
  * Move the library's games to another folder, then make it the library.
  *
  * Planned again here rather than taken from the confirmation, so what moves is
@@ -331,11 +347,7 @@ export async function changeLibraryFolder(
 ): Promise<LibraryFolderChange> {
   if (sources.downloading()) throw new RommError(t('error.libraryMoveBusy'))
   const plan = await planLibraryFolder(sources, libraryRoot)
-  if (plan.refused === 'inside-library') throw new RommError(t('error.libraryMoveInside'))
-  if (!plan.fits) throw new RommError(t('error.libraryMoveNoRoom', { path: plan.to }))
-  if (!(await sources.prepare(plan.to))) {
-    throw new RommError(t('error.libraryFolderNotWritable', { path: plan.to }))
-  }
+  await refuseUnmovable(sources, plan)
   // The same folder by another name has nothing to carry; only the setting
   // changes, to the name asked for.
   const result = await move(plan, sources.index)
