@@ -3422,3 +3422,36 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet.
 - Next: M1-10 part 4d: Phase 0's games in `~/rommix/roms` adopted or moved. Then `storage.sdcard` (line 5) and READY-FOR-DEVICE.
+
+## 2026-10-27 11:27 UTC session 0178hDCB5QpEU2h1z816kkxz (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. #325 (M1-10 part 4c-ii) merged at dc8e216; CI x64 8:00, arm64 1:24.
+- Worked on: M1-10 part 4d-i (tracking issue #313): line 3's "Phase 0's games in `~/rommix/roms` can be adopted or moved", the main-process half.
+- Result: PR (this one).
+  - `readStockLibrary` (`src/main/stocklibrary.ts`) finds stock RomMix's home (its pointer `~/.config/rommix/root`, else `~/rommix`) and reads its index. It takes the shared-library entries inside stock's game folder that are at least a system folder deep, still on the disk, and not yet in Galleon's index. It does this only when stock was signed in to the same server as Galleon.
+  - Each entry is read as untrusted. Its file names are kept only where they stay inside the game's folder, or for a loose game beside it in its system folder, since an uninstall removes each one.
+  - Nothing is offered under `GALLEON_HOME`, and there stock's pointer is not even read.
+  - Adopt records the games where they are. Move adopts them and then carries them into the library with `moveLibrary`. It is refused, with nothing adopted, for the reasons a library move is; those checks are now `refuseUnmovable`, shared with `changeLibraryFolder`.
+  - Stock's own files are only read.
+  - Channels `library:stock`, `library:adoptStock` and `library:moveStock`, with dev-bridge stubs. M1-10 stays false.
+- Evidence:
+  - `stocklibrary.test.ts` (13):
+    - the pointer or `~/rommix`
+    - the same server found, ignoring a trailing slash and case
+    - nothing for another server, before sign-in, or under `GALLEON_HOME`
+    - untrusted entries refused, and hostile file names dropped
+    - a system folder never taken for a game
+    - adopting leaves stock's index byte-identical
+    - the plan's sizes include games adopted earlier
+    - a move carries the files and the index
+    - three refusals adopt nothing and never reach the mover
+    - a stopped move finishes on the second ask
+  - `app.test.ts` (+1): the offer before and after sign-in, and adopting announces the index.
+  - `scripts/agent/check.sh` green (2532 tests; `stocklibrary.ts` 100% lines). `npm run test:app` 257/257. No UI change, so no shots.
+- Evaluator:
+  - First pass FAIL: stock's `files` names were adopted unchecked, so an uninstall could delete a file outside both folders. Fixed as above, along with two of its notes (depth, and the pointer not read under `GALLEON_HOME`).
+  - Its mutation dropping the refusal hung the test run, because Node's recursive mkdir loops forever under `/proc`. The refusal tests now hand in a recording mover and fail fast.
+  - Second pass: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet.
+- Next: M1-10 part 4d-ii: Settings offers stock RomMix's games (count, sizes, Adopt / Move into the library), then `storage.sdcard` (line 5) and READY-FOR-DEVICE.
