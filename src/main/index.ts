@@ -14,6 +14,7 @@ import { noticeProbe, ownWindowsOnDisplay } from './selftestnowindow.ts'
 import { IDENTITY_CHECK, identityScenario } from './selftestidentity.ts'
 import { REPORT_CHECK, pressReport, reportScenario } from './selftestreport.ts'
 import { HEARTBEAT_CHECK, heartbeatScenario } from './selftestserver.ts'
+import { STEAM_LIST_CHECK, steamListScenario } from './selfteststeam.ts'
 import { watchInput } from './selftestinput.ts'
 import { takeScreenshots } from './selftestshots.ts'
 import { GRID_CHECK, askForProfile, runScroll, scrollScenario } from './selftestscroll.ts'
@@ -207,6 +208,7 @@ if (!app.requestSingleInstanceLock()) {
             REPORT_CHECK,
             reportScenario({ home: resolveRoot(), press: () => pressReport(window.webContents) })
           ],
+          [STEAM_LIST_CHECK, steamListScenario()],
           ...emulatorScenarios(selfTest.request.checks, {
             home: resolveRoot(),
             payloads: selfTest.request.payloads,

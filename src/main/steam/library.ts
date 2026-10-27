@@ -96,17 +96,38 @@ export function isInstalled(game: SteamGame): boolean {
  * that is out loses its games, not everyone else's.
  */
 export async function installedSteamGames(sources: SteamSources = {}): Promise<SteamGame[]> {
+  return (await scanSteamGames(sources)).games
+}
+
+export interface SteamScan {
+  games: SteamGame[]
+  /**
+   * Files that are there but could not be read as what they should be. A
+   * reader that falls behind Steam's format shows up here, rather than as a
+   * library that merely looks small.
+   */
+  malformed: number
+}
+
+/** `installedSteamGames`, with a count of the files it had to pass over. */
+export async function scanSteamGames(sources: SteamSources = {}): Promise<SteamScan> {
   const home = sources.home ?? homedir()
   const readText = sources.readText ?? ((path: string) => readFile(path, 'utf8'))
   const listDir = sources.listDir ?? ((path: string) => readdir(path))
   const steam = join(home, ...STEAM_ROOT)
+  let malformed = 0
+  const readVdf = async (path: string): Promise<VdfObject | null> => {
+    const parsed = await readVdfFile(path, readText)
+    if (parsed === MALFORMED) malformed++
+    return parsed === MALFORMED ? null : parsed
+  }
 
   const libraries = [steam]
   for (const listing of [
     join(steam, 'steamapps', 'libraryfolders.vdf'),
     join(steam, 'config', 'libraryfolders.vdf')
   ]) {
-    const parsed = await readVdf(listing, readText)
+    const parsed = await readVdf(listing)
     if (!parsed) continue
     for (const path of libraryPaths(parsed)) {
       if (!libraries.includes(path)) libraries.push(path)
@@ -123,22 +144,29 @@ export async function installedSteamGames(sources: SteamSources = {}): Promise<S
       continue
     }
     for (const entry of entries.filter((name) => /^appmanifest_\d+\.acf$/.test(name)).sort()) {
-      const parsed = await readVdf(join(steamapps, entry), readText)
-      const game = parsed && readManifest(parsed, library)
+      const parsed = await readVdf(join(steamapps, entry))
+      if (!parsed) continue
+      const game = readManifest(parsed, library)
+      if (!game) malformed++
       if (!game || !isInstalled(game) || games.has(game.appid)) continue
       games.set(game.appid, game)
     }
   }
-  return [...games.values()].sort(
-    (a, b) => a.name.localeCompare(b.name) || a.appid.localeCompare(b.appid)
-  )
+  return {
+    games: [...games.values()].sort(
+      (a, b) => a.name.localeCompare(b.name) || a.appid.localeCompare(b.appid)
+    ),
+    malformed
+  }
 }
 
-/** A file parsed, or null when it is absent, unreadable or malformed. */
-async function readVdf(
+const MALFORMED = Symbol('malformed')
+
+/** A file parsed; null when it is absent or unreadable, `MALFORMED` when it is there but not VDF. */
+async function readVdfFile(
   path: string,
   readText: (path: string) => Promise<string>
-): Promise<VdfObject | null> {
+): Promise<VdfObject | null | typeof MALFORMED> {
   let contents: string
   try {
     contents = await readText(path)
@@ -146,8 +174,9 @@ async function readVdf(
     return null
   }
   const parsed = parseVdf(contents)
-  if (!parsed) log.warn('steam', 'a Steam file could not be parsed', { path })
-  return parsed
+  if (parsed) return parsed
+  log.warn('steam', 'a Steam file could not be parsed', { path })
+  return MALFORMED
 }
 
 /**
