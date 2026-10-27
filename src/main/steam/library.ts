@@ -149,3 +149,26 @@ async function readVdf(
   if (!parsed) log.warn('steam', 'a Steam file could not be parsed', { path })
   return parsed
 }
+
+/**
+ * Steam's own tools, which it installs as apps beside the games.
+ *
+ * Proton, the Linux runtimes and the shared redistributables carry a manifest
+ * and the installed flag like any game, and nothing in the manifest says
+ * otherwise: Steam keeps an app's type in its binary app cache. Running one
+ * does nothing a player would want, so they are recognised by the names and
+ * appids Valve gives them.
+ */
+const TOOL_APPIDS = new Set([
+  // Steamworks Common Redistributables
+  '228980'
+])
+const TOOL_NAMES = [
+  /^Proton\b/i,
+  /^Steam Linux Runtime\b/i,
+  /^Steamworks Common Redistributables$/i
+]
+
+export function isSteamTool(game: Pick<SteamGame, 'appid' | 'name'>): boolean {
+  return TOOL_APPIDS.has(game.appid) || TOOL_NAMES.some((pattern) => pattern.test(game.name))
+}

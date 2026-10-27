@@ -7,6 +7,7 @@ import { handler } from './handler.ts'
 import { registerLibraryIpc } from './library.ts'
 import { registerSaveIpc } from './saves.ts'
 import { registerServerIpc } from './server.ts'
+import { registerSteamIpc } from './steam.ts'
 import { registerSystemIpc } from './system.ts'
 import { registerUpdateIpc } from './updates.ts'
 
@@ -32,6 +33,7 @@ export function registerIpc(rommix: RomMixApp): void {
   registerLibraryIpc(rommix, handle)
   registerDownloadIpc(rommix, handle)
   registerGameIpc(rommix, handle)
+  registerSteamIpc(rommix, handle)
   registerSaveIpc(rommix, handle)
   registerBiosIpc(rommix, handle)
   registerEmulatorIpc(rommix, handle)

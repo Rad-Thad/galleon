@@ -31,7 +31,18 @@ import { useApp, useI18n } from './state'
  */
 export function RunningOverlay(): JSX.Element {
   const { t } = useI18n()
-  const { runningStage, runningEmulator, runningRomId, installed } = useApp()
+  const { runningStage, runningEmulator, runningSteam, runningRomId, installed } = useApp()
+
+  // Steam runs the game and nothing reports its end, so the way out is the
+  // player saying they are back rather than a request to close.
+  if (runningSteam) {
+    return (
+      <Overlay title={t('app.playingOnSteam')} icon="play">
+        <p className="muted">{t('app.steamHasFocus', { name: runningSteam })}</p>
+        <SteamActions />
+      </Overlay>
+    )
+  }
 
   // What is known about the game without asking anything: the index carries its
   // name and its cover so that the Downloads screen can draw a row without the
@@ -112,6 +123,31 @@ export function RunningOverlay(): JSX.Element {
       <p className="muted">{t('app.emulatorHasFocus')}</p>
       <RunningActions />
     </Overlay>
+  )
+}
+
+/**
+ * Back from a Steam game. A child of the overlay for the reason
+ * `RunningActions` is.
+ *
+ * Start is the one press that reaches Galleon while the pad is held for the
+ * game, so it is also the way back here; it touches nothing of Steam's.
+ */
+function SteamActions(): JSX.Element {
+  const { t } = useI18n()
+  const keyLabel = useKeyLabel()
+  const back = (): void => void window.rommix.running.stop()
+  useAction('menu', back)
+
+  return (
+    <>
+      <p className="muted">{t('app.holdToReturn', { key: keyLabel('START') })}</p>
+      <div className="btn-row">
+        <FocusButton icon="back" action="back-from-steam" onSelect={back}>
+          {t('app.backToGalleon')}
+        </FocusButton>
+      </div>
+    </>
   )
 }
 

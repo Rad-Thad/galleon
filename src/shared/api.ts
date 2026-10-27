@@ -24,6 +24,7 @@ import type {
   RommPlatform,
   RommRom,
   RommRomPage,
+  SteamGameEntry,
   RomQuery,
   RomUserStatus,
   EmulatorAsset,
@@ -86,6 +87,14 @@ export interface RunningState {
    * work that stops the game from failing to start.
    */
   stage?: string | null
+  /**
+   * The name of the Steam game Galleon handed to Steam, or null.
+   *
+   * Steam runs it, so nothing tells Galleon when it ends: the overlay stays up
+   * until the player says they are back (`running.stop`), and saying so never
+   * touches Steam's game. See `SteamSession`.
+   */
+  steam?: string | null
 }
 
 /** Progress of a libretro core download, while a launch waits on it. */
@@ -354,6 +363,12 @@ export interface RomMixBridge {
     variants(romId: number): Promise<LaunchChoice>
     /** `variant` is remembered for the platform once passed. */
     launch(romId: number, variant?: string): Promise<LaunchResult>
+  }
+  /** The Steam games installed on this machine, started through Steam itself. */
+  steam: {
+    games(): Promise<SteamGameEntry[]>
+    /** Hand the game to Steam; the overlay goes up for it. */
+    launch(appid: string): Promise<void>
   }
   /**
    * Whatever is in front of RomMix, and the way to close it.

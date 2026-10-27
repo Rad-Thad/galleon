@@ -121,6 +121,8 @@ interface AppState {
    * the same, so the same overlay says so.
    */
   runningEmulator: string | null
+  /** The Steam game handed to Steam, or null. See `RunningState.steam`. */
+  runningSteam: string | null
   /**
    * What the launch is doing before the emulator is up — installing a missing
    * core — or null when there is nothing to say and it is simply running.
@@ -256,6 +258,7 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
   const [installed, setInstalled] = useState<InstalledRom[]>([])
   const [runningRomId, setRunningRomId] = useState<number | null>(null)
   const [runningEmulator, setRunningEmulator] = useState<string | null>(null)
+  const [runningSteam, setRunningSteam] = useState<string | null>(null)
   const [runningStage, setRunningStage] = useState<string | null>(null)
   const [history, setHistory] = useState<readonly Route[]>([{ name: 'home' }])
   const [toasts, setToasts] = useState<Toast[]>([])
@@ -623,6 +626,7 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
       notices.setCovered(state.running)
       setRunningRomId(state.running ? state.romId : null)
       setRunningEmulator(state.running ? (state.emulator ?? null) : null)
+      setRunningSteam(state.running ? (state.steam ?? null) : null)
       setRunningStage(state.running ? (state.stage ?? null) : null)
     })
   }, [notices])
@@ -691,6 +695,7 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
       unsentSaves,
       runningRomId,
       runningEmulator,
+      runningSteam,
       runningStage,
       update,
       refreshUpdate,
@@ -716,6 +721,7 @@ export function AppProvider({ children }: { children: ReactNode }): JSX.Element 
       unsentSaves,
       runningRomId,
       runningEmulator,
+      runningSteam,
       runningStage,
       update,
       refreshUpdate,

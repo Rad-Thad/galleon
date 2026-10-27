@@ -127,6 +127,10 @@ const bridge: RomMixBridge = {
     variants: (romId: number) => ipcRenderer.invoke('game:variants', romId),
     launch: (romId: number, variant?: string) => ipcRenderer.invoke('game:launch', romId, variant)
   },
+  steam: {
+    games: () => ipcRenderer.invoke('steam:games'),
+    launch: (appid: string) => ipcRenderer.invoke('steam:launch', appid)
+  },
   running: {
     stop: () => ipcRenderer.invoke('running:stop'),
     forceStop: () => ipcRenderer.invoke('running:force'),
