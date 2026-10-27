@@ -3435,7 +3435,7 @@ Lines the tooling reads (exact forms):
   - Stock's own files are only read.
   - Channels `library:stock`, `library:adoptStock` and `library:moveStock`, with dev-bridge stubs. M1-10 stays false.
 - Evidence:
-  - `stocklibrary.test.ts` (13):
+  - `stocklibrary.test.ts` (13, one entry more since the second pass):
     - the pointer or `~/rommix`
     - the same server found, ignoring a trailing slash and case
     - nothing for another server, before sign-in, or under `GALLEON_HOME`
@@ -3451,7 +3451,7 @@ Lines the tooling reads (exact forms):
 - Evaluator:
   - First pass FAIL: stock's `files` names were adopted unchecked, so an uninstall could delete a file outside both folders. Fixed as above, along with two of its notes (depth, and the pointer not read under `GALLEON_HOME`).
   - Its mutation dropping the refusal hung the test run, because Node's recursive mkdir loops forever under `/proc`. The refusal tests now hand in a recording mover and fail fast.
-  - Second pass: see the PR.
+  - Second pass PASS (21 hand mutations, each under a timeout, none hung; every one asked for killed). Five survivors, all redundant guards. One of them, a game path outside the folder with its launch path inside, is now a fixture. Noted: a corrupt entry could still name a sibling game's file in the same system folder, as Galleon's own entries could.
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet.
 - Next: M1-10 part 4d-ii: Settings offers stock RomMix's games (count, sizes, Adopt / Move into the library), then `storage.sdcard` (line 5) and READY-FOR-DEVICE.
