@@ -135,7 +135,13 @@ export function steamLaunchScenario(deps: SteamLaunchScenarioDeps = {}): Scenari
     if (!request.steamTarget) return answer('skip', 'no-steam-target')
     if (!dir) return answer('skip', 'no-handshake')
     const file = (name: string): string => join(dir, name)
-    const names = [STEAM_LAUNCHED, STEAM_PROMPT, TARGET_STARTED, TARGET_ENDED]
+    const names = [
+      STEAM_LAUNCHED,
+      `${STEAM_LAUNCHED}.tmp`,
+      STEAM_PROMPT,
+      TARGET_STARTED,
+      TARGET_ENDED
+    ]
     const clear = (): Promise<unknown> =>
       Promise.all(names.map((name) => rm(file(name), { force: true })))
     const there = (name: string): Promise<boolean> =>
@@ -157,10 +163,13 @@ export function steamLaunchScenario(deps: SteamLaunchScenarioDeps = {}): Scenari
       let startMs: number | null = null
       const promptUntil = Date.now() + (deps.promptWaitMs ?? PROMPT_WAIT_MS)
       while (Date.now() < promptUntil && !signal.aborted) {
+        // The answer is read before the start is looked for: run.sh answers
+        // only once the target has started or its watch is over, so a start
+        // marked before the answer is never missed.
+        const said = (await readFile(file(STEAM_PROMPT), 'utf8').catch(() => null))?.trim()
         if (startMs === null && (await there(TARGET_STARTED))) {
           startMs = Math.round(performance.now() - started)
         }
-        const said = (await readFile(file(STEAM_PROMPT), 'utf8').catch(() => null))?.trim()
         if (said !== undefined) {
           prompt = (PROMPT_ANSWERS as readonly string[]).includes(said)
             ? (said as PromptAnswer)
@@ -168,9 +177,6 @@ export function steamLaunchScenario(deps: SteamLaunchScenarioDeps = {}): Scenari
           break
         }
         await pause()
-      }
-      if (startMs === null && (await there(TARGET_STARTED))) {
-        startMs = Math.round(performance.now() - started)
       }
 
       let ended = false

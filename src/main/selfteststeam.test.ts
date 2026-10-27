@@ -191,6 +191,8 @@ async function launchRun(harness: Harness = {}) {
     } catch {
       return
     }
+    // run.sh answers once, as the real one does.
+    clearInterval(timer)
     for (const [name, text] of Object.entries(harness.answer ?? {})) {
       writeFileSync(join(dir, name), text)
     }
@@ -259,7 +261,7 @@ describe('steam.launch', () => {
     assert.equal(outcome.check.metrics.startMs, null)
   })
 
-  test('a target that starts after the answer still counts as started', async () => {
+  test('a start marked just before the answer counts as started', async () => {
     const outcome = await launchRun({ answer: { [STEAM_PROMPT]: 'shown', [TARGET_STARTED]: '' } })
     assert.equal(outcome.check.metrics.started, 1)
   })
@@ -290,11 +292,17 @@ describe('steam.launch', () => {
 
   test("an earlier run's marks are not read as this one's", async () => {
     const outcome = await launchRun({
-      before: { [TARGET_STARTED]: '', [TARGET_ENDED]: '', [STEAM_PROMPT]: 'shown' },
+      before: {
+        [TARGET_STARTED]: '',
+        [TARGET_ENDED]: '',
+        [STEAM_PROMPT]: 'shown',
+        [`${STEAM_LAUNCHED}.tmp`]: ''
+      },
       answer: { [STEAM_PROMPT]: 'none' }
     })
     assert.equal(outcome.check.result, 'fail')
     assert.equal(outcome.check.reason, 'not-started')
+    assert.deepEqual(outcome.left, [])
   })
 
   test('fails when Steam was never asked', async () => {
