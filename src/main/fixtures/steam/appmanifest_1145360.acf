@@ -1,0 +1,33 @@
+"AppState"
+{
+	"appid"		"1145360"
+	"universe"		"1"
+	"LauncherPath"		"/home/deck/.local/share/Steam/ubuntu12_32/steam"
+	"name"		"Hades"
+	"StateFlags"		"4"
+	"installdir"		"Hades"
+	"LastUpdated"		"1729400000"
+	"SizeOnDisk"		"11274289152"
+	"StagingSize"		"0"
+	"buildid"		"9875416"
+	"LastOwner"		"76561190000000000"
+	"AutoUpdateBehavior"		"0"
+	"AllowOtherDownloadsWhileRunning"		"0"
+	"ScheduledAutoUpdate"		"0"
+	"InstalledDepots"
+	{
+		"1145361"
+		{
+			"manifest"		"4421860000000000000"
+			"size"		"11274289152"
+		}
+	}
+	"UserConfig"
+	{
+		"language"		"english"
+	}
+	"MountedConfig"
+	{
+		"language"		"english"
+	}
+}

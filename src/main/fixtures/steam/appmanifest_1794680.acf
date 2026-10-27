@@ -1,0 +1,17 @@
+"AppState"
+{
+	"appid"		"1794680"
+	"universe"		"1"
+	"name"		"Vampire Survivors"
+	"StateFlags"		"1026"
+	"installdir"		"Vampire Survivors"
+	"LastUpdated"		"0"
+	"SizeOnDisk"		"2097152"
+	"StagingSize"		"0"
+	"buildid"		"0"
+	"BytesToDownload"		"508559360"
+	"BytesDownloaded"		"2097152"
+	"BytesToStage"		"612368384"
+	"BytesStaged"		"0"
+	"TargetBuildID"		"15312345"
+}

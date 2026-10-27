@@ -1,0 +1,32 @@
+"libraryfolders"
+{
+	"0"
+	{
+		"path"		"/home/deck/.local/share/Steam"
+		"label"		""
+		"contentid"		"6618373204128856401"
+		"totalsize"		"0"
+		"update_clean_bytes_tally"		"28765112"
+		"time_last_update_verified"		"1729500000"
+		"apps"
+		{
+			"228980"		"292103458"
+			"1145360"		"11274289152"
+			"1794680"		"2097152"
+		}
+	}
+	"1"
+	{
+		"path"		"/run/media/deck/NovaSD"
+		"label"		""
+		"contentid"		"4102217731021991238"
+		"totalsize"		"511906725888"
+		"update_clean_bytes_tally"		"0"
+		"time_last_update_verified"		"1729500600"
+		"apps"
+		{
+			"413150"		"681574400"
+			"105600"		"0"
+		}
+	}
+}
