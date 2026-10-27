@@ -22,6 +22,7 @@ import { RommClient, RommError } from './romm/index.ts'
 import { libraryFolder } from './root.ts'
 import { safeJoin } from './safepath.ts'
 import type { Store } from './store.ts'
+import { missingCardTest } from './volumes.ts'
 import { t } from './i18n.ts'
 
 /**
@@ -50,6 +51,11 @@ import { t } from './i18n.ts'
  */
 const LISTING_LIFETIME_MS = 5_000
 
+/** A copy of the entry marked `cardMissing` when its card is not mounted. */
+function marked(entry: InstalledRom, onMissingCard: (path: string) => boolean): InstalledRom {
+  return onMissingCard(entry.path) ? { ...entry, cardMissing: true } : entry
+}
+
 export class Library extends EventEmitter {
   /**
    * System folders as they were last read, for a moment. See
@@ -64,7 +70,8 @@ export class Library extends EventEmitter {
     private readonly store: Store,
     private readonly client: RommClient,
     private readonly offline: OfflineCache,
-    private readonly getEmulator: (system?: string) => EmulatorState | null
+    private readonly getEmulator: (system?: string) => EmulatorState | null,
+    private readonly missingCards: () => (path: string) => boolean = missingCardTest
   ) {
     super()
   }
@@ -106,12 +113,18 @@ export class Library extends EventEmitter {
   /** The index entry for a ROM, unless it belongs to a different emulator. */
   installedNow(romId: number): InstalledRom | undefined {
     const entry = this.store.getInstalled(romId)
-    return entry && !this.isStale(entry) ? entry : undefined
+    return entry && !this.isStale(entry) ? marked(entry, this.missingCards()) : undefined
   }
 
-  /** Everything on disk for the emulators currently in charge. */
+  /**
+   * Everything on disk for the emulators currently in charge, each game on a
+   * card that is not mounted marked as such rather than left out.
+   */
   get installed(): InstalledRom[] {
-    return this.store.installed.filter((entry) => !this.isStale(entry))
+    const onMissingCard = this.missingCards()
+    return this.store.installed
+      .filter((entry) => !this.isStale(entry))
+      .map((entry) => marked(entry, onMissingCard))
   }
 
   /**

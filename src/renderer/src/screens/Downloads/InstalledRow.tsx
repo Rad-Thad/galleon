@@ -39,6 +39,7 @@ export function InstalledRow({
           {files.length > 1 ? (
             <span>· {t('downloads.fileCount', { count: files.length })}</span>
           ) : null}
+          {entry.cardMissing ? <span>· {t('game.cardNotInserted')}</span> : null}
         </div>
         <ul className="installed__files">
           {files.map((file) => (
@@ -47,11 +48,20 @@ export function InstalledRow({
         </ul>
       </div>
 
-      <div className="installed__actions">
-        <FocusButton icon="uninstall" action="uninstall-game" variant="danger" onSelect={onRemove}>
-          {t('action.uninstall')}
-        </FocusButton>
-      </div>
+      {/* Removing a game whose card is out would delete nothing and forget it,
+          and the card brings it straight back when it is put in again. */}
+      {entry.cardMissing ? null : (
+        <div className="installed__actions">
+          <FocusButton
+            icon="uninstall"
+            action="uninstall-game"
+            variant="danger"
+            onSelect={onRemove}
+          >
+            {t('action.uninstall')}
+          </FocusButton>
+        </div>
+      )}
     </div>
   )
 }

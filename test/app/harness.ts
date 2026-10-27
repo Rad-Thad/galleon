@@ -19,7 +19,9 @@ export interface Scenario {
 }
 
 export async function startScenario(
-  options: Pick<StartOptions, 'viewport' | 'home' | 'env'> & { server?: FakeRommOptions } = {}
+  options: Pick<StartOptions, 'viewport' | 'home' | 'env' | 'files'> & {
+    server?: FakeRommOptions
+  } = {}
 ): Promise<Scenario> {
   const { server: serverOptions, ...appOptions } = options
   const server = await startFakeRomm(serverOptions)
