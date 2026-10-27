@@ -99,7 +99,7 @@ export const eden: EmulatorDescriptor = {
     // list is the virtual SDMC/NAND entries plus directories the user adds.
     // RomMix's own folder is therefore the honest answer, and it is one the
     // user can add under Eden's Game Directories to see them there too.
-    roms: { base: 'rommix', path: 'roms' },
+    roms: { base: 'library', path: '' },
     saves: { base: 'data', path: 'eden/nand/user/save' },
     // No `states`: Yuzu-lineage emulators keep save states inside the profile
     // data rather than in a tree of their own, and naming a directory that does

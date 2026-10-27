@@ -80,7 +80,7 @@ export const melonds: EmulatorDescriptor = {
   dirs: {
     // melonDS's game list is the folders the user opens; RomMix's own folder
     // is the honest answer.
-    roms: { base: 'rommix', path: 'roms' }
+    roms: { base: 'library', path: '' }
     // No `saves`: a save is beside its ROM, wherever that is — see `saves`.
     // No `states`: they sit beside the ROM too, and stay on the device.
   },

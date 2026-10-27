@@ -151,15 +151,15 @@ export const example: EmulatorDescriptor = {
    *   'config'  the emulator's config root: inside `~/.var/app/<id>/config` for
    *             a flatpak, `~/.config` otherwise
    *   'data'    the same, for `~/.local/share`
-   *   'rommix'  RomMix's own folder, for an emulator with nowhere of its own to
-   *             keep ROMs
+   *   'library' the game library's folder (the `libraryRoot` setting), for an
+   *             emulator with nowhere of its own to keep ROMs
    *
    * Declare only what the emulator really has. A path that does not exist is
    * worse than an absent one: the pre-flight check prints it as fact, and save
    * sync reports "nothing found" for a tree that was never there.
    */
   dirs: {
-    roms: { base: 'rommix', path: 'roms' },
+    roms: { base: 'library', path: '' },
     saves: { base: 'config', path: 'example/saves' },
     states: { base: 'config', path: 'example/states' },
     bios: { base: 'config', path: 'example/system' }

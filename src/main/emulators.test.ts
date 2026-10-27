@@ -58,6 +58,7 @@ function settings(fields: Partial<Settings> = {}): Settings {
     systemOverrides: {},
     emulatorPriority: [],
     romStorage: 'rommix',
+    libraryRoot: '',
     setupComplete: true,
     syncSavesDown: true,
     syncSavesUp: true,
@@ -158,6 +159,22 @@ describe('an emulator whose folders are fixed', () => {
     assert.equal(found.paths.bios, join(dir, '.local', 'share', 'eden/keys'))
     // ROMs go to RomMix's own tree, whatever the emulator is.
     assert.equal(found.paths.roms, join(dir, '.rommix', 'roms'))
+  })
+
+  test('ROMs follow the library folder when it is set, and nothing else moves', async () => {
+    const dir = home()
+    const appimage = join(dir, 'Downloads', 'Eden-v1.AppImage')
+    write(appimage, '')
+    const card = join(dir, 'card', 'galleon', 'roms')
+
+    const found = await probeOne(
+      'eden',
+      settings({ emulatorPaths: { eden: appimage }, libraryRoot: card })
+    )
+
+    assert.equal(found.paths.roms, card)
+    assert.equal(found.paths.saves, join(dir, '.local', 'share', 'eden/nand/user/save'))
+    assert.equal(found.paths.bios, join(dir, '.local', 'share', 'eden/keys'))
   })
 
   test('a configured path that is not a .appimage is taken as a plain binary', async () => {

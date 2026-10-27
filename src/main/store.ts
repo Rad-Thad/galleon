@@ -90,6 +90,10 @@ function defaultSettings(): Settings {
     // a server has the whole settings object on disk — `persistSettings` writes
     // it entire — so an existing library stays exactly where it was put.
     romStorage: 'rommix',
+    // The root's own folder, which is where every library written before this
+    // setting existed already is. A fresh installation may move it to the SD
+    // card before anything is downloaded; see `chooseDefaultLibrary`.
+    libraryRoot: '',
     setupComplete: false,
     syncSavesDown: true,
     syncSavesUp: true,
@@ -150,6 +154,7 @@ const SETTINGS_SHAPE: { [K in keyof Settings]: Check<Settings[K]> } = {
   systemOverrides: isStringRecord,
   emulatorPriority: isStringList,
   romStorage: oneOf(ROM_STORAGES),
+  libraryRoot: isString,
   setupComplete: isBoolean,
   syncSavesDown: isBoolean,
   syncSavesUp: isBoolean,
@@ -275,6 +280,12 @@ export class Store {
    */
   private credentialsCache: StoredCredentials | null = null
   private installedCache: Map<number, InstalledRom>
+  /**
+   * True when there was no settings file to read: an installation that has
+   * never started before, so no choice made here can move anything already
+   * downloaded.
+   */
+  readonly fresh: boolean
 
   constructor(dir: string) {
     this.dir = dir
@@ -287,6 +298,8 @@ export class Store {
     this.unsentPath = join(this.dir, 'unsent_saves.json')
     this.playPath = join(this.dir, 'unsent_play.json')
 
+    // Asked before the read, because the read writes the defaults back.
+    this.fresh = !existsSync(this.settingsPath)
     const raw = readJson<{ settings?: unknown; server?: unknown }>(this.settingsPath, {})
     const taken = acceptSettings(raw.settings, defaultSettings())
     this.settingsCache = taken.settings

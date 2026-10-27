@@ -18,7 +18,8 @@ import { RommClient } from './romm/index.ts'
 import type { ReadOnlyGuard } from './romm/guard.ts'
 import { Privacy } from './privacy.ts'
 import { SaveSync } from './saves.ts'
-import { rootPaths } from './root.ts'
+import { homeFromEnvironment, rootPaths } from './root.ts'
+import { chooseDefaultLibrary, type DefaultLibrarySources } from './librarydefault.ts'
 import { Store } from './store.ts'
 import { Updater } from './update.ts'
 import { isWebAddress } from './weblink.ts'
@@ -511,6 +512,27 @@ export class RomMixApp {
       }
     }
     return waiting
+  }
+
+  /**
+   * Put a fresh installation's library on the SD card when one qualifies.
+   *
+   * Only an installation that has never started before, so a library that
+   * already has games in it is never moved by this. A home given through
+   * `GALLEON_HOME` keeps its library inside it: that is the device self-test's
+   * home or someone's sandbox, and either should leave nothing outside the
+   * folder it was given. Before the first probe, which resolves every
+   * emulator's ROM folder from the setting.
+   */
+  async chooseDefaultLibrary(sources?: DefaultLibrarySources): Promise<void> {
+    if (!this.store.fresh || homeFromEnvironment()) return
+    const chosen = await chooseDefaultLibrary(sources)
+    log.info('library', 'a fresh installation chose where its library goes', {
+      libraryRoot: chosen.libraryRoot || null,
+      label: chosen.volume?.label ?? null,
+      reason: chosen.reason
+    })
+    if (chosen.libraryRoot) this.store.updateSettings({ libraryRoot: chosen.libraryRoot })
   }
 
   /**

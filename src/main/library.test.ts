@@ -319,6 +319,16 @@ describe('planning where a download goes', () => {
     assert.equal(planned.path, join(root, 'roms', 'genesis', 'Sonic the Hedgehog (USA).md'))
   })
 
+  test('a shared library set to a folder on the card plans its games there', async () => {
+    const { library, store, root } = manager()
+    const card = join(root, 'card', 'galleon', 'roms')
+    store.updateSettings({ libraryRoot: card })
+
+    const planned = await library.plan(rom())
+
+    assert.equal(planned.path, join(card, 'genesis', 'Sonic the Hedgehog (USA).md'))
+  })
+
   test('a platform RomMix cannot map is refused, and names the platform', async () => {
     const { library } = manager()
 

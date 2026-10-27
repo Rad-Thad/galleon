@@ -126,7 +126,7 @@ export const armsx2: EmulatorDescriptor = {
   dirs: {
     // ARMSX2's game list is the folders the user adds; RomMix's own folder is
     // the honest answer.
-    roms: { base: 'rommix', path: 'roms' },
+    roms: { base: 'library', path: '' },
     saves: { base: 'config', path: 'ARMSX2/memcards' },
     bios: { base: 'config', path: 'ARMSX2/bios' }
     // No `states`: a state is named after the disc's serial, which nothing

@@ -135,6 +135,17 @@ export interface Settings {
   /** Where downloaded games are written. See `RomStorage`. */
   romStorage: RomStorage
   /**
+   * The folder the game library is kept in, or '' for the `roms` folder inside
+   * Galleon's own root.
+   *
+   * Separate from the root because the two belong on different drives: the
+   * configuration is small and has to be there on every start, the games are
+   * large and belong on the SD card, which is not always in the slot. A fresh
+   * installation sets it to the card when one qualifies; see
+   * `chooseDefaultLibrary`.
+   */
+  libraryRoot: string
+  /**
    * True once the first-run wizard has been completed.
    *
    * Separate from "is there a server configured". Signing out clears the

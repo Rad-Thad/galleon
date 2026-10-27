@@ -16,7 +16,7 @@ import type { Settings } from '@shared/types'
 import { emptyFindRules, findEmulator, type FindRules } from './findrules.ts'
 import { log } from './log.ts'
 import { managedEmulatorDir } from './releases.ts'
-import { rootPaths } from './root.ts'
+import { libraryFolder } from './root.ts'
 import { binaryPath, findAppImage, findMatchingFile, flatpakLocation } from './host.ts'
 import { realHome, xdgConfigHome, xdgDataHome } from './xdg.ts'
 import { t } from './i18n.ts'
@@ -135,19 +135,23 @@ async function findRuleInstall(
  * data inside its own per-app tree; a native install — or no install yet, while
  * one is still being looked for — uses the XDG roots.
  */
-function baseDirs(install: ResolvedInstall | null): Record<DirBase, string> {
+function baseDirs(install: ResolvedInstall | null, settings: Settings): Record<DirBase, string> {
   const home = realHome()
-  const rommix = rootPaths().root
+  const library = libraryFolder(settings.libraryRoot)
   if (install?.kind === 'flatpak') {
     const app = join(home, '.var', 'app', install.ref)
-    return { home, rommix, config: join(app, 'config'), data: join(app, 'data') }
+    return { home, library, config: join(app, 'config'), data: join(app, 'data') }
   }
-  return { home, rommix, config: xdgConfigHome(), data: xdgDataHome() }
+  return { home, library, config: xdgConfigHome(), data: xdgDataHome() }
 }
 
 /** Resolve a descriptor's declared path templates against a found install. */
-function declaredPaths(descriptor: EmulatorDescriptor, install: ResolvedInstall): EmulationPaths {
-  const bases = baseDirs(install)
+function declaredPaths(
+  descriptor: EmulatorDescriptor,
+  install: ResolvedInstall,
+  settings: Settings
+): EmulationPaths {
+  const bases = baseDirs(install, settings)
   const resolve = (spec: DirSpec | undefined): string | null =>
     spec ? join(bases[spec.base], spec.path) : null
 
@@ -304,7 +308,7 @@ function discoverLayout(
 ): { paths: EmulationPaths; extras: Record<string, string> } {
   const found = new Map<string, string>()
   const layout = descriptor.layout
-  const bases = baseDirs(install)
+  const bases = baseDirs(install, settings)
 
   /**
    * A library folder the user pointed us at wins outright, and the emulator's
@@ -438,12 +442,12 @@ async function probe(
     ? NO_PATHS
     : descriptor.layout
       ? discoverLayout(descriptor, install, settings).paths
-      : declaredPaths(descriptor, install)
+      : declaredPaths(descriptor, install, settings)
 
   // Where this install keeps its own configuration, which is a different
   // question from where it keeps the emulation library — and the one save
   // resolution asks when it needs to read an emulator's settings.
-  const bases = install ? baseDirs(install) : null
+  const bases = install ? baseDirs(install, settings) : null
 
   // An emulator that owns its library is only useful once that library exists;
   // before that there is nowhere to install to.

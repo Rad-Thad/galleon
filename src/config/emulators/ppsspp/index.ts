@@ -64,7 +64,7 @@ export const ppsspp: EmulatorDescriptor = {
   dirs: {
     // PPSSPP's game list is the folder the user browses to; RomMix's own
     // folder is the honest answer.
-    roms: { base: 'rommix', path: 'roms' },
+    roms: { base: 'library', path: '' },
     saves: { base: 'config', path: 'ppsspp/PSP/SAVEDATA' }
     // No `states`: a state is named after the game id, which nothing here can
     // pair with a ROM. No `bios`: PPSSPP needs none.

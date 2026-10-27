@@ -213,7 +213,7 @@ export const retroarch: EmulatorDescriptor = {
   variants: (system) => CORE_CHOICES[system] ?? [],
   ownsLibrary: false,
   dirs: {
-    roms: { base: 'rommix', path: 'roms' },
+    roms: { base: 'library', path: '' },
     saves: { base: 'config', path: 'retroarch/saves' },
     states: { base: 'config', path: 'retroarch/states' },
     bios: { base: 'config', path: 'retroarch/system' }

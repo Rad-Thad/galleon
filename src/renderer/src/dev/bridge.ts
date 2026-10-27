@@ -563,6 +563,7 @@ const SETTINGS: Settings = {
   systemOverrides: {},
   emulatorPriority: [],
   romStorage: 'emulator',
+  libraryRoot: '',
   // The demo starts past the first-run wizard: it exists to show the app, and
   // a preview that opens on "how big would you like the text" shows the setup.
   setupComplete: true,

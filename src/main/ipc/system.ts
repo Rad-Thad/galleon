@@ -16,7 +16,14 @@ import { readPowerState } from '../powerstate.ts'
 import { commandVersion, flatpakAvailable, flathubConfigured, isWritable } from '../host.ts'
 import { setLanguage, t } from '../i18n.ts'
 import { log } from '../log.ts'
-import { defaultRoot, homeFromEnvironment, relocateRoot, resolveRoot, rootPaths } from '../root.ts'
+import {
+  defaultRoot,
+  homeFromEnvironment,
+  libraryFolder,
+  relocateRoot,
+  resolveRoot,
+  rootPaths
+} from '../root.ts'
 import { RommError } from '../romm/index.ts'
 import { writeReport } from '../report.ts'
 import { isWebAddress } from '../weblink.ts'
@@ -97,7 +104,7 @@ export function registerSystemIpc(rommix: RomMixApp, handle: Handle): void {
    */
   const romRoots = async (): Promise<{ name: string; path: string }[]> => {
     if (store.settings.romStorage === 'rommix') {
-      return [{ name: 'Galleon', path: rootPaths().roms }]
+      return [{ name: 'Galleon', path: libraryFolder(store.settings.libraryRoot) }]
     }
     const emulators = await rommix.ensureEmulators()
     return emulators
@@ -179,7 +186,7 @@ export function registerSystemIpc(rommix: RomMixApp, handle: Handle): void {
     // where to look. Named here rather than in each descriptor's `setupNotes`,
     // which are fixed text and cannot know which way this setting is pointed.
     if (shared && emulators.some((emulator) => emulator.available)) {
-      notes.push(t('diagnostics.sharedFolder', { path: rootPaths().roms }))
+      notes.push(t('diagnostics.sharedFolder', { path: libraryFolder(store.settings.libraryRoot) }))
     }
 
     // The whole picture in one place, since this is the report a person is
