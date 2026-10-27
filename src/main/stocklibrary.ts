@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs'
-import { basename, isAbsolute, join, relative } from 'node:path'
+import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { SHARED_LIBRARY } from '@shared/types'
 import type { InstalledRom, LibraryMovePlan, LibraryMoveResult } from '@shared/types'
 import { t } from './i18n.ts'
@@ -71,10 +71,26 @@ function sameServer(a: string, b: string): boolean {
 }
 
 /**
+ * The names of a game's files that are its own: inside its folder, or for a
+ * loose game beside it in its system folder. An uninstall removes each one,
+ * so a name that reaches anywhere else is dropped.
+ */
+function ownFiles(names: unknown, path: string, isDirectory: boolean): string[] {
+  if (!Array.isArray(names)) return []
+  const base = isDirectory ? path : dirname(path)
+  return names.filter((name): name is string => {
+    if (typeof name !== 'string' || name === '') return false
+    const at = resolve(base, name)
+    return isDirectory ? at !== base && within(at, base) : dirname(at) === base
+  })
+}
+
+/**
  * One entry of stock RomMix's index, as Galleon's index would hold it, or
  * nothing when it is not a shared-library game inside `folder` that is still
  * on the disk. Read as untrusted: a path outside the folder would be adopted
- * and later removed by an uninstall.
+ * and later removed by an uninstall, and so would a system folder taken for a
+ * game, so a game is at least a system folder deep.
  */
 function acceptEntry(value: unknown, folder: string): InstalledRom | null {
   if (typeof value !== 'object' || value === null) return null
@@ -88,13 +104,13 @@ function acceptEntry(value: unknown, folder: string): InstalledRom | null {
   if (entry.emulatorId !== SHARED_LIBRARY || !path || !launchPath || !system) return null
   if (!isAbsolute(path) || !isAbsolute(launchPath)) return null
   const real = resolveExisting(path)
-  if (real === folder || !within(real, folder) || !within(resolveExisting(launchPath), folder)) {
+  const depth = relative(folder, real).split('/').length
+  if (!within(real, folder) || depth < 2 || !within(resolveExisting(launchPath), folder)) {
     return null
   }
   if (!existsSync(real)) return null
-  const files = Array.isArray(entry.files)
-    ? entry.files.filter((file): file is string => typeof file === 'string')
-    : []
+  const isDirectory = entry.isDirectory === true
+  const files = ownFiles(entry.files, resolve(path), isDirectory)
   return {
     romId: entry.romId,
     path,
@@ -106,7 +122,7 @@ function acceptEntry(value: unknown, folder: string): InstalledRom | null {
     platformName: text('platformName') ?? system,
     sizeBytes: typeof entry.sizeBytes === 'number' ? entry.sizeBytes : 0,
     installedAt: text('installedAt') ?? new Date(0).toISOString(),
-    isDirectory: entry.isDirectory === true,
+    isDirectory,
     emulatorId: SHARED_LIBRARY
   }
 }

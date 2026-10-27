@@ -268,7 +268,15 @@ for (const [why, extra, key] of [
     const sources = galleon(extra)
     const stock = readStockLibrary(root, SERVER, none)
     assert.ok(stock)
-    await assert.rejects(moveStockLibrary(sources, stock), new RegExp(key))
+    // A mover that only records it was asked: a refusal that went missing
+    // fails here instead of reaching a folder no move could finish in.
+    let asked = false
+    const mover: typeof moveLibrary = async () => {
+      asked = true
+      return { moved: [], skipped: [], failed: null, leftovers: [] }
+    }
+    await assert.rejects(moveStockLibrary(sources, stock, mover), new RegExp(key))
+    assert.equal(asked, false)
     assert.equal(sources.entries.size, 0)
     assert.equal(existsSync(join(root, 'roms', 'gc', 'one.rvz')), true)
   })
@@ -297,4 +305,30 @@ test('a move that stops part-way leaves the rest adopted where they are, and ask
   const finished = await moveStockLibrary(sources, again)
   assert.deepEqual(finished.moved, [2])
   assert.equal(sources.entries.get(2)?.path, join(sources.library, 'psx', 'Disc Game'))
+})
+
+test("only a game's own file names are kept, since an uninstall removes each one", () => {
+  const root = stockHome((folder) => [
+    entry(1, join(folder, 'gc', 'one.rvz'), {
+      files: ['one.rvz', 'two.rvz', '../../config/settings.json', '/etc/passwd', 'sub/x', '', 3]
+    }),
+    entry(2, join(folder, 'psx', 'Disc Game'), {
+      isDirectory: true,
+      files: ['game.cue', 'disc 1/game.bin', '..', '.', '../one.rvz', '/etc/passwd']
+    })
+  ])
+  const stock = readStockLibrary(root, SERVER, none)
+  assert.deepEqual(stock?.games[0].files, ['one.rvz', 'two.rvz'])
+  assert.deepEqual(stock?.games[1].files, ['game.cue', 'disc 1/game.bin'])
+})
+
+test('a system folder is never taken for a game', () => {
+  const root = stockHome((folder) => [
+    entry(1, join(folder, 'gc'), { isDirectory: true }),
+    entry(2, join(folder, 'gc', 'one.rvz'))
+  ])
+  assert.deepEqual(
+    readStockLibrary(root, SERVER, none)?.games.map((game) => game.romId),
+    [2]
+  )
 })

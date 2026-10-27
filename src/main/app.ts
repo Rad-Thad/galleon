@@ -609,6 +609,8 @@ export class RomMixApp {
   }
 
   private readStock(): StockLibrary | null {
+    // Before stock RomMix's pointer is even read: see `readStockLibrary`.
+    if (homeFromEnvironment()) return null
     return readStockLibrary(
       stockRomMixRoot(),
       this.store.server?.baseUrl ?? null,
