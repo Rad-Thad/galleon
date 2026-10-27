@@ -3266,3 +3266,14 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none.
 - Next: M2-08 part 2b-2b-3, ARMSX2's folder card (read SPEC.md's PS2 rows first). Then M2-08 can pass.
+
+## 2026-10-27 00:27 UTC session 013ovGtsW8Tqy6cuk5pwbxY9 (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. #310 (M2-08 part 2b-2b-2) merged at b7b922f; CI x64 8:13, arm64 1:07.
+- Worked on: #309, the flaky `selftestscroll.test.ts` "holds Down through a page slower than TURN_MS" (its second unit of work, so due now).
+- Result: PR (this one). Root cause: the `scrollProbe in a page` tests ran the probe on wall time (`Date.now`, `setTimeout`, `performance`, happy-dom's frames), so a starved test process ran out of scroll time before the fake page's second page arrived. The test page now runs the probe on a `virtualClock` (test file only), passed in as the script's `Date`, `setTimeout`, `performance` and `requestAnimationFrame`; it advances to the next timer only after the event loop has drained, so load changes how long the tests take, not what the probe sees. The page's late page and late frames use the same clock. No assertion changed; `selftestscroll.ts` is untouched.
+- Evidence: with a preload blocking the event loop 40 ms of every 45 ms, the old file fails exactly as #309 reported (`10 !== 20` on `scroll.cards`) and the new one passes 5/5. The five page tests take about 100 ms in all; before, each waited out its scroll time on the wall clock. Turning the probe at the loading edge (patience always `turnMs`) fails two of them. `scripts/agent/check.sh` green (2:03, 2412 unit tests). No renderer, IPC or launch code changed, so no `test:app`; no UI change, so no shots.
+- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none.
+- Next: M2-08 part 2b-2b-3, ARMSX2's folder card (read SPEC.md's PS2 rows first). Then M2-08 can pass.

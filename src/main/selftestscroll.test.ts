@@ -183,12 +183,54 @@ describe('scrollProbe', () => {
  * The grid is the box the cards scroll in, and it never scrolls: card `i`
  * ends `CARD_PX` × (i + 1) down a box `CARD_PX` × 2 tall, so the highlight
  * trails the box's bottom by every card past the second.
+ *
+ * The probe and the page keep time on a `virtualClock`, so how busy the
+ * machine is changes how long a test takes, never what the probe sees.
  */
 const CARD_PX = 50
+
+/** A frame at the Nova's refresh rate, on the virtual clock. */
+const FRAME_MS = 1000 / 120
+
+/**
+ * Time that moves only when the page has nothing left to do now: each step
+ * lets the event loop drain (happy-dom's events and mutation callbacks), then
+ * jumps to the next timer due and runs it.
+ */
+function virtualClock() {
+  let now = 0
+  let order = 0
+  const timers: { at: number; order: number; fire: () => void }[] = []
+  const setTimeout = (fire: () => void, ms = 0): number => {
+    timers.push({ at: now + Math.max(0, ms), order: ++order, fire })
+    return order
+  }
+  const drive = async <T>(work: Promise<T>): Promise<T> => {
+    let settled = false
+    work.then(
+      () => (settled = true),
+      () => (settled = true)
+    )
+    while (true) {
+      await new Promise((resolve) => setImmediate(resolve))
+      if (settled) return work
+      timers.sort((a, b) => a.at - b.at || a.order - b.order)
+      const next = timers.shift()
+      if (!next) throw new Error('the probe waits on nothing the clock runs')
+      now = next.at
+      next.fire()
+    }
+  }
+  return { now: () => now, setTimeout, drive }
+}
 
 function library(firstPage: number, nextPage: number, pageMs: number | null) {
   const window = new Window({ url: 'http://localhost/' })
   const { document } = window
+  const clock = virtualClock()
+  const frames = (draw: (at: number) => void): void => {
+    clock.setTimeout(() => draw(clock.now()), FRAME_MS)
+  }
   document.body.innerHTML = `
     <nav class="topbar__nav"><button data-route="library"></button></nav>
     <div data-screen="library">
@@ -227,7 +269,7 @@ function library(firstPage: number, nextPage: number, pageMs: number | null) {
       const spinner = document.createElement('div')
       spinner.className = 'spinner'
       grid.parentElement!.appendChild(spinner)
-      setTimeout(() => {
+      clock.setTimeout(() => {
         spinner.remove()
         add(nextPage)
         const end = document.createElement('div')
@@ -239,32 +281,38 @@ function library(firstPage: number, nextPage: number, pageMs: number | null) {
   add(firstPage)
   const probe = (
     script: string,
-    frame: (draw: (at: number) => void) => unknown = window.requestAnimationFrame.bind(window)
+    frame: (draw: (at: number) => void) => unknown = frames
   ): Promise<ScrollRun> =>
-    new Function(
-      'window',
-      'document',
-      'performance',
-      'requestAnimationFrame',
-      'KeyboardEvent',
-      'MouseEvent',
-      'MutationObserver',
-      `return ${script}`
-    )(
-      window,
-      document,
-      window.performance,
-      frame,
-      window.KeyboardEvent,
-      window.MouseEvent,
-      window.MutationObserver
+    clock.drive(
+      new Function(
+        'window',
+        'document',
+        'performance',
+        'Date',
+        'setTimeout',
+        'requestAnimationFrame',
+        'KeyboardEvent',
+        'MouseEvent',
+        'MutationObserver',
+        `return ${script}`
+      )(
+        window,
+        document,
+        { now: clock.now },
+        { now: clock.now },
+        clock.setTimeout,
+        frame,
+        window.KeyboardEvent,
+        window.MouseEvent,
+        window.MutationObserver
+      )
     )
   /** Frames that only start `lateMs` after the first is asked for. */
   const lateFrames = (lateMs: number) => {
     let from: number | null = null
     return (draw: (at: number) => void): void => {
-      from ??= Date.now()
-      setTimeout(() => window.requestAnimationFrame(draw), Math.max(0, from + lateMs - Date.now()))
+      from ??= clock.now()
+      clock.setTimeout(() => frames(draw), Math.max(0, from + lateMs - clock.now()))
     }
   }
   return { probe, lateFrames, keys, close: () => window.happyDOM.close() }
