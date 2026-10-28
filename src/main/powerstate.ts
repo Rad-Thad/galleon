@@ -162,6 +162,21 @@ export function parseArmadaStatus(text: string | null): string {
   return UNKNOWN
 }
 
+/**
+ * A profile `armada-power status` named, by the label its section in
+ * power-profiles.conf gives it, so the player reads the same name whether it
+ * was reported or inferred (`profileInForce` names by label). A name the file
+ * does not define, or a section without a label, keeps the name as given.
+ */
+export function profileLabel(conf: string | null, name: string): string {
+  if (conf === null || name === UNKNOWN) return name
+  const wanted = `profile.${name.toLowerCase()}`
+  for (const [section, keys] of parseIni(conf)) {
+    if (section.toLowerCase() === wanted) return keys.get('label') || name
+  }
+  return name
+}
+
 /** The devfreq device that is the GPU: Adreno's is named after its address and `.gpu`. */
 export function gpuDevice(names: readonly string[]): string | null {
   return names.toSorted().find((name) => /(^|[.-])gpu$/i.test(name)) ?? null
@@ -192,7 +207,10 @@ export function powerState(files: PowerFiles): PowerState {
     gpuGovernor: parseWord(files.gpuGovernor),
     gpuCurHz: parseNumber(files.gpuCur),
     gpuMaxHz: parseNumber(files.gpuMax),
-    profile: said !== UNKNOWN ? said : profileInForce(files.profileConf, cpuGovernor, cpuMaxKHz),
+    profile:
+      said !== UNKNOWN
+        ? profileLabel(files.profileConf, said)
+        : profileInForce(files.profileConf, cpuGovernor, cpuMaxKHz),
     defaultProfile: parseDefaultProfile(files.profileConf),
     perf: parsePerfState(files.perfState)
   }

@@ -15,7 +15,8 @@ import {
   powerState,
   readArmadaStatus,
   readPowerState,
-  UNKNOWN
+  UNKNOWN,
+  type PowerFiles
 } from './powerstate.ts'
 
 /**
@@ -209,6 +210,17 @@ describe('the parsers', () => {
   })
 })
 
+const NO_FILES: PowerFiles = {
+  cpuGovernor: null,
+  cpuCur: null,
+  cpuMax: null,
+  gpuGovernor: null,
+  gpuCur: null,
+  gpuMax: null,
+  profileConf: null,
+  perfState: null
+}
+
 describe("Armada's own report", () => {
   test('names the profile from its profile= line', () => {
     const status = [
@@ -231,12 +243,32 @@ describe("Armada's own report", () => {
   test("wins over the clocks' inference when asked for, and the clocks stand when it fails", async () => {
     const root = tree(nova('balanced'))
     const told = await readPowerState(root, { status: async () => 'profile=eco\n' })
-    assert.equal(told.profile, 'eco')
+    assert.equal(told.profile, 'Eco')
     assert.equal(told.cpuGovernor, 'conservative')
     const silent = await readPowerState(root, { status: async () => null })
     assert.equal(silent.profile, 'Balanced')
     const broken = await readPowerState(root, { status: () => Promise.reject(new Error('dbus')) })
     assert.equal(broken.profile, 'Balanced')
+  })
+
+  test('is named by the label its section gives, as the inference names it', () => {
+    const files = { ...NO_FILES, profileConf: CONF }
+    assert.equal(powerState({ ...files, armadaStatus: 'profile=balanced\n' }).profile, 'Balanced')
+    assert.equal(
+      powerState({ ...files, armadaStatus: 'profile=Performance\n' }).profile,
+      'Performance'
+    )
+    // A profile the file does not define, or no file, keeps the name status gave.
+    assert.equal(powerState({ ...files, armadaStatus: 'profile=turbo\n' }).profile, 'turbo')
+    const bare = '[profile.quiet]\ncpu_governor=powersave\n'
+    assert.equal(
+      powerState({ ...files, profileConf: bare, armadaStatus: 'profile=quiet' }).profile,
+      'quiet'
+    )
+    assert.equal(
+      powerState({ ...files, profileConf: null, armadaStatus: 'profile=eco' }).profile,
+      'eco'
+    )
   })
 
   test('a machine without armada-power answers null', async () => {
