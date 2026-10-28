@@ -3918,3 +3918,17 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: READY-FOR-DEVICE M1-24 (`auth.storage`). M1-24 stays false.
 - Next: the next eligible feature from `next.mjs`.
+
+## 2026-10-28 15:02 UTC session 0178hDCDB6R83F4JiCLZnzkF (hourly heartbeat, second unit)
+
+- Device results: unchanged since the entry above. No lock.
+- Previous unit: #363 (M1-24 part 3, `auth.storage`) merged at 0720b0c. CI wall time: x64 8:57, arm64 1:00.
+- Worked on: M1-25 part 1 (tracking issue #364), acceptance line 1.
+- Result: PR (this one).
+  - `assetRequestPath` (`src/main/app.ts`): RomM 5.2.0's `path_manual` (`roms/<p>/<r>/manual/<id>.pdf`, relative to its resources folder) is fetched under `/assets/romm/resources/`; any other path must be an asset path or is refused. A path that climbs, as `..` or as `%2e` (which the URL parser resolves upwards after the check), is refused for manuals and assets alike.
+  - The fake RomM (`test/app/server.ts`) hands manuals out in 5.2.0's shape.
+- Evidence: `src/main/app.test.ts` 17/17 (manual served; `..`, `%2e%2e`, absolute and nested paths refused). `test/app/interface.test.ts` "the tab is a row, and pressing it hands the manual the screen" fails on the old `app.ts` (nothing asked the server for the manual) and passes now; the manual block 4/4. `scripts/agent/check.sh` green. No renderer change: no shots.
+- Evaluator: PASS on dfa0c7c (14 hostile inputs probed, all refused or kept under `/assets/`). Its house-style note on two test comments that read as history is fixed.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet; M1-25 is not READY-FOR-DEVICE until `manual.open` exists. M1-25 stays false.
+- Next: M1-25 part 2 needs Docker RomM (the daemon has not answered on these VMs); part 3, device check `manual.open`, can come first.

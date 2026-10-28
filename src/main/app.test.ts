@@ -45,15 +45,15 @@ test('a path the URL parser would climb with is refused as well', () => {
 })
 
 /**
- * RomM 5.2.0 hands a manual out relative to its resources folder, so the Manual
- * tab asked for a path the protocol refused and drew nothing.
+ * RomM 5.2.0 hands a manual out relative to its resources folder, so a manual
+ * path is the one this protocol has to map rather than pass through.
  */
 test('a manual RomM holds is served from under its resources root', () => {
   assert.equal(
     assetRequestPath('roms/3/14/manual/14.pdf'),
     '/assets/romm/resources/roms/3/14/manual/14.pdf'
   )
-  // Everything an asset path already was stays as it was.
+  // An asset path is passed through unchanged.
   assert.equal(
     assetRequestPath('/assets/romm/resources/roms/1/cover/small.png'),
     '/assets/romm/resources/roms/1/cover/small.png'
