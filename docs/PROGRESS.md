@@ -3947,3 +3947,17 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: READY-FOR-DEVICE M1-25 (`manual.open`) for lines 1 and 3; line 2 (Docker RomM manual upload) still needs a VM whose Docker daemon answers. M1-25 stays false.
 - Next: M1-25 part 2 when Docker answers; otherwise the next eligible feature from `next.mjs`.
+
+## 2026-10-28 16:26 UTC session 0178hDCDigTiJHAjVEpPvGtG (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. No open PRs, no lock, no `needs-human`. Main green. Docker's daemon was not running: started `dockerd` by hand; Docker Hub answered 429, so the VM's daemon pulls through `mirror.gcr.io` (VM config only, nothing in the repo).
+- Previous unit: #366 (M1-25 part 3, `manual.open`) merged at 1534c66. CI wall time: x64 9:21, arm64 1:02.
+- Worked on: M1-25 part 2 (tracking issue #364), acceptance line 2.
+- Result: PR (this one).
+  - `provision.mjs` uploads a one-page PDF (written in `lib.mjs`, `MANUAL_PDF`) for `MANUAL_ROM` through `POST /api/roms/{id}/manuals` unless the game has one. RomM reads it as a multipart form whose file field is named by `X-Upload-Filename` (a raw body gets a 500), and stores it as `<rom id>.pdf`.
+  - `client.real.ts` "a game's manual opens through the client": `path_manual` as served, mapped by `assetRequestPath`, fetched by `RommClient.asset`; one GET under `/assets/romm/resources/`, `application/pdf`, the uploaded bytes.
+- Evidence: `npm run test:romm` passed on v520 (66 s), v531 (98 s), v540 (94 s), the manual test on each. Provision re-tested after deleting the manual first: it uploads, and a re-run reuses it. `scripts/agent/check.sh` green. No renderer change: no shots.
+- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: READY-FOR-DEVICE M1-25 (all three lines now met in CI; `manual.open` waits on the device). M1-25 stays false.
+- Next: the next eligible feature from `next.mjs`; everything listed waits on the device, so stack-independent work or stop.
