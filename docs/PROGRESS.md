@@ -4035,3 +4035,16 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet; M1-29 stays false.
 - Next: M1-29 part 2, adding or updating Galleon's shortcut (Steam running refuses, backup first, same exe updates), from `install.sh --add-to-steam` and Settings.
+
+## 2026-10-28 21:56 UTC session 0178hDC9d9xeuMW78bpr4gqH (hourly heartbeat, second unit)
+
+- Device results: unchanged since the entry above. No lock.
+- Previous unit: #374 (M1-29 part 1) merged at 165666c. CI wall time (its PR run on b6cae81): x64 9:27, arm64 1:02.
+- Worked on: M1-29 part 2a (tracking issue #373), the logic behind acceptance lines 2 and 3; nothing calls it yet.
+- Result: PR (this one).
+  - `src/main/steam/addshortcut.ts`: `upsertShortcut` adds Galleon's entry after the owner's (index after the highest; Steam's own fields; appid as Steam computes it, so `config/grid/` art lines up), or updates in place the entry whose `Exe` matches: name, start dir, icon and launch options, keeping its appid, play time, tags, key case and unknown fields. A list without a `shortcuts` map is refused. `steamRunning`: a process whose `/proc/<pid>/comm` is `steam`, or the pid in `~/.steam/steam.pid` while that process lives; only process names, never command lines.
+- Evidence: `addshortcut.test.ts` 9/9: the owner's entries are byte for byte the same after an add and after an update; a second run updates rather than duplicates; lower-case keys and unknown fields are updated in place; the appid matches a textbook CRC-32 with the top bit set; Steam by name, by a live pid file, and not by a stale one. `scripts/agent/check.sh` green. No renderer change: no shots.
+- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet; M1-29 stays false.
+- Next: M1-29 part 2b, the file step (every user's list, a backup before writing, refused while Steam runs, art in `config/grid/`) from `install.sh --add-to-steam` and a Settings button; then part 3, `steam.shortcut-roundtrip`.
