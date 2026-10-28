@@ -110,11 +110,11 @@ interface Machine {
 }
 
 /** A HOME, a TMPDIR to prove untouched, and a PATH of only `TOOLS`. */
-function machine(arch = 'x86_64'): Machine {
+function machine(arch = 'x86_64', extra: string[] = []): Machine {
   const dir = scratch()
   const m = { home: join(dir, 'home dir'), tmp: join(dir, 'tmp'), bin: join(dir, 'bin') }
   for (const d of Object.values(m)) mkdirSync(d)
-  for (const tool of TOOLS) {
+  for (const tool of [...TOOLS, ...extra]) {
     const real = execFileSync('bash', ['-c', `command -v ${tool}`], { encoding: 'utf8' }).trim()
     if (tool === 'uname') {
       writeFileSync(join(m.bin, tool), `#!${join(m.bin, 'bash')}\necho ${arch}\n`, { mode: 0o755 })
@@ -336,6 +336,48 @@ describe('install.sh', () => {
       .replace(/["`$]/g, '\\\\$&')
       .replace(/%/g, '%%')
     assert.ok(readFileSync(entry, 'utf8').split('\n').includes(`Exec="${exec}"`))
+  })
+
+  describe('--add-to-steam', () => {
+    /** galleon-steam.sh's own needs, which a handheld has and install.sh does not use. */
+    const STEAM_SCRIPT_TOOLS = ['dirname', 'readlink']
+    /** An image that says how it was started and exits as `~/exit` says. */
+    const IMAGE =
+      '#!/bin/sh\necho "image started with: $*"\n[ -f "$HOME/exit" ] && exit "$(cat "$HOME/exit")"\nexit 0\n'
+
+    test('runs the installed app with the flag and, when it worked, prints no steps by hand', async () => {
+      stable = null
+      nightly = release('nightly', { ...images('n1'), 'Galleon-arm64.AppImage': IMAGE })
+      const m = machine('aarch64', STEAM_SCRIPT_TOOLS)
+      const run = await install(m, ['--nightly', '--add-to-steam'])
+      assert.equal(run.status, 0, run.stderr)
+      assert.match(run.stdout, /image started with: --add-to-steam$/m)
+      assert.doesNotMatch(run.stdout, /Add a Non-Steam Game/)
+    })
+
+    test('when the app refuses (Steam running), the install stands, the steps follow and the status is the app’s', async () => {
+      stable = null
+      nightly = release('nightly', { ...images('n1'), 'Galleon-arm64.AppImage': IMAGE })
+      const m = machine('aarch64', STEAM_SCRIPT_TOOLS)
+      writeFileSync(join(m.home, 'exit'), '2')
+      const run = await install(m, ['--nightly', '--add-to-steam'])
+      assert.equal(run.status, 2)
+      assert.match(run.stdout, /image started with: --add-to-steam/)
+      assert.match(run.stdout, /not in Steam yet/)
+      assert.match(run.stdout, /Add a Non-Steam Game/)
+      assert.doesNotMatch(run.stdout, /run this again with --add-to-steam/)
+      assert.ok(existsSync(join(m.home, APPS, 'Galleon-arm64.AppImage')))
+    })
+
+    test('without the flag the app is never started, and the flag is offered', async () => {
+      stable = null
+      nightly = release('nightly', { ...images('n1'), 'Galleon-arm64.AppImage': IMAGE })
+      const m = machine('aarch64', STEAM_SCRIPT_TOOLS)
+      const run = await install(m, ['--nightly'])
+      assert.equal(run.status, 0, run.stderr)
+      assert.doesNotMatch(run.stdout, /image started/)
+      assert.match(run.stdout, /run this again with --add-to-steam/)
+    })
   })
 
   test('the script never names sudo', () => {

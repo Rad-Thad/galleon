@@ -1291,6 +1291,21 @@ export const de: Catalog = {
     'Plattform.',
   'launch.stoppedBeforeStart': 'Vor dem Start des Spiels abgebrochen',
   'steam.notInstalled': 'Dieses Steam-Spiel ist nicht mehr installiert.',
+  'steam.addSteamRunning':
+    'Steam läuft und schreibt seine Verknüpfungsliste beim Beenden neu. Beende Steam (Steam > Beenden) und führe dies dann erneut aus. Es wurde nichts geändert.',
+  'steam.addNoSteamUser':
+    'Kein Steam-Benutzer gefunden. Öffne Steam einmal und melde dich an, dann führe dies erneut aus. Es wurde nichts geändert.',
+  'steam.addDone_one': 'Galleon ist für {count} Steam-Benutzer in Steam.',
+  'steam.addDone_other': 'Galleon ist für {count} Steam-Benutzer in Steam.',
+  'steam.addUnreadable_one':
+    '{count} Steam-Verknüpfungsliste ließ sich nicht genau lesen und blieb unverändert.',
+  'steam.addUnreadable_other':
+    '{count} Steam-Verknüpfungslisten ließen sich nicht genau lesen und blieben unverändert.',
+  'steam.addNext': 'Öffne Steam: Galleon ist in deiner Bibliothek.',
+  'steam.addBackups':
+    'Die geänderten Listen wurden vorher daneben gesichert, als shortcuts.vdf.galleon-backup-*.',
+  'steam.addFailed':
+    'Das Hinzufügen von Galleon zu Steam wurde abgebrochen: {reason}. Jede bereits geänderte Liste hat daneben eine Sicherung.',
   'launch.badLaunchFile':
     "The emulator's launch file {name} cannot be written: it is not a plain file name", // TODO(i18n)
   'launch.badSettingsFile':

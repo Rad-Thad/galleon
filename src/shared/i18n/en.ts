@@ -1250,6 +1250,21 @@ export const en = {
     'another emulator for this platform on the Emulators screen.',
   'launch.stoppedBeforeStart': 'Stopped before the game started',
   'steam.notInstalled': 'That Steam game is no longer installed.',
+  'steam.addSteamRunning':
+    'Steam is running, and it rewrites its shortcut list when it quits. Quit Steam (Steam > Exit), then run this again. Nothing was changed.',
+  'steam.addNoSteamUser':
+    'No Steam user was found. Open Steam once and sign in, then run this again. Nothing was changed.',
+  'steam.addDone_one': 'Galleon is in Steam for {count} Steam user.',
+  'steam.addDone_other': 'Galleon is in Steam for {count} Steam users.',
+  'steam.addUnreadable_one':
+    '{count} Steam shortcut list could not be read exactly, so it was left as it was.',
+  'steam.addUnreadable_other':
+    '{count} Steam shortcut lists could not be read exactly, so they were left as they were.',
+  'steam.addNext': 'Open Steam: Galleon is in your library.',
+  'steam.addBackups':
+    'The lists it changed were copied beside themselves first, as shortcuts.vdf.galleon-backup-*.',
+  'steam.addFailed':
+    'Adding Galleon to Steam stopped: {reason}. Each list already changed has a backup beside it.',
   'launch.badLaunchFile':
     "The emulator's launch file {name} cannot be written: it is not a plain file name",
   'launch.badSettingsFile':

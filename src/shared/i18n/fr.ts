@@ -1276,6 +1276,21 @@ export const fr: Catalog = {
     'ou choisissez un autre émulateur pour cette plateforme sur l’écran Émulateurs.',
   'launch.stoppedBeforeStart': 'Arrêté avant le démarrage du jeu',
   'steam.notInstalled': "Ce jeu Steam n'est plus installé.",
+  'steam.addSteamRunning':
+    "Steam est ouvert, et il réécrit sa liste de raccourcis en quittant. Quittez Steam (Steam > Quitter), puis relancez cette commande. Rien n'a été modifié.",
+  'steam.addNoSteamUser':
+    "Aucun utilisateur Steam trouvé. Ouvrez Steam une fois et connectez-vous, puis relancez cette commande. Rien n'a été modifié.",
+  'steam.addDone_one': 'Galleon est dans Steam pour {count} utilisateur Steam.',
+  'steam.addDone_other': 'Galleon est dans Steam pour {count} utilisateurs Steam.',
+  'steam.addUnreadable_one':
+    "{count} liste de raccourcis Steam n'a pas pu être lue exactement : elle a été laissée telle quelle.",
+  'steam.addUnreadable_other':
+    "{count} listes de raccourcis Steam n'ont pas pu être lues exactement : elles ont été laissées telles quelles.",
+  'steam.addNext': 'Ouvrez Steam : Galleon est dans votre bibliothèque.',
+  'steam.addBackups':
+    "Les listes modifiées ont d'abord été copiées à côté, sous le nom shortcuts.vdf.galleon-backup-*.",
+  'steam.addFailed':
+    "L'ajout de Galleon à Steam s'est arrêté : {reason}. Chaque liste déjà modifiée a une sauvegarde à côté.",
   'launch.badLaunchFile':
     "The emulator's launch file {name} cannot be written: it is not a plain file name", // TODO(i18n)
   'launch.badSettingsFile':

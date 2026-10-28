@@ -4062,3 +4062,18 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR). The first x64 leg failed at `features-check.mjs` only: the PR had no PROGRESS entry yet.
 - Device / acceptance: none yet; M1-29 stays false.
 - Next: M1-29 part 2c, the app's `--add-to-steam` entry and `install.sh --add-to-steam` (instructions when Steam runs); then the Settings button; then `steam.shortcut-roundtrip`.
+
+## 2026-10-28 22:58 UTC session 0178hDCBP5vqiY6UZebycvJq (hourly heartbeat, second unit)
+
+- Device results: unchanged since the entry above. No lock.
+- Previous unit: #376 (M1-29 part 2b) merged at 8d8e66c. CI wall time (its PR run on 1d8ce6e): x64 8:10, arm64 1:06.
+- Worked on: M1-29 part 2c (tracking issue #373), acceptance line 2's "the tool exits with instructions instead of writing".
+- Result: PR (this one).
+  - `src/main/steam/addtosteamcli.ts`: the app started with `--add-to-steam` takes no lock and opens no window. It writes Galleon's shortcut and prints, in the owner's language, what happened. Exe is `~/Applications/galleon-steam.sh` in quotes and start dir `~/Applications/`. Launch options go through `armada-game-launch` only where that file exists. The icon is install.sh's menu icon. Each outcome has its own exit code. The output counts users and never names one (their folders are Steam account numbers).
+  - `install.sh --add-to-steam`: after installing, runs the installed Steam script with the flag. If that fails, the install stands, the steps by hand follow, and the exit status is the app's. Without the flag, the steps end by offering it.
+  - Seven new messages (nine keys with plurals) in all four catalogues, translated.
+- Evidence: `addtosteamcli.test.ts` 9/9. `npm run test:install` 12/12 (3 new: the flag runs the app and prints no steps; a refusal keeps the install, prints the steps and exits 2; without the flag the app never starts). The built app was run with `--add-to-steam` under Xvfb against a temporary HOME with one Steam user and no list. It made the list, then a second run left it unchanged (exit 0 both times, no backup since nothing was replaced). `scripts/agent/check.sh` green; `npm run test:app` 287/287 (Electron through a `--no-sandbox` wrapper as root). README's Install section names the flag. No renderer change: no shots.
+- Evaluator: FAIL on e0d77eb. A failed write printed the Node error's message, and that message holds the path under `userdata/<account number>` (rail 1). Fixed: a failure is said by its error code, and any other message loses its paths. A test throws a real-shaped EISDIR carrying such a path. For part 3, from its notes: this path uses the system language, not the one chosen in Settings; once the Settings button also writes `shortcuts.vdf`, a run started from the terminal beside it could race it (each write is a rename, so the worst case is one lost update). Its README note is taken: the Install section names the flag. Then PASS on 6ff6684: it rebuilt the failure for real (a directory at the partial path under a made-up account number), and the built app printed only "EISDIR" and exited 4; six fault injections were all caught. Left as notes: `reasonOf` strips only slash-led paths from a message with no code, and no such message exists in `addToSteam` today; the flag still creates Electron's own profile in `~/.config/Galleon`, not Galleon's root.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet; M1-29 stays false. The grid art waits for the Settings part: the only art there is the square icon.
+- Next: M1-29 part 3, a Settings button when Steam is not running; then device check `steam.shortcut-roundtrip`.
