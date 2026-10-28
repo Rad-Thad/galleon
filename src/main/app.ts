@@ -81,6 +81,28 @@ function climbs(path: string): boolean {
   return /\.\.|%2e/i.test(path)
 }
 
+/**
+ * Chromium's own PDF viewer, which is a component extension under this origin.
+ * It draws a manual in a frame of its own inside the one the page made.
+ */
+export const PDF_VIEWER_ORIGIN = 'chrome-extension://mhjfbmdgcfjbbpaeojofohoefgiehjai'
+
+/**
+ * Whether a frame inside the interface may go to `url`.
+ *
+ * The page's own document, a manual on RomMix's own scheme, and the PDF
+ * viewer's own pages. The viewer puts the document it was handed into a frame
+ * of its origin; refused, that frame never loads and the manual is an empty
+ * rectangle for good. Its pages are Chromium's and draw only what the frame
+ * above them fetched over RomMix's scheme, so nothing from outside comes in.
+ * Anything else is refused: a link inside a manual cannot leave.
+ */
+export function frameMayNavigate(url: string, document: string): boolean {
+  if (url === document) return true
+  if (url.startsWith(`${IMAGE_SCHEME}:`)) return true
+  return url.startsWith(`${PDF_VIEWER_ORIGIN}/`)
+}
+
 /** Where RomM's static mount serves what it keeps under its resources folder. */
 const RESOURCES_ROOT = '/assets/romm/resources/'
 
@@ -835,24 +857,11 @@ export class RomMixApp {
      * `will-frame-navigate` sees those — so without this the "cannot navigate
      * away" below is true of the window and not of everything in it. The preload
      * is not injected into subframes, so the bridge is out of reach either way;
-     * what this keeps out is remote content loading inside the interface.
+     * what this keeps out is remote content loading inside the interface. See
+     * `frameMayNavigate` for what may load.
      */
     window.webContents.on('will-frame-navigate', (event) => {
-      if (event.url === window.webContents.getURL()) return
-      /**
-       * The manual, which is what the frame is there to draw.
-       *
-       * It is the one navigation inside the interface that is not the
-       * interface: a frame pointed at RomMix's own scheme, whose handler
-       * serves asset paths and refuses everything else — see `isAssetPath`.
-       * Refusing it here refuses the manual itself, so the frame stays empty,
-       * nothing is ever fetched, and the tab opens onto nothing at all.
-       *
-       * A link inside the PDF still cannot leave: anything but this scheme
-       * falls through to the refusal below, and a target within it can only be
-       * another asset off the user's own server.
-       */
-      if (event.url.startsWith(`${IMAGE_SCHEME}:`)) return
+      if (frameMayNavigate(event.url, window.webContents.getURL())) return
       log.warn('window', 'refused to navigate a frame away from the interface', { url: event.url })
       event.preventDefault()
     })

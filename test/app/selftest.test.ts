@@ -23,6 +23,7 @@ import { IDLE_MS, PROFILE_SET, SCROLL_MS, WANT_PROFILE } from '../../src/main/se
 import { POWER_READ_CHECK } from '../../src/main/selftestpower.ts'
 import { POWER_HINT_CHECK, hintShot } from '../../src/main/selftesthint.ts'
 import { CAP_BYTES, PROGRESS_CHECK } from '../../src/main/selftestprogress.ts'
+import { MANUAL_CHECK, MANUAL_SHOT, MOSAIC_WIDTH } from '../../src/main/selftestmanual.ts'
 import {
   REQUEST_FILE,
   RUN_CHECKS,
@@ -630,6 +631,36 @@ test('auth.storage finds the token owner-only in the test home and signs in agai
     const published = JSON.stringify(summary)
     assert.ok(!published.includes(server.token))
     assert.ok(!published.includes(new URL(server.baseUrl).host))
+  } finally {
+    await server.close()
+  }
+})
+
+test("manual.open opens a game's manual from the Library, and its first page draws", async () => {
+  const server = await startFakeRomm()
+  try {
+    const { code, results } = await runWithRequest(
+      { ...REQUEST, checks: [RUN_CHECKS.complete, MANUAL_CHECK] },
+      server
+    )
+    assert.equal(code, 0)
+    const summary = JSON.parse(readFileSync(join(results, SUMMARY_FILE), 'utf8')) as Summary
+    assert.deepEqual(summaryErrors(summary), [])
+    const check = summary.checks.find((c) => c.id === MANUAL_CHECK)
+    assert.equal(check?.result, 'pass', `${check?.reason} ${JSON.stringify(check?.metrics)}`)
+    assert.deepEqual(check?.evidence, [MANUAL_SHOT])
+    // Shrunk past reading: the manual is of a game in the owner's library.
+    const shot = readFileSync(join(results, MANUAL_SHOT))
+    assert.equal(shot.readUInt32BE(16), MOSAIC_WIDTH)
+    // The manual itself was fetched, under RomM's resources root.
+    const manual = server.roms.find((one) => one.has_manual)?.path_manual
+    assert.ok(server.asked.some((a) => a.path === `/assets/romm/resources/${manual}`))
+    const verdicts = new Map(summary.checks.map((c) => [c.id, c.result]))
+    assert.equal(verdicts.get(RUN_CHECKS.serverReadOnly), 'pass')
+    assert.deepEqual(
+      server.asked.filter((a) => a.method !== 'GET' && a.method !== 'HEAD'),
+      []
+    )
   } finally {
     await server.close()
   }
