@@ -4,7 +4,8 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { after, describe, test } from 'node:test'
 import { POWER_HINT_NOTICE } from '@shared/types'
-import { startScenario, type Scenario } from './harness.ts'
+import { startApp, type App } from './driver.ts'
+import { startFakeRomm } from './server.ts'
 
 /**
  * M1-16: the power profile hint, against a folder of Armada's files standing
@@ -15,10 +16,10 @@ import { startScenario, type Scenario } from './harness.ts'
 const FIXTURES = join(import.meta.dirname, '..', '..', 'src', 'main', 'fixtures', 'armada')
 const POLICY = 'sys/devices/system/cpu/cpufreq/policy7'
 const roots: string[] = []
-const scenarios: Scenario[] = []
+const stops: (() => Promise<void>)[] = []
 
 after(async () => {
-  for (const scenario of scenarios) await scenario.stop()
+  for (const stop of stops) await stop()
   for (const root of roots) rmSync(root, { recursive: true, force: true })
 })
 
@@ -44,10 +45,22 @@ function setProfile(root: string, profile: 'balanced' | 'performance'): void {
   write(root, `${POLICY}/scaling_max_freq`, balanced ? '2092800\n' : '2956800\n')
 }
 
-async function start(root: string | null): Promise<Scenario> {
-  const scenario = await startScenario(root ? { env: { GALLEON_POWER_ROOT: root } } : {})
-  scenarios.push(scenario)
-  return scenario
+/**
+ * Not `startScenario`: it waits for Home to take the focus, and on Balanced
+ * the hint has it. Kept for `after` before anything is waited on, so a wait
+ * that fails still shuts the app down.
+ */
+async function start(root: string | null): Promise<{ app: App }> {
+  const server = await startFakeRomm()
+  stops.push(() => server.close().catch(() => undefined))
+  const app = await startApp({
+    baseUrl: server.baseUrl,
+    token: server.token,
+    ...(root ? { env: { GALLEON_POWER_ROOT: root } } : {})
+  })
+  stops.push(() => app.stop())
+  await app.waitFor(`document.querySelector('[data-screen="home"]')`, 'the home screen')
+  return { app }
 }
 
 const HINT = `document.querySelector('[data-power-hint]')`

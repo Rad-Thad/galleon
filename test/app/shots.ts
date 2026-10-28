@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { SHARED_LIBRARY } from '@shared/types'
@@ -519,6 +519,44 @@ async function cardMissing(): Promise<void> {
 }
 
 /**
+ * The power profile hint (M1-16), over Home on a Nova left on Balanced. The
+ * power files are a folder standing in for `/`, since the machine taking the
+ * pictures is not armadaOS.
+ */
+async function powerHint(): Promise<void> {
+  const root = join(HOMES, 'power-root')
+  rmSync(root, { recursive: true, force: true })
+  mkdirSync(join(root, 'usr/share/armada'), { recursive: true })
+  cpSync(
+    resolve('src/main/fixtures/armada/power-profiles.conf'),
+    join(root, 'usr/share/armada/power-profiles.conf')
+  )
+  const policy = join(root, 'sys/devices/system/cpu/cpufreq/policy7')
+  mkdirSync(policy, { recursive: true })
+  writeFileSync(join(policy, 'scaling_governor'), 'conservative\n')
+  writeFileSync(join(policy, 'scaling_cur_freq'), '595200\n')
+  writeFileSync(join(policy, 'scaling_max_freq'), '2092800\n')
+
+  const server = await startFakeRomm()
+  const app = await startApp({
+    baseUrl: server.baseUrl,
+    token: server.token,
+    viewport: NOVA,
+    home: join(HOMES, 'power-hint'),
+    env: { GALLEON_POWER_ROOT: root }
+  })
+  try {
+    await attempt('power-hint', async () => {
+      await app.waitFor(`document.querySelector('[data-power-hint]')`, 'the power hint')
+      await shoot(app, 'power-hint')
+    })
+  } finally {
+    await app.stop()
+    await server.close().catch(() => undefined)
+  }
+}
+
+/**
  * Changing the library folder (M1-10): the confirmation, with what would move
  * and its size, asked before anything does. The library starts in a folder of
  * its own so the root's own folder is the one on offer.
@@ -692,6 +730,7 @@ if (wanted('game-card-missing')) await cardMissing()
 if (wanted('settings-library-move')) await libraryMove()
 if (wanted('settings-stock')) await stockLibrary()
 if (wanted('library-steam') || wanted('running-steam')) await steamRunning()
+if (wanted('power-hint')) await powerHint()
 await setup()
 contactSheet()
 
