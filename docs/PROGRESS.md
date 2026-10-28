@@ -3894,3 +3894,14 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet. M1-24 stays false.
 - Next: M1-24 part 3, device check `auth.storage` (line 4); flaky #359 falls due after it.
+
+## 2026-10-28 14:15 UTC session 0178hDCDbKh4Hrd9FWVBHSoi (hourly heartbeat, second unit)
+
+- Device results: unchanged since the entry above. No lock.
+- Previous unit: #361 (M1-24 part 2) merged at 27309eb. CI wall time: x64 9:08, arm64 1:02.
+- Worked on: flaky #359, "finding a release is enough to start fetching it" (`src/main/updater.test.ts`).
+- Root cause: the test waited a fixed time for the background download, then asserted `ready`; on a busy VM the download was still running. It now waits for the updater's own report (`ready` or `error`, through the status callback), with `SETTLE_TIMEOUT_MS` as a backstop that fails instead of hanging.
+- Evidence: with the image response held back 200 ms, the old test fails (`actual: 'downloading'`) and the new one passes. `scripts/agent/check.sh` green.
+- Evaluator: PASS on 9dc95d1 (same behaviour asserted; `ready` is reported only after the image is written; cannot hang).
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Next: M1-24 part 3, device check `auth.storage` (line 4).

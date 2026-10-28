@@ -814,19 +814,43 @@ describe('the launcher beside the image', () => {
   })
 })
 
+/**
+ * A backstop for a transfer that never reports an end, so a broken updater
+ * fails the test instead of hanging the run. Far above how long the transfer
+ * takes, since it is not a measure of speed.
+ */
+const SETTLE_TIMEOUT_MS = 10_000
+
 describe('with updates left on automatic', () => {
   test('finding a release is enough to start fetching it', async () => {
     const running = join(scratch(), image)
     process.env.APPIMAGE = running
-    const { updater: subject } = updater('auto')
+    const store = new Store(join(scratch(), 'config'))
+    store.updateSettings({ updates: 'auto', updatePrereleases: false })
+    // Started rather than awaited: the check answers the version question as
+    // soon as it can, and the transfer runs on behind it. So the test waits on
+    // the updater's own report that the transfer settled, not on a clock that
+    // a busy machine can outrun.
+    let settle: (status: UpdateStatus) => void = () => {}
+    const settled = new Promise<UpdateStatus>((resolve, reject) => {
+      const deadline = setTimeout(
+        () => reject(new Error('the transfer never settled')),
+        SETTLE_TIMEOUT_MS
+      )
+      settle = (status) => {
+        clearTimeout(deadline)
+        resolve(status)
+      }
+    })
+    const subject = new Updater(store, (status) => {
+      if (status.state === 'ready' || status.state === 'error') settle(status)
+    })
     serve((url) => (url.includes('api') ? release('v1.2.0', [image]) : new Response(BODY)))
 
     await subject.check()
-    // Started rather than awaited: the check answers the version question as
-    // soon as it can, and the transfer runs on behind it.
-    await new Promise((resolve) => setTimeout(resolve, 50))
+    const final = await settled
 
-    assert.equal(subject.status.state, 'ready')
+    assert.equal(final.state, 'ready', final.error ?? undefined)
     assert.equal(readFileSync(running, 'utf8'), BODY)
   })
 })
