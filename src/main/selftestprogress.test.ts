@@ -321,6 +321,35 @@ describe('download.progress', () => {
     assert.equal(h.items[0].state, 'cancelled')
     assert.ok(!existsSync(`${h.target}.part`))
   })
+
+  test('the cap calling the transfer off while X is answered is never credited to X', async () => {
+    const h = harness(rom(7, 3800 * MB), { rate: 95 * MB, xAnswered: false })
+    const sleep = h.deps.clock!.sleep
+    h.deps.page.pressX = (romId) =>
+      new Promise((done) => {
+        h.xPresses.push(romId)
+        const until = h.deps.clock!.now() + 800
+        h.deps.clock!.sleep = async (step) => {
+          await sleep(step)
+          if (h.deps.clock!.now() >= until) done(null)
+        }
+      })
+    const { check } = await run(h)
+    assert.equal(check.result, 'fail')
+    assert.equal(check.reason, PROGRESS_FAILED.cap)
+  })
+
+  test('a run stopped while the page answers skips', async () => {
+    const h = harness(rom(7, 3800 * MB))
+    const stop = new AbortController()
+    h.deps.page.focusRow = () => {
+      stop.abort()
+      return new Promise(() => undefined)
+    }
+    const { check } = await run(h, stop.signal)
+    assert.equal(check.result, 'skip')
+    assert.equal(check.reason, PROGRESS_FAILED.aborted)
+  })
 })
 
 describe('the pieces', () => {

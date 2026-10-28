@@ -87,9 +87,6 @@ export const PROGRESS_FAILED = {
   partLeft: 'part-left'
 } as const
 
-/** What `meanwhile` answers for a page call that never came back. */
-const SILENT = Symbol('silent')
-
 /** Listings asked for per page while looking for the game. */
 const PAGE = 250
 
@@ -234,28 +231,33 @@ export function progressScenario(deps: ProgressDeps): Scenario {
       }
     }
 
+    type Verdict = [CheckResult['result'], string | null]
     /**
      * A call into the page, with the bytes looked at all the while. The cap is
      * only as good as the looks, and the transfer runs on while the page
-     * answers; one that has not answered within `PAGE_MS` is given up on.
+     * answers; one that has not answered within `PAGE_MS` is given up on. A
+     * transfer the cap called off meanwhile is the cap's doing, never the
+     * page's: X must not be credited with it.
      */
-    const meanwhile = async <T>(call: Promise<T>): Promise<T | typeof SILENT> => {
-      const answer: { value?: T; settled: boolean } = { settled: false }
+    const meanwhile = async <T>(call: Promise<T>): Promise<{ value: T } | { stop: Verdict }> => {
+      const answer: { value?: T; failed?: boolean; settled: boolean } = { settled: false }
       void call.then(
         (value) => Object.assign(answer, { value, settled: true }),
-        () => Object.assign(answer, { value: null, settled: true })
+        () => Object.assign(answer, { failed: true, settled: true })
       )
       const until = clock.now() + PAGE_MS
       for (;;) {
-        if (answer.settled) return answer.value as T
-        if (signal.aborted) return null as T
-        if (clock.now() >= until) return SILENT
+        if (signal.aborted) return { stop: ['skip', PROGRESS_FAILED.aborted] }
+        if (capped) return { stop: ['fail', PROGRESS_FAILED.cap] }
+        if (answer.failed) return { stop: ['fail', PROGRESS_FAILED.pageSilent] }
+        if (answer.settled) return { value: answer.value as T }
+        if (clock.now() >= until) return { stop: ['fail', PROGRESS_FAILED.pageSilent] }
         await clock.sleep(LOOK_MS)
         look()
       }
     }
 
-    const verdict = await (async (): Promise<[CheckResult['result'], string | null]> => {
+    const verdict = await (async (): Promise<Verdict> => {
       try {
         await deps.downloads.enqueue(rom)
       } catch (cause) {
@@ -265,9 +267,9 @@ export function progressScenario(deps: ProgressDeps): Scenario {
       const started = clock.now()
       // The highlight goes to the row while the server gets going, so the
       // press later costs no time against the cap.
-      const unfocused = await meanwhile(deps.page.focusRow(id))
-      if (unfocused === SILENT) return ['fail', PROGRESS_FAILED.pageSilent]
-      if (capped) return ['fail', PROGRESS_FAILED.cap]
+      const focused = await meanwhile(deps.page.focusRow(id))
+      if ('stop' in focused) return focused.stop
+      const unfocused = focused.value
 
       while (looks.length === 0 && clock.now() - started < FIRST_BYTE_MS) {
         if (signal.aborted) return ['skip', PROGRESS_FAILED.aborted]
@@ -307,18 +309,17 @@ export function progressScenario(deps: ProgressDeps): Scenario {
         metrics.timeLeftOffPct = timeOff
         if (reading === 0) {
           const line = await meanwhile(deps.page.line(id))
-          if (line === SILENT) return ['fail', PROGRESS_FAILED.pageSilent]
-          if (capped) return ['fail', PROGRESS_FAILED.cap]
-          if (!lineHasSpeed(line)) return ['fail', PROGRESS_FAILED.line]
+          if ('stop' in line) return line.stop
+          if (!lineHasSpeed(line.value)) return ['fail', PROGRESS_FAILED.line]
         }
       }
       if (speedOff > TOLERANCE_PCT) return ['fail', PROGRESS_FAILED.speed]
       if (timeOff > TOLERANCE_PCT) return ['fail', PROGRESS_FAILED.timeLeft]
 
       const pressed = clock.now()
-      const unpressed = await meanwhile(deps.page.pressX(id))
-      if (unpressed === SILENT) return ['fail', PROGRESS_FAILED.pageSilent]
-      if (unpressed !== null) return ['fail', `${PROGRESS_FAILED.notFocused}:${unpressed}`]
+      const press = await meanwhile(deps.page.pressX(id))
+      if ('stop' in press) return press.stop
+      if (press.value !== null) return ['fail', `${PROGRESS_FAILED.notFocused}:${press.value}`]
       while (item()?.state !== 'cancelled' && clock.now() - pressed < CANCEL_MS) {
         look()
         if (capped) return ['fail', PROGRESS_FAILED.cap]
