@@ -162,6 +162,17 @@ describe('the settings screen', () => {
     )
   })
 
+  test('it says where the token is kept and how to revoke it', async () => {
+    const kept = await app.read<string | null>(
+      `document.querySelector('[data-token-kept]')?.textContent ?? null`
+    )
+    assert.equal(kept, 'In a file only your user can read (not encrypted)')
+    await app.waitFor(
+      `document.querySelector('[data-screen="settings"]').textContent.includes('revoke its token in RomM under Administration → Client tokens')`,
+      'how to revoke the token'
+    )
+  })
+
   test('and its other two tabs are reachable from the shoulder buttons', async () => {
     // Everything RomMix can be told to do that is not about one game lives
     // behind this strip — where the library goes, which emulator runs what.

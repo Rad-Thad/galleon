@@ -751,6 +751,10 @@ export const fr: Catalog = {
   'settings.address': 'Adresse',
   'settings.signedInAs': 'Connecté en tant que',
   'settings.rommVersion': 'Version de RomM',
+  'settings.tokenKept': 'Connexion conservée',
+  'settings.tokenKeptValue': 'Dans un fichier que seul votre utilisateur peut lire (non chiffré)',
+  'settings.tokenRevoke':
+    'Si cet appareil est perdu, révoquez son jeton dans RomM sous Administration → Client tokens, ou changez votre mot de passe si vous vous êtes connecté avec.',
   'settings.missingScopes':
     "Cette connexion n'a pas toutes les permissions dont Galleon a besoin : {scopes}. Reconnectez-vous pour les accorder.",
   'settings.disconnect': 'Se déconnecter',

@@ -752,6 +752,10 @@ export const en = {
   'settings.address': 'Address',
   'settings.signedInAs': 'Signed in as',
   'settings.rommVersion': 'RomM version',
+  'settings.tokenKept': 'Sign-in kept',
+  'settings.tokenKeptValue': 'In a file only your user can read (not encrypted)',
+  'settings.tokenRevoke':
+    'If this device is lost, revoke its token in RomM under Administration → Client tokens, or change your password if you signed in with it.',
   'settings.missingScopes':
     'This sign-in is missing permissions Galleon needs: {scopes}. Sign in again to grant them.',
   'settings.disconnect': 'Disconnect',
