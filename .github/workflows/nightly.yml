@@ -108,9 +108,9 @@ jobs:
 
       - run: npm run test:app
 
-      # Too long for a pull request's leg: a minute of the application left
-      # alone on Home, its CPU time added up (test/app/idle.nightly.ts). Its
-      # budget was measured on x64.
+      # Too long for a pull request's leg: the application left alone on Home
+      # for a long window, its CPU time added up (test/app/idle.nightly.ts).
+      # Its budget was measured on x64.
       - if: matrix.arch == 'x64'
         run: npm run test:app:nightly
 

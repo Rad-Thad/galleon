@@ -27,8 +27,8 @@ const IDLE_MS = 60_000
 const SETTLE_MS = 10_000
 /**
  * What the whole application spent over the window, in seconds of CPU, under
- * Xvfb on the development VM before anything was done about idle cost. M1-27
- * requires the budget below to come down to half of it.
+ * Xvfb on the development VM, measured as the starting point M1-27 cuts from.
+ * M1-27 requires the budget below to come down to half of it.
  */
 const BASELINE_S = 3.3
 /**
@@ -110,7 +110,12 @@ describe('idle', () => {
       .map(([pid, now]) => `${kind(pid)} ${((now - (start.get(pid) ?? 0)) / TICKS).toFixed(2)} s`)
       .join(', ')
     console.log(`idle CPU over ${IDLE_MS / 1000} s: ${seconds.toFixed(2)} s (${shares})`)
-    assert.ok(end.size > 1, 'the application should have more than one process')
+    // The renderer is most of the cost, so a tree that lost it (reparented
+    // under a sandbox helper, say) would pass while measuring little.
+    assert.ok(
+      [...end.keys()].some((pid) => kind(pid) === 'renderer'),
+      'the renderer should be among the processes counted'
+    )
     assert.ok(
       seconds <= IDLE_CPU_BUDGET_S,
       `the application spent ${seconds.toFixed(2)} s of CPU idle on Home, over the ` +

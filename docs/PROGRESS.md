@@ -3965,7 +3965,7 @@ Lines the tooling reads (exact forms):
 ## 2026-10-28 17:27 UTC session 0178hDCDcJEQ17YqzJ9Q483h (hourly heartbeat)
 
 - Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. No open PRs, no lock, no `needs-human`. Main green. `init.sh` stopped at Docker (daemon not answering); ran `npm ci` and `npx install-electron` by hand. Nothing in this unit needs Docker RomM.
-- Previous unit: #367 (M1-25 part 2) merged at 2f07b9c.
+- Previous unit: #367 (M1-25 part 2) merged at 2f07b9c. CI wall time: x64 9:28, arm64 2:25.
 - Worked on: M1-27 part 1 (tracking issue #368), acceptance line 1, the measurement.
 - Result: PR (this one).
   - `test/app/idle.nightly.ts`: the built app against the fake server, settled on Home, then left alone for a minute; the CPU time of its whole process tree is read from `/proc` (as `idle.cpu` will on the Nova) and held to a budget, with each process's share (`main`, `gpu-process`, `renderer`, …) logged. The budget is the measured baseline with room; part 2 cuts the cost and sets the budget to half the baseline.
@@ -3973,3 +3973,7 @@ Lines the tooling reads (exact forms):
   - `App.pid` (`test/app/driver.ts`): the process the run started, the root of the tree.
 - Baseline (VM, Xvfb, 4 runs): 3.37, 3.28, 3.44, 3.34 s of CPU per idle minute; renderer about 1.75 s, GPU process 0.85 s, main 0.75 s, zygotes and utility about 0.
 - Evidence: `npm run test:app:nightly` passes (output above). `scripts/agent/check.sh` green. No renderer change: no shots.
+- Evaluator: PASS on the final commit (see the PR); its first pass asked for this entry's CI lines, and noted that a lost renderer would under-count, so the test now requires a renderer among the processes counted.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet; M1-27 is not READY-FOR-DEVICE until `idle.cpu` exists. M1-27 stays false.
+- Next: M1-27 part 2, cut idle cost to half the baseline (the renderer first) and set the budget there.
