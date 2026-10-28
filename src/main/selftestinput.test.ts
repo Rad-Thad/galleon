@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import { runInNewContext } from 'node:vm'
+import { SELF_TEST_PAD } from './selftestidle.ts'
 import { AXIS_MOVED, inputProbe, watchInput } from './selftestinput.ts'
 
 /**
@@ -78,6 +79,24 @@ describe('inputProbe', () => {
     assert.equal(await looks([[pad([], trigger)], [pad([], trigger)]]), null)
     const moved = [AXIS_MOVED + 0.01, 0, -1, 0]
     assert.equal(await looks([[pad([], trigger)], [pad([], moved)]]), 1)
+  })
+
+  test("the self-test's own pad is passed over, while a real one beside it still counts", async () => {
+    const own = { ...pad([1]), [SELF_TEST_PAD]: true }
+    assert.equal(
+      await looks([
+        [own, pad()],
+        [own, pad()]
+      ]),
+      null
+    )
+    assert.equal(
+      await looks([
+        [own, pad()],
+        [own, pad([0])]
+      ]),
+      1
+    )
   })
 
   test('no Gamepad API, or one that throws, is no input', async () => {

@@ -1,0 +1,6 @@
+{
+  "idle.cpu": {
+    "cpuSeconds": 3,
+    "latencySlackMs": 50
+  }
+}
