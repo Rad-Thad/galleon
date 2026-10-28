@@ -28,6 +28,7 @@ function power(profile: string): PowerState {
     gpuCurHz: null,
     gpuMaxHz: null,
     profile,
+    profileId: profile.toLowerCase(),
     defaultProfile: 'unknown',
     perf: 'unknown'
   }

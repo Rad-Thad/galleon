@@ -61,6 +61,7 @@ function power(profile: string, extra: Partial<PowerState> = {}): PowerState {
     gpuCurHz: 680_000_000,
     gpuMaxHz: null,
     profile,
+    profileId: profile.toLowerCase(),
     defaultProfile: 'Balanced',
     perf: 'unknown',
     ...extra

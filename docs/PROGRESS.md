@@ -3760,3 +3760,17 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: READY-FOR-DEVICE M1-16 (`power.read`, `power.hint`). Lines 1 to 3 are met in CI. M1-16 stays false until both checks pass on the device.
 - Next: the hint title's profile label; then the next eligible feature from `next.mjs`.
+
+## 2026-10-28 05:27 UTC session 0178hDCA58ffgHZGRHmeQ6qk (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. No open PRs, no lock. `init.sh` stopped at Docker (daemon not answering); ran `npm ci` and `npx install-electron` by hand. Nothing in this unit needs RomM.
+- Previous unit: #348 (M1-16 part 3b, `power.hint`) merged at 6c53401. CI x64 9:15, arm64 1:07.
+- Worked on: M1-16 follow-up (tracking issue #344): the hint's title named the profile as `armada-power status` gives it ("balanced"), not by its label.
+- Result: PR (this one).
+  - `PowerState` carries the profile twice: `profileId`, its section name (as `armada-power status` gives it, or as `profileInForce` now infers it), and `profile`, the label from power-profiles.conf (`profileLabel`) that the hint, the overlay and the pre-flight row show. A name the file does not define, or a section without a label, is shown as the name.
+  - Everything that decides by profile goes by `profileId`: the hint's slow profiles and profile last seen, `power.read`'s agreement with status, and the profile handshakes of `power.hint`, `grid.scroll` and `startup.cold`. The first evaluator run failed the label-only fix on exactly this: a label in `/etc/armada/power-profiles.conf` that differs from its section would have failed `power.read` and hidden the hint. A profile last seen kept by its label by an older build still matches, since names are compared without case.
+- Evidence: `src/main/powerstate.test.ts` "is shown by the label its section gives, and kept by the name status gave" failed first (`'balanced'` for `'Balanced'`); a relabelled Eco (`Battery saver`) keeps `profileId` `eco`. `powerhint.test.ts` "decides by the section name, whatever label the conf gives it"; `selftestpower.test.ts` "agrees by section name, whatever label the conf gives the profile". Power and self-test unit suites 101/101. `test/app/powerhint.test.ts` + `selftest.test.ts` + `perf.test.ts` 23/23 (Electron through a `--no-sandbox` wrapper as root). `scripts/agent/check.sh` green. No renderer change beyond the dev stub's new field: no shots.
+- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: READY-FOR-DEVICE M1-16 (`power.read`, `power.hint`) as before. M1-16 stays false.
+- Next: the next eligible feature from `next.mjs`.

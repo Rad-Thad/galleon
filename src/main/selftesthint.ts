@@ -82,10 +82,10 @@ export function powerHintScenario(deps: PowerHintDeps): Scenario {
     try {
       for (const profile of profiles) {
         if (signal.aborted) return result('skip', SKIP.aborted, metrics, evidence)
-        const now = (await deps.power()).profile.toLowerCase()
+        const now = (await deps.power()).profileId.toLowerCase()
         if (now !== profile) {
           const answer = await deps.askForProfile(profile, signal)
-          const after = (await deps.power()).profile.toLowerCase()
+          const after = (await deps.power()).profileId.toLowerCase()
           if (after !== profile) {
             metrics[`${profile}.profileObserved`] = after
             metrics[`${profile}.profileAnswer`] = answer

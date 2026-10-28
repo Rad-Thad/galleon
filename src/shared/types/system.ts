@@ -107,11 +107,17 @@ export interface PowerState {
   gpuCurHz: number | null
   gpuMaxHz: number | null
   /**
-   * The profile in force: as `armada-power status` names it where the caller
-   * asked it, else by its label as the machine's clocks show it. See
-   * `readPowerState` and `profileInForce`.
+   * The profile in force, by its label for the player to read. See
+   * `profileId` for the name it is compared by.
    */
   profile: string
+  /**
+   * The same profile by its section name in Armada's profile definitions: as
+   * `armada-power status` names it where the caller asked it, else as the
+   * machine's clocks show it. A label is the conf's to change, so whatever
+   * decides by profile goes by this. See `readPowerState` and `profileInForce`.
+   */
+  profileId: string
   /**
    * The profile Armada starts in, from its profile definitions: not
    * necessarily the one in force, which Steam may have switched.

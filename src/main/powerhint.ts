@@ -17,7 +17,7 @@ import { UNKNOWN } from './powerstate.ts'
  * no profile definition to read, it never shows.
  */
 
-/** Armada's profiles that hold the interface back, by section name or label. */
+/** Armada's profiles that hold the interface back, by section name. */
 export const SLOW_PROFILES = new Set(['balanced', 'eco'])
 
 export interface PowerHintDecision extends PowerHint {
@@ -31,8 +31,12 @@ export function decidePowerHint(
   dismissed: boolean
 ): PowerHintDecision {
   const onArmada = power.defaultProfile !== UNKNOWN
-  const profile = power.profile
-  if (!onArmada || profile === UNKNOWN || profile.toLowerCase() === seen.toLowerCase())
+  const { profile, profileId } = power
+  if (!onArmada || profileId === UNKNOWN || profileId.toLowerCase() === seen.toLowerCase())
     return { show: false, profile, seen }
-  return { show: !dismissed && SLOW_PROFILES.has(profile.toLowerCase()), profile, seen: profile }
+  return {
+    show: !dismissed && SLOW_PROFILES.has(profileId.toLowerCase()),
+    profile,
+    seen: profileId
+  }
 }

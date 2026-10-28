@@ -15,6 +15,7 @@ const BALANCED: PowerState = {
   gpuCurHz: 220_000_000,
   gpuMaxHz: 680_000_000,
   profile: 'Balanced',
+  profileId: 'balanced',
   defaultProfile: 'balanced',
   perf: 'global.gamescopeNice=-20'
 }

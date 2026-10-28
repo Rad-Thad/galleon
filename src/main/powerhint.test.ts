@@ -19,28 +19,42 @@ const ON_ARMADA: PowerState = {
   gpuCurHz: 220_000_000,
   gpuMaxHz: 680_000_000,
   profile: 'Balanced',
+  profileId: 'balanced',
   defaultProfile: 'balanced',
   perf: UNKNOWN
 }
-const on = (profile: string): PowerState => ({ ...ON_ARMADA, profile })
+const on = (profile: string, profileId = profile.toLowerCase()): PowerState => ({
+  ...ON_ARMADA,
+  profile,
+  profileId
+})
 
 describe('the power profile hint', () => {
   test('shows on Balanced and on Eco, and keeps the profile as seen', () => {
     assert.deepEqual(decidePowerHint(on('Balanced'), '', false), {
       show: true,
       profile: 'Balanced',
-      seen: 'Balanced'
+      seen: 'balanced'
     })
-    assert.equal(decidePowerHint(on('Eco'), 'Performance', false).show, true)
-    // armada-power status names profiles by their section, not their label.
-    assert.equal(decidePowerHint(on('balanced'), '', false).show, true)
+    assert.equal(decidePowerHint(on('Eco'), 'performance', false).show, true)
+  })
+
+  test('decides by the section name, whatever label the conf gives it', () => {
+    assert.deepEqual(decidePowerHint(on('Battery saver', 'eco'), '', false), {
+      show: true,
+      profile: 'Battery saver',
+      seen: 'eco'
+    })
+    assert.equal(decidePowerHint(on('Eco', 'turbo'), '', false).show, false)
+    // A profile seen by an older build, kept by its label, is the same profile.
+    assert.equal(decidePowerHint(on('Balanced'), 'Balanced', false).show, false)
   })
 
   test('not on Performance, nor on a profile Armada has no slow name for', () => {
-    assert.deepEqual(decidePowerHint(on('Performance'), 'Balanced', false), {
+    assert.deepEqual(decidePowerHint(on('Performance'), 'balanced', false), {
       show: false,
       profile: 'Performance',
-      seen: 'Performance'
+      seen: 'performance'
     })
     assert.equal(decidePowerHint(on('Relaxed'), '', false).show, false)
   })
@@ -57,16 +71,16 @@ describe('the power profile hint', () => {
   })
 
   test('a profile that cannot be named is no change, so the next read is not one either', () => {
-    const unread = decidePowerHint(on(UNKNOWN), 'Balanced', false)
-    assert.deepEqual(unread, { show: false, profile: UNKNOWN, seen: 'Balanced' })
+    const unread = decidePowerHint(on(UNKNOWN), 'balanced', false)
+    assert.deepEqual(unread, { show: false, profile: UNKNOWN, seen: 'balanced' })
     assert.equal(decidePowerHint(on('Balanced'), unread.seen, false).show, false)
   })
 
   test('never once dismissed for good, though the profile is still followed', () => {
-    assert.deepEqual(decidePowerHint(on('Balanced'), 'Performance', true), {
+    assert.deepEqual(decidePowerHint(on('Balanced'), 'performance', true), {
       show: false,
       profile: 'Balanced',
-      seen: 'Balanced'
+      seen: 'balanced'
     })
   })
 

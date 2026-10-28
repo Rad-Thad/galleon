@@ -86,6 +86,7 @@ const UNKNOWN_POWER: PowerState = {
   gpuCurHz: null,
   gpuMaxHz: null,
   profile: 'unknown',
+  profileId: 'unknown',
   defaultProfile: 'unknown',
   perf: 'unknown'
 }
