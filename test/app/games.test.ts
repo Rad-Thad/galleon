@@ -4,6 +4,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
   statSync,
@@ -986,6 +987,107 @@ describe('driving the queue from the activity tab', () => {
 
     // Left as the rest of the file expects to find it.
     await app.choose('[data-action="group-by-system"]')
+  })
+})
+
+/** How long a cancelled transfer has to take its `.part` file with it. */
+const PARTS_GONE_MS = 5000
+
+/** Every part-downloaded file under the application's home, by path. */
+function partFiles(): string[] {
+  return (readdirSync(app.home, { recursive: true }) as string[])
+    .filter((path) => path.endsWith('.part'))
+    .map((path) => join(app.home, path))
+}
+
+describe('X on the pad calls off the transfer it is on', () => {
+  after(() => server.slowGame.flow())
+
+  /** X, where a pad Chromium recognises puts it. */
+  const X = 2
+
+  /**
+   * Wait for the `.part` files to go. The row says cancelled as the press
+   * lands, and the file goes once the aborted transfer has unwound: see
+   * `DownloadManager.cancel`.
+   */
+  const partsGone = async (): Promise<void> => {
+    const until = Date.now() + PARTS_GONE_MS
+    while (partFiles().length > 0 && Date.now() < until) {
+      await new Promise((done) => setTimeout(done, 100))
+    }
+    assert.deepEqual(partFiles(), [], 'the part-downloaded file should be gone')
+  }
+
+  /** Start the slow game and leave it on the wire with part of it on disk. */
+  const partWay = async (): Promise<void> => {
+    server.slowGame.allow(PART_OF_THE_SLOW_GAME)
+    await app.goTo('library')
+    await app.choose('[data-rom="5"]')
+    await app.waitFor(`document.querySelector('[data-screen="game"]')`, 'the game screen')
+    await downloadAnyway(app)
+    await app.waitFor(
+      `(await window.rommix.downloads.list()).some(
+         (one) => one.romId === 5 && one.state === 'downloading' &&
+           one.receivedBytes >= ${PART_OF_THE_SLOW_GAME}
+       )`,
+      'part of the slow game to arrive'
+    )
+    assert.notDeepEqual(partFiles(), [], 'a transfer part-way should have a .part file on disk')
+  }
+
+  test('from its row on the downloads screen', async () => {
+    await partWay()
+    await app.goTo('downloads')
+    await app.waitFor(`document.querySelector('section [data-download="5"]')`, 'its row')
+
+    const pad = await app.plugInPad()
+    // The pointer puts the highlight on the row without pressing anything.
+    await app.hover('[data-download="5"]')
+    await app.waitFor(
+      `document.querySelector('.hints')?.textContent.includes(${JSON.stringify(en['action.cancelDownload'])})`,
+      'the hint bar to say what X does here'
+    )
+    await pad.tap(X)
+
+    await app.waitFor(
+      `(await window.rommix.downloads.list()).find((one) => one.romId === 5)?.state === 'cancelled'`,
+      'the transfer to be given up on'
+    )
+    // Out of the queue: the sections above are what is moving or waiting, and
+    // a cancelled transfer is neither. It is listed under Recent, as a row
+    // cancelled with the button is.
+    await app.waitFor(`!document.querySelector('section [data-download="5"]')`, 'the row to leave')
+    await partsGone()
+    assert.equal(
+      await app.read<string>(`document.querySelector('[data-screen]')?.dataset.screen`),
+      'downloads',
+      'X should have cancelled rather than opened the menu'
+    )
+    await pad.unplug()
+  })
+
+  test('from the game screen', async () => {
+    await partWay()
+
+    const pad = await app.plugInPad()
+    await pad.tap(X)
+
+    await app.waitFor(
+      `(await window.rommix.downloads.list()).find((one) => one.romId === 5)?.state === 'cancelled'`,
+      'the transfer to be given up on'
+    )
+    await partsGone()
+    await pad.unplug()
+  })
+
+  test('and anywhere with no transfer to call off it is still the menu', async () => {
+    await app.goTo('library')
+    await app.waitFor(`document.querySelector('[data-screen="library"]')`, 'the library')
+    const pad = await app.plugInPad()
+    await pad.tap(X)
+    await app.waitFor(`document.querySelector('[data-screen="settings"]')`, 'the settings screen')
+    await pad.unplug()
   })
 })
 

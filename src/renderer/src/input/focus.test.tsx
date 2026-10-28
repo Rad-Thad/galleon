@@ -10,7 +10,8 @@ const window = installDom()
 
 const { act, useEffect } = await import('react')
 const { createRoot } = await import('react-dom/client')
-const { FocusProvider, useFocusable, useFocusContext } = await import('./focus.tsx')
+const { FocusProvider, useAction, useFocusable, useFocusContext, useFocusWithin } =
+  await import('./focus.tsx')
 
 /**
  * What a directional press costs.
@@ -158,5 +159,86 @@ describe('moving the highlight', () => {
     assert.equal(ringed.length, 1)
     assert.equal(ringed[0].getAttribute('data-name'), 'b')
     assert.equal(ringed[0].textContent, 'here')
+  })
+})
+
+/** A key press, as `useKeyboard` hears it. */
+function press(key: string): void {
+  act(() => {
+    window.dispatchEvent(new window.KeyboardEvent('keydown', { key }))
+  })
+}
+
+/** Answers the menu, and X too where it is asked to. */
+function Screen({ heard, cancels }: { heard: string[]; cancels: boolean }): null {
+  useAction('menu', () => heard.push('menu'))
+  useAction('cancelTransfer', () => heard.push('cancelTransfer'), cancels)
+  return null
+}
+
+describe('X, which is also the menu', () => {
+  test('cancels where a screen has a transfer to call off', () => {
+    const heard: string[] = []
+    mount(
+      <FocusProvider>
+        <Screen heard={heard} cancels />
+      </FocusProvider>
+    )
+
+    press('x')
+
+    assert.deepEqual(heard, ['cancelTransfer'])
+  })
+
+  test('and opens the menu everywhere else', () => {
+    // A console's X has always been the menu, and taking it for one screen's
+    // job must not take it away from every other screen.
+    const heard: string[] = []
+    mount(
+      <FocusProvider>
+        <Screen heard={heard} cancels={false} />
+      </FocusProvider>
+    )
+
+    press('x')
+
+    assert.deepEqual(heard, ['menu'])
+  })
+})
+
+/** A row with a button of its own inside it, that says whether it holds the ring. */
+function Row({ seen }: { seen: (within: boolean) => void }): JSX.Element {
+  const { ref, props } = useFocusable({ id: 'row', onSelect: () => undefined })
+  const within = useFocusWithin(ref)
+  useEffect(() => seen(within), [seen, within])
+  return (
+    <div ref={ref as unknown as Ref<HTMLDivElement>} {...props}>
+      <Card name="row-button" onDraw={() => undefined} />
+    </div>
+  )
+}
+
+describe('whether the highlight is inside a row', () => {
+  test('is true on the row and on its own buttons, and false elsewhere', () => {
+    const { take, focus } = harness()
+    let within = false
+    mount(
+      <FocusProvider>
+        <Driver take={take} />
+        <Row
+          seen={(value) => {
+            within = value
+          }}
+        />
+        <Card name="outside" onDraw={() => undefined} />
+      </FocusProvider>
+    )
+
+    focus('row')
+    assert.equal(within, true, 'on the row itself')
+    focus('row-button')
+    assert.equal(within, true, 'on a button inside it')
+    focus('outside')
+    assert.equal(within, false, 'on something else')
   })
 })

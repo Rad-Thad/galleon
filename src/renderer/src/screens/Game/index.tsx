@@ -18,6 +18,7 @@ import {
   Tabs
 } from '../../components'
 import { Icon } from '../../icons'
+import { useAction } from '../../input/focus'
 import { useApp, useDownloads, useI18n } from '../../state'
 import { CollectionsDialog } from './CollectionsDialog'
 import { StatusDialog } from './StatusDialog'
@@ -177,6 +178,10 @@ export function GameScreen({
    * `cancel` both refuse a row in any of them. See `DownloadState`.
    */
   const interruptible = download?.state === 'queued' || download?.state === 'downloading'
+  /** Whether a Cancel download button is on offer, and so whether X is one. */
+  const cancellable =
+    (interruptible && !entry && !cardMissing) || isStopped(download?.state ?? 'downloading')
+  useAction('cancelTransfer', () => void window.rommix.downloads.cancel(romId), cancellable)
   const running = runningRomId === romId
 
   /**
@@ -930,6 +935,7 @@ export function GameScreen({
           ...(cardMissing
             ? []
             : [{ key: 'A', label: entry ? t('game.play') : t('action.download') }]),
+          ...(cancellable ? [{ key: 'X', label: t('action.cancelDownload') }] : []),
           { key: 'LB', label: t('action.previousTab') },
           { key: 'RB', label: t('action.nextTab') },
           { key: 'B', label: t('action.back') }

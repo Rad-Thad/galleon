@@ -13,7 +13,7 @@ import type { Action, Direction, InputKind } from './types'
  * What a controller button is called on the keyboard that stands in for it.
  *
  * Two of the seven are words and are translated; the rest are what is printed
- * on the key itself — `Tab`, `M`, `/` — which no language changes.
+ * on the key itself — `Tab`, `M`, `X`, `/` — which no language changes.
  */
 export function keyboardLabel(key: string, t: I18n['t']): string | undefined {
   switch (key) {
@@ -22,6 +22,7 @@ export function keyboardLabel(key: string, t: I18n['t']): string | undefined {
     case 'B':
       return t('key.esc')
     case 'X':
+      return 'X'
     case 'START':
       return 'M'
     case 'Y':
@@ -74,6 +75,8 @@ export function intentOf(
       return { action: 'search' }
     case 'm':
       return { action: 'menu' }
+    case 'x':
+      return { action: 'cancelTransfer' }
     default:
       return null
   }

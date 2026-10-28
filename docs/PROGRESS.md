@@ -3818,3 +3818,18 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet. M1-18 stays false.
 - Next: M1-18 part 3, X cancels the focused transfer from the pad (line 3); then part 4, `download.progress` (line 4).
+
+## 2026-10-28 08:27 UTC session 0178hDCA4jqqfssAhsNWqd2y (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. No open PRs, no lock. `init.sh` stopped at Docker (daemon not answering); ran `npm ci` and `npx install-electron` by hand. Nothing in this unit needs RomM.
+- Previous unit: #353 (M1-18 part 2b, the line in the rows) merged at 20abb63.
+- Worked on: M1-18 part 3 (tracking issue #350), acceptance line 3: cancel is reachable with the pad.
+- Result: PR (this one).
+  - X is its own `Action`, `cancelTransfer` (keyboard: the X key). Where nothing on the active layer answers it, `fireAction` falls back to `menu` (`FALLBACK` in `input/focus.tsx`), so X still opens Settings everywhere else.
+  - `useFocusWithin` (`input/focus.tsx`): whether the highlight is on an element or anything inside it. A Downloads row answers X while the highlight is on the row or any of its buttons and the row offers Cancel; the game screen answers X while it offers Cancel download. The hint bar names X ('Cancel download', new key `action.cancelDownload` in all four catalogues) only while X would cancel.
+  - Cancelling this way is the same call as the Cancel button: the row leaves the queue's sections (Downloading, Waiting, Stalled, Paused) and is listed under Recent until 'Clear finished', and the `.part` file is deleted.
+- Evidence: `test/app/games.test.ts` "X on the pad calls off the transfer it is on": from its row on the Downloads screen (hint shown, state `cancelled`, the row out of the sections, no `.part` under the home, still on Downloads), from the game screen (cancelled, no `.part`), and X on the library still opens Settings. The first two fail against the old renderer (at the hint, and at the cancel). `games.test.ts` 51/51. `focus.test.tsx` 6/6 (X cancels where answered and is the menu elsewhere; focus-within on the row, on its button, and not elsewhere), `keyboard.test.ts` 10/10, `gamepad.test.tsx` 27/27. `scripts/agent/check.sh` green. Shots of the demo build at 1280x960, opened: with the highlight in the menu bar the hint bar has no X; with it on the downloading row it reads "X Cancel download" between Row actions and Previous tab, on one line with nothing clipped. `npm run shots:nova`: none of its screens has a transfer in flight or a focused row, so the demo shots are what show the change.
+- Evaluator: PASS on c8f1dba (line 3 met; the queue row is read as the active sections, as the Cancel button leaves it). Its one note, the README controls table, is fixed in this PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet. M1-18 stays false.
+- Next: M1-18 part 4, the device check `download.progress` (line 4).

@@ -4,7 +4,7 @@ import { FocusButton, Hints, Overlay, PageTitle, Spinner, Tabs, titleOf } from '
 import { useApp, useDownloads, useI18n } from '../../state'
 import { UninstallDialog } from '../Game/dialogs'
 import { startedMessage } from '../Game/useGameCopy'
-import { useEffect, useMemo, useState, type JSX } from 'react'
+import { useCallback, useEffect, useMemo, useState, type JSX } from 'react'
 import { Drives } from './Drives'
 import { InstalledRow } from './InstalledRow'
 import { PlatformGroup } from './PlatformGroup'
@@ -75,6 +75,13 @@ export function DownloadsScreen(): JSX.Element {
   const [grouped, setGrouped] = useState(true)
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set())
   const [shown, setShown] = useState(FLAT_PAGE)
+  /**
+   * How many rows say X would cancel them: one at most, but counted, so a
+   * highlight moving between two rows is right in whichever order they say it.
+   * See `ProgressRow`.
+   */
+  const [cancelReachable, setCancelReachable] = useState(0)
+  const reachable = useCallback((change: 1 | -1) => setCancelReachable((n) => n + change), [])
 
   useEffect(() => window.rommix.library.onSyncProgress(setProgress), [])
 
@@ -325,6 +332,7 @@ export function DownloadsScreen(): JSX.Element {
                         : undefined
                     }
                     interrupts={interrupts}
+                    onCancelReachable={reachable}
                   />
                 ))}
               </section>
@@ -467,6 +475,9 @@ export function DownloadsScreen(): JSX.Element {
           // Row actions are reached sideways, which is worth saying: walking
           // down a list never passes through them.
           { key: '→', label: t('action.rowActions') },
+          // Only while the highlight is on a transfer X would call off;
+          // anywhere else X is the menu.
+          ...(cancelReachable > 0 ? [{ key: 'X', label: t('action.cancelDownload') }] : []),
           { key: 'LB', label: t('action.previousTab') },
           { key: 'RB', label: t('action.nextTab') },
           { key: 'B', label: t('action.back') }
