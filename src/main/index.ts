@@ -3,7 +3,7 @@ import { IMAGE_SCHEME, RomMixApp } from './app.ts'
 import { startCoreService, type CoreService } from './core-socket/service.ts'
 import { registerIpc } from './ipc/index.ts'
 import { log, logSession } from './log.ts'
-import { readArmadaStatus, readPowerState } from './powerstate.ts'
+import { powerRoot, readArmadaStatus, readPowerState } from './powerstate.ts'
 import { ensureRoot, profilePath, resolveRoot } from './root.ts'
 import { ReadOnlyGuard } from './romm/guard.ts'
 import { reportRefusal, runAndReport, takeRequest } from './selftest.ts'
@@ -23,6 +23,7 @@ import {
 import { watchInput } from './selftestinput.ts'
 import { takeScreenshots } from './selftestshots.ts'
 import { GRID_CHECK, askForProfile, runScroll, scrollScenario } from './selftestscroll.ts'
+import { POWER_READ_CHECK, powerReadScenario, readSysfsPower } from './selftestpower.ts'
 import { STARTUP_CHECK, startupScenario, startupStart, watchHome } from './selfteststartup.ts'
 import { UPDATE_CHECK, updateScenario } from './selftestupdate.ts'
 import { buildStamp } from './update.ts'
@@ -179,6 +180,16 @@ if (!app.requestSingleInstanceLock()) {
                 askForProfile(selfTest.request.handshakeDir, profile, signal),
               displayHz: () => screen.getPrimaryDisplay().displayFrequency || 60,
               pageTimes: rommix.pageTimes
+            })
+          ],
+          [
+            POWER_READ_CHECK,
+            powerReadScenario({
+              power: () => readPowerState(powerRoot()),
+              status: readArmadaStatus,
+              sysfs: () => readSysfsPower(powerRoot()),
+              askForProfile: (profile, signal) =>
+                askForProfile(selfTest.request.handshakeDir, profile, signal)
             })
           ],
           [
