@@ -800,6 +800,11 @@ export const es: Catalog = {
   'settings.theme.arcade': 'Recreativa',
   'settings.theme.paper': 'Papel',
   'settings.theme.contrast': 'Alto contraste',
+  'power.hintTitle': 'Armada is on {profile}', // TODO(i18n)
+  'power.hintBody':
+    'For smoother browsing, set Performance for this app: Quick Access → Armada Control.', // TODO(i18n)
+  'power.hintOk': 'OK', // TODO(i18n)
+  'power.hintNever': "Don't show again", // TODO(i18n)
   'themes.noticeTitle': 'Galleon ya tiene temas',
   'themes.noticeBody':
     'La interfaz puede dibujarse con otros colores: un tema claro o uno tomado de una consola. Cada uno se muestra en pantalla antes de conservarlo.',

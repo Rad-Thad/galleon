@@ -32,6 +32,7 @@ import { HomeScreen } from './screens/Home'
 import { LibraryScreen } from './screens/Library'
 import { SettingsScreen } from './screens/Settings'
 import { RunningOverlay } from './RunningOverlay'
+import { PowerHint } from './PowerHint'
 import { ThemesNotice } from './ThemesNotice'
 import { Toasts } from './Toasts'
 
@@ -358,6 +359,7 @@ export function App(): JSX.Element {
           and the pad, and a dialog nobody can answer would be waiting behind
           it. See `ThemesNotice`. */}
       {covered ? null : <ThemesNotice />}
+      {covered ? null : <PowerHint />}
 
       {covered ? <RunningOverlay /> : null}
       <Toasts />

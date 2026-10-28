@@ -171,6 +171,7 @@ const bridge: RomMixBridge = {
     quit: () => ipcRenderer.invoke('system:quit'),
     powerActions: () => ipcRenderer.invoke('system:powerActions'),
     power: (action: PowerAction) => ipcRenderer.invoke('system:power', action),
+    powerHint: () => ipcRenderer.invoke('system:powerHint'),
     perfState: () => ipcRenderer.invoke('system:perfState'),
     perfSummary: (summary: PerfSummary) => ipcRenderer.invoke('system:perfSummary', summary),
     openExternal: (url: string) => ipcRenderer.invoke('system:openExternal', url),

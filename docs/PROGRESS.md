@@ -3702,3 +3702,29 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet.
 - Next: M1-16 part 2, the hint (line 2): at most once per profile change, dismissable for good, only on Armada, never changing the profile. Then `power.read` and `power.hint`.
+
+## 2026-10-28 02:50 UTC session 0178hDCB8CVLDtDa4JKzYg6v (hourly heartbeat, second unit, parked)
+
+- First unit: #345 (M1-16 part 1, the pre-flight power row) merged at f2fa552. CI x64 8:31, arm64 1:04. Evaluator PASS.
+- Worked on: M1-16 part 2 (tracking issue #344), acceptance line 2: the power profile hint. Parked on branch `claude/M1-16-power-hint`, with no PR.
+- Done on the branch:
+  - `decidePowerHint` (`src/main/powerhint.ts`): only on Armada (a profile definition was read), only on Balanced or Eco, once per change of profile (`Settings.powerProfileSeen`), never once `power-profile-hint` is in `dismissedNotices`. It starts nothing and writes nothing.
+  - IPC `system:powerHint`. It reads from `GALLEON_POWER_ROOT` (a test stand-in for `/`), else `/`.
+  - `PowerHint.tsx` overlay with OK and "Don't show again", asked at start and on window focus. New keys `power.hint*` in all four catalogues. `POWER_HINT_NOTICE` is in `NOTICES`, so self-test homes have it dismissed.
+  - `src/main/powerhint.test.ts` 7/7. Typecheck and lint are clean.
+- Not done: `test/app/powerhint.test.ts` hung in its first test for 30 minutes under Xvfb, and I stopped it. The cause is not found yet. Suspects: `app.choose` on the overlay's buttons, or the overlay taking focus behind the Home screen. Also not done: check.sh, shots and evaluator on this branch.
+- Next: debug that app test one test at a time with a short `--test-timeout`. Then `npm run shots:nova` with a Balanced `GALLEON_POWER_ROOT` to look at the hint, then the evaluator and the PR.
+
+## 2026-10-28 03:27 UTC session 0178hDCDmKU8icFfoaFDNhRy (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. No open PRs. `init.sh` stopped at Docker (daemon not answering); nothing in this unit needs RomM.
+- Worked on: M1-16 part 2 (tracking issue #344), acceptance line 2, picked up from the parked branch `claude/M1-16-power-hint`.
+- Result: PR (this one).
+  - The hang: `startScenario` waits for Home to hold the focus, and on Balanced the hint holds it. The start threw before the scenario was kept for `after()`, so Electron was never stopped and the run never ended. `test/app/powerhint.test.ts` now starts its own app and keeps it for shutdown before it waits on anything.
+  - `shots:nova` gains `power-hint.png`: Home on a Balanced stand-in root.
+  - The rest is as the parked entry above describes: `decidePowerHint`, `system:powerHint`, the `PowerHint` overlay, `powerProfileSeen`, `POWER_HINT_NOTICE` in `NOTICES`.
+- Evidence: `src/main/powerhint.test.ts` 7/7. `test/app/powerhint.test.ts` 3/3: shown on Balanced, closed by OK, not again on the same profile, not on Performance, due again on the way back to Balanced; shown on focus after a switch to Balanced, "Don't show again" kept in `settings.json` and never shown after; off Armada `{ show: false, profile: 'unknown' }` and no overlay. Electron ran through a `--no-sandbox` wrapper as root. `scripts/agent/check.sh` green. `npm run shots:nova` 28 screens. I opened `power-hint.png`: the dialog is centred over a blurred Home, titled "Armada is on Balanced", the body names Quick Access → Armada Control, OK is focused beside "Don't show again", all inside 1280x960.
+- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet. M1-16 stays false.
+- Next: M1-16 part 3, the device checks `power.read` and `power.hint` (lines 4 and 5).
