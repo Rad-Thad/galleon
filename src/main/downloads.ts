@@ -3,6 +3,7 @@ import { mkdir, rm, stat } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { archiveIsTheRom, chooseLaunchFile, isServerPlaylist, pathInGame } from '@shared/gamefiles'
 import { isStopped, type DownloadItem, type RommRom } from '@shared/types'
+import { SAMPLE_MS, sampleRate, startRate } from '@shared/transferrate'
 import { fits, spaceOf } from './disk.ts'
 import { unpack, writePlaylist, type InstallResult } from './install.ts'
 import { hashOf } from './integrity.ts'
@@ -578,6 +579,32 @@ export class DownloadManager extends EventEmitter {
   }
 
   /**
+   * Keep `item.rate` while its bytes are on the wire; returns the way to stop.
+   *
+   * Progress events sample it as they come, and a timer samples it besides,
+   * because a transfer that has stopped sends no events and a stall is only
+   * seen by looking again.
+   */
+  private watchRate(item: DownloadItem): () => void {
+    item.rate = startRate(item.receivedBytes, Date.now())
+    const timer = setInterval(() => {
+      this.sampleRate(item)
+      this.throttledUpdate()
+    }, SAMPLE_MS)
+    timer.unref()
+    return () => {
+      clearInterval(timer)
+      delete item.rate
+    }
+  }
+
+  private sampleRate(item: DownloadItem): void {
+    if (item.rate) {
+      item.rate = sampleRate(item.rate, item.receivedBytes, item.totalBytes, Date.now())
+    }
+  }
+
+  /**
    * Resolves once the queue has stopped moving: nothing on the wire, nothing
    * waiting for it, and every write the last transfer makes behind it done.
    *
@@ -870,14 +897,17 @@ export class DownloadManager extends EventEmitter {
       })
 
       const transfer = { resume, resumable, controller }
-      const installed = perFile.available
-        ? await this.fetchFileByFile(
-            rom,
-            item,
-            { dir: holding.targetPath, system, asDirectory },
-            transfer
-          )
-        : await this.fetchWhole(rom, item, { dir, path, system, asDirectory, flat }, transfer)
+      const stopWatching = this.watchRate(item)
+      const installed = await (
+        perFile.available
+          ? this.fetchFileByFile(
+              rom,
+              item,
+              { dir: holding.targetPath, system, asDirectory },
+              transfer
+            )
+          : this.fetchWhole(rom, item, { dir, path, system, asDirectory, flat }, transfer)
+      ).finally(stopWatching)
 
       // The bytes are in the game now, and nothing is left to pick up.
       this.store.removePending(rom.id)
@@ -1066,6 +1096,7 @@ export class DownloadManager extends EventEmitter {
       await mkdir(dirname(destination), { recursive: true })
       item.currentFile = file.file_name
       item.state = 'downloading'
+      item.rate = startRate(item.receivedBytes, Date.now())
       this.emitUpdate()
 
       const already = (await stat(destination).catch(() => null))?.size ?? 0
@@ -1095,6 +1126,7 @@ export class DownloadManager extends EventEmitter {
             destination,
             (progress) => {
               item.receivedBytes = done + progress.received
+              this.sampleRate(item)
               this.throttledUpdate()
             },
             transfer.controller.signal,
@@ -1199,6 +1231,7 @@ export class DownloadManager extends EventEmitter {
       (progress) => {
         item.receivedBytes = progress.received
         if (progress.total) item.totalBytes = progress.total
+        this.sampleRate(item)
         const share = progress.total ? Math.floor((progress.received / progress.total) * 10) : 0
         if (share > reported) {
           reported = share

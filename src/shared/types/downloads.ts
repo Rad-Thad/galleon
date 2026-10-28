@@ -1,3 +1,5 @@
+import type { TransferRate } from '../transferrate.ts'
+
 /**
  * The download queue: what one transfer is doing, and what survives a restart.
  */
@@ -114,6 +116,14 @@ export interface DownloadItem {
    * losing it; the screen offers Pause only where the answer is yes.
    */
   resumable?: boolean
+  /**
+   * How fast and how long, while bytes are on the wire: see `sampleRate`.
+   *
+   * Absent outside a transfer. The rate starts over at each file of a game
+   * fetched file by file, since the hash check between two files is time
+   * with no bytes in it that says nothing about the network.
+   */
+  rate?: TransferRate
 }
 
 /**

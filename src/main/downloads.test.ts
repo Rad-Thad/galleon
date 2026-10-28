@@ -23,6 +23,7 @@ import { readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, relative, sep } from 'node:path'
 import type { EmulatorState } from '@config/emulators'
+import { STALL_MS, type TransferRate } from '@shared/transferrate'
 import { SHARED_LIBRARY, type DownloadItem, type RommRom } from '@shared/types'
 import { spaceOf } from './disk.ts'
 import { DownloadManager } from './downloads.ts'
@@ -486,6 +487,59 @@ describe('a download that runs to the end', () => {
     assert.equal(installed.system, 'genesis')
     assert.equal(installed.sizeBytes, 10)
     assert.equal(existsSync(installed.path), true)
+  })
+})
+
+describe('speed and time left', () => {
+  test('are measured while bytes arrive, and gone once the game is in', async () => {
+    const made = manager({ contents: '0'.repeat(1200) })
+    // A steady 1,000 bytes a second, a chunk at a time, as the real client
+    // reports it.
+    Object.assign(made.client, {
+      async downloadRom(
+        _game: RommRom,
+        destination: string,
+        onProgress: (progress: { received: number; total: number }) => void
+      ) {
+        for (let received = 100; received <= 1200; received += 100) {
+          await new Promise((resolve) => setTimeout(resolve, 100))
+          onProgress({ received, total: 1200 })
+        }
+        await writeFile(destination, '0'.repeat(1200))
+      }
+    })
+    const seen: TransferRate[] = []
+    made.downloads.on('update', (items: DownloadItem[]) => {
+      const rate = items.find((item) => item.romId === 1)?.rate
+      if (rate) seen.push({ ...rate })
+    })
+    await made.downloads.enqueue(rom())
+    const item = await settled(made.downloads, 1)
+
+    assert.equal(item.state, 'done')
+    assert.equal(item.rate, undefined)
+    const measured = seen.filter((rate) => rate.speed !== null)
+    assert.ok(measured.length > 0, 'no speed was ever reported')
+    const last = measured.at(-1)!
+    // Timers on a busy machine run late, never early: slower, not faster.
+    assert.ok(last.speed! > 250 && last.speed! < 1100, `${last.speed} B/s`)
+    assert.ok(last.secondsLeft !== null && last.secondsLeft <= 5, `${last.secondsLeft}s left`)
+  })
+
+  test('a transfer that sends nothing reads as stalled, without a progress event', async () => {
+    const wire = heldWire()
+    const { downloads } = manager({ hold: wire.held })
+    await downloads.enqueue(rom())
+    await onTheWire(downloads, 1)
+
+    await reached(
+      downloads,
+      (items) => items[0]?.rate?.stalled === true,
+      `stalled after ${STALL_MS} ms`
+    )
+    assert.equal(downloads.items[0].rate?.secondsLeft, null)
+    wire.release()
+    assert.equal((await settled(downloads, 1)).rate, undefined)
   })
 })
 
