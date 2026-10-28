@@ -13,7 +13,20 @@ import {
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { InstalledRom, Settings } from '@shared/types'
-import { Store } from './store.ts'
+import { Store, type Keyring } from './store.ts'
+
+/** A keyring that reverses what it was given, so its ciphertext is still not the token. */
+const KEYRING: Keyring = {
+  decryptString: (body: Buffer) => [...body.toString()].toReversed().join('')
+}
+
+function encrypted(json: string): string {
+  return `ENC1${[...json].toReversed().join('')}`
+}
+
+function modeOf(path: string): number {
+  return statSync(path).mode & 0o777
+}
 
 /**
  * What RomMix remembers between runs, and what it does with a file it cannot
@@ -26,10 +39,10 @@ import { Store } from './store.ts'
  * So each read is checked against a file written by hand, including the ones
  * that are damaged.
  *
- * Credentials go through `safeStorage`, which is Electron's and throws out here
- * — see `scripts/test-resolve.mjs`. That is exactly the flatpak-without-a-
- * keyring case, so what these tests exercise is the plaintext fallback, which
- * is the path a real machine can genuinely take.
+ * Credentials are only ever written to the owner-only file (ADR 0009). The
+ * keyring is consulted only to open a file an earlier build encrypted; by
+ * default that is Electron's `safeStorage`, which throws out here — see
+ * `scripts/test-resolve.mjs` — so a session with a keyring is given a stand-in.
  */
 
 const scratches: string[] = []
@@ -249,6 +262,55 @@ describe('credentials', () => {
     new Store(dir).setCredentials({ clientToken: 'rmm_token' })
 
     assert.equal(statSync(join(dir, 'credentials.bin')).mode & 0o777, 0o600)
+  })
+
+  test('the file is 0600 in a folder that is 0700', () => {
+    const dir = join(scratch(), 'config')
+    new Store(dir).setCredentials({ clientToken: 'rmm_token' })
+
+    assert.equal(modeOf(dir), 0o700)
+    assert.equal(modeOf(join(dir, 'credentials.bin')), 0o600)
+  })
+
+  test('both are put back at start when something loosened them', () => {
+    const dir = scratch({ 'credentials.bin': 'RAW1{"clientToken":"rmm_token"}' })
+    chmodSync(dir, 0o755)
+    chmodSync(join(dir, 'credentials.bin'), 0o644)
+
+    // Nothing written: a client token never refreshes, so the start is all
+    // there is to correct them.
+    const store = new Store(dir)
+
+    assert.equal(store.credentials.clientToken, 'rmm_token')
+    assert.equal(modeOf(dir), 0o700)
+    assert.equal(modeOf(join(dir, 'credentials.bin')), 0o600)
+  })
+
+  test('a token written in a session with a keyring is read in one without', () => {
+    const dir = scratch()
+    new Store(dir, KEYRING).setCredentials({ clientToken: 'rmm_token' })
+
+    // Game Mode: no keyring, so the default stand-in that throws on use.
+    assert.equal(new Store(dir).credentials.clientToken, 'rmm_token')
+    assert.equal(readFileSync(join(dir, 'credentials.bin')).subarray(0, 4).toString(), 'RAW1')
+  })
+
+  test('a token written in a session without a keyring is read in one with', () => {
+    const dir = scratch()
+    new Store(dir).setCredentials({ clientToken: 'rmm_token' })
+
+    assert.equal(new Store(dir, KEYRING).credentials.clientToken, 'rmm_token')
+  })
+
+  test('a file an earlier build encrypted is moved to the plain file when opened', () => {
+    const dir = scratch({ 'credentials.bin': encrypted('{"clientToken":"rmm_token"}') })
+
+    assert.equal(new Store(dir, KEYRING).credentials.clientToken, 'rmm_token')
+
+    // Without that move, the next start in Game Mode would find it unreadable.
+    assert.equal(readFileSync(join(dir, 'credentials.bin')).subarray(0, 4).toString(), 'RAW1')
+    assert.equal(modeOf(join(dir, 'credentials.bin')), 0o600)
+    assert.equal(new Store(dir).credentials.clientToken, 'rmm_token')
   })
 
   test('nothing stored is empty credentials rather than a failure', () => {

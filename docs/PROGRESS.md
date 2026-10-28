@@ -3865,3 +3865,19 @@ Lines the tooling reads (exact forms):
 - CI wall time: x64 2:01 on 8764b9d (red at the PR-body check, no `Feature:` line; fixed in the body), arm64 2:21; the final legs are in the PR.
 - Device / acceptance: READY-FOR-DEVICE M1-21 (`server.scheme-probe`). M1-21 stays false.
 - Next: the next eligible feature from `next.mjs`.
+
+## 2026-10-28 12:37 UTC session 0178hDCAWC3cw8XTYsQV3PH1 (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. No open PRs, no lock, no `needs-human`. Main green. `init.sh` stopped at Docker (daemon not answering); ran `npm ci` and `npx install-electron` by hand. Nothing in this unit needs RomM.
+- Previous unit: #357 (M1-21) merged at 8236561.
+- Worked on: M1-24 part 1 (tracking issue #358), acceptance lines 1 and 2.
+- Result: PR (this one).
+  - ADR 0009: the token is kept only in `config/credentials.bin` as `RAW1`, never in the keyring. Game Mode has no keyring, so a keyring copy would need a plain fallback holding the same secret with the same protection; one backend is simpler and cannot sign the player out between sessions.
+  - `src/main/store.ts`: the folder is created 0700 and the file written 0600; `holdMode` puts both back at every start when loosened, and logs it. An `ENC1` file from an earlier build is opened with the keyring when this session has one and rewritten as `RAW1` at once. `Store` takes the keyring as an optional argument (Electron's `safeStorage` by default) so tests can play a session with one.
+  - README and SECURITY.md say where the token is, that it is not encrypted, who can read it, and to revoke it in RomM if the device is lost.
+- Evidence: `src/main/store.test.ts` 57/57, five new: "the file is 0600 in a folder that is 0700", "both are put back at start when something loosened them", "a token written in a session with a keyring is read in one without", "… without a keyring is read in one with", "a file an earlier build encrypted is moved to the plain file when opened". Against the old `store.ts` three fail (folder mode, start-up correction, `ENC1` move). `scripts/agent/check.sh` green. No renderer change: no shots.
+- Also: `npm run test:app` 284/284 (Electron through a `--no-sandbox` wrapper as root).
+- Evaluator: FAIL on f66fb81: `plainCredentials` landed between `writeJsonAtomic` and its doc comment. Fixed, with its notes: the driver comment rewrapped, and a failed `ENC1` move no longer reads as signed out (logged; the next start retries). PASS: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet. M1-24 stays false.
+- Next: M1-24 part 2, Settings → Account says where the token is kept and how to revoke it (line 3); then part 3, device check `auth.storage` (line 4).

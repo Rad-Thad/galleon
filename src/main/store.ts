@@ -8,6 +8,7 @@ import {
   readFileSync,
   renameSync,
   rmSync,
+  statSync,
   writeFileSync
 } from 'node:fs'
 import { hostname } from 'node:os'
@@ -34,7 +35,7 @@ import { missingCardTest } from './volumes.ts'
  * folder around. Three files:
  *
  *   settings.json        user preferences + the configured server (no secrets)
- *   credentials.bin      the RomM tokens, encrypted with safeStorage when available
+ *   credentials.bin      the RomM tokens, readable by this user only (ADR 0009)
  *   downloaded_roms.json a cache of which ROMs are on disk, not the authority on
  *                        it; `DownloadManager.adopt` reconciles it against the
  *                        files
@@ -64,6 +65,46 @@ interface StoredCredentials {
    * belongs to the account those credentials are for.
    */
   deviceId: string | null
+}
+
+/**
+ * What can open a credential file written encrypted, before ADR 0009.
+ *
+ * Electron's `safeStorage` in the app; a stand-in in the tests, which have no
+ * Electron and so no keyring to give either order of sessions a test.
+ */
+export type Keyring = Pick<typeof safeStorage, 'decryptString'>
+
+/** The credential file and its folder: nobody but this user reads either. */
+const CREDENTIALS_MODE = 0o600
+const DIR_MODE = 0o700
+
+/**
+ * Hold a file or folder to `mode`, putting it back if something loosened it.
+ *
+ * A copy, an unpack or a hand-run `chmod` between starts can each leave the
+ * tokens readable by others, and a mode is only set by whatever writes next —
+ * which, for a client token that never refreshes, may be never. A filesystem
+ * that refuses the change is reported and lived with: refusing to start would
+ * not make the file any safer.
+ */
+function holdMode(path: string, mode: number): void {
+  try {
+    if (!existsSync(path)) return
+    const was = statSync(path).mode & 0o777
+    if (was === mode) return
+    chmodSync(path, mode)
+    log.warn('store', 'permissions others could read were tightened', {
+      path,
+      was: was.toString(8),
+      now: mode.toString(8)
+    })
+  } catch (cause) {
+    log.warn('store', 'permissions could not be tightened', {
+      path,
+      reason: (cause as Error).message
+    })
+  }
 }
 
 const EMPTY_CREDENTIALS: StoredCredentials = {
@@ -212,6 +253,11 @@ function acceptServer(value: unknown): ServerConfig | null {
   }
 }
 
+/** The credential file's bytes: a marker saying how to read the rest, then it. */
+function plainCredentials(credentials: StoredCredentials): Buffer {
+  return Buffer.concat([Buffer.from('RAW1'), Buffer.from(JSON.stringify(credentials))])
+}
+
 /** Atomic JSON write, so a crash mid-write cannot truncate the file. */
 function writeJsonAtomic(path: string, value: unknown): void {
   const tmp = `${path}.tmp`
@@ -290,9 +336,12 @@ export class Store {
    */
   readonly fresh: boolean
 
-  constructor(dir: string) {
+  constructor(
+    dir: string,
+    private readonly keyring: Keyring = safeStorage
+  ) {
     this.dir = dir
-    mkdirSync(this.dir, { recursive: true })
+    mkdirSync(this.dir, { recursive: true, mode: DIR_MODE })
     this.settingsPath = join(this.dir, 'settings.json')
     this.credentialsPath = join(this.dir, 'credentials.bin')
     this.installedPath = join(this.dir, 'downloaded_roms.json')
@@ -300,6 +349,10 @@ export class Store {
     this.migrationsPath = join(this.dir, 'migrations.json')
     this.unsentPath = join(this.dir, 'unsent_saves.json')
     this.playPath = join(this.dir, 'unsent_play.json')
+    // `mkdirSync`'s mode is filtered by the umask and ignored for a folder that
+    // was already there, so both are held to their modes here, on every start.
+    holdMode(this.dir, DIR_MODE)
+    holdMode(this.credentialsPath, CREDENTIALS_MODE)
 
     // Asked before the read, because the read writes the defaults back.
     this.fresh = !existsSync(this.settingsPath)
@@ -431,41 +484,23 @@ export class Store {
   }
 
   /**
-   * Tokens are encrypted with the OS keyring via safeStorage where possible.
-   * A flatpak without a portal-accessible keyring falls back to plaintext —
-   * we mark the payload so we know which decoder to use on the way back in.
+   * Always the plain file, owner-only, never the keyring: see ADR 0009.
+   *
+   * Desktop Mode may have a keyring and Game Mode has none, and the same user
+   * moves between them. A token only the keyring could open is a token Game
+   * Mode cannot read, so the keyring could only ever hold a copy of what this
+   * file already says.
    */
   private persistCredentials(): void {
-    const json = JSON.stringify(this.credentials)
-    try {
-      if (safeStorage.isEncryptionAvailable()) {
-        const blob = safeStorage.encryptString(json)
-        this.writeCredentials(Buffer.concat([Buffer.from('ENC1'), blob]))
-        return
-      }
-      log.warn('store', 'no OS keyring available, credentials are stored in plain text')
-    } catch (cause) {
-      // fall through to plaintext
-      log.warn('store', 'the OS keyring refused to encrypt, falling back to plain text', {
-        reason: (cause as Error).message
-      })
-    }
-    this.writeCredentials(Buffer.concat([Buffer.from('RAW1'), Buffer.from(json)]))
+    this.writeCredentials(plainCredentials(this.credentials))
   }
 
   /**
    * Write the credential file, owner-only however it got there.
    *
-   * `chmodSync` rather than `writeFileSync`'s `mode`, which is consulted only
-   * when the call creates the file. The file that matters here is the one
-   * already on disk: written encrypted on an earlier run, and rewritten in
-   * plain text now that the keyring has gone missing — a flatpak whose portal
-   * is unreachable this boot is exactly that sequence. The mode argument is
-   * ignored on that write, so on its own it would leave the tokens in whatever
-   * the encrypted file was created as.
-   *
-   * The encrypted file is held to the same mode. Ciphertext nobody else can
-   * read is still nobody else's to read.
+   * `chmodSync` as well as `writeFileSync`'s `mode`, which the umask filters
+   * and which is ignored for a file already there: the aside of a write that
+   * died on an earlier run, under the same process id.
    */
   private writeCredentials(payload: Buffer): void {
     // Aside and renamed, like every JSON file this class writes. `writeFileSync`
@@ -475,8 +510,8 @@ export class Store {
     // nothing said and no way back but pairing again.
     const tmp = `${this.credentialsPath}.${process.pid}.tmp`
     try {
-      writeFileSync(tmp, payload, { mode: 0o600 })
-      chmodSync(tmp, 0o600)
+      writeFileSync(tmp, payload, { mode: CREDENTIALS_MODE })
+      chmodSync(tmp, CREDENTIALS_MODE)
       renameSync(tmp, this.credentialsPath)
     } catch (cause) {
       try {
@@ -496,9 +531,28 @@ export class Store {
       const magic = buf.subarray(0, 4).toString()
       const body = buf.subarray(4)
       const json =
-        magic === 'ENC1' ? safeStorage.decryptString(body) : magic === 'RAW1' ? body.toString() : ''
+        magic === 'ENC1'
+          ? this.keyring.decryptString(body)
+          : magic === 'RAW1'
+            ? body.toString()
+            : ''
       if (!json) return { ...EMPTY_CREDENTIALS }
       const loaded = { ...EMPTY_CREDENTIALS, ...(JSON.parse(json) as object) }
+      // Written encrypted by an earlier build, and opened now only because this
+      // session has the keyring. Rewritten plain at once, or the next session
+      // without one — the next time Game Mode starts — finds it unreadable.
+      if (magic === 'ENC1') {
+        try {
+          this.writeCredentials(plainCredentials(loaded))
+          log.info('store', 'credentials written by the keyring were moved to the file')
+        } catch (cause) {
+          // The tokens were read, so this session stays signed in; the
+          // encrypted file is left as it was and the next start tries again.
+          log.warn('store', 'credentials written by the keyring could not be moved', {
+            reason: (cause as Error).message
+          })
+        }
+      }
       // The kind, never the token: it is what most sign-in questions turn on.
       log.info('store', 'credentials loaded', {
         encrypted: magic === 'ENC1',

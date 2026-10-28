@@ -16,9 +16,11 @@ published alongside it.
 Worth knowing before deciding whether something is a security issue here:
 
 - **Your RomM credentials.** A JWT pair or a long-lived `rmm_…` client token,
-  kept in `~/rommix/config/credentials.bin` and encrypted with the OS keyring
-  through Electron's `safeStorage`. Where no keyring is reachable it falls back
-  to plaintext in a file created mode `0600`, and says so in the log.
+  kept in `config/credentials.bin` under Galleon's folder, as plain text in a
+  file only your user can read (`0600`, in a `0700` folder; both are put back
+  at start if loosened). Not in the OS keyring: Game Mode has none, so a token
+  the keyring held could not be read there (ADR 0009). Anyone who can act as
+  your user, or as root, can read it. Revoke it in RomM if the device is lost.
 - **The log.** `~/rommix/logs/app.log` records every request and every launch.
   Credentials are redacted on the way in — by key, and by pattern for anything
   token-shaped — because the log is meant to be pasted into bug reports.

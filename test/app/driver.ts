@@ -490,10 +490,10 @@ export function standInEmulator(options: { stubborn?: boolean } = {}): {
 /**
  * Write the state a signed-in RomMix would already have.
  *
- * `RAW1` is the plaintext credential format — see `Store.loadCredentials`. It
- * exists because a machine with no keyring has to work, and it is what lets a
- * test start at the library instead of driving a pairing flow whose codes it
- * would have to approve on a web UI that is not there.
+ * `RAW1` is the plaintext credential format — see `Store.loadCredentials` — and
+ * the only one Galleon writes (ADR 0009). It is what lets a test start at the
+ * library instead of driving a pairing flow whose codes it would have to
+ * approve on a web UI that is not there.
  */
 /**
  * Notices a seeded installation is treated as having seen.
