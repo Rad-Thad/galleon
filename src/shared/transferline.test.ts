@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import { createI18n, type Locale } from './i18n/index.ts'
 import { transferLine } from './transferline.ts'
-import { startRate, type TransferRate } from './transferrate.ts'
+import { STALL_MS, sampleRate, startRate, type TransferRate } from './transferrate.ts'
 
 const MB = 1024 * 1024
 
@@ -63,6 +63,17 @@ describe('transfer line', () => {
       assert.equal(line(locale, 0, 3.8 * 1024 * MB, startRate(0, 0)), text)
       assert.equal(line(locale, 0, 3.8 * 1024 * MB, null), text)
     }
+  })
+
+  test('a long wait for the first byte is still waiting, not stalled', () => {
+    let r = startRate(0, 0)
+    for (let now = 100; now <= STALL_MS * 3; now += 100) r = sampleRate(r, 0, 3.8 * 1024 * MB, now)
+    assert.ok(r.stalled)
+    assert.equal(line('en', 0, 3.8 * 1024 * MB, r), '0% - 0 B / 3.8 GB - waiting for server')
+  })
+
+  test('the percent is not lost to floating point', () => {
+    assert.match(line('en', 29, 100, null), /^29% /)
   })
 
   test('a stall says so, with no time left', () => {

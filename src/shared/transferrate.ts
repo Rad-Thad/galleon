@@ -33,7 +33,7 @@ export const TIME_UNIT_MARGIN = 1.1
  */
 export const SPEED_UNIT_FLOOR = 0.9
 
-/** B/s, KB/s, MB/s, GB/s: the powers of 1024 `formatRate` names. */
+/** B/s, KB/s, MB/s, GB/s: the powers of 1024 `transferLine` writes speeds and sizes in. */
 export const SPEED_UNITS = ['B', 'KB', 'MB', 'GB'] as const
 
 /** Seconds, minutes, hours: how time left is written. */

@@ -19,15 +19,15 @@ export function transferLine(
   const parts: string[] = []
   if (total > 0) {
     // Down, never up: "100%" belongs to a transfer that is done.
-    parts.push(percent(i18n.locale).format(Math.floor((received / total) * 100) / 100))
+    parts.push(percent(i18n.locale).format(Math.floor((received * 100) / total) / 100))
     parts.push(`${size(received, fixed)} / ${size(total, fixed)}`)
   } else {
     parts.push(size(received, fixed))
   }
 
-  if (received === 0 && !rate?.stalled) {
+  if (received === 0) {
     // Nothing yet is RomM still building the file to send: a zip of a large
-    // game takes a while before its first byte.
+    // game takes a while before its first byte, and that wait is no stall.
     parts.push(i18n.t('downloads.waitingForServer'))
   } else if (rate?.stalled) {
     parts.push(i18n.t('downloads.stalled'))
