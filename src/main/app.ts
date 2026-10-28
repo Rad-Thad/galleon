@@ -70,7 +70,34 @@ export const IMAGE_SCHEME = 'rommix-img'
  */
 export function isAssetPath(path: string): boolean {
   const rooted = path.startsWith('/') ? path : `/${path}`
-  return rooted.startsWith('/assets/') && !rooted.includes('..')
+  return rooted.startsWith('/assets/') && !climbs(rooted)
+}
+
+/**
+ * `..` as written, or as the URL parser reads it: a request path is
+ * normalised after this check, and `%2e%2e` is a segment it resolves upwards.
+ */
+function climbs(path: string): boolean {
+  return /\.\.|%2e/i.test(path)
+}
+
+/** Where RomM's static mount serves what it keeps under its resources folder. */
+const RESOURCES_ROOT = '/assets/romm/resources/'
+
+/**
+ * A game's manual as RomM hands it out: relative to its resources folder, not
+ * to the server, so it is the one picture-protocol path without `/assets/`.
+ */
+const MANUAL_PATH = /^roms\/\d+\/\d+\/manual\/[\w.-]+$/
+
+/**
+ * The server path the image protocol fetches for `path`, or null to refuse it.
+ * See `isAssetPath` for why anything else is refused: a manual is mapped under
+ * the resources root, so it can never name more than an asset can.
+ */
+export function assetRequestPath(path: string): string | null {
+  if (MANUAL_PATH.test(path) && !climbs(path)) return `${RESOURCES_ROOT}${path}`
+  return isAssetPath(path) ? path : null
 }
 
 /**
@@ -947,10 +974,11 @@ export class RomMixApp {
        * token — so an unconstrained `p` is a way for the page to read any RomM
        * endpoint's body, outside the page's CSP and outside the named channels
        * the bridge exposes. Every path that legitimately arrives here is an
-       * asset: RomM's own resources under `/assets/romm/`, and the platform
-       * icons in `PLATFORM_ICON_PATHS`.
+       * asset: RomM's own resources under `/assets/romm/`, the platform icons
+       * in `PLATFORM_ICON_PATHS`, and a game's manual (`assetRequestPath`).
        */
-      if (!isAssetPath(path)) {
+      const served = assetRequestPath(path)
+      if (served === null) {
         log.warn('window', 'refused an image request that is not an asset path', { path })
         return new Response('not an asset path', { status: 400 })
       }
@@ -964,7 +992,7 @@ export class RomMixApp {
          * drawing one of them. Losing that race falls through to the server,
          * which is the answer the request would have had anyway.
          */
-        const cached = this.offline.assetFile(path)
+        const cached = this.offline.assetFile(served)
         if (cached) {
           const bytes = await readFile(cached).catch(() => null)
           if (bytes) {
@@ -978,7 +1006,7 @@ export class RomMixApp {
           }
         }
 
-        const upstream = await this.client.asset(path)
+        const upstream = await this.client.asset(served)
         if (!upstream.ok) {
           // Cancelled rather than dropped: a body left unread is one the HTTP
           // stack has to reclaim instead of returning the connection to the

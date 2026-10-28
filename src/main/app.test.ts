@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { CARD_MIN_FREE_BYTES } from '@shared/librarycard'
 import { NOTICES, SHARED_LIBRARY, type InstalledRom, type Settings } from '@shared/types'
-import { RomMixApp, isAssetPath } from './app.ts'
+import { RomMixApp, assetRequestPath, isAssetPath } from './app.ts'
 import { ReadOnlyGuard } from './romm/guard.ts'
 
 /**
@@ -37,6 +37,38 @@ test('anything else the token would answer for is refused', () => {
 test('a path that climbs out of the assets root is not an asset path', () => {
   assert.equal(isAssetPath('/assets/../api/users/me'), false)
   assert.equal(isAssetPath('assets/romm/../../api/token'), false)
+})
+
+test('a path the URL parser would climb with is refused as well', () => {
+  assert.equal(isAssetPath('/assets/%2e%2e/api/users/me'), false)
+  assert.equal(isAssetPath('/assets/romm/%2E%2E/%2e%2e/api/token'), false)
+})
+
+/**
+ * RomM 5.2.0 hands a manual out relative to its resources folder, so a manual
+ * path is the one this protocol has to map rather than pass through.
+ */
+test('a manual RomM holds is served from under its resources root', () => {
+  assert.equal(
+    assetRequestPath('roms/3/14/manual/14.pdf'),
+    '/assets/romm/resources/roms/3/14/manual/14.pdf'
+  )
+  // An asset path is passed through unchanged.
+  assert.equal(
+    assetRequestPath('/assets/romm/resources/roms/1/cover/small.png'),
+    '/assets/romm/resources/roms/1/cover/small.png'
+  )
+})
+
+test('a manual path that climbs, or is absolute, is still refused', () => {
+  assert.equal(assetRequestPath('roms/3/14/manual/../../../../../api/users/me'), null)
+  assert.equal(assetRequestPath('roms/3/14/manual/..'), null)
+  assert.equal(assetRequestPath('roms/3/14/manual/%2e%2e'), null)
+  assert.equal(assetRequestPath('/roms/3/14/manual/14.pdf'), null)
+  assert.equal(assetRequestPath('/etc/passwd'), null)
+  assert.equal(assetRequestPath('roms/3/14/manual/sub/14.pdf'), null)
+  assert.equal(assetRequestPath('api/users/me'), null)
+  assert.equal(assetRequestPath(''), null)
 })
 
 test('under the read-only guard the catch-up sends nothing', async () => {
