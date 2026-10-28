@@ -3796,10 +3796,10 @@ Lines the tooling reads (exact forms):
 - First unit: #351 (M1-18 part 1, `sampleRate` and `transferLine`) merged at d1ac043. CI x64 7:53, arm64 0:57. Evaluator FAIL, then PASS.
 - Worked on: M1-18 part 2a (tracking issue #350): the engine keeps the rate.
 - Result: PR (this one).
-  - `DownloadItem.rate` (`TransferRate`), present only while bytes are on the wire. `DownloadManager.watchRate` starts it around the transfer and removes it when the transfer ends however it ends. Every progress event samples it, and a timer every `SAMPLE_MS` samples it too, because a stopped transfer sends no events. A game fetched file by file starts the rate over at each file, so the hash check between files does not count as a stall.
+  - `DownloadItem.rate` (`TransferRate`), present only while bytes are on the wire. `DownloadManager.watchRate` starts it around the transfer and removes it when the transfer ends however it ends. Every progress event samples it, and a timer every `SAMPLE_MS` samples it too, because a stopped transfer sends no events. Outside `downloading` (a hash check, unpacking) the rate is dropped, and it starts over when bytes are expected again, so a long hash check is never a stall.
   - The rows do not show it yet: part 2b.
-- Evidence: `src/main/downloads.test.ts` "speed and time left": a steady 1,000 B/s fake gives a speed and a time left, and no `rate` once done; a held transfer reads `stalled` with no time left and no progress event, and no `rate` once settled. Each ran 3/3. `scripts/agent/check.sh` green. No renderer change: no shots.
-- Evaluator: see the PR.
+- Evidence: `src/main/downloads.test.ts` "speed and time left": a steady 1,000 B/s fake gives a speed and a time left, and no `rate` once done; a held transfer reads `stalled` with no time left and no progress event, and no `rate` once settled; a hash check held past `STALL_MS` after the last byte never carries a rate (failed before the fix, passes after). Repeated runs green. `scripts/agent/check.sh` green. No renderer change: no shots.
+- Evaluator: FAIL on 661c33b. The rate outlived the bytes and turned `stalled` during a hash check or an unpacking. `watchRate` now drops the rate outside `downloading`. Then see the PR.
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet. M1-18 stays false.
 - Next: M1-18 part 2b, `transferLine` in the Downloads row and on the game page, with shots.

@@ -119,9 +119,9 @@ export interface DownloadItem {
   /**
    * How fast and how long, while bytes are on the wire: see `sampleRate`.
    *
-   * Absent outside a transfer. The rate starts over at each file of a game
-   * fetched file by file, since the hash check between two files is time
-   * with no bytes in it that says nothing about the network.
+   * Absent outside `downloading`: a hash check or an unpacking is time with
+   * nothing on the wire, which says nothing about the network and is no
+   * stall. The rate starts over when bytes are expected again.
    */
   rate?: TransferRate
 }

@@ -526,6 +526,35 @@ describe('speed and time left', () => {
     assert.ok(last.secondsLeft !== null && last.secondsLeft <= 5, `${last.secondsLeft}s left`)
   })
 
+  test('a hash check after the last byte is no stall, and carries no rate', async () => {
+    const made = manager({ contents: '0'.repeat(1200) })
+    Object.assign(made.client, {
+      async downloadRom(
+        _game: RommRom,
+        destination: string,
+        onProgress: (progress: { received: number; total: number }) => void,
+        _signal: AbortSignal,
+        opts: { onChecking?: () => void } = {}
+      ) {
+        onProgress({ received: 1200, total: 1200 })
+        opts.onChecking?.()
+        // Longer than a stall, as hashing a large game is.
+        await new Promise((resolve) => setTimeout(resolve, STALL_MS + 500))
+        await writeFile(destination, '0'.repeat(1200))
+      }
+    })
+    const outside: string[] = []
+    made.downloads.on('update', (items: DownloadItem[]) => {
+      const item = items.find((row) => row.romId === 1)
+      if (item?.rate && item.state !== 'downloading') outside.push(item.state)
+    })
+    await made.downloads.enqueue(rom())
+    await reached(made.downloads, (items) => items[0]?.state === 'checking', 'checking')
+    assert.equal(made.downloads.items[0].rate, undefined)
+    assert.equal((await settled(made.downloads, 1)).state, 'done')
+    assert.deepEqual(outside, [])
+  })
+
   test('a transfer that sends nothing reads as stalled, without a progress event', async () => {
     const wire = heldWire()
     const { downloads } = manager({ hold: wire.held })

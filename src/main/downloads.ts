@@ -143,6 +143,8 @@ export class DownloadManager extends EventEmitter {
   private draining: Promise<void> = Promise.resolve()
   /** When the renderer was last told anything. See `throttledUpdate`. */
   private lastEmit = 0
+  /** Each watched transfer's way of sampling its rate. See `watchRate`. */
+  private readonly rateLooks = new Map<DownloadItem, () => void>()
   /** The read-back of interrupted transfers, once asked for. See `restorePending`. */
   private restored: Promise<void> | null = null
   /**
@@ -583,25 +585,38 @@ export class DownloadManager extends EventEmitter {
    *
    * Progress events sample it as they come, and a timer samples it besides,
    * because a transfer that has stopped sends no events and a stall is only
-   * seen by looking again.
+   * seen by looking again. Outside `downloading` (a hash check, unpacking)
+   * nothing is on the wire, and time spent there is no stall: the rate is
+   * dropped, and starts over when bytes are expected again.
    */
   private watchRate(item: DownloadItem): () => void {
-    item.rate = startRate(item.receivedBytes, Date.now())
+    const look = (): void => {
+      if (item.state !== 'downloading') {
+        delete item.rate
+        return
+      }
+      const now = Date.now()
+      item.rate = item.rate
+        ? sampleRate(item.rate, item.receivedBytes, item.totalBytes, now)
+        : startRate(item.receivedBytes, now)
+    }
+    this.rateLooks.set(item, look)
+    look()
     const timer = setInterval(() => {
-      this.sampleRate(item)
+      look()
       this.throttledUpdate()
     }, SAMPLE_MS)
     timer.unref()
     return () => {
       clearInterval(timer)
+      this.rateLooks.delete(item)
       delete item.rate
     }
   }
 
+  /** Another look at a transfer's rate, if it is being watched. See `watchRate`. */
   private sampleRate(item: DownloadItem): void {
-    if (item.rate) {
-      item.rate = sampleRate(item.rate, item.receivedBytes, item.totalBytes, Date.now())
-    }
+    this.rateLooks.get(item)?.()
   }
 
   /**
@@ -703,6 +718,7 @@ export class DownloadManager extends EventEmitter {
   private sayChecking(item: DownloadItem | undefined): void {
     if (!item) return
     item.state = 'checking'
+    delete item.rate
     this.emitUpdate()
   }
 
@@ -1096,7 +1112,6 @@ export class DownloadManager extends EventEmitter {
       await mkdir(dirname(destination), { recursive: true })
       item.currentFile = file.file_name
       item.state = 'downloading'
-      item.rate = startRate(item.receivedBytes, Date.now())
       this.emitUpdate()
 
       const already = (await stat(destination).catch(() => null))?.size ?? 0
@@ -1269,6 +1284,7 @@ export class DownloadManager extends EventEmitter {
     const romset = archiveIsTheRom(where.system)
     if (where.asDirectory || (!romset && (await isZip(downloadTo)))) {
       item.state = 'extracting'
+      delete item.rate
       this.emitUpdate()
       log.info('download', 'extracting the archive', { romId: rom.id, from: downloadTo })
       const unpacked = await unpack(
