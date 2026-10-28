@@ -176,8 +176,11 @@ On first launch Galleon asks for your server address and one of:
 2. **API token** — an `rmm_…` token from RomM's _Administration → Client tokens_.
 3. **Username and password**.
 
-Credentials live in `~/galleon`, encrypted with the system keyring, or in a file
-readable only by you where no keyring is reachable.
+Credentials live in `~/galleon/config/credentials.bin`, a file only your user can
+read. They are not encrypted: Game Mode has no system keyring, and a token only
+the keyring could open would sign you out there (ADR 0009). Anyone who can use
+the device as you, or as root, can read the token, so revoke it in RomM if the
+device is lost.
 
 ---
 
