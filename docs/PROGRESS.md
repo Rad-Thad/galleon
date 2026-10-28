@@ -3977,3 +3977,16 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet; M1-27 is not READY-FOR-DEVICE until `idle.cpu` exists. M1-27 stays false.
 - Next: M1-27 part 2, cut idle cost to half the baseline (the renderer first) and set the budget there.
+
+## 2026-10-28 18:01 UTC session 0178hDCDcJEQ17YqzJ9Q483h (hourly heartbeat, second unit)
+
+- Device results: unchanged since the entry above. No lock.
+- Previous unit: #369 (M1-27 part 1) merged at f521ca6. CI wall time: x64 8:19, arm64 1:08.
+- Worked on: M1-27 part 2 (tracking issue #368), acceptance line 2.
+- Result: PR (this one).
+  - `test/app/idle.nightly.ts` "a press after idle moves the highlight within a frame and a little": with the driver's pad plugged in, `LATENCY_IDLE_MS` with nothing pressed on Home, then D-pad Down set on the pad in the same evaluation that installs the probe. The page times from the press to the first frame after the highlight moved, on its own clock, and the test holds it to one frame (the median of frames timed after the press) plus `LATENCY_SLACK_MS`. A pad, not a key, because the pad's poll is what idle may slow and a key never waits on it. A highlight that never moves fails at once, not at the test's deadline.
+- Evidence: local `npm run test:app:nightly`: 27.3 ms against a 16.7 ms frame; the idle CPU test still passes (3.43 s). `scripts/agent/check.sh` green. No renderer change: no shots.
+- Evaluator: FAIL on c91e6d7 (the keyboard press bypassed the pad poll that idle savings will slow, so the test would pass vacuously on that path; its fault injections showed the probe itself sound: no press and a no-op key give -1, a busy handler 121.9 ms); fixed with the pad press, then PASS (quoted in the PR).
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet; M1-27 stays false.
+- Next: M1-27 part 3, cut idle cost to half the baseline (the renderer first) and set the budget there; then `idle.cpu`.

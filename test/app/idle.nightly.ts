@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { readdirSync, readFileSync } from 'node:fs'
 import { after, before, describe, test } from 'node:test'
+import { SETTLE_TIMEOUT_MS } from './driver.ts'
 import { startScenario, type Scenario } from './harness.ts'
 
 /**
@@ -11,7 +12,8 @@ import { startScenario, type Scenario } from './harness.ts'
  * battery and under a governor that ramps with load, so every wake it does for
  * nothing is paid for twice. This adds up the CPU time of every process the
  * application started, from `/proc` as the device check `idle.cpu` does, over
- * `IDLE_MS` on Home with no input at all.
+ * `IDLE_MS` on Home with no input at all. Then, since what idles cheaply may
+ * wake slowly, it times the first press after a quiet spell.
  *
  * Nightly rather than on every pull request: the window is long by design, and
  * a pull request's leg has no room for it (PLAN.md section 4).
@@ -36,6 +38,19 @@ const BASELINE_S = 3.3
  * the baseline with room for a slower runner, until idle cost is cut.
  */
 const IDLE_CPU_BUDGET_S = BASELINE_S * 1.5
+
+/**
+ * How long the application is left alone before the press whose answer is
+ * timed: long enough for anything that winds down when nobody is there to
+ * have done so.
+ */
+const LATENCY_IDLE_MS = 30_000
+/** What a press after idle may take to move the highlight, beyond one frame. */
+const LATENCY_SLACK_MS = 50
+/** Down on the D-pad, as the standard mapping numbers it. See `BUTTON` in `input/gamepad.ts`. */
+const DPAD_DOWN = 13
+/** How many frames are timed to tell how long one is. */
+const FRAMES_TIMED = 30
 
 /** Clock ticks per second, as `/proc/<pid>/stat` counts CPU time. */
 const TICKS = Number(execFileSync('getconf', ['CLK_TCK']).toString().trim())
@@ -120,6 +135,58 @@ describe('idle', () => {
       seconds <= IDLE_CPU_BUDGET_S,
       `the application spent ${seconds.toFixed(2)} s of CPU idle on Home, over the ` +
         `${IDLE_CPU_BUDGET_S} s budget`
+    )
+  })
+  test('a press after idle moves the highlight within a frame and a little', async () => {
+    const { app } = scenario
+    // A pad rather than a key: the pad is read by a poll, and the poll is
+    // what idle may slow down, which a key never waits on. Plugged in before
+    // the quiet spell, so plugging it in is not the input the press follows.
+    const pad = await app.plugInPad()
+    await sleep(LATENCY_IDLE_MS)
+    // The press and the probe in one evaluation, so nothing reaches the page
+    // between the idle and the press, and both ends are read on its clock.
+    await app.read(`(() => {
+      const before = document.querySelector('[data-focused="true"]')
+      window.__afterIdle = new Promise((resolve) => {
+        // A highlight that never moves answers rather than holding the test
+        // to its own deadline.
+        setTimeout(() => resolve(-1), ${SETTLE_TIMEOUT_MS})
+        new MutationObserver((_, observer) => {
+          const now = document.querySelector('[data-focused="true"]')
+          if (!now || now === before) return
+          observer.disconnect()
+          requestAnimationFrame(() => resolve(performance.now() - pressedAt))
+        }).observe(document.body, { attributes: true, subtree: true, attributeFilter: ['data-focused'] })
+      })
+      const pressedAt = performance.now()
+      window.__rommixPad.buttons[${DPAD_DOWN}] = { pressed: true, touched: true, value: 1 }
+      window.__rommixPad.timestamp = pressedAt
+      return true
+    })()`)
+    const latencyMs = await app.read<number>('window.__afterIdle')
+    await pad.release(DPAD_DOWN)
+    // Timed after the press rather than before, so nothing wakes the page
+    // during the idle the press is meant to follow.
+    const frameMs = await app.read<number>(`new Promise((resolve) => {
+      const times = []
+      const tick = (time) => {
+        times.push(time)
+        if (times.length <= ${FRAMES_TIMED}) return requestAnimationFrame(tick)
+        const gaps = times.slice(1).map((one, i) => one - times[i]).sort((a, b) => a - b)
+        resolve(gaps[Math.floor(gaps.length / 2)])
+      }
+      requestAnimationFrame(tick)
+    })`)
+    assert.ok(latencyMs >= 0, 'the highlight never moved after the press')
+    console.log(
+      `after ${LATENCY_IDLE_MS / 1000} s idle the highlight moved in ` +
+        `${latencyMs.toFixed(1)} ms (a frame is ${frameMs.toFixed(1)} ms)`
+    )
+    assert.ok(
+      latencyMs <= frameMs + LATENCY_SLACK_MS,
+      `the highlight took ${latencyMs.toFixed(1)} ms to move after idle, over one frame ` +
+        `(${frameMs.toFixed(1)} ms) plus ${LATENCY_SLACK_MS} ms`
     )
   })
 })
