@@ -3702,3 +3702,15 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet.
 - Next: M1-16 part 2, the hint (line 2): at most once per profile change, dismissable for good, only on Armada, never changing the profile. Then `power.read` and `power.hint`.
+
+## 2026-10-28 02:50 UTC session 0178hDCB8CVLDtDa4JKzYg6v (hourly heartbeat, second unit, parked)
+
+- First unit: #345 (M1-16 part 1, the pre-flight power row) merged at f2fa552. CI x64 8:31, arm64 1:04. Evaluator PASS.
+- Worked on: M1-16 part 2 (tracking issue #344), acceptance line 2: the power profile hint. Parked on branch `claude/M1-16-power-hint`, with no PR.
+- Done on the branch:
+  - `decidePowerHint` (`src/main/powerhint.ts`): only on Armada (a profile definition was read), only on Balanced or Eco, once per change of profile (`Settings.powerProfileSeen`), never once `power-profile-hint` is in `dismissedNotices`. It starts nothing and writes nothing.
+  - IPC `system:powerHint`. It reads from `GALLEON_POWER_ROOT` (a test stand-in for `/`), else `/`.
+  - `PowerHint.tsx` overlay with OK and "Don't show again", asked at start and on window focus. New keys `power.hint*` in all four catalogues. `POWER_HINT_NOTICE` is in `NOTICES`, so self-test homes have it dismissed.
+  - `src/main/powerhint.test.ts` 7/7. Typecheck and lint are clean.
+- Not done: `test/app/powerhint.test.ts` hung in its first test for 30 minutes under Xvfb, and I stopped it. The cause is not found yet. Suspects: `app.choose` on the overlay's buttons, or the overlay taking focus behind the Home screen. Also not done: check.sh, shots and evaluator on this branch.
+- Next: debug that app test one test at a time with a short `--test-timeout`. Then `npm run shots:nova` with a Balanced `GALLEON_POWER_ROOT` to look at the hint, then the evaluator and the PR.
