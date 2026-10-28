@@ -90,7 +90,15 @@ export function GeneralTab({ open }: { open?: SettingsTarget }): JSX.Element {
         <dd>{status?.user?.username ?? '—'}</dd>
         <dt>{t('settings.rommVersion')}</dt>
         <dd>{status?.serverVersion ?? t('value.unknown')}</dd>
+        {/* Said rather than left to the README: the token is only as safe as
+            the file it is in (ADR 0009), and the player holding a device is
+            the one who has to know to revoke it when the device is gone. */}
+        <dt>{t('settings.tokenKept')}</dt>
+        <dd data-token-kept>{t('settings.tokenKeptValue')}</dd>
       </dl>
+      <p className="faint" style={{ fontSize: 14 }}>
+        {t('settings.tokenRevoke')}
+      </p>
       <div className="btn-row">
         <FocusButton
           icon="disconnect"
