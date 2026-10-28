@@ -140,7 +140,7 @@ export function startupScenario(options: StartupOptions): Scenario {
     if (startupMs < STARTUP_MS) return result('pass', null, metrics)
     // The threshold is stated for Performance. A slow start on a profile known
     // to be another one says nothing about it either way.
-    const profile = power?.profile.toLowerCase() ?? 'unknown'
+    const profile = power?.profileId.toLowerCase() ?? 'unknown'
     if (profile !== 'unknown' && profile !== MEASURED_ON) {
       return result('skip', 'not-on-performance', metrics)
     }

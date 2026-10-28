@@ -439,7 +439,7 @@ export interface ScrollScenarioDeps {
 export function powerMetrics(samples: readonly PowerState[]): CheckResult['metrics'] {
   // A sample that could not tell is not a different profile.
   const profiles = new Set(
-    samples.map((s) => s.profile.toLowerCase()).filter((profile) => profile !== UNKNOWN)
+    samples.map((s) => s.profileId.toLowerCase()).filter((profile) => profile !== UNKNOWN)
   )
   const governors = new Set(samples.map((s) => s.cpuGovernor))
   const most = (values: (number | null)[]): number | null => {
@@ -479,9 +479,9 @@ export function scrollScenario(deps: ScrollScenarioDeps): Scenario {
       }
       const metrics: CheckResult['metrics'] = { platform: platform.slug, games: platform.rom_count }
       if (profile !== null) {
-        const now = (await deps.power().catch(() => null))?.profile.toLowerCase()
+        const now = (await deps.power().catch(() => null))?.profileId.toLowerCase()
         const answer = now === profile ? 'set' : await deps.askForProfile(profile, signal)
-        const after = (await deps.power().catch(() => null))?.profile.toLowerCase() ?? 'unknown'
+        const after = (await deps.power().catch(() => null))?.profileId.toLowerCase() ?? 'unknown'
         // Measured only on the profile it is named for: numbers taken on
         // another would be filed under the wrong threshold.
         if (after !== profile) {

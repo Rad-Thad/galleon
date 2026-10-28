@@ -52,7 +52,7 @@ export function compare(
   sysfs: SysfsPower
 ): { mismatches: string[]; metrics: CheckResult['metrics'] } {
   const said = parseArmadaStatus(status).toLowerCase()
-  const inferred = galleon.profile.toLowerCase()
+  const inferred = galleon.profileId.toLowerCase()
   const cap = statusCap(status)
   const mismatches: string[] = []
   if (said === UNKNOWN) mismatches.push('no-status')

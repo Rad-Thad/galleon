@@ -81,7 +81,7 @@ export function parseIni(text: string): Map<string, Map<string, string>> {
 }
 
 /**
- * The profile in force, by its label, or `unknown`.
+ * The profile in force, by its section name, or `unknown`.
  *
  * Armada keeps no file that says which profile is applied, so it is read off
  * the machine: a profile fits when its governor is the prime cluster's and
@@ -112,7 +112,7 @@ export function profileInForce(
     const level = keys.get('cpu_underclock') ?? 'none'
     const capped =
       level === 'none' ? !anyCap.has(cpuMaxKHz) : (caps.get(level)?.has(cpuMaxKHz) ?? false)
-    if (capped) fits.push(keys.get('label') || profile)
+    if (capped) fits.push(profile)
   }
   return fits.length === 1 ? fits[0] : UNKNOWN
 }
@@ -162,6 +162,21 @@ export function parseArmadaStatus(text: string | null): string {
   return UNKNOWN
 }
 
+/**
+ * A profile by the label its section in power-profiles.conf gives it, which
+ * is what the player reads, whether `armada-power status` named the profile
+ * or `profileInForce` inferred it. A name the file does not define, or a
+ * section without a label, keeps the name as given.
+ */
+export function profileLabel(conf: string | null, name: string): string {
+  if (conf === null || name === UNKNOWN) return name
+  const wanted = `profile.${name.toLowerCase()}`
+  for (const [section, keys] of parseIni(conf)) {
+    if (section.toLowerCase() === wanted) return keys.get('label') || name
+  }
+  return name
+}
+
 /** The devfreq device that is the GPU: Adreno's is named after its address and `.gpu`. */
 export function gpuDevice(names: readonly string[]): string | null {
   return names.toSorted().find((name) => /(^|[.-])gpu$/i.test(name)) ?? null
@@ -185,6 +200,8 @@ export function powerState(files: PowerFiles): PowerState {
   const cpuGovernor = parseWord(files.cpuGovernor)
   const cpuMaxKHz = parseNumber(files.cpuMax)
   const said = parseArmadaStatus(files.armadaStatus ?? null)
+  const profileId =
+    said !== UNKNOWN ? said : profileInForce(files.profileConf, cpuGovernor, cpuMaxKHz)
   return {
     cpuGovernor,
     cpuCurKHz: parseNumber(files.cpuCur),
@@ -192,7 +209,8 @@ export function powerState(files: PowerFiles): PowerState {
     gpuGovernor: parseWord(files.gpuGovernor),
     gpuCurHz: parseNumber(files.gpuCur),
     gpuMaxHz: parseNumber(files.gpuMax),
-    profile: said !== UNKNOWN ? said : profileInForce(files.profileConf, cpuGovernor, cpuMaxKHz),
+    profile: profileLabel(files.profileConf, profileId),
+    profileId,
     defaultProfile: parseDefaultProfile(files.profileConf),
     perf: parsePerfState(files.perfState)
   }

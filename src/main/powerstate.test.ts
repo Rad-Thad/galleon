@@ -15,7 +15,8 @@ import {
   powerState,
   readArmadaStatus,
   readPowerState,
-  UNKNOWN
+  UNKNOWN,
+  type PowerFiles
 } from './powerstate.ts'
 
 /**
@@ -48,6 +49,17 @@ const fixture = (name: string): string =>
 const CONF = fixture('power-profiles.conf')
 const PERF = fixture('perf-state.json')
 
+const NO_FILES: PowerFiles = {
+  cpuGovernor: null,
+  cpuCur: null,
+  cpuMax: null,
+  gpuGovernor: null,
+  gpuCur: null,
+  gpuMax: null,
+  profileConf: null,
+  perfState: null
+}
+
 function nova(profile: 'balanced' | 'performance'): Record<string, string> {
   const balanced = profile === 'balanced'
   return {
@@ -73,6 +85,7 @@ describe('the power state', () => {
       gpuCurHz: 220000000,
       gpuMaxHz: 680000000,
       profile: 'Balanced',
+      profileId: 'balanced',
       defaultProfile: 'balanced',
       perf: 'global.gamescopeNice=-20'
     })
@@ -103,6 +116,7 @@ describe('the power state', () => {
       gpuCurHz: null,
       gpuMaxHz: null,
       profile: UNKNOWN,
+      profileId: UNKNOWN,
       defaultProfile: UNKNOWN,
       perf: UNKNOWN
     })
@@ -168,11 +182,11 @@ describe('the parsers', () => {
   })
 
   test('the profile in force is the only one the governor and the prime cap fit', () => {
-    assert.equal(profileInForce(CONF, 'performance', 2956800), 'Performance')
-    assert.equal(profileInForce(CONF, 'conservative', 2092800), 'Balanced')
-    assert.equal(profileInForce(CONF, 'conservative', 1843200), 'Eco')
+    assert.equal(profileInForce(CONF, 'performance', 2956800), 'performance')
+    assert.equal(profileInForce(CONF, 'conservative', 2092800), 'balanced')
+    assert.equal(profileInForce(CONF, 'conservative', 1843200), 'eco')
     // Another SoC's cap for the same level names the same profile.
-    assert.equal(profileInForce(CONF, 'conservative', 2457600), 'Balanced')
+    assert.equal(profileInForce(CONF, 'conservative', 2457600), 'balanced')
   })
 
   test('and stays unknown when none fits, two fit, or something is missing', () => {
@@ -186,9 +200,10 @@ describe('the parsers', () => {
     assert.equal(profileInForce(CONF, 'performance', null), UNKNOWN)
   })
 
-  test('a profile without a label is named by its section', () => {
+  test('a profile without a label is shown by its section name', () => {
     const conf = '[profile.quiet]\ncpu_governor=powersave\n'
-    assert.equal(profileInForce(conf, 'powersave', 1000), 'quiet')
+    const files = { ...NO_FILES, profileConf: conf, cpuGovernor: 'powersave', cpuMax: '1000' }
+    assert.deepEqual([powerState(files).profile, powerState(files).profileId], ['quiet', 'quiet'])
   })
 
   test('the perf contract, every entry under the layer that holds it', () => {
@@ -231,12 +246,35 @@ describe("Armada's own report", () => {
   test("wins over the clocks' inference when asked for, and the clocks stand when it fails", async () => {
     const root = tree(nova('balanced'))
     const told = await readPowerState(root, { status: async () => 'profile=eco\n' })
-    assert.equal(told.profile, 'eco')
+    assert.deepEqual([told.profile, told.profileId], ['Eco', 'eco'])
     assert.equal(told.cpuGovernor, 'conservative')
     const silent = await readPowerState(root, { status: async () => null })
-    assert.equal(silent.profile, 'Balanced')
+    assert.deepEqual([silent.profile, silent.profileId], ['Balanced', 'balanced'])
     const broken = await readPowerState(root, { status: () => Promise.reject(new Error('dbus')) })
     assert.equal(broken.profile, 'Balanced')
+  })
+
+  test('is shown by the label its section gives, and kept by the name status gave', () => {
+    const files = { ...NO_FILES, profileConf: CONF }
+    assert.equal(powerState({ ...files, armadaStatus: 'profile=balanced\n' }).profile, 'Balanced')
+    const relabelled = CONF.replace('label=Eco', 'label=Battery saver')
+    const eco = powerState({ ...files, profileConf: relabelled, armadaStatus: 'profile=eco' })
+    assert.deepEqual([eco.profile, eco.profileId], ['Battery saver', 'eco'])
+    assert.equal(
+      powerState({ ...files, armadaStatus: 'profile=Performance\n' }).profile,
+      'Performance'
+    )
+    // A profile the file does not define, or no file, keeps the name status gave.
+    assert.equal(powerState({ ...files, armadaStatus: 'profile=turbo\n' }).profile, 'turbo')
+    const bare = '[profile.quiet]\ncpu_governor=powersave\n'
+    assert.equal(
+      powerState({ ...files, profileConf: bare, armadaStatus: 'profile=quiet' }).profile,
+      'quiet'
+    )
+    assert.equal(
+      powerState({ ...files, profileConf: null, armadaStatus: 'profile=eco' }).profile,
+      'eco'
+    )
   })
 
   test('a machine without armada-power answers null', async () => {

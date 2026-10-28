@@ -42,6 +42,7 @@ function galleon(profile: string, extra: Partial<PowerState> = {}): PowerState {
     gpuCurHz: 220_000_000,
     gpuMaxHz: 680_000_000,
     profile: m.label,
+    profileId: profile,
     defaultProfile: 'balanced',
     perf: 'unknown',
     ...extra
@@ -117,11 +118,19 @@ describe('power.read', () => {
 
   test('fails when the inferred profile is not the one armada-power names', async () => {
     const f = fake({
-      reading: (p) => galleon(p, { profile: p === 'balanced' ? 'unknown' : MACHINE[p].label })
+      reading: (p) => galleon(p, { profileId: p === 'balanced' ? 'unknown' : p })
     })
     const out = await run(f, ['performance', 'balanced'])
     assert.equal(out.result, 'fail')
     assert.equal(out.reason, 'mismatch:balanced:profile')
+  })
+
+  test('agrees by section name, whatever label the conf gives the profile', async () => {
+    const f = fake({
+      reading: (p) => galleon(p, { profile: p === 'balanced' ? 'Steady' : 'Fast' })
+    })
+    const out = await run(f, ['performance', 'balanced'])
+    assert.equal(out.result, 'pass', String(out.reason))
   })
 
   test('fails on a governor, cap or clock that sysfs does not show', async () => {
