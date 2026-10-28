@@ -3990,3 +3990,18 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet; M1-27 stays false.
 - Next: M1-27 part 3, cut idle cost to half the baseline (the renderer first) and set the budget there; then `idle.cpu`.
+
+## 2026-10-28 19:26 UTC session 0178hDCByrURZRVcvmUx8gn2 (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. No open PRs, no lock, no `needs-human`. Main green. `init.sh` stopped at Docker (daemon not answering); ran `npm ci` and `npx install-electron` by hand. Nothing in this unit needs Docker RomM.
+- Previous unit: #370 (M1-27 part 2) merged at 5c1138d. CI wall time (its run on `main`): x64 10:06, arm64 1:09.
+- Worked on: M1-27 part 3 (tracking issue #368), acceptance line 1's 50% cut.
+- Result: PR (this one).
+  - `input/gamepad.ts`: once no button or axis has been in use for `IDLE_AFTER_MS`, the pad is read on an `IDLE_POLL_MS` timer instead of every animation frame; the next press brings the frame reads back. Every frame asked for woke the compositor and GPU as well as the page.
+  - `test/app/idle.nightly.ts`: the budget is now half the baseline (`BASELINE_S / 2`).
+- Measured (VM, Xvfb): idle CPU 1.49 and 1.49 s a minute (baseline 3.3, budget 1.65); renderer 0.55 s, main 0.94 s. With the pad never read when idle, main still spent 0.94 s, so what is left is mostly not the poll. Press after 30 s idle: 13.8 and 31.3 ms against a 16.7 ms frame plus 50 ms.
+- Evidence: `gamepad.test.tsx` 31/31; of its four new poll tests, the idle one fails on the old file and the other three pin behaviour the frame loop already had (a hold, the chord, a press). `npm run test:app:nightly` passes; `npm run test:app` 287/287; `scripts/agent/check.sh` green. No visual change: no shots.
+- Evaluator: PASS on 4526cb6 (line 1 met; line 2 exercises the timer path, 13.6 ms in its run; its idle run 1.21 s). Its notes: the budget has never run on a CI runner, so a red first nightly is the next unit (root cause or re-measured baseline, not a looser ratio); an unmapped pad whose triggers rest at -1 would never go idle, which `idle.cpu` on the Nova will show.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet; M1-27 is not READY-FOR-DEVICE until `idle.cpu` exists. M1-27 stays false.
+- Next: M1-27 part 4, device check `idle.cpu` and its budget in thresholds.json.
