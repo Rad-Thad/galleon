@@ -1,11 +1,14 @@
-import { BrowserWindow, app, protocol, screen } from 'electron'
+import { BrowserWindow, app, protocol, safeStorage, screen } from 'electron'
 import { IMAGE_SCHEME, RomMixApp } from './app.ts'
 import { startCoreService, type CoreService } from './core-socket/service.ts'
 import { registerIpc } from './ipc/index.ts'
 import { log, logSession } from './log.ts'
 import { powerRoot, readArmadaStatus, readPowerState } from './powerstate.ts'
-import { ensureRoot, profilePath, resolveRoot } from './root.ts'
+import { ensureRoot, profilePath, resolveRoot, rootPaths } from './root.ts'
+import { RommClient } from './romm/index.ts'
 import { ReadOnlyGuard } from './romm/guard.ts'
+import { Store } from './store.ts'
+import { AUTH_STORAGE_CHECK, authStorageScenario } from './selftestauth.ts'
 import { reportRefusal, runAndReport, takeRequest } from './selftest.ts'
 import { DOWNLOAD_CHECK, downloadScenario } from './selftestdownload.ts'
 import { SDCARD_CHECK, sdCardScenario } from './selftestsdcard.ts'
@@ -170,6 +173,24 @@ if (!app.requestSingleInstanceLock()) {
           [
             SCHEME_CHECK,
             schemeProbeScenario(rommix.client, () => rommix.store.server?.baseUrl ?? null)
+          ],
+          [
+            AUTH_STORAGE_CHECK,
+            authStorageScenario({
+              home: resolveRoot(),
+              configDir: rootPaths().config,
+              token: () => {
+                const { clientToken, accessToken } = rommix.store.credentials
+                return clientToken ?? accessToken
+              },
+              keyringAvailable: () => safeStorage.isEncryptionAvailable(),
+              restart: () => {
+                const store = new Store(rootPaths().config)
+                const client = new RommClient(store)
+                client.readOnly(guard)
+                return { credentials: store.credentials, me: () => client.me() }
+              }
+            })
           ],
           [
             UPDATE_CHECK,
