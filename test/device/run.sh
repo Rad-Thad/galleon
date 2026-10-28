@@ -6,9 +6,9 @@
 # `safety.owner-state`. It takes the desktop session's variables and
 # repeats the bridge's Game Mode, idle and free-space checks (session.py),
 # skipping when one fails, at the start and again just before the app is
-# started; makes sure Steam has the test shortcut
-# (steamcef.py), with launch.sh, current.py and launched.py in
-# $GALLEON_TEST_ROOT; holds
+# started; makes sure Steam has the test shortcut and, for steam.launch, the
+# target shortcut (steamcef.py), with launch.sh, target.sh, current.py and
+# launched.py in $GALLEON_TEST_ROOT; holds
 # the owner state (ownerstate.py, in $GALLEON_TEST_DIR/owner-state), reported
 # as `safety.owner-state`; and makes the test home with its read-only sign-in
 # (signin.py, $GALLEON_TEST_DIR/home) with the app's self-test request
@@ -17,7 +17,8 @@
 # downloaded, and an empty handshake folder ($GALLEON_TEST_DIR/handshake).
 # Outside RESULTS_DIR and those places it writes only an emulator config it
 # restores, Steam's shortcut list through
-# Steam itself, the launch request ($GALLEON_TEST_ROOT/current.json),
+# Steam itself, the record that steam.launch waits for an attended run
+# ($GALLEON_TEST_ROOT/steam-attended.json, steamlaunch.py), the launch request ($GALLEON_TEST_ROOT/current.json),
 # removed before it finishes, and the default sink's mute (audio.py), put
 # back with its volume from $GALLEON_TEST_ROOT/audio.json. It starts the app
 # through the test shortcut, and stops it, signalling only the pids launch.sh
@@ -137,7 +138,7 @@ esac
 # folder, so the path Steam holds stays the same across runs. A copy is
 # renamed into place, so a link left there is replaced rather than followed.
 shortcut_ok=1
-for name in launch.sh current.py launched.py; do
+for name in launch.sh target.sh current.py launched.py; do
   rm -f -- "$GALLEON_TEST_ROOT/.$name.tmp"
   if ! { cp -- "$here/$name" "$GALLEON_TEST_ROOT/.$name.tmp" &&
     chmod 0755 "$GALLEON_TEST_ROOT/.$name.tmp" &&
@@ -162,6 +163,29 @@ if [ -n "$shortcut_ok" ]; then
     *) shortcut_ok= ;;
   esac
 fi
+# steam.launch starts a second shortcut while the app, itself one, runs
+# (target.sh). It is added the same way and for the same reason before the
+# manifest. A 'Launch Multiple Games' prompt an earlier run left on screen
+# needs a person, so after one the check is never asked for again
+# unattended (steamlaunch.py), and Steam is not asked for the target.
+attended_record="$GALLEON_TEST_ROOT/steam-attended.json"
+target=
+if [ -n "$shortcut_ok" ] && python3 "$here/steamlaunch.py" attended --record "$attended_record"; then
+  echo "steam.launch: a prompt was left up before, so it waits for an attended run" >>"$log"
+elif [ -n "$shortcut_ok" ]; then
+  target=$(python3 "$here/steamcef.py" ${GALLEON_STEAM_CEF:+--cef "$GALLEON_STEAM_CEF"} \
+    ensure --test-root "$GALLEON_TEST_ROOT" --name 'Galleon Device Test Target' \
+    --exe "$GALLEON_TEST_ROOT/target.sh" --record target.json --saved-within 30 2>>"$log")
+  code=$?
+  echo "target shortcut: $target" >>"$log"
+  why=$(printf '%s' "$target" | sed -n 's/.*"reason": *"\([a-z-]*\)".*/\1/p')
+  case $code in
+    0) ;;
+    10) skip "${why:-steam-cef-unavailable}" ;;
+    *) shortcut_ok= ;;
+  esac
+fi
+target_gameid=$(printf '%s' "$target" | sed -n 's/.*"gameid": *\([0-9][0-9]*\).*/\1/p')
 
 # Owner state (ownerstate.py): what the run must not change, recorded before
 # anything else happens. The manifest and the backup stay on the device, out
@@ -251,6 +275,9 @@ fi
 nds_payload='roms/nds/galleon-nds-hello.nds'
 if [ -n "$payloads_ok" ] && printf '%s\n' "$payload_list" | grep -qxF "$nds_payload"; then
   set -- "$@" --payload "melonds=$nds_payload" --check launch.melonds --check exit.melonds
+fi
+if [ -n "$target_gameid" ]; then
+  set -- "$@" --check steam.launch --steam-target "$target_gameid"
 fi
 app_budget=$((deadline - $(date +%s) - STOP_RESERVE_SECONDS))
 selftest_ok=
@@ -387,10 +414,23 @@ serve_profile() {
   python3 "$here/powerprofile.py" answer --state "$profile_state" --handshake "$handshake" \
     "$@" >>"$log" 2>&1 || :
 }
+# Once the app has asked Steam for the target (steam.launch), Steam's windows
+# are watched for the 'Launch Multiple Games' prompt and the app is told what
+# was seen (steamcef.py prompt), once a run. The watch ends inside the app's
+# wait for the answer (selfteststeam.ts, PROMPT_WAIT_MS).
+PROMPT_WATCH_SECONDS=${GALLEON_PROMPT_WATCH_SECONDS:-45}
+prompt_watched=
+serve_prompt() {
+  [ -z "$prompt_watched" ] && [ -e "$handshake/steam-launched" ] || return 0
+  prompt_watched=1
+  python3 "$here/steamcef.py" ${GALLEON_STEAM_CEF:+--cef "$GALLEON_STEAM_CEF"} \
+    prompt --handshake "$handshake" --wait "$PROMPT_WATCH_SECONDS" >>"$log" 2>&1 || :
+}
 gone_by() {
   until app_gone; do
     [ "$(date +%s)" -lt "$1" ] || return 1
     serve_profile
+    serve_prompt
     sleep "$POLL_SECONDS"
   done
 }
@@ -700,6 +740,11 @@ else
       mv "$tmp" "$RESULTS_DIR/summary.json"
   fi
   rm -f -- "$harness_summary"
+  # A Galleon Steam closed reports no steam.launch, and a prompt left up
+  # keeps the check from later unattended runs (steamlaunch.py).
+  python3 "$here/steamlaunch.py" settle --summary "$RESULTS_DIR/summary.json" \
+    --handshake "$handshake" --record "$attended_record" >>"$log" 2>&1 ||
+    echo "steam.launch: the summary could not be settled" >>"$log"
   [ "$merged" -ne 20 ] || exit 20
 fi
 [ -z "$late_skip" ] || exit 10

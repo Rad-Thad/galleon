@@ -12,6 +12,7 @@ asked for: they are what keep a device run from leaving a trace.
   selftestrequest.py write --home H --sha S [--version V] --budget SECONDS
       [--deadline EPOCH_SECONDS] --results D [--handshake D] --check ID ... [--profile NAME ...]
       [--payload EMULATOR=PATH ...] [--saving EMULATOR ...] [--screenshot NAME ...]
+      [--steam-target GAMEID]
   selftestrequest.py remove --home H    the request and the app's taken copy
 
 Exits ERROR_EXIT when the request cannot be written or would be refused.
@@ -39,7 +40,7 @@ class RequestError(ValueError):
 
 
 def request(sha, version, budget, results, handshake, checks, profiles, payloads, saving, screenshots,
-            deadline=None):
+            deadline=None, steam_target=None):
     """The request as the app expects it, or RequestError naming what is wrong.
 
     `deadline` is when the app's run must end, in seconds since the epoch; the
@@ -58,6 +59,9 @@ def request(sha, version, budget, results, handshake, checks, profiles, payloads
             raise RequestError(f"the {name} folder is not an absolute path")
     if not checks:
         raise RequestError("no checks requested")
+    # The app puts the game id into a steam:// URL and takes digits only.
+    if steam_target is not None and not re.fullmatch(r"[0-9]+", steam_target):
+        raise RequestError("the Steam target is not a game id")
     unknown = [emulator for emulator in saving if emulator not in payloads]
     if unknown:
         raise RequestError(f"saving payloads without a payload: {', '.join(unknown)}")
@@ -79,6 +83,8 @@ def request(sha, version, budget, results, handshake, checks, profiles, payloads
     }
     if version is not None:
         record["version"] = version
+    if steam_target is not None:
+        record["steamTarget"] = steam_target
     if deadline is not None:
         record["deadline"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(deadline))
     return record
@@ -137,6 +143,7 @@ def main(argv=None):
     put.add_argument("--payload", action="append", default=[], type=_payload)
     put.add_argument("--saving", action="append", default=[])
     put.add_argument("--screenshot", action="append", default=[])
+    put.add_argument("--steam-target")
     for command in (put, commands.add_parser("remove")):
         command.add_argument("--home", required=True)
     args = parser.parse_args(argv)
@@ -147,7 +154,7 @@ def main(argv=None):
             return 0
         record = request(args.sha, args.version, args.budget, args.results, args.handshake,
                          args.check, args.profile, dict(args.payload), args.saving, args.screenshot,
-                         args.deadline)
+                         args.deadline, args.steam_target)
         write(args.home, record)
     except (RequestError, OSError) as error:
         print(f"selftestrequest.py: {error}", file=sys.stderr)

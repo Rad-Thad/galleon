@@ -3666,3 +3666,24 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet.
 - Next: M1-14 part 3b-ii, the harness: run.sh ensures 'Galleon Device Test Target' (a script that marks `target-started`/`target-ended` and shows a window briefly), passes its game id as `steamTarget` (`selftestrequest.py --steam-target`), watches Steam's debugger for 'Launch Multiple Games' after `steam-launched` and answers `steam-prompt`, records `launcher-killed` when the app dies without reporting, and keeps a mark so a `needs-attended` run never requests `steam.launch` again.
+
+## 2026-10-28 01:27 UTC session 0178hDCBPPnumnFv5S4CDVG2 (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions.
+- First unit: #342 (M1-14 part 3b-i). The 22:26 run left it green but unmerged after a fix commit. Its claim on #336 lapsed at 01:28. I re-ran the evaluator on the final head 63d9b6a: PASS, no blocking findings. Merged at e860858; CI x64 8:41, arm64 1:15.
+- Worked on: M1-14 part 3b-ii (tracking issue #336): run.sh's half of `steam.launch`.
+- Result: PR (this one).
+  - The 'Galleon Device Test Target' shortcut. run.sh ensures it like the test shortcut, before the manifest, with the same skips. Its executable is `test/device/target.sh`: while `current.json` is current it marks `target-started`, holds a moment, marks `target-ended`, and starts nothing.
+  - run.sh asks for `steam.launch` with the target's game id as `steamTarget` (`selftestrequest.py --steam-target`, digits only).
+  - `steamcef.py prompt` runs once `steam-launched` appears. It watches the window list for 'Launch Multiple Games' until the target has started with no prompt up, or until `PROMPT_WATCH_SECONDS`. It writes `none` / `shown` / `left` by a rename. The log outlines the paths of new windows on Steam's UI host, never their titles. If the debugger never answers, nothing is written.
+  - `steamlaunch.py settle`, after the merge: a Galleon that asked Steam and reported nothing gets `steam.launch` fail `galleon-closed` with `galleonSurvived` 0, and the run becomes `partial`. A `needs-attended` result, or a prompt `left`, writes `$GALLEON_TEST_ROOT/steam-attended.json`. After that, run.sh asks for neither the target nor the check.
+  - The owner-state manifest now masks the target's `LastPlayTime` as well as the test shortcut's. Without this, starting the target would fail `safety.owner-state`.
+  - TESTING.md describes all of it, and `launch-refused` (the evaluator's note on #342).
+- Evidence:
+  - `python3 -B -m unittest discover -s test/device`: 211 OK. New: `test_steamlaunch.py` 11 (settle, the record, target.sh with and without a request, a linked handshake). `PromptWatchTest` 9 (none / shown / left, no start, a debugger that never answers or answers late, outlines only, the answer written by rename, the CLI). Target masking in `test_ownerstate`/`test_shortcuts`. `--steam-target` in `test_selftestrequest`.
+  - `scripts/device-bundle-steam.test.ts` 3/3, running the real run.sh against fakes. (1) The target is ensured and started. The app sees `none` only after `target-started`. `steam.launch` passes and `safety.owner-state` passes. (2) An app that quits with no summary gives `galleon-closed`, run `partial`. (3) `needs-attended` writes the record, and the next run asks for no `steam.launch` and starts no target.
+  - `device-bundle.test.ts` and `-stops` 63/63, with the fixture's `shortcuts.vdf` now holding both shortcuts. shellcheck clean. `scripts/agent/check.sh` green. No app code changed: no `test:app`, no shots.
+- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: READY-FOR-DEVICE M1-14 (`steam.list`, `steam.launch`). M1-14 stays false until both pass on the device. Whether Steam names the prompt's window 'Launch Multiple Games' is unknown until a device run. If it does not, the log's window outlines will show what to match.
+- Next: M1-14 waits on the device. The next eligible feature from `next.mjs`.

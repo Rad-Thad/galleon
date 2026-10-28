@@ -54,6 +54,19 @@ class OwnerStateTest(unittest.TestCase):
             handle.write(shortcuts_file(entries))
         return path
 
+    def test_the_target_shortcuts_play_time_is_left_out_too(self):
+        spec = dict(SPEC, shortcutLists=["steam/userdata/*/config/shortcuts.vdf"])
+        target = dict(TEST, AppName="Galleon Device Test Target")
+        self.write_shortcuts([GAME, dict(TEST, LastPlayTime=0), dict(target, LastPlayTime=0)])
+        before = ownerstate.snapshot(self.home, spec)
+        key = os.path.join("steam", "userdata", "123", "config", "shortcuts.vdf")
+        self.assertEqual(before["files"][key]["playTimeMasked"], 2)
+        self.write_shortcuts([GAME, dict(TEST, LastPlayTime=7), dict(target, LastPlayTime=1760000000)])
+        self.assertEqual(ownerstate.compare(before, ownerstate.snapshot(self.home, spec)), [])
+        self.write_shortcuts([GAME, dict(TEST, LastPlayTime=7), dict(target, LastPlayTime=8, Exe='"/elsewhere"')])
+        self.assertEqual(ownerstate.compare(before, ownerstate.snapshot(self.home, spec)),
+                         [{"path": key, "change": "changed"}])
+
     def test_the_test_shortcuts_play_time_is_the_one_change_left_out(self):
         spec = dict(SPEC, shortcutLists=["steam/userdata/*/config/shortcuts.vdf"])
         game = dict(GAME, LastPlayTime=5)

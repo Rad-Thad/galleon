@@ -63,6 +63,14 @@ class SelfTestRequestTest(unittest.TestCase):
         self.assertEqual(self.write()[0], 0)
         self.assertNotIn("deadline", self.read())
 
+    def test_the_steam_target_is_written_as_a_string(self):
+        self.assertEqual(self.write("--steam-target", "17293822569102704640")[0], 0)
+        self.assertEqual(self.read()["steamTarget"], "17293822569102704640")
+
+    def test_no_steam_target_leaves_the_field_out(self):
+        self.assertEqual(self.write()[0], 0)
+        self.assertNotIn("steamTarget", self.read())
+
     def test_refuses_what_the_app_would_refuse_and_writes_nothing(self):
         cases = [
             ("--sha", "abc"),
@@ -72,6 +80,8 @@ class SelfTestRequestTest(unittest.TestCase):
             ("--handshake", "relative/hs"),
             ("--saving", "dolphin"),
             ("--deadline", "0"),
+            ("--steam-target", "123; rm"),
+            ("--steam-target", ""),
         ]
         for flag, value in cases:
             with self.subTest(flag=flag):
