@@ -199,7 +199,7 @@ describe('server.scheme-probe', () => {
     const { client, asked } = probing([])
     const result = await run(client, IMPORTED)
     assert.equal(result.result, 'fail')
-    assert.equal(result.reason, 'probe-error')
+    assert.equal(result.reason, 'probe-unreachable')
     assert.equal(asked.length, 2)
     assert.ok(!JSON.stringify(result).includes('owners-server'))
   })
@@ -217,4 +217,22 @@ describe('server.scheme-probe', () => {
     assert.equal(result.reason, 'no-server')
     assert.deepEqual(asked, [])
   })
+})
+
+test('server.scheme-probe names a refused certificate apart from no answer', async () => {
+  const client = {
+    probe: async () => ({ kind: 'tls' as const, reason: 'self-signed' }),
+    heartbeat: async () => ({ version: '5.4.0' })
+  } as never
+  const answered = await schemeProbeScenario(
+    client,
+    () => 'https://owners-server.example'
+  )({
+    request: {} as SelfTestRequest,
+    safety: {} as never,
+    signal: new AbortController().signal
+  })
+  assert.ok(!Array.isArray(answered))
+  assert.equal(answered.reason, 'probe-tls')
+  assert.equal(answered.metrics.attempts, 1)
 })

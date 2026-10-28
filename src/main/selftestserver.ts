@@ -92,15 +92,21 @@ export function schemeProbeScenario(
     if (imported === null) return result('fail', 'no-server', {})
     const bare = imported.replace(/^https?:\/\//i, '')
     let attempts = 0
+    // The last attempt's answer names the failure: the message would name the
+    // server, and the reason is published.
+    let last = 'error'
     const started = performance.now()
     let found: string
     try {
-      found = await resolveBaseUrl(bare, (url) => {
+      found = await resolveBaseUrl(bare, async (url) => {
         attempts++
-        return client.probe(url)
+        const answer = await client.probe(url)
+        last = answer.kind
+        return answer
       })
     } catch (cause) {
-      return result('fail', `probe-${failure(cause)}`, { attempts })
+      log.info('selftest', 'the scheme probe found no RomM', { cause })
+      return result('fail', `probe-${last}`, { attempts })
     }
     const probeMs = Math.round(performance.now() - started)
     const metrics = {
