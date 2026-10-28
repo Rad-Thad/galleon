@@ -7,7 +7,8 @@ import { STEAM_ROOT } from './library.ts'
 /**
  * Steam's non-Steam shortcuts, as each user's `config/shortcuts.vdf` keeps
  * them, and the cover art Steam has for a game or a shortcut. Read only:
- * Steam rewrites these files whenever it likes, and a writer is M1-29's.
+ * Steam rewrites these files whenever it likes, and changing one needs the
+ * exact reading in binaryvdf.ts.
  *
  * shortcuts.vdf is binary VDF: a map is a 0x00 byte, a NUL-terminated name
  * and its fields up to a 0x08 byte; a string field is 0x01, an int32 0x02.

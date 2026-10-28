@@ -4021,3 +4021,17 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: READY-FOR-DEVICE M1-27 (all three lines met in CI; `idle.cpu` waits on the device). M1-27 stays false.
 - Next: the next eligible feature from `next.mjs`; first nightly with `selftest-idle.nightly.ts` may need the budget checked against a CI runner.
+
+## 2026-10-28 21:28 UTC session 0178hDC9d9xeuMW78bpr4gqH (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. No open PRs, no lock, no `needs-human`. Main's x64 leg on e5019bf still running at the start; arm64 green.
+- Previous unit: #372 (M1-27 part 4) merged at e5019bf. CI wall time: recorded in the next entry.
+- Worked on: M1-29 part 1 (tracking issue #373), acceptance line 1. M1-29 is the first feature `next.mjs` lists that is not yet READY-FOR-DEVICE.
+- Result: PR (this one).
+  - `src/main/steam/binaryvdf.ts`: binary VDF read into an ordered list of typed fields and written back. Each field keeps its order, its type code (0x03, 0x04, 0x06 and 0x07 as raw bytes of their width) and its exact text; a file that could not come back byte for byte (cut short, an unknown type, text that is not UTF-8, bytes after the end) reads as null, so a later writer refuses it rather than rewriting it. The writer refuses a NUL or lone surrogate in text, an int32 out of range and fixed bytes of the wrong width.
+  - `parseBinaryVdf` (shortcuts.ts) stays the lenient reader for listing.
+- Evidence: `binaryvdf.test.ts` 10/10: a real-shaped list (every field Steam's client writes today, a non-ASCII tag, a colour and a uint64) round-trips byte for byte; file order beats object key order; float32 and pointer codes kept; a leading BOM kept; every truncation, non-UTF-8 text, unknown type and trailing byte is null; signed and unsigned appids write the same; an appended entry leaves the others' bytes unchanged. `scripts/agent/check.sh` green. No renderer change: no shots.
+- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet; M1-29 stays false.
+- Next: M1-29 part 2, adding or updating Galleon's shortcut (Steam running refuses, backup first, same exe updates), from `install.sh --add-to-steam` and Settings.
