@@ -3961,3 +3961,15 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: READY-FOR-DEVICE M1-25 (all three lines now met in CI; `manual.open` waits on the device). M1-25 stays false.
 - Next: the next eligible feature from `next.mjs`; everything listed waits on the device, so stack-independent work or stop.
+
+## 2026-10-28 17:27 UTC session 0178hDCDcJEQ17YqzJ9Q483h (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. No open PRs, no lock, no `needs-human`. Main green. `init.sh` stopped at Docker (daemon not answering); ran `npm ci` and `npx install-electron` by hand. Nothing in this unit needs Docker RomM.
+- Previous unit: #367 (M1-25 part 2) merged at 2f07b9c.
+- Worked on: M1-27 part 1 (tracking issue #368), acceptance line 1, the measurement.
+- Result: PR (this one).
+  - `test/app/idle.nightly.ts`: the built app against the fake server, settled on Home, then left alone for a minute; the CPU time of its whole process tree is read from `/proc` (as `idle.cpu` will on the Nova) and held to a budget, with each process's share (`main`, `gpu-process`, `renderer`, …) logged. The budget is the measured baseline with room; part 2 cuts the cost and sets the budget to half the baseline.
+  - `npm run test:app:nightly` runs it; `nightly.yml` runs it on x64 after `test:app`. Kept off pull requests: a minute-long window does not fit the 10-minute leg (PLAN.md section 4, updated).
+  - `App.pid` (`test/app/driver.ts`): the process the run started, the root of the tree.
+- Baseline (VM, Xvfb, 4 runs): 3.37, 3.28, 3.44, 3.34 s of CPU per idle minute; renderer about 1.75 s, GPU process 0.85 s, main 0.75 s, zygotes and utility about 0.
+- Evidence: `npm run test:app:nightly` passes (output above). `scripts/agent/check.sh` green. No renderer change: no shots.

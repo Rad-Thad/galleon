@@ -243,6 +243,11 @@ export interface App {
   windows: () => Promise<number>
   home: string
   /**
+   * The process the run started: Electron itself, or an AppImage's runtime
+   * that forks it. Every other process of the application descends from it.
+   */
+  pid: number
+  /**
    * Quit the way a player does, through the application's own quit, and wait
    * for the process to be gone.
    *
@@ -1315,6 +1320,7 @@ export async function startApp(options: StartOptions): Promise<App> {
       return targets.filter((one) => one.type === 'page').length
     },
     home,
+    pid: child.pid ?? 0,
     quit: async (timeoutMs) => {
       const gone = new Promise<void>((resolve, reject) => {
         if (child.exitCode !== null || child.signalCode !== null) return resolve()

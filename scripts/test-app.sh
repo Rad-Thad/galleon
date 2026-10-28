@@ -42,4 +42,4 @@ exec ./scripts/headless.sh node \
   --test \
   --test-concurrency=1 \
   --test-timeout="$TEST_TIMEOUT_MS" \
-  "test/app/**/*.test.ts"
+  "${@:-test/app/**/*.test.ts}"
