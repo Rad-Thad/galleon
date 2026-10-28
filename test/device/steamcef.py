@@ -21,6 +21,9 @@ address.
   steamcef.py library [--wait SECONDS] prints {"route", "library"}; exits 1
                                        unless Steam shows its library
   steamcef.py ready [--wait SECONDS]   prints {"pages"} once the debugger answers
+  steamcef.py prompt --handshake DIR --wait SECONDS
+                                       watches for 'Launch Multiple Games' and
+                                       answers in DIR/steam-prompt (steam.launch)
 
 All exit 10 with reason `steam-cef-unavailable`, and a detail, when the
 debugger does not answer, so run.sh can skip the Steam route rather than
@@ -68,6 +71,11 @@ MESSAGE_LIMIT = 1 << 20
 EXIT_SKIPPED = 10
 CEF_UNAVAILABLE = "steam-cef-unavailable"
 SHORTCUT_UNSAVED = "steam-shortcut-unsaved"
+# The window Steam opens when a game starts while another runs.
+PROMPT_TITLE = "Launch Multiple Games"
+# The handshake with the app's steam.launch (src/main/selfteststeam.ts).
+STEAM_PROMPT = "steam-prompt"
+TARGET_STARTED = "target-started"
 
 
 class CefUnavailable(Exception):
@@ -222,6 +230,64 @@ def wait_pages(cef, seconds, clock=time.monotonic, sleep=time.sleep, timeout=TIM
             if clock() >= end:
                 raise CefUnavailable(f"{error}; {tries} tries over {clock() - start:.0f} s") from None
         sleep(POLL_SECONDS)
+
+
+def prompt_shown(listed):
+    """True when one of Steam's windows is the 'Launch Multiple Games' prompt."""
+    return any(isinstance(page.get("title"), str) and PROMPT_TITLE in page["title"]
+               for page in listed)
+
+
+def watch_prompt(cef, handshake, seconds, clock=time.monotonic, sleep=time.sleep, timeout=TIMEOUT):
+    """(answer, windows): 'none', 'shown' or 'left', and what Steam's windows showed.
+
+    The watch ends once the target has started with no prompt up, or when its
+    time is over, so the answer always comes after any start the target
+    marks (the app reads it in that order). A prompt still up then is
+    'left': a person has to answer it. `windows` outlines the paths of the
+    windows of Steam's UI host that came up during the watch, never their
+    titles (web pages there can name the account), so a prompt Steam names
+    otherwise shows in the log. CefUnavailable when the debugger never
+    answered, since then nothing is known.
+    """
+    start = clock()
+    end = start + seconds
+    before = None
+    windows = set()
+    seen = showing = False
+    while True:
+        try:
+            listed = pages(cef, min(timeout, max(end - clock(), ANSWER_SECONDS)))
+        except CefUnavailable:
+            listed = None
+        if listed is not None:
+            ids = {page.get("id") for page in listed}
+            if before is None:
+                before = ids
+            windows |= {_outline(urllib.parse.urlsplit(page["url"]).path) for page in listed
+                        if _ui_host(page) and page.get("id") not in before}
+            showing = prompt_shown(listed)
+            seen = seen or showing
+        started = os.path.exists(os.path.join(handshake, TARGET_STARTED))
+        if (started and not showing and before is not None) or clock() >= end:
+            break
+        sleep(POLL_SECONDS)
+    if before is None:
+        raise CefUnavailable(f"no page list over {clock() - start:.0f} s")
+    answer = "left" if showing else "shown" if seen else "none"
+    return answer, sorted(windows)
+
+
+def write_answer(handshake, answer):
+    """The answer in handshake/steam-prompt, whole, by a rename."""
+    target = os.path.join(handshake, STEAM_PROMPT)
+    tmp = os.path.join(handshake, "." + STEAM_PROMPT + ".tmp")
+    if os.path.lexists(tmp):
+        os.unlink(tmp)
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as handle:
+        handle.write(answer + "\n")
+    os.replace(tmp, target)
 
 
 class WebSocket:
@@ -508,6 +574,9 @@ def main(argv=None):
     commands.add_parser("run").add_argument("gameid", type=int)
     commands.add_parser("library").add_argument("--wait", type=float, default=0.0)
     commands.add_parser("ready").add_argument("--wait", type=float, default=0.0)
+    watch = commands.add_parser("prompt")
+    watch.add_argument("--handshake", required=True)
+    watch.add_argument("--wait", type=float, required=True)
     args = parser.parse_args(argv)
 
     try:
@@ -518,6 +587,11 @@ def main(argv=None):
             route = wait_library(args.cef, args.wait)
             print(json.dumps({"route": shown(route), "library": at_library(route)}))
             return 0 if at_library(route) else 1
+        if args.command == "prompt":
+            answer, windows = watch_prompt(args.cef, args.handshake, args.wait)
+            write_answer(args.handshake, answer)
+            print(json.dumps({"prompt": answer, "windows": windows}))
+            return 0
         if args.command == "run":
             run_game(args.cef, args.gameid)
             print(json.dumps({"gameid": args.gameid, "reason": None}))

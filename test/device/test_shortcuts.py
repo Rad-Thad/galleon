@@ -97,6 +97,10 @@ class ShortcutsTest(unittest.TestCase):
         self.assertEqual(data[offset : offset + width], struct.pack("<i", 0x01020304))
         self.assertEqual(shortcuts.play_time_spans(shortcuts_file([game])), [])
         self.assertEqual(shortcuts.play_time_spans(shortcuts_file([{"AppName": "Galleon Device Test"}])), [])
+        # The target shortcut's too, and no other name that merely starts the same.
+        both = shortcuts_file([game, dict(TEST, AppName="Galleon Device Test Target", LastPlayTime=9),
+                               dict(TEST, AppName="Galleon Device Test 2", LastPlayTime=9)])
+        self.assertEqual(len(shortcuts.play_time_spans(both)), 1)
         with self.assertRaises(shortcuts.VdfError):
             shortcuts.play_time_spans(data[:-6])
 

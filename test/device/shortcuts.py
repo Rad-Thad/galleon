@@ -26,6 +26,8 @@ import struct
 import sys
 
 TEST_SHORTCUT = "Galleon Device Test"
+# The second shortcut steam.launch starts while the app runs (target.sh).
+TEST_TARGET = "Galleon Device Test Target"
 SHORTCUTS_GLOB = ".local/share/Steam/userdata/*/config/shortcuts.vdf"
 
 MAP, STRING, INT32, FLOAT32, POINTER, WIDESTRING, COLOR, UINT64, END = 0, 1, 2, 3, 4, 5, 6, 7, 8
@@ -84,8 +86,8 @@ def parse(data):
     return fields
 
 
-def play_time_spans(data, name=TEST_SHORTCUT):
-    """(offset, width) of the LastPlayTime value of each shortcut called `name`.
+def play_time_spans(data, names=(TEST_SHORTCUT, TEST_TARGET)):
+    """(offset, width) of the LastPlayTime value of each shortcut with one of `names`.
 
     Steam rewrites that field whenever the shortcut starts, so the owner-state
     manifest leaves these bytes, and only these, out of its comparison.
@@ -98,7 +100,7 @@ def play_time_spans(data, name=TEST_SHORTCUT):
         return []
     spans = []
     for key, entry in shortcuts.items():
-        if not isinstance(entry, dict) or _name(entry) != name:
+        if not isinstance(entry, dict) or _name(entry) not in names:
             continue
         if isinstance(entry.get("LastPlayTime"), int):
             spans.append((spots["shortcuts"][key]["LastPlayTime"], FIXED[INT32]))

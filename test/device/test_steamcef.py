@@ -530,3 +530,104 @@ class SteamCefTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def window(id, title, path="/routes/library/home", host="steamloopback.host"):
+    return {"id": id, "title": title, "url": f"https://{host}{path}"}
+
+
+class PromptWatchTest(unittest.TestCase):
+    """steamcef.watch_prompt, the harness's half of steam.launch."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.handshake = self.tmp.name
+        self.now = [0.0]
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def watch(self, lists, seconds=10, start_at=None):
+        """Each poll answers the next of `lists` (the last repeats); a list None does not answer."""
+        polls = []
+
+        def pages(cef, timeout):
+            listed = lists[min(len(polls), len(lists) - 1)]
+            polls.append(timeout)
+            if listed is None:
+                raise steamcef.CefUnavailable("no debugger")
+            return listed
+
+        def sleep(seconds):
+            self.now[0] += seconds
+            if start_at is not None and len(polls) >= start_at:
+                open(os.path.join(self.handshake, steamcef.TARGET_STARTED), "w").close()
+
+        with mock.patch.object(steamcef, "pages", pages):
+            return steamcef.watch_prompt("http://127.0.0.1:8080", self.handshake, seconds,
+                                         lambda: self.now[0], sleep), polls
+
+    def test_no_prompt_is_none_once_the_target_starts(self):
+        base = [window("bp", "SP")]
+        (answer, windows), polls = self.watch([base], start_at=2)
+        self.assertEqual(answer, "none")
+        self.assertEqual(windows, [])
+        self.assertEqual(len(polls), 3, "the watch ends at the first look after the start")
+
+    def test_a_prompt_seen_and_gone_is_shown(self):
+        base = [window("bp", "SP")]
+        prompt = base + [window("p", "Launch Multiple Games", "/routes/dialog/multiple")]
+        (answer, windows), _ = self.watch([base, prompt, prompt, base], start_at=1)
+        self.assertEqual(answer, "shown")
+        self.assertEqual(windows, ["/routes/dialog"])
+
+    def test_a_prompt_still_up_when_the_watch_ends_is_left(self):
+        base = [window("bp", "SP")]
+        prompt = base + [window("p", "Steam - Launch Multiple Games")]
+        (answer, _), polls = self.watch([base, prompt], seconds=5, start_at=1)
+        self.assertEqual(answer, "left")
+        self.assertGreaterEqual(self.now[0], 5)
+
+    def test_without_a_start_the_watch_lasts_its_whole_time(self):
+        (answer, _), _ = self.watch([[window("bp", "SP")]], seconds=3)
+        self.assertEqual(answer, "none")
+        self.assertGreaterEqual(self.now[0], 3)
+
+    def test_a_debugger_that_never_answers_gives_no_answer(self):
+        with self.assertRaises(steamcef.CefUnavailable):
+            self.watch([None], seconds=2, start_at=0)
+
+    def test_a_debugger_that_answers_late_still_counts(self):
+        (answer, _), _ = self.watch([None, None, [window("bp", "SP")]], start_at=0)
+        self.assertEqual(answer, "none")
+
+    def test_new_windows_are_outlined_and_web_pages_never_named(self):
+        base = [window("bp", "SP")]
+        later = base + [window("w", "Profile of someone", "/id/someone", host="steamcommunity.com"),
+                        window("q", "QuickAccess", "/routes/quickaccess/x/y")]
+        (_, windows), _ = self.watch([base, later], start_at=2)
+        self.assertEqual(windows, ["/routes/quickaccess"])
+
+    def test_the_answer_is_written_whole_and_never_through_a_link(self):
+        steamcef.write_answer(self.handshake, "shown")
+        with open(os.path.join(self.handshake, steamcef.STEAM_PROMPT), encoding="utf-8") as handle:
+            self.assertEqual(handle.read(), "shown\n")
+        elsewhere = os.path.join(self.handshake, "elsewhere")
+        os.symlink(elsewhere, os.path.join(self.handshake, ".steam-prompt.tmp"))
+        steamcef.write_answer(self.handshake, "none")
+        self.assertFalse(os.path.exists(elsewhere))
+        self.assertEqual(sorted(os.listdir(self.handshake)), ["steam-prompt"])
+
+    def test_cli_prompt_answers_and_skips_without_a_debugger(self):
+        out = io.StringIO()
+        with mock.patch.object(steamcef, "watch_prompt", return_value=("none", [])), \
+                contextlib.redirect_stdout(out):
+            self.assertEqual(steamcef.main(["prompt", "--handshake", self.handshake, "--wait", "1"]), 0)
+        self.assertEqual(json.loads(out.getvalue()), {"prompt": "none", "windows": []})
+        os.unlink(os.path.join(self.handshake, steamcef.STEAM_PROMPT))
+        out = io.StringIO()
+        with mock.patch.object(steamcef, "watch_prompt", side_effect=steamcef.CefUnavailable("gone")), \
+                contextlib.redirect_stdout(out):
+            self.assertEqual(steamcef.main(["prompt", "--handshake", self.handshake, "--wait", "1"]),
+                             steamcef.EXIT_SKIPPED)
+        self.assertEqual(os.listdir(self.handshake), [], "no answer is written when nothing is known")

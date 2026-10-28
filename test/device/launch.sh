@@ -1,6 +1,6 @@
 #!/bin/sh
 # The 'Galleon Device Test' shortcut's executable — see docs/PLAN.md section
-# 5.3, steps 6 to 9. run.sh copies it, with current.py and launched.py, into
+# 5.3, steps 6 to 9. run.sh copies it, with target.sh, current.py and launched.py, into
 # GALLEON_TEST_ROOT, so the shortcut's path stays the same across runs.
 #
 # Steam starts it with no arguments, so what to start comes from

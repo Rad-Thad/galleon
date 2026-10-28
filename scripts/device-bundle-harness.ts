@@ -115,7 +115,10 @@ export function fakeSession(inactive = false) {
       'late=$(cat "$d/steam.late" 2>/dev/null || echo 0)\n' +
       // A started game's page is what Steam shows when the game quits;
       // `steam.stuck` keeps it there.
-      'case $1 in steam://rungameid/*)\n' +
+      // The target shortcut steam.launch asks for starts target.sh instead.
+      `case $1 in steam://rungameid/${TARGET_GAMEID})\n` +
+      '  (sleep "$late"; "$GALLEON_TEST_ROOT/target.sh") </dev/null >/dev/null 2>&1 &\n' +
+      ';; steam://rungameid/*)\n' +
       '  echo /library/app/3060399406 >"$d/route"\n' +
       '  (sleep "$late"; "$GALLEON_TEST_ROOT/launch.sh") </dev/null >/dev/null 2>&1 &\n' +
       ';; steam://open/games) [ -e "$d/steam.stuck" ] || echo /library/home >"$d/route" ;;\n' +
@@ -127,25 +130,43 @@ export function fakeSession(inactive = false) {
 }
 
 /**
- * Steam's shortcut list (binary VDF) holding the test shortcut, so a run finds
- * it there rather than asking a debugger the test machine does not have.
+ * Steam's shortcut list (binary VDF) holding the test shortcut, and any others
+ * given, so a run finds them there rather than asking a debugger the test
+ * machine does not have.
  */
-export function shortcutsVdf(appid: number, name = 'Galleon Device Test') {
-  const id = Buffer.alloc(4)
-  id.writeInt32LE(appid | 0)
+export function shortcutsVdf(
+  appid: number,
+  name = 'Galleon Device Test',
+  more: [number, string][] = []
+) {
+  const entries = [[appid, name] as [number, string], ...more].map(([id, entryName], index) => {
+    const bytes = Buffer.alloc(4)
+    bytes.writeInt32LE(id | 0)
+    return Buffer.concat([
+      Buffer.from(`\x00${index}\x00\x02appid\x00`, 'latin1'),
+      bytes,
+      Buffer.from(`\x01AppName\x00${entryName}\x00\x08`, 'utf8')
+    ])
+  })
   return Buffer.concat([
-    Buffer.from('\x00shortcuts\x00\x000\x00\x02appid\x00', 'latin1'),
-    id,
-    Buffer.from(`\x01AppName\x00${name}\x00\x08\x08\x08`, 'utf8')
+    Buffer.from('\x00shortcuts\x00', 'latin1'),
+    ...entries,
+    Buffer.from('\x08\x08', 'latin1')
   ])
 }
 
 export const APPID = 3060399406
+// The second shortcut steam.launch starts (target.sh).
+export const TARGET_APPID = 3060399407
+export const TARGET_GAMEID = ((BigInt(TARGET_APPID) << 32n) | 0x02000000n).toString()
 
 export function withShortcut(home: string) {
   const config = join(home, '.local/share/Steam/userdata/1001/config')
   mkdirSync(config, { recursive: true })
-  writeFileSync(join(config, 'shortcuts.vdf'), shortcutsVdf(APPID))
+  writeFileSync(
+    join(config, 'shortcuts.vdf'),
+    shortcutsVdf(APPID, 'Galleon Device Test', [[TARGET_APPID, 'Galleon Device Test Target']])
+  )
   return home
 }
 
