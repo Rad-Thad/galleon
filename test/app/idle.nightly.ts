@@ -35,9 +35,12 @@ const SETTLE_MS = 10_000
 const BASELINE_S = 3.3
 /**
  * The most CPU the whole application may spend over the window, in seconds:
- * the baseline with room for a slower runner, until idle cost is cut.
+ * half the baseline, the cut M1-27 asks for. What is left is mostly the main
+ * process, which reads the same with the pad never polled at all; the
+ * renderer's share is the slow poll of an idle pad (`IDLE_POLL_MS` in
+ * `input/gamepad.ts`).
  */
-const IDLE_CPU_BUDGET_S = BASELINE_S * 1.5
+const IDLE_CPU_BUDGET_S = BASELINE_S / 2
 
 /**
  * How long the application is left alone before the press whose answer is

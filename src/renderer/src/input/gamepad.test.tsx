@@ -10,8 +10,15 @@ const window = installDom()
 
 const { act } = await import('react')
 const { createRoot } = await import('react-dom/client')
-const { PERF_CHORD_MS, SUSPENDED_POLL_MS, gamepadPresent, useGamepad, useGamepadName } =
-  await import('./gamepad.ts')
+const {
+  IDLE_AFTER_MS,
+  IDLE_POLL_MS,
+  PERF_CHORD_MS,
+  SUSPENDED_POLL_MS,
+  gamepadPresent,
+  useGamepad,
+  useGamepadName
+} = await import('./gamepad.ts')
 
 /**
  * What a pad does to the interface, one polled frame at a time.
@@ -429,6 +436,40 @@ describe('the poll', () => {
     hold(SUSPENDED_POLL_MS)
     assert.equal(frames.length, 1)
     assert.equal(timers.size, 0)
+  })
+
+  test('asks for no frames once nobody has pressed for a while, and reads the pad on a timer', () => {
+    pads = [pad()]
+    hold(IDLE_AFTER_MS)
+    step()
+    assert.equal(frames.length, 0, 'no frame should be waiting')
+    assert.equal(timers.size, 1, 'one read should be waiting on the timer')
+  })
+
+  test('answers the first press after a quiet spell within one timer read, then reads every frame again', () => {
+    pads = [pad()]
+    hold(IDLE_AFTER_MS + 1000)
+    pads = [pad({ pressed: [DOWN] })]
+
+    hold(IDLE_POLL_MS)
+    assert.deepEqual(heard.moves, ['down'])
+    assert.equal(frames.length, 1, 'the next read should be on a frame')
+    assert.equal(timers.size, 0)
+  })
+
+  test('stays on every frame while a direction is held, however long', () => {
+    pads = [pad({ pressed: [DOWN] })]
+    hold(IDLE_AFTER_MS * 2)
+    assert.equal(frames.length, 1)
+    assert.equal(timers.size, 0)
+  })
+
+  test('stays on every frame while only the overlay chord is held', () => {
+    // The chord is read apart from the other controls, and its hold is timed
+    // from frame reads; it is a press all the same.
+    pads = [pad({ pressed: [L3, R3] })]
+    hold(IDLE_AFTER_MS * 2)
+    assert.equal(frames.length, 1)
   })
 
   test('leaves nothing waiting once unmounted, on a frame or on the timer', () => {
