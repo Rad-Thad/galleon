@@ -5,7 +5,14 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { CARD_MIN_FREE_BYTES } from '@shared/librarycard'
 import { NOTICES, SHARED_LIBRARY, type InstalledRom, type Settings } from '@shared/types'
-import { RomMixApp, assetRequestPath, isAssetPath } from './app.ts'
+import {
+  IMAGE_SCHEME,
+  PDF_VIEWER_ORIGIN,
+  RomMixApp,
+  assetRequestPath,
+  frameMayNavigate,
+  isAssetPath
+} from './app.ts'
 import { ReadOnlyGuard } from './romm/guard.ts'
 
 /**
@@ -297,4 +304,29 @@ test("stock RomMix's games are offered, adopted and announced through the app", 
   assert.equal(entries.get(1)?.path, game)
   assert.deepEqual(sent, ['library:installed'])
   assert.equal((await app.stockLibrary())?.adoptable, 0, 'still offered for the move')
+})
+
+test("a frame may load the interface, a manual and the PDF viewer's own pages, and nothing else", () => {
+  const document = 'file:///opt/galleon/out/renderer/index.html'
+  const manual = `${IMAGE_SCHEME}://asset/?p=roms%2F1%2F2%2Fmanual%2F2.pdf#toolbar=0&view=Fit&page=1`
+  assert.equal(frameMayNavigate(document, document), true)
+  assert.equal(frameMayNavigate(manual, document), true)
+  // The frame the viewer draws the document in; refused, the manual never loads.
+  assert.equal(
+    frameMayNavigate(`${PDF_VIEWER_ORIGIN}/a7681b68-4b3d-4fdd-8d54-ffa3cd01fc99`, document),
+    true
+  )
+  assert.equal(frameMayNavigate(`${PDF_VIEWER_ORIGIN}/index.html`, document), true)
+
+  for (const away of [
+    'https://example.com/',
+    'http://localhost:8080/api/users/me',
+    'file:///etc/passwd',
+    'chrome-extension://abcdefghijklmnopabcdefghijklmnop/index.html',
+    `${PDF_VIEWER_ORIGIN}.example.com/`,
+    'javascript:alert(1)',
+    'data:text/html,<p>hi</p>'
+  ]) {
+    assert.equal(frameMayNavigate(away, document), false, away)
+  }
 })
