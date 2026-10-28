@@ -36,6 +36,7 @@ export function shortcutAppid(exe: string, name: string): number {
  * Exe matches is updated in place, keeping its appid (its art is filed under
  * it), its play time, its tags and any field Steam adds later. Returns null
  * when the list has no `shortcuts` map, which is not a list to change.
+ * The fields given are changed in place and returned.
  */
 export function upsertShortcut(
   fields: BinaryVdfField[],
@@ -127,10 +128,15 @@ export async function steamRunning(sources: ProcessSources = {}): Promise<boolea
   )
   if (/^\d+$/.test(recorded) && (await comm(recorded)) !== null) return true
 
-  const pids = (await listDir('/proc').catch(() => [] as string[])).filter((name) =>
-    /^\d+$/.test(name)
-  )
-  for (const pid of pids) {
+  let names: string[]
+  try {
+    names = await listDir('/proc')
+  } catch {
+    // Unable to look is not the same as Steam not running; refusing is the
+    // side that cannot lose the owner's list.
+    return true
+  }
+  for (const pid of names.filter((name) => /^\d+$/.test(name))) {
     if ((await comm(pid)) === 'steam') return true
   }
   return false

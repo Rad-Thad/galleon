@@ -152,6 +152,11 @@ describe('steamRunning', () => {
     assert.equal(await steamRunning(proc({ '1': 'systemd', '900': 'reaper' }, '900\n')), true)
   })
 
+  test('a /proc that cannot be listed counts as running, so nothing is written', async () => {
+    const sources = { ...proc({}), listDir: async () => Promise.reject(new Error('EACCES')) }
+    assert.equal(await steamRunning(sources), true)
+  })
+
   test('a pid file left by a crash, and no steam process, is not running', async () => {
     assert.equal(await steamRunning(proc({ '1': 'systemd' }, '900\n')), false)
     assert.equal(await steamRunning(proc({ '1': 'systemd' })), false)
