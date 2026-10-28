@@ -1,5 +1,6 @@
 import type { WebContents } from 'electron'
 import { log } from './log.ts'
+import { SELF_TEST_PAD } from './selftestidle.ts'
 
 /**
  * Abort on input: the self-test runs on the owner's handheld while it is on
@@ -8,7 +9,9 @@ import { log } from './log.ts'
  *
  * Watched from inside the page, through the same Gamepad API the interface
  * reads, so nothing is injected or grabbed at the OS level and the test's
- * own simulated pad (test/app) is seen exactly as a real one is.
+ * own simulated pad (test/app) is seen exactly as a real one is. The one pad
+ * passed over is the self-test's own (`SELF_TEST_PAD`), which is the run
+ * pressing, not a person.
  */
 
 /** How often the page looks at the controllers. Well inside the one second the run has to stop in. */
@@ -36,7 +39,9 @@ export function inputProbe(): string {
     const rest = new Map()
     const pads = () => {
       try {
-        return Array.from(navigator.getGamepads ? navigator.getGamepads() : []).filter(Boolean)
+        return Array.from(navigator.getGamepads ? navigator.getGamepads() : []).filter(
+          (pad) => pad && !pad.${SELF_TEST_PAD}
+        )
       } catch {
         return []
       }

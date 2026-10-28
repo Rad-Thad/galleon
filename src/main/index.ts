@@ -34,6 +34,7 @@ import { takeScreenshots } from './selftestshots.ts'
 import { GRID_CHECK, askForProfile, runScroll, scrollScenario } from './selftestscroll.ts'
 import { POWER_READ_CHECK, powerReadScenario, readSysfsPower } from './selftestpower.ts'
 import { POWER_HINT_CHECK, hintPage, powerHintScenario } from './selftesthint.ts'
+import { IDLE_CHECK, idlePage, idleScenario, readTicks } from './selftestidle.ts'
 import { MANUAL_CHECK, manualPage, manualScenario } from './selftestmanual.ts'
 import { STARTUP_CHECK, startupScenario, startupStart, watchHome } from './selfteststartup.ts'
 import { UPDATE_CHECK, updateScenario } from './selftestupdate.ts'
@@ -242,6 +243,17 @@ if (!app.requestSingleInstanceLock()) {
               client: rommix.client,
               page: manualPage(window.webContents),
               resultsDir: selfTest.request.resultsDir
+            })
+          ],
+          [
+            IDLE_CHECK,
+            idleScenario({
+              processes: () => app.getAppMetrics().map(({ pid, type }) => ({ pid, type })),
+              ticks: readTicks,
+              page: idlePage(window.webContents),
+              power: () => readPowerState(powerRoot(), { status: readArmadaStatus }),
+              askForProfile: (profile, signal) =>
+                askForProfile(selfTest.request.handshakeDir, profile, signal)
             })
           ],
           [

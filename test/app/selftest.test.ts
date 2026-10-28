@@ -1,20 +1,17 @@
 import assert from 'node:assert/strict'
-import { spawn } from 'node:child_process'
 import {
-  chmodSync,
-  copyFileSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
-  rmSync,
   writeFileSync
 } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
-import { after, test } from 'node:test'
-import { SETTLE_TIMEOUT_MS, atHome, electronBinary, seed, startApp } from './driver.ts'
+import { join } from 'node:path'
+import { test } from 'node:test'
+import { SETTLE_TIMEOUT_MS, atHome, startApp } from './driver.ts'
+import { EXIT_TIMEOUT_MS, REQUEST, armada, homes, runWithRequest } from './selftestrun.ts'
 import { BIG_ROM, GBA_ROM, startFakeRomm } from './server.ts'
 import { binaryVdf, shortcut } from '../../src/main/fixtures/steam/binaryvdf.ts'
 import { SYNTHETIC_GAMES } from '../../src/main/selftestlibrary.ts'
@@ -40,76 +37,11 @@ import {
  * start-up path that reaches them, and the exit code the harness reads.
  */
 
-/** Start-up, the run and the quit together, on a slow CI runner. */
-const EXIT_TIMEOUT_MS = 60_000
 /** One page of the grid, which the renderer's build owns (see `PAGE_SIZE` in paging.ts). */
 const PAGE_SIZE = 60
 
 /** The grid scroll's platform: past `MIN_GAMES`, the size of a real library's largest. */
 const GAMES = 1300
-
-const homes: string[] = []
-after(() => {
-  for (const home of homes) rmSync(home, { recursive: true, force: true })
-})
-
-async function runWithRequest(
-  request: Record<string, unknown>,
-  server?: { baseUrl: string; token: string; settings?: Record<string, unknown> },
-  timeoutMs = EXIT_TIMEOUT_MS,
-  env: Record<string, string> = {}
-): Promise<{
-  code: number | null
-  home: string
-  results: string
-}> {
-  const home = mkdtempSync(join(tmpdir(), 'galleon-selftest-app-'))
-  homes.push(home)
-  const results = join(home, 'results')
-  if (server)
-    seed(home, { baseUrl: server.baseUrl, token: server.token, settings: server.settings })
-  writeFileSync(join(home, REQUEST_FILE), JSON.stringify({ ...request, resultsDir: results }))
-  const child = spawn(electronBinary(), ['.'], {
-    stdio: ['ignore', 'pipe', 'pipe'],
-    env: {
-      ...process.env,
-      GALLEON_HOME: home,
-      XDG_CONFIG_HOME: join(home, 'xdg-config'),
-      FLATPAK_SYSTEM_DIR: join(home, 'flatpak-system'),
-      FLATPAK_USER_DIR: join(home, 'flatpak-user'),
-      ...env
-    }
-  })
-  let output = ''
-  child.stdout.on('data', (chunk: Buffer) => (output += chunk.toString()))
-  child.stderr.on('data', (chunk: Buffer) => (output += chunk.toString()))
-  const code = await new Promise<number | null>((resolve, reject) => {
-    const timer = setTimeout(() => {
-      child.kill('SIGKILL')
-      reject(new Error(`the self-test never quit:\n${output}`))
-    }, timeoutMs)
-    child.on('exit', (exitCode) => {
-      clearTimeout(timer)
-      resolve(exitCode)
-    })
-  })
-  return { code, home, results }
-}
-
-const REQUEST = {
-  schema: 1,
-  sha: 'b'.repeat(40),
-  budgetSeconds: 600,
-  handshakeDir: null,
-  checks: [RUN_CHECKS.complete, 'graphics.modes'],
-  profiles: ['performance'],
-  payloads: {},
-  fakeRomm: null,
-  readOnlyServer: true,
-  privacy: true,
-  abortOnInput: true,
-  screenshots: []
-}
 
 test('a self-test request is taken, answered in summary.json, and the app quits with 0', async () => {
   const { code, home, results } = await runWithRequest(REQUEST)
@@ -392,44 +324,6 @@ test("steam.list reads the owner's Steam files from HOME and publishes counts on
 })
 
 /** A Nova's power files and an `armada-power` that reads them, switched on request. */
-function armada(): { root: string; bin: string; setProfile: (name: string) => void } {
-  const root = mkdtempSync(join(tmpdir(), 'galleon-selftest-power-'))
-  homes.push(root)
-  const write = (path: string, body: string): void => {
-    mkdirSync(dirname(join(root, path)), { recursive: true })
-    writeFileSync(join(root, path), body)
-  }
-  const policy = 'sys/devices/system/cpu/cpufreq/policy7'
-  const conf = join(import.meta.dirname, '..', '..', 'src', 'main', 'fixtures', 'armada')
-  mkdirSync(join(root, 'usr/share/armada'), { recursive: true })
-  copyFileSync(
-    join(conf, 'power-profiles.conf'),
-    join(root, 'usr/share/armada/power-profiles.conf')
-  )
-  write('sys/class/devfreq/3d00000.gpu/governor', 'msm-adreno-tz\n')
-  write('sys/class/devfreq/3d00000.gpu/cur_freq', '220000000\n')
-  write('sys/class/devfreq/3d00000.gpu/max_freq', '680000000\n')
-  const setProfile = (name: string): void => {
-    const balanced = name === 'balanced'
-    write(`${policy}/scaling_governor`, balanced ? 'conservative\n' : 'performance\n')
-    write(`${policy}/scaling_cur_freq`, balanced ? '595200\n' : '2956800\n')
-    write(`${policy}/scaling_max_freq`, balanced ? '2092800\n' : '2956800\n')
-    write('profile', `${name}\n`)
-  }
-  const bin = join(root, 'bin')
-  write(
-    'bin/armada-power',
-    [
-      '#!/bin/sh',
-      '[ "$1" = status ] || exit 2',
-      "printf 'profile=%s\\ncpu_caps={0: 2016000, 7: %s}\\n' \\",
-      `  "$(cat '${root}/profile')" "$(cat '${root}/${policy}/scaling_max_freq')"`
-    ].join('\n') + '\n'
-  )
-  chmodSync(join(bin, 'armada-power'), 0o755)
-  return { root, bin, setProfile }
-}
-
 test('power.read agrees with armada-power and sysfs on both profiles run.sh sets', async () => {
   const machine = armada()
   machine.setProfile('performance')
