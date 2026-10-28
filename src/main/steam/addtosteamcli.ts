@@ -60,7 +60,7 @@ export async function addToSteamCommand(options: AddToSteamCommandOptions): Prom
   try {
     result = await add(galleonShortcut(home, await exists(ARMADA_LAUNCH)))
   } catch (error) {
-    print(t('steam.addFailed', { reason: (error as Error).message }))
+    print(t('steam.addFailed', { reason: reasonOf(error) }))
     return EXIT.failed
   }
   if (result.outcome === 'steam-running') {
@@ -80,4 +80,15 @@ export async function addToSteamCommand(options: AddToSteamCommandOptions): Prom
   if (result.users.some((user) => user.backup)) print(t('steam.addBackups'))
   if (changed > 0) print(t('steam.addNext'))
   return unreadable > 0 ? EXIT.unreadable : EXIT.done
+}
+
+/**
+ * Why the step stopped, without a path: a file system error's message carries
+ * the path it failed on, and under `userdata/` that names the account. Its
+ * code says enough to act on.
+ */
+export function reasonOf(error: unknown): string {
+  const { code, message } = (error ?? {}) as NodeJS.ErrnoException
+  if (typeof code === 'string' && code !== '') return code
+  return String(message ?? error).replace(/\/\S*/g, '…')
 }

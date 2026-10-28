@@ -2,7 +2,13 @@ import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import { t } from '../i18n.ts'
 import type { GalleonShortcut } from './addshortcut.ts'
-import { ARMADA_LAUNCH, EXIT, addToSteamCommand, galleonShortcut } from './addtosteamcli.ts'
+import {
+  ARMADA_LAUNCH,
+  EXIT,
+  addToSteamCommand,
+  galleonShortcut,
+  reasonOf
+} from './addtosteamcli.ts'
 import type { AddToSteamResult } from './registersteam.ts'
 
 /** Runs the command against a canned result; what it printed, what it asked for, and its code. */
@@ -90,9 +96,35 @@ describe('addToSteamCommand', () => {
   })
 
   test('a step that throws is said, with the backups, and fails the run', async () => {
-    const { code, lines } = await run(new Error('EEXIST'))
+    const { code, lines } = await run(
+      Object.assign(new Error('EEXIST: file already exists'), { code: 'EEXIST' })
+    )
     assert.equal(code, EXIT.failed)
     assert.deepEqual(lines, [t('steam.addFailed', { reason: 'EEXIST' })])
+  })
+
+  test('a file system error is said by its code, never its path, which names the account', async () => {
+    const path =
+      '/home/deck/.local/share/Steam/userdata/12345678/config/shortcuts.vdf.galleon-partial'
+    const error = Object.assign(
+      new Error(`EISDIR: illegal operation on a directory, open '${path}'`),
+      {
+        code: 'EISDIR',
+        path
+      }
+    )
+    const { code, lines } = await run(error)
+    assert.equal(code, EXIT.failed)
+    assert.deepEqual(lines, [t('steam.addFailed', { reason: 'EISDIR' })])
+    assert.doesNotMatch(lines.join('\n'), /12345678/)
+  })
+
+  test('an error with no code keeps its words and loses any path', () => {
+    assert.equal(
+      reasonOf(new Error('cannot read /home/deck/.local/share/Steam/userdata/12345678/x here')),
+      'cannot read … here'
+    )
+    assert.equal(reasonOf('plain'), 'plain')
   })
 
   test('every exit code is its own, and only done is zero', () => {

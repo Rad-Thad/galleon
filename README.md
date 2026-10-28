@@ -116,6 +116,16 @@ against the release's `SHA256SUMS`, and a desktop entry in
 `~/.local/share/applications`, then prints the steps to add it to Steam. It
 installs the aarch64 build; elsewhere, pass `--arch x86_64`.
 
+With Steam closed, `--add-to-steam` adds Galleon to every Steam user's library
+itself, backing each shortcut list up beside it first:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Rad-Thad/galleon/main/install.sh | bash -s -- --add-to-steam
+```
+
+While Steam is running it changes nothing and says to quit Steam first, since
+Steam rewrites that list when it exits.
+
 ### By hand
 
 Download the AppImage from
