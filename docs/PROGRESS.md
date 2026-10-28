@@ -3932,3 +3932,17 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet; M1-25 is not READY-FOR-DEVICE until `manual.open` exists. M1-25 stays false.
 - Next: M1-25 part 2 needs Docker RomM (the daemon has not answered on these VMs); part 3, device check `manual.open`, can come first.
+
+## 2026-10-28 15:28 UTC session 0178hDCAVT8w8AsmPNJ1ubNS (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. No open PRs, no lock, no `needs-human`. `init.sh` stopped at Docker (daemon not answering); ran `npm ci` and `npx install-electron` by hand.
+- Previous unit: #365 (M1-25 part 1) merged at 5bd8073. CI wall time: x64 9:38, arm64 1:09.
+- Worked on: M1-25 part 3 (tracking issue #364), acceptance line 3, device check `manual.open`.
+- Found while building it: no manual page ever drew. `will-frame-navigate` refused Chromium's PDF viewer's content frame (`chrome-extension://mhjfbmdgcfjbbpaeojofohoefgiehjai/<uuid>`), so the viewer stayed `loading`. Reproduced in a bare Electron window with the same guard (stays `loading`, the refusal logged) and without it (`success`, page captured). `frameMayNavigate` (`src/main/app.ts`) admits that origin; anything else is still refused.
+- Result: PR (this one).
+  - `manual.open` (`src/main/selftestmanual.ts`): the first game whose manual RomM holds (listed one row per game, GET only) is opened from the Library as a player would (chip, search, tile, Manual, Read). It passes once the viewer's own load state is `success` and the captured frame holds a drawn page. A pixel test alone once passed on a stale frame of the screen behind, so the state gates it. Only a 24-px-wide mosaic is published, since a manual's cover names a game in the owner's library. run.sh asks for it; TESTING.md describes it.
+- Also: `test/app/selftest.test.ts` 22/22 and the interface manual block 4/4 (Electron through a `--no-sandbox` wrapper as root).
+- Evidence: `test/app/selftest.test.ts` "manual.open opens a game's manual from the Library, and its first page draws" fails on the old guard (`not-loaded`, viewer `loading`) and passes with the fix (mosaic 24x33 px, looked at: a sheet with an unreadable smudge). `src/main/selftestmanual.test.ts` 19/19; `src/main/app.test.ts` 18/18 (`frameMayNavigate`). `scripts/agent/check.sh` green; device helper tests 211 OK. No renderer change: no shots.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: READY-FOR-DEVICE M1-25 (`manual.open`) for lines 1 and 3; line 2 (Docker RomM manual upload) still needs a VM whose Docker daemon answers. M1-25 stays false.
+- Next: M1-25 part 2 when Docker answers; otherwise the next eligible feature from `next.mjs`.
