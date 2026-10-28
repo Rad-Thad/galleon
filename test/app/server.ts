@@ -709,6 +709,49 @@ function serveBytes(req: IncomingMessage, res: ServerResponse, bytes: Buffer): v
   res.end(slice)
 }
 
+/** How the big game is broken up, and the pause between pieces: a steady few MB/s. */
+const STEADY_CHUNK = 64 * 1024
+const STEADY_CHUNK_MS = 20
+
+/**
+ * A file of `size` zeros, sent at a steady rate for as long as the other end
+ * listens. A range with an end, the probe that asks whether the file can be
+ * resumed, is answered at once.
+ */
+function serveSteadily(req: IncomingMessage, res: ServerResponse, size: number): void {
+  const range = /^bytes=(\d+)-(\d*)$/.exec(req.headers.range ?? '')
+  const from = range ? Number(range[1]) : 0
+  if (range?.[2]) {
+    const to = Number(range[2])
+    res.writeHead(206, {
+      'Content-Type': 'application/octet-stream',
+      'Content-Length': to - from + 1,
+      'Content-Range': `bytes ${from}-${to}/${size}`
+    })
+    res.end(Buffer.alloc(to - from + 1))
+    return
+  }
+  res.writeHead(from > 0 ? 206 : 200, {
+    'Content-Type': 'application/octet-stream',
+    'Content-Length': size - from,
+    'Accept-Ranges': 'bytes',
+    ...(from > 0 ? { 'Content-Range': `bytes ${from}-${size - 1}/${size}` } : {})
+  })
+  const chunk = Buffer.alloc(STEADY_CHUNK)
+  let at = from
+  const timer = setInterval(() => {
+    if (at >= size) {
+      clearInterval(timer)
+      res.end()
+      return
+    }
+    const piece = Math.min(STEADY_CHUNK, size - at)
+    res.write(piece === STEADY_CHUNK ? chunk : chunk.subarray(0, piece))
+    at += piece
+  }, STEADY_CHUNK_MS)
+  res.on('close', () => clearInterval(timer))
+}
+
 export interface FakeRommOptions {
   /**
    * Games on one more platform of their own, generated rather than written out.
@@ -735,10 +778,19 @@ export interface FakeRommOptions {
    * `download.small` picks its game from, which none of the others is.
    */
   gba?: boolean
+  /**
+   * A game past the self-test's `MIN_GAME_BYTES`, served steadily and never
+   * stored: `download.progress` measures its first seconds and cancels it.
+   */
+  big?: boolean
 }
 
 /** The game `FakeRommOptions.gba` adds, by id. */
 export const GBA_ROM = 40
+
+/** The game `FakeRommOptions.big` adds, by id, and its size. */
+export const BIG_ROM = 41
+export const BIG_ROM_BYTES = 600 * 1024 * 1024
 
 /** The platform `FakeRommOptions.bulk` fills, by id. */
 export const BULK_PLATFORM = 5
@@ -818,6 +870,12 @@ export async function startFakeRomm(options: FakeRommOptions = {}): Promise<Fake
     const gba = platform(8, 'gba', 'Game Boy Advance')
     platforms.push(gba)
     roms.push(rom(GBA_ROM, 'Pocket Homebrew', gba, 'pockethomebrew.gba'))
+  }
+  if (options.big) {
+    const big = { ...rom(BIG_ROM, 'The Big One', megadrive, 'bigone.md') }
+    big.fs_size_bytes = BIG_ROM_BYTES
+    big.files = [{ ...big.files[0], file_size_bytes: BIG_ROM_BYTES }]
+    roms.push(big)
   }
   if (options.bulk) {
     const nes = { ...platform(BULK_PLATFORM, 'nes', 'Nintendo Entertainment System') }
@@ -1415,6 +1473,7 @@ export async function startFakeRomm(options: FakeRommOptions = {}): Promise<Fake
           void waiting.then(() => serveBytes(req, res, ROM_BYTES))
           return
         }
+        if (found.id === BIG_ROM) return serveSteadily(req, res, BIG_ROM_BYTES)
         if (found.id !== 5) return serveBytes(req, res, ROM_BYTES)
         // The probe that asks whether this can be resumed wants one byte rather
         // than two megabytes of it, and is answered at once. Everything else is

@@ -12,6 +12,7 @@ import { SDCARD_CHECK, sdCardScenario } from './selftestsdcard.ts'
 import { deviceCycle, devicePlan, emulatorScenarios, placeSaveBeside } from './selftestemulators.ts'
 import { noticeProbe, ownWindowsOnDisplay } from './selftestnowindow.ts'
 import { IDENTITY_CHECK, identityScenario } from './selftestidentity.ts'
+import { PROGRESS_CHECK, progressPage, progressScenario } from './selftestprogress.ts'
 import { REPORT_CHECK, pressReport, reportScenario } from './selftestreport.ts'
 import { HEARTBEAT_CHECK, heartbeatScenario } from './selftestserver.ts'
 import {
@@ -230,6 +231,16 @@ if (!app.requestSingleInstanceLock()) {
                   store: rommix.store,
                   home
                 })
+            })
+          ],
+          [
+            PROGRESS_CHECK,
+            progressScenario({
+              client: rommix.client,
+              downloads: rommix.downloads,
+              library: rommix.library,
+              store: rommix.store,
+              page: progressPage(window.webContents)
             })
           ],
           [
