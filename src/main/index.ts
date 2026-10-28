@@ -251,7 +251,7 @@ if (!app.requestSingleInstanceLock()) {
               processes: () => app.getAppMetrics().map(({ pid, type }) => ({ pid, type })),
               ticks: readTicks,
               page: idlePage(window.webContents),
-              power: () => readPowerState('/', { status: readArmadaStatus }),
+              power: () => readPowerState(powerRoot(), { status: readArmadaStatus }),
               askForProfile: (profile, signal) =>
                 askForProfile(selfTest.request.handshakeDir, profile, signal)
             })

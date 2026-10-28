@@ -4005,3 +4005,19 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR). The first x64 leg failed only at `pr-body.mjs`: the PR body lacked its `Feature:` line. A re-run reads the body the PR was opened with, so the fixed body needs a new push to be checked.
 - Device / acceptance: none yet; M1-27 is not READY-FOR-DEVICE until `idle.cpu` exists. M1-27 stays false.
 - Next: M1-27 part 4, device check `idle.cpu` and its budget in thresholds.json.
+
+## 2026-10-28 20:27 UTC session 0178hDC9MshasFdKvhzD8Y6L (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. No open PRs, no lock, no `needs-human`. Main green. Electron as root ran through a `--no-sandbox` wrapper.
+- Previous unit: #371 (M1-27 part 3) merged at 04823d2. CI wall time (its run on `main`): x64 8:01, arm64 1:05.
+- Worked on: M1-27 part 4 (tracking issue #368), acceptance line 3, device check `idle.cpu`.
+- Result: PR #372.
+  - `src/main/selftestidle.ts`: on Balanced (asked through the handshake, else `skip` / `profile-not-set`), Home, `SETTLE_MS`, then `IDLE_MS` alone; the CPU time of every process `app.getAppMetrics()` lists, from `/proc/<pid>/stat` at both ends. Then a pad only the page sees, put in front of the real ones with Down held, timed to the first frame after the highlight moved, against one frame plus `latencySlackMs`.
+  - `test/device/thresholds.json` (new): `idle.cpu` `cpuSeconds` 3, `latencySlackMs` 50, built into the app. 3 s is a starting point with no Nova measurement yet (VM 1.49 s plain, 2.26 s with the self-test running).
+  - The abort watch passes over the pad marked `SELF_TEST_PAD`; a real pad beside it still aborts.
+  - `test/app/selftestrun.ts`: the self-test run helpers and fake Armada, out of `selftest.test.ts`, shared with `test/app/selftest-idle.nightly.ts` (nightly: the check waits out its own minute).
+- Evidence: `selftestidle.test.ts` + `selftestinput.test.ts` 24/24. `selftest-idle.nightly.ts` pass (cpuSeconds 2.26, Tab 0.78, Browser 1.47, latency 8.6 ms against a 16.7 ms frame, status not aborted, only `balanced` asked). `selftest.test.ts` 22/22 after the extraction; `npm run test:app` 287/287; `scripts/agent/check.sh` green. No renderer change: no shots.
+- Evaluator: FAIL on a1906c8 (`idle.cpu` never ran end to end against fakes in CI); fixed with the nightly test, then see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: READY-FOR-DEVICE M1-27 (all three lines met in CI; `idle.cpu` waits on the device). M1-27 stays false.
+- Next: the next eligible feature from `next.mjs`; first nightly with `selftest-idle.nightly.ts` may need the budget checked against a CI runner.
