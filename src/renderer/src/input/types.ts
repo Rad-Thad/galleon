@@ -7,8 +7,13 @@ export type Direction = 'up' | 'down' | 'left' | 'right'
  *
  * `perfOverlay` is the one that belongs to no screen: it shows or hides the
  * performance overlay over whatever is open, a dialog included.
+ *
+ * `cancelTransfer` is X, which is also the menu: a screen with a transfer to
+ * call off answers it, and anywhere else it opens the menu as it always has.
+ * See `FALLBACK`.
  */
-export type Action = 'back' | 'menu' | 'search' | 'tabLeft' | 'tabRight' | 'perfOverlay'
+export type Action =
+  'back' | 'menu' | 'search' | 'tabLeft' | 'tabRight' | 'perfOverlay' | 'cancelTransfer'
 
 /**
  * What the player is driving the UI with right now.

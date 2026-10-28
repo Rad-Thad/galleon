@@ -200,7 +200,14 @@ describe('a press', () => {
       step()
     }
 
-    assert.deepEqual(heard.actions, ['back', 'menu', 'search', 'tabLeft', 'tabRight', 'menu'])
+    assert.deepEqual(heard.actions, [
+      'back',
+      'cancelTransfer',
+      'search',
+      'tabLeft',
+      'tabRight',
+      'menu'
+    ])
   })
 
   test('says it came from the pad, so the hints can show pad buttons', () => {

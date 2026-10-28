@@ -18,6 +18,7 @@ export const es: Catalog = {
 
   'action.back': 'Atrás',
   'action.cancel': 'Cancelar',
+  'action.cancelDownload': 'Cancelar la descarga',
   'action.pause': 'Pausar',
   'action.resume': 'Reanudar',
   'action.close': 'Cerrar',

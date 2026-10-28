@@ -27,6 +27,7 @@ export const en = {
 
   'action.back': 'Back',
   'action.cancel': 'Cancel',
+  'action.cancelDownload': 'Cancel download',
   'action.pause': 'Pause',
   'action.resume': 'Resume',
   'action.close': 'Close',

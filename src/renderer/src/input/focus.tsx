@@ -69,6 +69,8 @@ interface FocusContextValue {
    * element losing the highlight and the one taking it.
    */
   isFocused(id: string): boolean
+  /** Whether the highlight is on `element` or on anything inside it. See `useFocusWithin`. */
+  isFocusWithin(element: HTMLElement): boolean
   subscribeFocus(listener: () => void): () => void
   setFocus(id: string): void
   /** `held` for a repeat of a direction held down. See `revealElement`. */
@@ -94,6 +96,15 @@ interface FocusContextValue {
 }
 
 const FocusContext = createContext<FocusContextValue | null>(null)
+
+/**
+ * What a button does where nothing on screen answers what it asked for.
+ *
+ * X shares its place with the menu: on a console that button opens it, and a
+ * screen that gives it a job of its own takes it only for as long as that job
+ * is there to do.
+ */
+const FALLBACK: Partial<Record<Action, Action>> = { cancelTransfer: 'menu' }
 
 /**
  * The two things that change while the interface is being driven, each on its
@@ -289,6 +300,10 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
   }, [])
 
   const isFocused = useCallback((id: string): boolean => focusedRef.current === id, [])
+  const isFocusWithin = useCallback((element: HTMLElement): boolean => {
+    const current = focusedRef.current ? entries.current.get(focusedRef.current) : undefined
+    return current !== undefined && element.contains(current.element)
+  }, [])
   // Highest layer with anything on it: whatever is topmost owns the input.
   const layerRef = useRef(0)
   /**
@@ -738,17 +753,21 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
   )
 
   /** Run the most recently registered handler on the active layer. */
-  const fireAction = useCallback((action: Action): void => {
-    const list = actionHandlers.current.get(action) ?? []
-    // The overlay toggle is answered wherever it was registered: a dialog on
-    // top is often exactly the screen whose frames are worth measuring.
-    const onLayer =
-      action === 'perfOverlay' ? list : list.filter((h) => h.layer === layerRef.current)
-    const target = onLayer.length > 0 ? onLayer[onLayer.length - 1] : undefined
+  const fireAction = useCallback((asked: Action): void => {
+    const handlerFor = (action: Action): { handler: () => void } | undefined => {
+      const list = actionHandlers.current.get(action) ?? []
+      // The overlay toggle is answered wherever it was registered: a dialog on
+      // top is often exactly the screen whose frames are worth measuring.
+      const onLayer =
+        action === 'perfOverlay' ? list : list.filter((h) => h.layer === layerRef.current)
+      return onLayer.length > 0 ? onLayer[onLayer.length - 1] : undefined
+    }
+    const fallback = FALLBACK[asked]
+    const target = handlerFor(asked) ?? (fallback ? handlerFor(fallback) : undefined)
     if (!target) return
     // Leaving has its own cue; the rest — the menu, the search box, a tab — are
     // the interface moving, which is what the move cue says.
-    playCue(action === 'back' ? 'back' : 'move')
+    playCue(asked === 'back' ? 'back' : 'move')
     target.handler()
   }, [])
 
@@ -809,6 +828,7 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
       register,
       claimLayer,
       isFocused,
+      isFocusWithin,
       subscribeFocus,
       setFocus,
       move,
@@ -822,6 +842,7 @@ export function FocusProvider({ children }: { children: ReactNode }): JSX.Elemen
       register,
       claimLayer,
       isFocused,
+      isFocusWithin,
       subscribeFocus,
       setFocus,
       move,
@@ -1061,6 +1082,23 @@ export function useSuspendGamepad(suspended: boolean): void {
     // pad switched off.
     return () => setInputSuspended(false)
   }, [suspended, setInputSuspended])
+}
+
+/**
+ * Whether the highlight is on this element or on something inside it.
+ *
+ * For a row whose buttons are focusables of their own: a download row is
+ * still the transfer the player is looking at while the highlight sits on its
+ * Pause button, and a press that acts on "the focused transfer" has to know
+ * that. Subscribed to for the same reason `useFocusable` is.
+ */
+export function useFocusWithin(ref: RefObject<HTMLElement | null>): boolean {
+  const { isFocusWithin, subscribeFocus } = useFocusContext()
+  return useSyncExternalStore(
+    subscribeFocus,
+    () => ref.current !== null && isFocusWithin(ref.current),
+    () => false
+  )
 }
 
 /** Register a handler for a controller action while the component is mounted. */

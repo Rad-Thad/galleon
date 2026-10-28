@@ -1,4 +1,4 @@
-import type { JSX, Ref } from 'react'
+import { useEffect, type JSX, type Ref } from 'react'
 import { isStopped, type DownloadItem } from '@shared/types'
 import {
   CoverArt,
@@ -9,7 +9,7 @@ import {
   SystemIcon
 } from '../../components'
 import { Icon } from '../../icons'
-import { useFocusable } from '../../input/focus'
+import { useAction, useFocusable, useFocusWithin } from '../../input/focus'
 import { useI18n } from '../../state'
 
 /**
@@ -28,7 +28,8 @@ export function ProgressRow({
   onPause,
   onResume,
   onNext,
-  interrupts = true
+  interrupts = true,
+  onCancelReachable
 }: {
   item: DownloadItem
   onSelect: () => void
@@ -39,6 +40,11 @@ export function ProgressRow({
   onNext?: () => void
   /** Whether pressing that starts this game now or only moves it up the queue. */
   interrupts?: boolean
+  /**
+   * Told when X starts and stops cancelling this row, so the hint bar can say
+   * so: one up, then one down.
+   */
+  onCancelReachable?: (change: 1 | -1) => void
 }): JSX.Element {
   const { t } = useI18n()
   const { ref, props } = useFocusable({ onSelect, actionLabel: t('action.open') })
@@ -71,6 +77,17 @@ export function ProgressRow({
   // The column the buttons need is added for the buttons there actually are,
   // not for one of them: a row that only offers Resume needs it just as much.
   const acts = cancellable || resumable || stoppable || Boolean(onNext)
+  // X calls off the transfer the highlight is on, from the row or from any of
+  // its buttons: they are all that transfer, and walking sideways to Cancel is
+  // the long way round to something the pad has a button for.
+  const focusWithin = useFocusWithin(ref)
+  const cancelReachable = cancellable && focusWithin
+  useAction('cancelTransfer', () => onCancel?.(), cancelReachable)
+  useEffect(() => {
+    if (!cancelReachable || !onCancelReachable) return
+    onCancelReachable(1)
+    return () => onCancelReachable(-1)
+  }, [cancelReachable, onCancelReachable])
 
   return (
     <div

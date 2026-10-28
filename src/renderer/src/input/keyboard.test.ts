@@ -23,7 +23,7 @@ const t = ((key: string) => key) as Parameters<typeof keyboardLabel>[1]
 
 /** The action a button stands for, where the hint bar names one. */
 const ACTIONS: Record<string, Action> = {
-  X: 'menu',
+  X: 'cancelTransfer',
   START: 'menu',
   Y: 'search',
   LB: 'tabLeft',

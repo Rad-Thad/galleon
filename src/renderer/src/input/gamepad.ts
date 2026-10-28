@@ -273,7 +273,7 @@ export function useGamepad(
 
         edge('a', button(BUTTON.A), () => activateRef.current(), false)
         edge('b', button(BUTTON.B), () => actionRef.current('back'), false)
-        edge('x', button(BUTTON.X), () => actionRef.current('menu'), false)
+        edge('x', button(BUTTON.X), () => actionRef.current('cancelTransfer'), false)
         edge('y', button(BUTTON.Y), () => actionRef.current('search'), false)
         edge('lb', button(BUTTON.LB), () => actionRef.current('tabLeft'), false)
         edge('rb', button(BUTTON.RB), () => actionRef.current('tabRight'), false)
