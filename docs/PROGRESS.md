@@ -3905,3 +3905,16 @@ Lines the tooling reads (exact forms):
 - Evaluator: PASS on 9dc95d1 (same behaviour asserted; `ready` is reported only after the image is written; cannot hang).
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Next: M1-24 part 3, device check `auth.storage` (line 4).
+
+## 2026-10-28 14:33 UTC session 0178hDCDB6R83F4JiCLZnzkF (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. No open PRs, no lock, no `needs-human`. Main green. `init.sh` stopped at Docker (daemon not answering); ran `npm ci` and `npx install-electron` by hand. Nothing in this unit needs Docker RomM.
+- Previous unit: #362 (flaky #359) merged at c5328d2.
+- Worked on: M1-24 part 3 (tracking issue #358), acceptance line 4.
+- Result: PR (this one).
+  - Device check `auth.storage` (`authStorageScenario`, `src/main/selftestauth.ts`): reads the test home's `credentials.bin` as the running app left it (file 0600, folder 0700, backend `RAW1` = file; `ENC1` = keyring fails), then makes a store and client afresh from that folder under the read-only guard, as a start would, checks the token read back is the running app's, and asks `GET /api/users/me` with it. Publishes the modes, backend, `keyringAvailable`, `tokenKind`, `restartMs`; never the token or a path. run.sh asks for it; TESTING.md describes it.
+- Evidence: `src/main/selftestauth.test.ts` 9/9 (pass; loose file before a store could tighten it; loose folder; keyring backend; no file; outside the test home; restart reads no token; another token; refused and unreachable sign-in by code, not message). `test/app/selftest.test.ts` 21/21, including "auth.storage finds the token owner-only in the test home and signs in again from it" (GET only, `safety.serverReadOnly` pass, no token or host in the summary). `scripts/agent/check.sh` green; device helper tests 211 OK. No renderer change: no shots.
+- Evaluator: PASS on f1c79ec (line 4 met; the fresh store and client are what `RomMixApp` makes at start; guarded before any request; nothing leaks).
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: READY-FOR-DEVICE M1-24 (`auth.storage`). M1-24 stays false.
+- Next: the next eligible feature from `next.mjs`.
