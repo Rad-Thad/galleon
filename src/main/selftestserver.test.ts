@@ -112,6 +112,7 @@ describe('server.heartbeat', () => {
         profiles: [],
         payloads: {},
         savingPayloads: [],
+        steamTarget: null,
         fakeRomm: null,
         readOnlyServer: true,
         privacy: true,

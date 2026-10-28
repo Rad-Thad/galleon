@@ -160,6 +160,14 @@ describe('taking the request', () => {
     }
   })
 
+  test('the Steam target is a game id of digits, or none', () => {
+    assert.equal(request().steamTarget, null)
+    assert.equal(
+      request({ steamTarget: '13835058055282163712' }).steamTarget,
+      '13835058055282163712'
+    )
+  })
+
   test('a malformed request is refused with a reason', () => {
     for (const [overrides, reason] of [
       [{ schema: 2 }, 'request-schema'],
@@ -174,6 +182,9 @@ describe('taking the request', () => {
       [{ profiles: [1] }, 'request-profiles'],
       [{ payloads: { retroarch: 7 } }, 'request-payloads'],
       [{ savingPayloads: 'retroarch' }, 'request-saving-payloads'],
+      [{ steamTarget: 1 }, 'request-steam-target'],
+      [{ steamTarget: '123 ; rm' }, 'request-steam-target'],
+      [{ steamTarget: '' }, 'request-steam-target'],
       [{ version: 21 }, 'request-version'],
       [{ version: '0.21.0 at owners-server.example' }, 'request-version']
     ] as const) {

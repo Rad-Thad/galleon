@@ -3652,3 +3652,17 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: READY-FOR-DEVICE M1-14 (`steam.list`). M1-14 stays false until `steam.launch` lands and both pass on the device.
 - Next: M1-14 part 3b, `steam.launch`. run.sh ensures the 'Galleon Device Test Target' shortcut. The app starts it through `steam://rungameid/` and records whether it started, whether 'Launch Multiple Games' showed, and whether Galleon survived. A prompt left on screen gives `needs-attended`.
+
+## 2026-10-27 22:26 UTC session 0178hDCDNSYWyJS1qwNEmQAW (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. #341 (M1-14 part 3a) merged at 384dc4e. `init.sh` stopped at Docker (daemon not answering); nothing in this unit needs RomM.
+- Worked on: M1-14 part 3b-i (tracking issue #336): the app's half of the device check `steam.launch` (acceptance line 4).
+- Result: PR (this one).
+  - The request takes `steamTarget`, the target shortcut's game id (digits only, else `request-steam-target`).
+  - `steamLaunchScenario` (`src/main/selfteststeam.ts`) asks Steam through `launchSteamGame`, then writes `steam-launched` into the handshake folder. run.sh answers in `steam-prompt` (`none`, `shown`, `left`); the target marks `target-started` and `target-ended`. Every handshake file is cleared before and after. Any outcome recorded passes; `left` is `skip` / `needs-attended`; no answer fails `no-prompt-answer`; nothing started and no prompt fails `not-started`. Metrics: `started`, `startMs`, `prompt`, `targetEnded`, `galleonSurvived`. The game id is not published.
+  - Documented in TESTING.md (the self-test section). The harness half comes next. M1-14 stays false.
+- Evidence: `selfteststeam.test.ts` 18/18: pass with start and end; a target still running; prompt shown with no start; a late start; `left`; not started; no or unreadable answer; stale marks ignored; Steam not asked; no target or handshake; aborted. `selftest.test.ts` 28/28 (the request field). `scripts/agent/check.sh` green, 2679 unit tests. Only self-test code changed, so no `test:app` and no shots.
+- Evaluator: PASS (18 mutants, 15 caught; the survivors were a redundant start check after the wait, now gone, a `break` that only saves time, and the order of two skips). Its notes are done: the answer is read before the start is looked for, so a start marked before run.sh answers is never missed (TESTING.md says run.sh answers only after `target-started` or its watch ends); a leftover `steam-launched.tmp` is cleared too. A race in the test's fake run.sh, which answered on every tick and could rewrite `steam-prompt` after the cleanup, now answers once (20 parallel runs green). `galleonSurvived` stays 1 by construction; a killed Galleon is the harness's to record.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet.
+- Next: M1-14 part 3b-ii, the harness: run.sh ensures 'Galleon Device Test Target' (a script that marks `target-started`/`target-ended` and shows a window briefly), passes its game id as `steamTarget` (`selftestrequest.py --steam-target`), watches Steam's debugger for 'Launch Multiple Games' after `steam-launched` and answers `steam-prompt`, records `launcher-killed` when the app dies without reporting, and keeps a mark so a `needs-attended` run never requests `steam.launch` again.
