@@ -24,8 +24,9 @@ docker compose -f test/romm/compose.yml --profile v520 down
   loopback only (ports in `provision.mjs`'s `PROFILES`). Every metadata
   provider is unconfigured and the scan asks for none.
 - `provision.mjs`: first admin while the setup wizard is on, a quick scan of
-  `library/`, a client token and a device, written to `.state/<profile>.json`
-  (git-ignored). Running it again reuses what it finds. Ported from Grout
+  `library/`, a client token, a device and a one-page manual for
+  `MANUAL_ROM` (uploaded through `POST /api/roms/{id}/manuals`), written to
+  `.state/<profile>.json` (git-ignored). Running it again reuses what it finds. Ported from Grout
   (MIT, see THIRD_PARTY.md).
 - `make-library.mjs`: writes `library/` (git-ignored) from scratch, the same
   bytes every run: the owner's library shapes (multi-disc folders, a cue/bin
@@ -40,7 +41,8 @@ docker compose -f test/romm/compose.yml --profile v520 down
 - `*.real.ts` (`npm run test:romm-real`): need a server provisioned on a fresh
   database. `client.real.ts` drives RomMix's own client (heartbeat, platforms,
   paged listing, downloads broken mid-body and resumed by range, the per-file
-  endpoint); `pairing.real.ts` walks device pairing end to end;
+  endpoint, a game's manual through the image protocol's path mapping);
+  `pairing.real.ts` walks device pairing end to end;
   `library.real.ts` checks the scanned platforms and the multi-file flags;
   `downloads.real.ts` runs the app's download queue on a multi-file game
   paused mid-file and resumed, and on a file refused for its hash;
