@@ -47,6 +47,8 @@ const IDLE_CPU_BUDGET_S = BASELINE_S * 1.5
 const LATENCY_IDLE_MS = 30_000
 /** What a press after idle may take to move the highlight, beyond one frame. */
 const LATENCY_SLACK_MS = 50
+/** Down on the D-pad, as the standard mapping numbers it. See `BUTTON` in `input/gamepad.ts`. */
+const DPAD_DOWN = 13
 /** How many frames are timed to tell how long one is. */
 const FRAMES_TIMED = 30
 
@@ -137,28 +139,33 @@ describe('idle', () => {
   })
   test('a press after idle moves the highlight within a frame and a little', async () => {
     const { app } = scenario
+    // A pad rather than a key: the pad is read by a poll, and the poll is
+    // what idle may slow down, which a key never waits on. Plugged in before
+    // the quiet spell, so plugging it in is not the input the press follows.
+    const pad = await app.plugInPad()
     await sleep(LATENCY_IDLE_MS)
-    // Set up in the page before the press, so the press's own time and the
-    // first frame after the highlight moved are both read on the page's clock.
+    // The press and the probe in one evaluation, so nothing reaches the page
+    // between the idle and the press, and both ends are read on its clock.
     await app.read(`(() => {
       const before = document.querySelector('[data-focused="true"]')
-      let pressedAt = null
-      addEventListener('keydown', (event) => { pressedAt ??= event.timeStamp }, { capture: true })
       window.__afterIdle = new Promise((resolve) => {
         // A highlight that never moves answers rather than holding the test
         // to its own deadline.
         setTimeout(() => resolve(-1), ${SETTLE_TIMEOUT_MS})
         new MutationObserver((_, observer) => {
           const now = document.querySelector('[data-focused="true"]')
-          if (!now || now === before || pressedAt === null) return
+          if (!now || now === before) return
           observer.disconnect()
           requestAnimationFrame(() => resolve(performance.now() - pressedAt))
         }).observe(document.body, { attributes: true, subtree: true, attributeFilter: ['data-focused'] })
       })
+      const pressedAt = performance.now()
+      window.__rommixPad.buttons[${DPAD_DOWN}] = { pressed: true, touched: true, value: 1 }
+      window.__rommixPad.timestamp = pressedAt
       return true
     })()`)
-    await app.press('Down')
     const latencyMs = await app.read<number>('window.__afterIdle')
+    await pad.release(DPAD_DOWN)
     // Timed after the press rather than before, so nothing wakes the page
     // during the idle the press is meant to follow.
     const frameMs = await app.read<number>(`new Promise((resolve) => {
