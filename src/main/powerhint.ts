@@ -18,7 +18,7 @@ import { UNKNOWN } from './powerstate.ts'
  */
 
 /** Armada's profiles that hold the interface back, by section name or label. */
-const SLOW_PROFILES = new Set(['balanced', 'eco'])
+export const SLOW_PROFILES = new Set(['balanced', 'eco'])
 
 export interface PowerHintDecision extends PowerHint {
   /** What to keep as the profile last seen. */

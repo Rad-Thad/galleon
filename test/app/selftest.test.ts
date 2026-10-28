@@ -21,6 +21,7 @@ import { SYNTHETIC_GAMES } from '../../src/main/selftestlibrary.ts'
 import { STEAM_LIST_CHECK, TEST_SHORTCUT } from '../../src/main/selfteststeam.ts'
 import { IDLE_MS, PROFILE_SET, SCROLL_MS, WANT_PROFILE } from '../../src/main/selftestscroll.ts'
 import { POWER_READ_CHECK } from '../../src/main/selftestpower.ts'
+import { POWER_HINT_CHECK, hintShot } from '../../src/main/selftesthint.ts'
 import {
   REQUEST_FILE,
   RUN_CHECKS,
@@ -471,6 +472,55 @@ test('power.read agrees with armada-power and sysfs on both profiles run.sh sets
     assert.equal(check.metrics['balanced.sysfsGpuGovernor'], 'msm-adreno-tz')
   } finally {
     clearInterval(answering)
+  }
+})
+
+test('power.hint shows over Home on Balanced, not on Performance, and its panel is captured', async () => {
+  const server = await startFakeRomm()
+  const machine = armada()
+  machine.setProfile('performance')
+  const handshake = join(machine.root, 'handshake')
+  mkdirSync(handshake)
+  const answering = setInterval(() => {
+    const want = join(handshake, WANT_PROFILE)
+    if (!existsSync(want) || existsSync(join(handshake, PROFILE_SET))) return
+    const name = readFileSync(want, 'utf8').trim()
+    machine.setProfile(name)
+    writeFileSync(join(handshake, PROFILE_SET), `${name}\n`)
+  }, 50)
+  try {
+    const { code, home, results } = await runWithRequest(
+      {
+        ...REQUEST,
+        checks: [POWER_HINT_CHECK],
+        handshakeDir: handshake,
+        profiles: ['performance', 'balanced']
+      },
+      server,
+      EXIT_TIMEOUT_MS,
+      {
+        GALLEON_POWER_ROOT: machine.root,
+        PATH: `${machine.bin}:${process.env.PATH ?? ''}`
+      }
+    )
+    assert.equal(code, 0)
+    const summary = JSON.parse(readFileSync(join(results, SUMMARY_FILE), 'utf8')) as Summary
+    assert.deepEqual(summaryErrors(summary), [])
+    const check = summary.checks.find((c) => c.id === POWER_HINT_CHECK)
+    assert.equal(check?.result, 'pass', JSON.stringify(check))
+    assert.deepEqual(check.metrics, { 'performance.shown': 0, 'balanced.shown': 1 })
+    assert.deepEqual(check.evidence, [hintShot('balanced')])
+    const png = readFileSync(join(results, hintShot('balanced')))
+    assert.equal(png.subarray(1, 4).toString(), 'PNG')
+    // Only the panel: narrower than the 1280-pixel window it is drawn in.
+    assert.ok(png.readUInt32BE(16) < 1280, `the capture is ${png.readUInt32BE(16)} wide`)
+    const settings = JSON.parse(readFileSync(join(home, 'config', 'settings.json'), 'utf8')) as {
+      settings: { dismissedNotices: string[] }
+    }
+    assert.ok(settings.settings.dismissedNotices.includes('power-profile-hint'))
+  } finally {
+    clearInterval(answering)
+    await server.close()
   }
 })
 

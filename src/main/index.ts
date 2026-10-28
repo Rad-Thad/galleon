@@ -24,6 +24,7 @@ import { watchInput } from './selftestinput.ts'
 import { takeScreenshots } from './selftestshots.ts'
 import { GRID_CHECK, askForProfile, runScroll, scrollScenario } from './selftestscroll.ts'
 import { POWER_READ_CHECK, powerReadScenario, readSysfsPower } from './selftestpower.ts'
+import { POWER_HINT_CHECK, hintPage, powerHintScenario } from './selftesthint.ts'
 import { STARTUP_CHECK, startupScenario, startupStart, watchHome } from './selfteststartup.ts'
 import { UPDATE_CHECK, updateScenario } from './selftestupdate.ts'
 import { buildStamp } from './update.ts'
@@ -190,6 +191,17 @@ if (!app.requestSingleInstanceLock()) {
               sysfs: () => readSysfsPower(powerRoot()),
               askForProfile: (profile, signal) =>
                 askForProfile(selfTest.request.handshakeDir, profile, signal)
+            })
+          ],
+          [
+            POWER_HINT_CHECK,
+            powerHintScenario({
+              power: () => readPowerState(powerRoot(), { status: readArmadaStatus }),
+              askForProfile: (profile, signal) =>
+                askForProfile(selfTest.request.handshakeDir, profile, signal),
+              store: rommix.store,
+              ...hintPage(window.webContents),
+              resultsDir: selfTest.request.resultsDir
             })
           ],
           [
