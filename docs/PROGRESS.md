@@ -4002,6 +4002,6 @@ Lines the tooling reads (exact forms):
 - Measured (VM, Xvfb): idle CPU 1.49 and 1.49 s a minute (baseline 3.3, budget 1.65); renderer 0.55 s, main 0.94 s. With the pad never read when idle, main still spent 0.94 s, so what is left is mostly not the poll. Press after 30 s idle: 13.8 and 31.3 ms against a 16.7 ms frame plus 50 ms.
 - Evidence: `gamepad.test.tsx` 31/31; of its four new poll tests, the idle one fails on the old file and the other three pin behaviour the frame loop already had (a hold, the chord, a press). `npm run test:app:nightly` passes; `npm run test:app` 287/287; `scripts/agent/check.sh` green. No visual change: no shots.
 - Evaluator: PASS on 4526cb6 (line 1 met; line 2 exercises the timer path, 13.6 ms in its run; its idle run 1.21 s). Its notes: the budget has never run on a CI runner, so a red first nightly is the next unit (root cause or re-measured baseline, not a looser ratio); an unmapped pad whose triggers rest at -1 would never go idle, which `idle.cpu` on the Nova will show.
-- CI wall time: recorded in the next entry (this entry rides the PR).
+- CI wall time: recorded in the next entry (this entry rides the PR). The first x64 leg failed only at `pr-body.mjs`: the PR body lacked its `Feature:` line. A re-run reads the body the PR was opened with, so the fixed body needs a new push to be checked.
 - Device / acceptance: none yet; M1-27 is not READY-FOR-DEVICE until `idle.cpu` exists. M1-27 stays false.
 - Next: M1-27 part 4, device check `idle.cpu` and its budget in thresholds.json.
