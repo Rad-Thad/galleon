@@ -188,12 +188,17 @@ readable only by you where no keyring is reachable.
 | Navigate            | Left stick / D-pad | Arrow keys       |
 | Select              | A                  | Enter or Space   |
 | Back                | B                  | Esc or Backspace |
-| Settings            | X or Start         | M                |
+| Settings            | X or Start         | M or X           |
+| Cancel a download   | X                  | X                |
 | Search              | Y                  | /                |
 | Previous / next tab | LB / RB            | Shift-Tab / Tab  |
 | Back from a game    | Start, held        | —                |
 
 Search is bound on Home and in the Library; elsewhere the button does nothing.
+
+X cancels the download the highlight is on in Downloads, or the one on a
+game's page, wherever a Cancel button is offered for it; everywhere else it
+opens Settings.
 
 Back at the top of a section asks whether to quit. Where the machine can be
 asked — anything with `systemctl`, which is most desktop Linux — that dialog
