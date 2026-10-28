@@ -15,13 +15,14 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { after, test } from 'node:test'
 import { SETTLE_TIMEOUT_MS, atHome, electronBinary, seed, startApp } from './driver.ts'
-import { GBA_ROM, startFakeRomm } from './server.ts'
+import { BIG_ROM, GBA_ROM, startFakeRomm } from './server.ts'
 import { binaryVdf, shortcut } from '../../src/main/fixtures/steam/binaryvdf.ts'
 import { SYNTHETIC_GAMES } from '../../src/main/selftestlibrary.ts'
 import { STEAM_LIST_CHECK, TEST_SHORTCUT } from '../../src/main/selfteststeam.ts'
 import { IDLE_MS, PROFILE_SET, SCROLL_MS, WANT_PROFILE } from '../../src/main/selftestscroll.ts'
 import { POWER_READ_CHECK } from '../../src/main/selftestpower.ts'
 import { POWER_HINT_CHECK, hintShot } from '../../src/main/selftesthint.ts'
+import { CAP_BYTES, PROGRESS_CHECK } from '../../src/main/selftestprogress.ts'
 import {
   REQUEST_FILE,
   RUN_CHECKS,
@@ -592,6 +593,41 @@ test('download.small fetches the GBA game into the test home, verifies it and re
       []
     )
     assert.deepEqual(gamesUnder(home), [])
+  } finally {
+    await server.close()
+  }
+})
+
+test("download.progress shows the big game's speed and time left, and X on its row cancels it", async () => {
+  const server = await startFakeRomm({ big: true })
+  try {
+    const { code, home, results } = await runWithRequest(
+      { ...REQUEST, checks: [RUN_CHECKS.complete, PROGRESS_CHECK] },
+      server
+    )
+    assert.equal(code, 0)
+    const summary = JSON.parse(readFileSync(join(results, SUMMARY_FILE), 'utf8')) as Summary
+    assert.deepEqual(summaryErrors(summary), [])
+    const check = summary.checks.find((c) => c.id === PROGRESS_CHECK)
+    assert.equal(check?.result, 'pass', JSON.stringify(check))
+    assert.equal(summary.status, 'complete')
+    assert.ok((check.metrics.speedOffPct as number) <= 20)
+    assert.ok((check.metrics.timeLeftOffPct as number) <= 20)
+    assert.ok(summary.safety.romsDownloadedBytes > 0)
+    assert.ok(summary.safety.romsDownloadedBytes < CAP_BYTES)
+    assert.equal(summary.safety.romsLeft, 0)
+    const paths = server.asked.map((a) => a.path.split('?')[0])
+    assert.ok(paths.some((path) => path.startsWith(`/api/roms/${BIG_ROM}/content`)))
+    assert.deepEqual(
+      server.asked.filter((a) => a.method !== 'GET' && a.method !== 'HEAD'),
+      []
+    )
+    assert.deepEqual(
+      readdirSync(home, { recursive: true, encoding: 'utf8' }).filter((name) =>
+        name.includes('bigone')
+      ),
+      []
+    )
   } finally {
     await server.close()
   }
