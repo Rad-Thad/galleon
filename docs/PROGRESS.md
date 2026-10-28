@@ -3683,7 +3683,7 @@ Lines the tooling reads (exact forms):
   - `python3 -B -m unittest discover -s test/device`: 211 OK. New: `test_steamlaunch.py` 11 (settle, the record, target.sh with and without a request, a linked handshake). `PromptWatchTest` 9 (none / shown / left, no start, a debugger that never answers or answers late, outlines only, the answer written by rename, the CLI). Target masking in `test_ownerstate`/`test_shortcuts`. `--steam-target` in `test_selftestrequest`.
   - `scripts/device-bundle-steam.test.ts` 3/3, running the real run.sh against fakes. (1) The target is ensured and started. The app sees `none` only after `target-started`. `steam.launch` passes and `safety.owner-state` passes. (2) An app that quits with no summary gives `galleon-closed`, run `partial`. (3) `needs-attended` writes the record, and the next run asks for no `steam.launch` and starts no target.
   - `device-bundle.test.ts` and `-stops` 63/63, with the fixture's `shortcuts.vdf` now holding both shortcuts. shellcheck clean. `scripts/agent/check.sh` green. No app code changed: no `test:app`, no shots.
-- Evaluator: PASS on 9dc95d1 (same behaviour asserted; `ready` is reported only after the image is written; cannot hang).
+- Evaluator: see the PR.
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: READY-FOR-DEVICE M1-14 (`steam.list`, `steam.launch`). M1-14 stays false until both pass on the device. Whether Steam names the prompt's window 'Launch Multiple Games' is unknown until a device run. If it does not, the log's window outlines will show what to match.
 - Next: M1-14 waits on the device. The next eligible feature from `next.mjs`.
@@ -3698,7 +3698,7 @@ Lines the tooling reads (exact forms):
   - `powerLines` (`src/renderer/src/perf/power.ts`) words the state for both the row and the performance overlay, so the two cannot drift. The preview bridge shares one all-unknown state between `diagnostics` and `perfState`.
   - Line 1's parsers are M0-22's `src/main/powerstate.ts`, already tested against Balanced, Performance, missing files and unreadable formats. M1-16 stays false.
 - Evidence: `src/renderer/src/perf/power.test.ts` 2/2 (Balanced's clocks in MHz; unknown values in en and fr). `test/app/interface.test.ts` "and the pre-flight check shows the power profile, governor and clocks": three lines, profile first, governors equal to `system.diagnostics()`'s. `interface.test.ts` + `perf.test.ts` 106/106. Electron ran through a `--no-sandbox` wrapper as root. `scripts/agent/check.sh` green. `npm run shots:nova` 27 screens. I opened `report.png`: the Power row sits between Found by and Controller with its three lines, aligned and inside 1280x960. `settings-system.png` is unchanged above the fold.
-- Evaluator: PASS on 9dc95d1 (same behaviour asserted; `ready` is reported only after the image is written; cannot hang).
+- Evaluator: see the PR.
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet.
 - Next: M1-16 part 2, the hint (line 2): at most once per profile change, dismissable for good, only on Armada, never changing the profile. Then `power.read` and `power.hint`.
@@ -3724,7 +3724,7 @@ Lines the tooling reads (exact forms):
   - `shots:nova` gains `power-hint.png`: Home on a Balanced stand-in root.
   - The rest is as the parked entry above describes: `decidePowerHint`, `system:powerHint`, the `PowerHint` overlay, `powerProfileSeen`, `POWER_HINT_NOTICE` in `NOTICES`.
 - Evidence: `src/main/powerhint.test.ts` 7/7. `test/app/powerhint.test.ts` 3/3: shown on Balanced, closed by OK, not again on the same profile, not on Performance, due again on the way back to Balanced; shown on focus after a switch to Balanced, "Don't show again" kept in `settings.json` and never shown after; off Armada `{ show: false, profile: 'unknown' }` and no overlay. Electron ran through a `--no-sandbox` wrapper as root. `scripts/agent/check.sh` green. `npm run shots:nova` 28 screens. I opened `power-hint.png`: the dialog is centred over a blurred Home, titled "Armada is on Balanced", the body names Quick Access → Armada Control, OK is focused beside "Don't show again", all inside 1280x960.
-- Evaluator: PASS on 9dc95d1 (same behaviour asserted; `ready` is reported only after the image is written; cannot hang).
+- Evaluator: see the PR.
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet. M1-16 stays false.
 - Next: M1-16 part 3, the device checks `power.read` and `power.hint` (lines 4 and 5).
@@ -3740,7 +3740,7 @@ Lines the tooling reads (exact forms):
   - `powerRoot()` (`GALLEON_POWER_ROOT`) moved from `ipc/system.ts` to `powerstate.ts`, so the self-test reads the same stand-in root in the app test.
   - TESTING.md describes the check. The app test that used `power.read` as its not-implemented example now uses `graphics.modes`.
 - Evidence: `src/main/selftestpower.test.ts` 12/12 (both profiles pass with one switch asked; inferred profile disagreeing; governor, clock and GPU max mismatches; status cap; status lost; profile not set; none named; off Armada; stopped). `test/app/selftest.test.ts` 17/17, new: "power.read agrees with armada-power and sysfs on both profiles run.sh sets" (a fake `armada-power` on PATH, Nova files under `GALLEON_POWER_ROOT`, the test answering the handshake: pass, only `balanced` asked) and "off Armada, power.read is a skip". Electron ran through a `--no-sandbox` wrapper as root. `scripts/agent/check.sh` green (device-bundle suites included). No renderer change: no shots.
-- Evaluator: PASS on 9dc95d1 (same behaviour asserted; `ready` is reported only after the image is written; cannot hang).
+- Evaluator: see the PR.
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: READY-FOR-DEVICE M1-16 (`power.read`); `power.hint` still to come. M1-16 stays false. Whether `armada-power status` names the profile by name or by label, and how `cpu_caps` keys its dict, a first device run will show in the metrics.
 - Next: M1-16 part 3b, device check `power.hint` (line 5).
@@ -3756,7 +3756,7 @@ Lines the tooling reads (exact forms):
   - run.sh requests `power.hint` after `power.read`. TESTING.md describes it.
 - Evidence: `src/main/selftesthint.test.ts` 8/8 (shown on Balanced and captured, not on Performance; settings put back; a hint on Performance fails; no hint on Balanced fails; capture failure; profile not set; no profiles and off Armada; stopped). `test/app/selftest.test.ts` 18/18, new: "power.hint shows over Home on Balanced, not on Performance, and its panel is captured" (fake `armada-power`, the handshake answered, the PNG narrower than the window, the dismissal back in `settings.json`). `test/app/powerhint.test.ts` 3/3 with the gate change. I opened the captured `power-hint-balanced.png`: the panel only, title, the Quick Access → Armada Control line, OK focused beside "Don't show again", and no library behind it.
 - Found: with `armada-power status` answering, the title reads "Armada is on balanced": status names the profile by name, not label. It is cosmetic. Next to fix: name the profile by its conf label in `powerState`.
-- Evaluator: PASS on 9dc95d1 (same behaviour asserted; `ready` is reported only after the image is written; cannot hang).
+- Evaluator: see the PR.
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: READY-FOR-DEVICE M1-16 (`power.read`, `power.hint`). Lines 1 to 3 are met in CI. M1-16 stays false until both checks pass on the device.
 - Next: the hint title's profile label; then the next eligible feature from `next.mjs`.
@@ -3814,7 +3814,7 @@ Lines the tooling reads (exact forms):
   - The Downloads row now shows the line for a transfer on the wire before its first byte too, where it used to show nothing.
   - The demo stub's downloading row carries a rate paced to its small file.
 - Evidence: `test/app/games.test.ts` "waiting for the server, then a speed and time left, then stalled" (the slow fake game held at nothing, then let through 16 KB every 50 ms, then held: the line matches `^\d+% - .+ / 2.0 MB - .+B/s - .+ left$`, then reads 'stalled' with no time left; cancelled afterwards). The old code fails it at the first wait: it never said 'waiting for server'. `npm run test:app` 278/278 (Electron through a `--no-sandbox` wrapper as root). `scripts/agent/check.sh` green. `npm run shots:nova` 28 screens; none of them has a transfer in flight, so I also shot the demo build at 1280x960. I opened both: the Activity row reads "Downloading · 25% - 32.0 KB / 128.0 KB - …/s - 1m 20s left" on one line between the file name and Pause/Cancel, and the game screen's panel the same under the buttons; nothing wraps or overlaps.
-- Evaluator: PASS on 9dc95d1 (same behaviour asserted; `ready` is reported only after the image is written; cannot hang).
+- Evaluator: see the PR.
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet. M1-18 stays false.
 - Next: M1-18 part 3, X cancels the focused transfer from the pad (line 3); then part 4, `download.progress` (line 4).
