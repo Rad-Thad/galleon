@@ -709,7 +709,7 @@ function serveBytes(req: IncomingMessage, res: ServerResponse, bytes: Buffer): v
   res.end(slice)
 }
 
-/** How the big game is broken up, and the pause between pieces: a steady few MB/s. */
+/** How the big game is broken up, and the pause between pieces: steady, and slow enough for CI's disks. */
 const STEADY_CHUNK = 64 * 1024
 const STEADY_CHUNK_MS = 20
 

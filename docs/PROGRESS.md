@@ -3833,3 +3833,18 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet. M1-18 stays false.
 - Next: M1-18 part 4, the device check `download.progress` (line 4).
+
+## 2026-10-28 09:26 UTC session 0178hDC9utnrE7dkPSk7VQ3E (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. No open PRs, no lock. Main green. `init.sh` stopped at Docker (daemon not answering); ran `npm ci` and `npx install-electron` by hand. Nothing in this unit needs RomM.
+- Previous unit: #354 (M1-18 part 3, X cancels from the pad) merged at 722cd0c.
+- Worked on: M1-18 part 4 (tracking issue #350), acceptance line 4: device check `download.progress`.
+- Result: PR #355.
+  - `src/main/selftestprogress.ts`: the smallest game of at least `MIN_GAME_BYTES` goes through the real queue. The page opens Downloads (Activity) and puts the highlight on its row. From the first byte, `READINGS` readings start `SETTLE_MS` after it, and the shown speed and time left must be within `TOLERANCE_PCT` of the rate measured over the last `WINDOW_MS`. The row's line must carry a speed and a time left. X is pressed in the page (keyboard path; the abort watches the Gamepad API), and the transfer must reach `cancelled` with its `.part` files gone.
+  - The cap is the scenario's own cancel at `STOP_BYTES`, under `CAP_BYTES`, with the bytes looked at during every page call too (`meanwhile`, bounded by `PAGE_MS`). I read "capped Range download" as a download capped by that cancel; no `Range` with an end is sent, so the queue's own transfer is what is measured. I read "internal pad driver" as the in-page keyboard path, as `report.bundle` does.
+  - Wired in `index.ts`; run.sh asks for it; TESTING.md describes it. The fake RomM's `big` option is a 600 MB game served steadily.
+- Evidence: `selftestprogress.test.ts` 18/18. A slow page on a fast network stops at the cap, and a silent page is given up on; both hang on the first commit. `test/app/selftest.test.ts` 19/19: the new test passes with speed and time left 1.1% off, GET/HEAD only, nothing left. It fails `x-not-answered` when the row's X does nothing. `scripts/agent/check.sh` green. No renderer change: no shots.
+- Evaluator: FAIL on a74defb: the cap was only checked between awaits, so a slow page probe let the transfer run past 400 MB (510 MiB in its probe). The cap is now watched during page calls, which are bounded. Then see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: READY-FOR-DEVICE M1-18 (`download.progress`). M1-18 stays false.
+- Next: the next eligible feature from `next.mjs`.

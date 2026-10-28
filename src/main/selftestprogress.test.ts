@@ -288,6 +288,39 @@ describe('download.progress', () => {
     assert.deepEqual(h.xPresses, [])
     assert.equal(h.items[0].state, 'cancelled')
   })
+
+  /** A page whose highlight takes `ms` of the fake clock to land. */
+  const slowFocus = (h: ReturnType<typeof harness>, ms: number | null) => {
+    h.deps.page.focusRow = () =>
+      new Promise((done) => {
+        if (ms === null) return
+        const until = h.deps.clock!.now() + ms
+        const sleep = h.deps.clock!.sleep
+        h.deps.clock!.sleep = async (step) => {
+          await sleep(step)
+          if (h.deps.clock!.now() >= until) done('not-highlighted')
+        }
+      })
+  }
+
+  test('a slow page on a fast network still stops at the cap', async () => {
+    const h = harness(rom(7, 3800 * MB), { rate: 100 * MB })
+    slowFocus(h, 5_000)
+    const { check, safety: counted } = await run(h)
+    assert.equal(check.reason, PROGRESS_FAILED.cap)
+    assert.ok(Number(check.metrics.receivedBytes) <= CAP_BYTES, String(check.metrics.receivedBytes))
+    assert.ok(counted.romsDownloadedBytes <= CAP_BYTES)
+    assert.equal(h.items[0].state, 'cancelled')
+  })
+
+  test('a page that never answers is given up on, and the transfer called off', async () => {
+    const h = harness(rom(7, 3800 * MB), { rate: 5 * MB })
+    slowFocus(h, null)
+    const { check } = await run(h)
+    assert.equal(check.reason, PROGRESS_FAILED.pageSilent)
+    assert.equal(h.items[0].state, 'cancelled')
+    assert.ok(!existsSync(`${h.target}.part`))
+  })
 })
 
 describe('the pieces', () => {
