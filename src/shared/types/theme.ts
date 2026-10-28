@@ -66,8 +66,14 @@ export const DEFAULT_THEME: Theme = 'midnight'
 export const THEMES_NOTICE = 'themes'
 
 /**
+ * The key of the power profile hint, once the player has said not again. See
+ * `PowerHint` and `decidePowerHint`.
+ */
+export const POWER_HINT_NOTICE = 'power-profile-hint'
+
+/**
  * Every notice key there is. A self-test home has all of them dismissed: a
  * notice opens over Home and takes the focus the scenarios measure. See
  * `RomMixApp.dismissNotices`.
  */
-export const NOTICES: readonly string[] = [THEMES_NOTICE]
+export const NOTICES: readonly string[] = [THEMES_NOTICE, POWER_HINT_NOTICE]

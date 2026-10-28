@@ -815,6 +815,11 @@ export const de: Catalog = {
   'settings.theme.arcade': 'Spielhalle',
   'settings.theme.paper': 'Papier',
   'settings.theme.contrast': 'Hoher Kontrast',
+  'power.hintTitle': 'Armada is on {profile}', // TODO(i18n)
+  'power.hintBody':
+    'For smoother browsing, set Performance for this app: Quick Access → Armada Control.', // TODO(i18n)
+  'power.hintOk': 'OK', // TODO(i18n)
+  'power.hintNever': "Don't show again", // TODO(i18n)
   'themes.noticeTitle': 'Galleon hat jetzt Designs',
   'themes.noticeBody':
     'Die Oberfläche kann in anderen Farben gezeichnet werden – ein helles Design oder eines von einer Konsole. Jedes wird auf dem Bildschirm gezeigt, bevor es bleibt.',

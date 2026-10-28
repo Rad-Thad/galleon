@@ -197,6 +197,12 @@ export interface Settings {
    */
   dismissedNotices: string[]
   /**
+   * The power profile the last read found in force, by its label: the hint
+   * about it is shown when the profile changes, not every time the app starts.
+   * Empty until one has been read. See `decidePowerHint`.
+   */
+  powerProfileSeen: string
+  /**
    * Whether the performance overlay is drawn. See `PerfOverlay`.
    *
    * Off: it is a measuring tool, and the frames it counts cost a little to

@@ -7,6 +7,7 @@ import type {
   DiagnosticsReport,
   DriveSpace,
   PerfState,
+  PowerHint,
   PerfSummary,
   PowerAction,
   DownloadItem,
@@ -455,6 +456,11 @@ export interface RomMixBridge {
      */
     powerActions(): Promise<PowerAction[]>
     power(action: PowerAction): Promise<void>
+    /**
+     * Whether the power profile hint is due, which also records the profile
+     * read as seen. See `decidePowerHint`.
+     */
+    powerHint(): Promise<PowerHint>
     /** The refresh rate and power state the performance overlay shows. */
     perfState(): Promise<PerfState>
     /** Write one screen's frame statistics to the log. */

@@ -121,6 +121,12 @@ export interface PowerState {
   perf: string
 }
 
+/** Whether to show the power profile hint now, and the profile it names. See `decidePowerHint`. */
+export interface PowerHint {
+  show: boolean
+  profile: string
+}
+
 /** What the performance overlay measures against. See the `system:perfState` handler. */
 export interface PerfState {
   /** The display's refresh rate, which decides what counts as a janky frame. */

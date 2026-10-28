@@ -597,6 +597,7 @@ const SETTINGS: Settings = {
   // before the themes existed, and nothing in the demo is older than the
   // demo. See `ThemesNotice`.
   dismissedNotices: [THEMES_NOTICE],
+  powerProfileSeen: '',
   perfOverlay: false,
   // The browser's own language, so the published demo reads in whatever the
   // visitor's browser is set to — and the Settings row still switches it.
@@ -1169,6 +1170,8 @@ const bridge: RomMixBridge = {
     // dialog draws only what comes back from here.
     powerActions: () => later([]),
     power: () => refuse(),
+    // No Armada in a browser tab, so never a profile to hint about.
+    powerHint: () => later({ show: false, profile: 'unknown' }),
     perfState: () =>
       later({
         displayHz: 60,

@@ -6,12 +6,15 @@ import type {
   PerfState,
   PerfSummary,
   PowerAction,
+  PowerHint,
   RootLocation,
   Settings
 } from '@shared/types'
+import { POWER_HINT_NOTICE } from '@shared/types'
 import type { RomMixApp } from '../app.ts'
 import { drivesOf } from '../disk.ts'
 import { power, powerActions } from '../power.ts'
+import { decidePowerHint } from '../powerhint.ts'
 import { readArmadaStatus, readPowerState } from '../powerstate.ts'
 import { commandVersion, flatpakAvailable, flathubConfigured, isWritable } from '../host.ts'
 import { setLanguage, t } from '../i18n.ts'
@@ -28,6 +31,15 @@ import { RommError } from '../romm/index.ts'
 import { writeReport } from '../report.ts'
 import { isWebAddress } from '../weblink.ts'
 import type { Handle } from './handler.ts'
+
+/**
+ * Where the power state is read from. `GALLEON_POWER_ROOT` stands a folder of
+ * Armada's files in for `/`, for the app tests and screenshots, which run on
+ * machines that are not armadaOS.
+ */
+function powerRoot(): string {
+  return process.env.GALLEON_POWER_ROOT?.trim() || '/'
+}
 
 /** Settings, the pre-flight check, and the app itself. */
 export function registerSystemIpc(rommix: RomMixApp, handle: Handle): void {
@@ -302,6 +314,25 @@ export function registerSystemIpc(rommix: RomMixApp, handle: Handle): void {
    * cannot be asked. The quit dialog offers exactly what comes back.
    */
   handle('system:powerActions', (): Promise<PowerAction[]> => powerActions())
+
+  /**
+   * Whether the power profile hint is due. Asked when the interface comes
+   * back to the front, which is when Steam or the player may have switched
+   * the profile; the profile read is kept so the hint follows changes rather
+   * than starts.
+   */
+  handle('system:powerHint', async (): Promise<PowerHint> => {
+    const state = await readPowerState(powerRoot(), { status: readArmadaStatus })
+    const { settings } = store
+    const { show, profile, seen } = decidePowerHint(
+      state,
+      settings.powerProfileSeen,
+      settings.dismissedNotices.includes(POWER_HINT_NOTICE)
+    )
+    if (seen !== settings.powerProfileSeen) store.updateSettings({ powerProfileSeen: seen })
+    if (show) log.info('power', 'profile hint shown', { profile })
+    return { show, profile }
+  })
 
   /**
    * What the performance overlay measures frame times against. The refresh
