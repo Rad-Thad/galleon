@@ -31,7 +31,13 @@ export {
   type SegmentedOptions,
   type UiScaleChoice
 } from './controls'
-export { DownloadBadge, DownloadBar, ProgressBar, TransferProgress } from './downloads'
+export {
+  DownloadBadge,
+  DownloadBar,
+  DownloadSize,
+  ProgressBar,
+  TransferProgress
+} from './downloads'
 export {
   GameCard,
   GameRow,

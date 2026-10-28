@@ -1,6 +1,13 @@
 import type { JSX, Ref } from 'react'
 import { isStopped, type DownloadItem } from '@shared/types'
-import { CoverArt, DownloadBadge, DownloadBar, FocusButton, SystemIcon } from '../../components'
+import {
+  CoverArt,
+  DownloadBadge,
+  DownloadBar,
+  DownloadSize,
+  FocusButton,
+  SystemIcon
+} from '../../components'
 import { Icon } from '../../icons'
 import { useFocusable } from '../../input/focus'
 import { useI18n } from '../../state'
@@ -33,7 +40,7 @@ export function ProgressRow({
   /** Whether pressing that starts this game now or only moves it up the queue. */
   interrupts?: boolean
 }): JSX.Element {
-  const { t, formatBytes } = useI18n()
+  const { t } = useI18n()
   const { ref, props } = useFocusable({ onSelect, actionLabel: t('action.open') })
   const percent = item.totalBytes > 0 ? Math.round((item.receivedBytes / item.totalBytes) * 100) : 0
   const stopped = isStopped(item.state)
@@ -110,14 +117,16 @@ export function ProgressRow({
         {/* Whenever there is something to say, which is not the same as being
             on the wire: a transfer that was paused and then resumed waits its
             turn with a gigabyte already on disk, and a row that said nothing
-            about it read as a download about to start from nothing. */}
-        {item.receivedBytes > 0 && item.state !== 'done' ? (
-          <span className="download__size">
-            {t('value.progressBytes', {
-              received: formatBytes(item.receivedBytes),
-              total: formatBytes(item.totalBytes)
-            })}
-          </span>
+            about it read as a download about to start from nothing. A
+            transfer on the wire always has something to say, even before its
+            first byte: that it is waiting for the server. */}
+        {(item.receivedBytes > 0 || item.state === 'downloading') && item.state !== 'done' ? (
+          <DownloadSize
+            state={item.state}
+            receivedBytes={item.receivedBytes}
+            totalBytes={item.totalBytes}
+            rate={item.rate}
+          />
         ) : null}
       </div>
       {acts ? (

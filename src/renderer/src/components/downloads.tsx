@@ -1,5 +1,7 @@
 import type { JSX } from 'react'
 import type { MessageKey } from '@shared/i18n'
+import { transferLine } from '@shared/transferline'
+import type { TransferRate } from '@shared/transferrate'
 import { isStopped, type DownloadState } from '@shared/types'
 import type { IconName } from '../icons'
 import { useI18n } from '../state'
@@ -114,6 +116,39 @@ export function DownloadBar({
     state === 'error' ? 'var(--danger)' : isStopped(state) ? 'var(--warning)' : undefined
 
   return <ProgressBar percent={state === 'done' ? 100 : percent} colour={colour} />
+}
+
+/**
+ * How much of a transfer has arrived, and while bytes are on the wire, how fast
+ * and how long.
+ *
+ * The queue and the game screen both draw it beside the badge, for the same
+ * reason they share the badge. The speed and time left belong only to a
+ * transfer that is downloading: a paused one has no speed to report, and one
+ * being hashed or unpacked has had its last byte.
+ */
+export function DownloadSize({
+  state,
+  receivedBytes,
+  totalBytes,
+  rate
+}: {
+  state: DownloadState
+  receivedBytes: number
+  totalBytes: number
+  rate?: TransferRate
+}): JSX.Element {
+  const i18n = useI18n()
+  return (
+    <span className="download__size">
+      {state === 'downloading'
+        ? transferLine(i18n, receivedBytes, totalBytes, rate ?? null)
+        : i18n.t('value.progressBytes', {
+            received: i18n.formatBytes(receivedBytes),
+            total: i18n.formatBytes(totalBytes)
+          })}
+    </span>
+  )
 }
 
 /**

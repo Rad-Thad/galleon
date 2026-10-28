@@ -432,6 +432,55 @@ describe('uninstalling a game', () => {
  */
 const PART_OF_THE_SLOW_GAME = 256 * 1024
 
+describe('a download on the game screen says how fast and how long', () => {
+  after(() => server.slowGame.flow())
+
+  /** The line beside the badge, as the game screen draws it now. */
+  const line = (): Promise<string> =>
+    app.read<string>(`document.querySelector('.download--bare .download__size')?.textContent ?? ''`)
+
+  test('waiting for the server, then a speed and time left, then stalled', async () => {
+    // Held before the first byte: RomM still building the file is the wait
+    // this line names, and it must not read as a stall however long it lasts.
+    server.slowGame.allow(0)
+    await app.goTo('library')
+    await app.choose('[data-rom="5"]')
+    await app.waitFor(`document.querySelector('[data-screen="game"]')`, 'the game screen')
+    await downloadAnyway(app)
+    await app.waitFor(
+      `document.querySelector('.download--bare .download__size')?.textContent.includes('waiting for server')`,
+      'the line to say it is waiting for the server'
+    )
+
+    // Let through a piece at a time from here, so the transfer is on the wire
+    // for as long as the rate takes to be measured rather than racing it to
+    // the end at the fake's own pace.
+    const drip = setInterval(() => server.slowGame.allow(16 * 1024), 50)
+    try {
+      await app.waitFor(
+        `/B\\/s - .+ left/.test(document.querySelector('.download--bare .download__size')?.textContent ?? '')`,
+        'a speed and a time left'
+      )
+    } finally {
+      clearInterval(drip)
+    }
+    assert.match(await line(), /^\d+% - .+ \/ 2\.0 MB - .+B\/s - .+ left$/)
+
+    // Held again with bytes on disk: no time left, and the word for it.
+    await app.waitFor(
+      `document.querySelector('.download--bare .download__size')?.textContent.includes('stalled')`,
+      'the line to say the transfer has stalled'
+    )
+    assert.doesNotMatch(await line(), /left/)
+
+    await app.read(`window.rommix.downloads.cancel(5)`)
+    await app.waitFor(
+      `(await window.rommix.downloads.list()).find((one) => one.romId === 5)?.state === 'cancelled'`,
+      'the transfer to be given up on'
+    )
+  })
+})
+
 describe('pausing a download and picking it up again', () => {
   after(() => server.slowGame.flow())
 

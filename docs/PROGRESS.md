@@ -3803,3 +3803,18 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet. M1-18 stays false.
 - Next: M1-18 part 2b, `transferLine` in the Downloads row and on the game page, with shots.
+
+## 2026-10-28 07:26 UTC session 0178hDCCUXdUCZpuoEPQqR9A (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. No open PRs, no lock. `init.sh` stopped at Docker (daemon not answering); ran `npm ci` and `npx install-electron` by hand. Nothing in this unit needs RomM.
+- Previous unit: #352 (M1-18 part 2a, `DownloadItem.rate`) merged at 2bb12e8. CI x64 7:54, arm64 1:01.
+- Worked on: M1-18 part 2b (tracking issue #350), acceptance line 2: the rows read like the line.
+- Result: PR (this one).
+  - `DownloadSize` (`components/downloads.tsx`) beside the badge, shared by the Downloads row and the game screen. While `downloading` it shows `transferLine` with the item's rate: 'waiting for server' before the first byte, then the speed and time left, 'stalled' in a stall. In any other state it keeps the plain received/total figure: a paused or hash-checked transfer has no speed.
+  - The Downloads row now shows the line for a transfer on the wire before its first byte too, where it used to show nothing.
+  - The demo stub's downloading row carries a rate paced to its small file.
+- Evidence: `test/app/games.test.ts` "waiting for the server, then a speed and time left, then stalled" (the slow fake game held at nothing, then let through 16 KB every 50 ms, then held: the line matches `^\d+% - .+ / 2.0 MB - .+B/s - .+ left$`, then reads 'stalled' with no time left; cancelled afterwards). The old code fails it at the first wait: it never said 'waiting for server'. `npm run test:app` 278/278 (Electron through a `--no-sandbox` wrapper as root). `scripts/agent/check.sh` green. `npm run shots:nova` 28 screens; none of them has a transfer in flight, so I also shot the demo build at 1280x960. I opened both: the Activity row reads "Downloading · 25% - 32.0 KB / 128.0 KB - …/s - 1m 20s left" on one line between the file name and Pause/Cancel, and the game screen's panel the same under the buttons; nothing wraps or overlaps.
+- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet. M1-18 stays false.
+- Next: M1-18 part 3, X cancels the focused transfer from the pad (line 3); then part 4, `download.progress` (line 4).

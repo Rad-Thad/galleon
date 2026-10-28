@@ -4,6 +4,7 @@ import { DEFAULT_DATE_FORMAT, createI18n, localeFor, type MessageKey } from '@sh
 import { fileNameOf } from '@shared/gamefiles'
 import { DEFAULT_THEME, THEMES_NOTICE } from '@shared/types'
 import type { RomMixBridge } from '@shared/api'
+import type { TransferRate } from '@shared/transferrate'
 
 /**
  * The emulator the stub pretends is installed.
@@ -327,6 +328,30 @@ function part(id: number, share: number): number {
   return Math.round(romById(id).fs_size_bytes * share)
 }
 
+/**
+ * A rate as the queue keeps it a while into a steady transfer, so the row reads
+ * a speed and time left as it does on the device. Paced to the demo's own
+ * file, which is far smaller than a real game and would otherwise be done in
+ * no time at a real speed.
+ */
+function wireRate(id: number, share: number): TransferRate {
+  const now = Date.now()
+  const received = part(id, share)
+  const secondsLeft = 80
+  const speed = (romById(id).fs_size_bytes - received) / secondsLeft
+  return {
+    speed,
+    secondsLeft,
+    stalled: false,
+    speedUnit: speed >= 1024 ** 2 ? 2 : speed >= 1024 ? 1 : 0,
+    timeUnit: 1,
+    sampleBytes: received,
+    sampleAt: now,
+    lastBytes: received,
+    lastByteAt: now
+  }
+}
+
 /** A queue with one of everything, so the Downloads screen has all its rows. */
 function queued(
   id: number,
@@ -377,7 +402,11 @@ const downloadQueue = (): DownloadItem[] => [
    * the richer row, and multi-disc games are something RomMix does that most of
    * what it replaces does not.
    */
-  { ...queued(154, 'downloading', part(154, 0.25)), currentFile: 'Track 02.bin' },
+  {
+    ...queued(154, 'downloading', part(154, 0.25)),
+    currentFile: 'Track 02.bin',
+    rate: wireRate(154, 0.25)
+  },
   // Two waiting rather than one, because the order of what is waiting is
   // something the screen lets you change: the second offers `Download next`
   // and the first does not, that button being the one thing it cannot do.
