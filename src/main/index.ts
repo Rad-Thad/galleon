@@ -38,6 +38,7 @@ import { IDLE_CHECK, idlePage, idleScenario, readTicks } from './selftestidle.ts
 import { MANUAL_CHECK, manualPage, manualScenario } from './selftestmanual.ts'
 import { STARTUP_CHECK, startupScenario, startupStart, watchHome } from './selfteststartup.ts'
 import { UPDATE_CHECK, updateScenario } from './selftestupdate.ts'
+import { ADD_TO_STEAM_FLAG, addToSteamCommand } from './steam/addtosteamcli.ts'
 import { buildStamp } from './update.ts'
 import { missingCardTest, readVolumes } from './volumes.ts'
 import { currentUser } from './librarydefault.ts'
@@ -94,8 +95,16 @@ applyDisplayFlags()
 // time. See `profilePath`.
 app.setPath('userData', profilePath())
 
-// Only one instance may own the ROM tree and the download queue.
-if (!app.requestSingleInstanceLock()) {
+if (process.argv.includes(ADD_TO_STEAM_FLAG)) {
+  // A one-off from a terminal, beside a Galleon that may be open: no lock, no
+  // root, no window, only Steam's own files. Ready first, so it speaks the
+  // owner's language.
+  void app
+    .whenReady()
+    .then(() => addToSteamCommand({ print: (line) => process.stdout.write(`${line}\n`) }))
+    .then((code) => app.exit(code))
+} else if (!app.requestSingleInstanceLock()) {
+  // Only one instance may own the ROM tree and the download queue.
   // Nothing is written here and nothing is read: everything below touches the
   // *running* instance's files, and a second process writing a banner, a
   // rollover or a sweep into them splits one session across two files with no

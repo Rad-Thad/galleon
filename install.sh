@@ -81,11 +81,12 @@ die() {
 
 usage() {
   cat <<'USAGE'
-Usage: install.sh [--stable | --nightly] [--arch aarch64|x86_64]
+Usage: install.sh [--stable | --nightly] [--arch aarch64|x86_64] [--add-to-steam]
 
-  --stable       the newest release (the default)
-  --nightly      the newest build of main, as the test handheld runs it
-  --arch ARCH    which build to fetch; required on anything but aarch64
+  --stable        the newest release (the default)
+  --nightly       the newest build of main, as the test handheld runs it
+  --arch ARCH     which build to fetch; required on anything but aarch64
+  --add-to-steam  then put Galleon in Steam's library; Steam must be closed
 USAGE
 }
 
@@ -142,11 +143,12 @@ fetch() {
 }
 
 main() {
-  local channel=stable arch='' machine
+  local channel=stable arch='' machine add_to_steam=''
   while [ $# -gt 0 ]; do
     case $1 in
       --stable) channel=stable ;;
       --nightly) channel=nightly ;;
+      --add-to-steam) add_to_steam=1 ;;
       --arch)
         [ $# -ge 2 ] || die '--arch needs aarch64 or x86_64.'
         arch=$2
@@ -229,11 +231,28 @@ main() {
 
   say "Installed $apps/$image and $apps/$STEAM_SCRIPT."
   say ''
+
+  # The app writes Steam's binary shortcut list itself: this script has
+  # nothing that could. It refuses while Steam runs and says why, and the
+  # install above stands either way.
+  local steam_status=0
+  if [ -n "$add_to_steam" ]; then
+    "$apps/$STEAM_SCRIPT" --add-to-steam || steam_status=$?
+    [ "$steam_status" -eq 0 ] && return 0
+    say ''
+    say 'Galleon is installed, but not in Steam yet (see above). To add it by hand:'
+  fi
   say 'To start it from Steam, once (an update needs none of this):'
   say '  1. In Desktop Mode, open Steam.'
   say '  2. Games > Add a Non-Steam Game to My Library...'
   say '  3. Tick Galleon in the list. Do not use Browse: its file picker does not open.'
   say '  4. Add Selected Programs.'
+  [ -n "$add_to_steam" ] || {
+    say ''
+    say 'Or, with Steam closed, run this again with --add-to-steam to do it for you.'
+  }
+  # Installed either way; the status still says the Steam step did not happen.
+  return "$steam_status"
 }
 
 # Everything above only defines; this line is the one that acts, so a download
