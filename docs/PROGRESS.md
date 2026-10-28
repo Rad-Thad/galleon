@@ -4048,3 +4048,17 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet; M1-29 stays false.
 - Next: M1-29 part 2b, the file step (every user's list, a backup before writing, refused while Steam runs, art in `config/grid/`) from `install.sh --add-to-steam` and a Settings button; then part 3, `steam.shortcut-roundtrip`.
+
+## 2026-10-28 22:26 UTC session 0178hDCBP5vqiY6UZebycvJq (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. No open PRs, no lock, no `needs-human`. Main green; nightlies green. `init.sh` stopped at Docker (daemon not answering); ran `npm ci` and `npx install-electron` by hand. Nothing in this unit needs Docker RomM.
+- Previous unit: #375 (M1-29 part 2a) merged at 5d08ba0. CI wall time (its run on `main`): x64 9:04, arm64 1:06.
+- Worked on: M1-29 part 2b (tracking issue #373), the file step behind acceptance lines 2 and 3; nothing calls it yet.
+- Result: PR #376.
+  - `src/main/steam/registersteam.ts`: `addToSteam` refuses while Steam runs (nothing written, not even a folder). It goes through every numeric `userdata/*` folder; a missing list starts empty. A list that is there but cannot be read, or cannot be read exactly, is left alone and counted `unreadable`. Before a list is replaced, a timestamped backup goes beside it and never overwrites an earlier one. The new list is written to a partial file and renamed over the old one. A run that would change nothing writes nothing. Art goes in `config/grid/` under the entry's appid, keeping any file already there.
+  - `upsertShortcut` returns that appid; an updated entry keeps its own.
+- Evidence: `registersteam.test.ts` 12/12 against a temporary home; `addshortcut.test.ts` 10/10. Each safety branch (Steam running, backup, backup never overwritten, rename, unreadable vs missing, owner's art kept, unchanged writes nothing) fails a test when removed. `scripts/agent/check.sh` green. No renderer change: no shots.
+- Evaluator: FAIL on d15bddc: the backup's no-overwrite, the rename and the non-ENOENT read had no test that failed without them. Tests added; then see the PR. Its notes for the callers: a throw stops the run part way (users already done stay written), and `users[].user` is the owner's Steam account number, never to be logged or put in device results.
+- CI wall time: recorded in the next entry (this entry rides the PR). The first x64 leg failed at `features-check.mjs` only: the PR had no PROGRESS entry yet.
+- Device / acceptance: none yet; M1-29 stays false.
+- Next: M1-29 part 2c, the app's `--add-to-steam` entry and `install.sh --add-to-steam` (instructions when Steam runs); then the Settings button; then `steam.shortcut-roundtrip`.

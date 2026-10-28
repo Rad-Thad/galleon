@@ -153,6 +153,35 @@ describe('addToSteam', () => {
     assert.deepEqual(readdirSync(config('101')), ['shortcuts.vdf'])
   })
 
+  test('a backup already under the name is never overwritten; the run stops instead', async () => {
+    putList('100', OWNERS())
+    const now = at('2026-10-28T22:40:00.000Z')
+    await addToSteam(GALLEON, { home, running: notRunning, now })
+    const written = list('100')
+    const moved = { ...GALLEON, launchOptions: '%command%' }
+    await assert.rejects(addToSteam(moved, { home, running: notRunning, now }), { code: 'EEXIST' })
+    assert.deepEqual(
+      readFileSync(join(config('100'), 'shortcuts.vdf.galleon-backup-20261028T224000000Z')),
+      Buffer.from(OWNERS())
+    )
+    assert.deepEqual(list('100'), written)
+  })
+
+  test('a list whose new copy cannot be written is left as it was', async () => {
+    putList('100', OWNERS())
+    mkdirSync(join(config('100'), 'shortcuts.vdf.galleon-partial'))
+    await assert.rejects(addToSteam(GALLEON, { home, running: notRunning }))
+    assert.deepEqual(Buffer.from(list('100')), Buffer.from(OWNERS()))
+  })
+
+  test('a list that is there but cannot be read is unreadable, not missing', async () => {
+    mkdirSync(join(config('100'), 'shortcuts.vdf'), { recursive: true })
+    const result = await addToSteam(GALLEON, { home, running: notRunning })
+    assert.deepEqual(result, { outcome: 'done', users: [{ user: '100', change: 'unreadable' }] })
+    assert.deepEqual(readdirSync(config('100')), ['shortcuts.vdf'])
+    assert.deepEqual(readdirSync(join(config('100'), 'shortcuts.vdf')), [])
+  })
+
   test('only Steam account folders are users', async () => {
     putList('100', OWNERS())
     mkdirSync(join(home, '.local', 'share', 'Steam', 'userdata', 'anonymous', 'config'), {
