@@ -3977,3 +3977,15 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet; M1-27 is not READY-FOR-DEVICE until `idle.cpu` exists. M1-27 stays false.
 - Next: M1-27 part 2, cut idle cost to half the baseline (the renderer first) and set the budget there.
+
+## 2026-10-28 18:01 UTC session 0178hDCDcJEQ17YqzJ9Q483h (hourly heartbeat, second unit)
+
+- Device results: unchanged since the entry above. No lock.
+- Previous unit: #369 (M1-27 part 1) merged at f521ca6. CI wall time: x64 8:19, arm64 1:08.
+- Worked on: M1-27 part 2 (tracking issue #368), acceptance line 2.
+- Result: PR (this one).
+  - `test/app/idle.nightly.ts` "a press after idle moves the highlight within a frame and a little": after `LATENCY_IDLE_MS` with nothing pressed on Home, Down is pressed; the page times from the key event to the first frame after the highlight moved, on its own clock, and the test holds it to one frame (the median of frames timed after the press, so nothing wakes the page during the idle) plus `LATENCY_SLACK_MS`. A highlight that never moves fails at once, not at the test's deadline.
+- Evidence: local `npm run test:app:nightly`: 5.2 ms against a 16.7 ms frame; the idle CPU test still passes (3.35 s). `scripts/agent/check.sh` green. No renderer change: no shots.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet; M1-27 stays false.
+- Next: M1-27 part 3, cut idle cost to half the baseline (the renderer first) and set the budget there; then `idle.cpu`.
