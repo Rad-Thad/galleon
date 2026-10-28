@@ -8,7 +8,15 @@ import {
   type InstalledRom,
   type RommRom
 } from '@shared/types'
-import { DownloadBadge, DownloadBar, FocusButton, Hints, Spinner, Tabs } from '../../components'
+import {
+  DownloadBadge,
+  DownloadBar,
+  DownloadSize,
+  FocusButton,
+  Hints,
+  Spinner,
+  Tabs
+} from '../../components'
 import { Icon } from '../../icons'
 import { useApp, useDownloads, useI18n } from '../../state'
 import { CollectionsDialog } from './CollectionsDialog'
@@ -52,7 +60,7 @@ export function GameScreen({
   /** Opened from another dump's versions list. See `Route`. */
   fromVersions?: boolean
 }): JSX.Element {
-  const { t, formatBytes } = useI18n()
+  const { t } = useI18n()
   const {
     installed,
     installedIds,
@@ -655,12 +663,12 @@ export function GameScreen({
               queue row has them — the two screens show the same transfer. */}
           <div className="download__figures">
             <DownloadBadge state={download?.state ?? 'downloading'} />
-            <span className="download__size">
-              {t('value.progressBytes', {
-                received: formatBytes(download?.receivedBytes ?? 0),
-                total: formatBytes(download?.totalBytes ?? 0)
-              })}
-            </span>
+            <DownloadSize
+              state={download?.state ?? 'downloading'}
+              receivedBytes={download?.receivedBytes ?? 0}
+              totalBytes={download?.totalBytes ?? 0}
+              rate={download?.rate}
+            />
           </div>
           <DownloadBar state={download?.state ?? 'downloading'} percent={progress} />
         </div>
