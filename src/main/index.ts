@@ -14,7 +14,12 @@ import { noticeProbe, ownWindowsOnDisplay } from './selftestnowindow.ts'
 import { IDENTITY_CHECK, identityScenario } from './selftestidentity.ts'
 import { PROGRESS_CHECK, progressPage, progressScenario } from './selftestprogress.ts'
 import { REPORT_CHECK, pressReport, reportScenario } from './selftestreport.ts'
-import { HEARTBEAT_CHECK, heartbeatScenario } from './selftestserver.ts'
+import {
+  HEARTBEAT_CHECK,
+  SCHEME_CHECK,
+  heartbeatScenario,
+  schemeProbeScenario
+} from './selftestserver.ts'
 import {
   STEAM_LAUNCH_CHECK,
   STEAM_LIST_CHECK,
@@ -162,6 +167,10 @@ if (!app.requestSingleInstanceLock()) {
           ],
           [IDENTITY_CHECK, identityScenario({ version: app.getVersion(), commit: buildStamp() })],
           [HEARTBEAT_CHECK, heartbeatScenario(rommix.client)],
+          [
+            SCHEME_CHECK,
+            schemeProbeScenario(rommix.client, () => rommix.store.server?.baseUrl ?? null)
+          ],
           [
             UPDATE_CHECK,
             updateScenario({

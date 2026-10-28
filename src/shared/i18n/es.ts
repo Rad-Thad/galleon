@@ -218,6 +218,7 @@ export const es: Catalog = {
   'connect.connecting': 'Conectando…',
   'connect.connect': 'Conectar',
   'connect.connectedAs': 'Conectado a RomM como {user}',
+  'connect.connectedOverHttp': 'Conectado por http (sin cifrar)',
   'connect.someone': 'usuario',
   'connect.pairTitle': 'Aprobar este dispositivo',
   'connect.pairExplainer':
@@ -1138,6 +1139,18 @@ export const es: Catalog = {
   'error.serverAddressEmpty': 'La dirección del servidor está vacía',
   'error.noServerConfigured': 'No hay ningún servidor RomM configurado',
   'error.cannotReach': 'No se puede llegar a {url}: {reason}',
+  'error.httpNotHttps':
+    '{url} no respondió, pero {http} es un servidor RomM sin cifrado. Escriba la dirección con ' +
+    'http:// para usarlo.',
+  'error.nothingAnswered': 'Nada respondió en {url}: {reason}',
+  'error.nothingAnsweredEither': 'Nada respondió en {https} ni en {http}: {reason}',
+  'error.notRomm': '{url} respondió, pero no es un servidor RomM',
+  'error.certificate':
+    '{url} respondió, pero se rechazó su certificado: {reason}. Galleon no cambia a http por ' +
+    'ello; escriba http:// delante de la dirección solo si confía en esta red.',
+  'error.neitherScheme': 'Se probó {https} ({first}) y {http} ({second}).',
+  'error.attemptNothing': 'nada respondió: {reason}',
+  'error.attemptNotRomm': 'respondió, pero no como un servidor RomM',
   'error.readOnly': 'La autoprueba solo lee del servidor, así que no envió esta petición {method}.',
   'error.savesNotFetched_one': '{count} partida guardada no se ha podido obtener de RomM.',
   'error.savesNotFetched_other': '{count} partidas guardadas no se han podido obtener de RomM.',

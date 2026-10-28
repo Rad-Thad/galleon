@@ -18,6 +18,7 @@ import {
   type UiScaleChoice,
   uiScaleOptions
 } from '../../../components'
+import { schemeNote } from '@shared/serverscheme'
 import { useApp, useI18n } from '../../../state'
 import { WizardPage } from '../WizardPage'
 
@@ -124,7 +125,11 @@ export function SetupScreen(): JSX.Element {
       // point of the flag is that these questions are asked once, and reaching
       // a working library is the moment that becomes true.
       if (settings && !settings.setupComplete) await saveSettings({ setupComplete: true })
-      notify(t('connect.connectedAs', { user: next.user?.username ?? t('connect.someone') }))
+      const connected = t('connect.connectedAs', {
+        user: next.user?.username ?? t('connect.someone')
+      })
+      const note = schemeNote({ t }, next.baseUrl)
+      notify(note ? `${connected}. ${note}` : connected)
       // Replaced rather than pushed: signing in is the start of a session, not
       // a step into one. Pushed, the connect form stays one B press behind the
       // home screen for the rest of the run.

@@ -248,6 +248,38 @@ describe('signing in with a token instead', () => {
   })
 })
 
+describe('an address typed without its scheme', () => {
+  test('is asked over https, then over http, and saved with the one that answered', async () => {
+    // The fake RomM is plain http, as the owner's is: https to it fails in the
+    // handshake, and the address used to stop there with 'fetch failed'.
+    await signOut()
+    const bare = server.baseUrl.replace(/^http:\/\//, '')
+    await fill('server', bare)
+    await app.choose('[data-option="token"]')
+    await fill('token', server.token)
+
+    await app.choose('[data-action="connect"]')
+    await atHome(app)
+
+    const status = await app.read<{ connected: boolean; baseUrl: string | null }>(
+      `window.rommix.server.status()`
+    )
+    assert.equal(status.connected, true)
+    assert.equal(
+      status.baseUrl,
+      server.baseUrl,
+      'it should be saved with http, the scheme that answered'
+    )
+
+    // And said where the address is shown, since what was typed had no scheme.
+    await app.goTo('settings')
+    await app.waitFor(
+      `[...document.querySelectorAll('.kv dd')].some((dd) => dd.textContent.includes(${JSON.stringify(server.baseUrl)}) && dd.textContent.includes('Connected over http (not encrypted)'))`,
+      'the address shown as not encrypted'
+    )
+  })
+})
+
 describe('and with a username and password', () => {
   test('the grant hands back a token, and that is what is used', async () => {
     await signOut()

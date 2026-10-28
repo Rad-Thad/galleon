@@ -3848,3 +3848,20 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: READY-FOR-DEVICE M1-18 (`download.progress`). M1-18 stays false.
 - Next: the next eligible feature from `next.mjs`.
+
+## 2026-10-28 11:29 UTC session 0178hDCBiyGiDVvpFh1zELYT (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. No open PRs, no lock, no `needs-human`. Main green. `init.sh` stopped at Docker (daemon not answering); ran `npm ci` and `npx install-electron` by hand. Nothing in this unit needs Docker RomM.
+- Previous unit: #355 (M1-18 part 4, `download.progress`) merged at b8916c9.
+- Worked on: M1-21 (tracking issue #356), all four acceptance lines.
+- Result: PR (this one).
+  - `src/main/romm/scheme.ts`: `resolveBaseUrl` asks `GET /api/heartbeat` over https, then http, for an address typed without a scheme and keeps the first that answers like RomM (`RommClient.probe`: a 2xx JSON body with `SYSTEM`). The address saved carries its scheme, so later starts never probe. An explicit scheme is only asked over that scheme; an explicit https that does not answer asks http once, only to say so. A refused certificate (`failureOf`, by the runtime's certificate codes) is reported and never stepped around over http. `normaliseBaseUrl` moved here from `client.ts`.
+  - Four failures read apart in all four catalogues: http but not https (`error.httpNotHttps`), nothing answered (`error.nothingAnswered`, `error.nothingAnsweredEither` naming both attempts), answered but not RomM (`error.notRomm`, and `error.neitherScheme` for mixed attempts), certificate (`error.certificate`).
+  - `schemeNote` (`src/shared/serverscheme.ts`): 'Connected over http (not encrypted)' after the sign-in toast and beside the address in Settings, General.
+  - `server:pollPairing` polls at the address pairing started on, since what the screen sends back has no scheme.
+  - Device check `server.scheme-probe` (`schemeProbeScenario`): the imported address without its scheme found again the same way, through the read-only guard and without the token, then the heartbeat there. Publishes the schemes, attempts and time, never the address. run.sh asks for it; TESTING.md describes it.
+- Evidence: `src/main/romm/scheme.test.ts` 14/14 (https kept; https fails and http answers → http, shown as not encrypted; both fail → one message naming both; explicit http and https never changed; a certificate failure, first or later, not downgraded; the four messages). `romm.test.ts` "a probe reads RomM, something else, and nothing answering apart" (no token sent). `selftestserver.test.ts` 10/10. `test/app/setup.test.ts` "is asked over https, then over http, and saved with the one that answered": the bare address of the http fake RomM signs in, is saved as http and Settings shows the note; against the old main it fails (11 pass, 3 fail). `test/app/selftest.test.ts` "server.scheme-probe finds plain http for the imported address, with reads only": pass, scheme http after 2 attempts, `safety.serverReadOnly` pass, no non-GET request, no host in the summary. `scripts/agent/check.sh` green; device helper tests 211 OK. `npm run shots:nova` 28 screens; opened `settings-general.png`: the address row reads "http://127.0.0.1:… · Connected over http (not encrypted)" on one line, nothing clipped.
+- Evaluator: PASS on 8764b9d (all four lines met, rails clean, no silent downgrade). Its note that a failed probe always read `probe-error` is fixed: the reason is the last attempt's answer (`probe-unreachable`, `probe-not-romm`, `probe-tls`).
+- CI wall time: x64 2:01 on 8764b9d (red at the PR-body check, no `Feature:` line; fixed in the body), arm64 2:21; the final legs are in the PR.
+- Device / acceptance: READY-FOR-DEVICE M1-21 (`server.scheme-probe`). M1-21 stays false.
+- Next: the next eligible feature from `next.mjs`.

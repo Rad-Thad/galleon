@@ -493,6 +493,37 @@ describe('the library', () => {
     assert.equal(sent[0].url, 'https://other.example/api/heartbeat')
   })
 
+  test('a probe reads RomM, something else, and nothing answering apart', async () => {
+    const { store } = fakeStore()
+    const client = new RommClient(store)
+    const sent = serve(() => json({ SYSTEM: { VERSION: '5.0.0' } }))
+    assert.deepEqual(await client.probe('http://other.example'), { kind: 'romm' })
+    assert.equal(sent[0].url, 'http://other.example/api/heartbeat')
+    assert.equal(sent[0].method, 'GET')
+    // A token for the configured server never goes to an address being typed.
+    assert.equal(sent[0].headers.get('Authorization'), null)
+
+    serve(() => new Response('<html>router</html>', { headers: { 'Content-Type': 'text/html' } }))
+    assert.deepEqual(await client.probe('http://other.example'), { kind: 'not-romm' })
+    serve(() => json({ status: 'ok' }))
+    assert.deepEqual(await client.probe('http://other.example'), { kind: 'not-romm' })
+    serve(() => json({ detail: 'Not Found' }, 404))
+    assert.deepEqual(await client.probe('http://other.example'), { kind: 'not-romm' })
+
+    globalThis.fetch = (() =>
+      Promise.reject(
+        new TypeError('fetch failed', {
+          cause: Object.assign(new Error('unable to verify the first certificate'), {
+            code: 'UNABLE_TO_VERIFY_LEAF_SIGNATURE'
+          })
+        })
+      )) as typeof globalThis.fetch
+    assert.deepEqual(await client.probe('https://other.example'), {
+      kind: 'tls',
+      reason: 'unable to verify the first certificate'
+    })
+  })
+
   test('a listing always asks for the files, whatever else it asks for', async () => {
     const { store } = fakeStore()
     const sent = serve(() => json({ items: [], total: 0, limit: 60, offset: 0 }))

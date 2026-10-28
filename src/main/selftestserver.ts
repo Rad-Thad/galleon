@@ -3,7 +3,8 @@ import {
   RommError,
   type RommClient,
   UnreachableError,
-  UnsupportedServerError
+  UnsupportedServerError,
+  resolveBaseUrl
 } from './romm/index.ts'
 import type { CheckResult, Scenario } from './selftest.ts'
 
@@ -14,6 +15,7 @@ import type { CheckResult, Scenario } from './selftest.ts'
  */
 
 export const HEARTBEAT_CHECK = 'server.heartbeat'
+export const SCHEME_CHECK = 'server.scheme-probe'
 
 /**
  * A version as RomM reports one. Anything else is replaced before it reaches
@@ -60,6 +62,70 @@ export function heartbeatScenario(client: Pick<RommClient, 'heartbeat' | 'me'>):
     const meMs = Math.round(performance.now() - meStarted)
     return result('pass', null, { serverVersion, heartbeatMs, meMs })
   }
+}
+
+/**
+ * `server.scheme-probe`: the imported address with its scheme taken off is
+ * found again the way a typed one is (`resolveBaseUrl`), and the heartbeat
+ * answers there. What is published is the scheme found beside the imported
+ * one, never the address: a server that answers like RomM over both is found
+ * over https, which is right, and is no failure.
+ */
+export function schemeProbeScenario(
+  client: Pick<RommClient, 'probe' | 'heartbeat'>,
+  address: () => string | null
+): Scenario {
+  return async () => {
+    const result = (
+      outcome: CheckResult['result'],
+      reason: string | null,
+      metrics: CheckResult['metrics']
+    ): CheckResult => ({
+      id: SCHEME_CHECK,
+      result: outcome,
+      metrics,
+      thresholds: {},
+      reason,
+      evidence: []
+    })
+    const imported = address()
+    if (imported === null) return result('fail', 'no-server', {})
+    const bare = imported.replace(/^https?:\/\//i, '')
+    let attempts = 0
+    // The last attempt's answer names the failure: the message would name the
+    // server, and the reason is published.
+    let last = 'error'
+    const started = performance.now()
+    let found: string
+    try {
+      found = await resolveBaseUrl(bare, async (url) => {
+        attempts++
+        const answer = await client.probe(url)
+        last = answer.kind
+        return answer
+      })
+    } catch (cause) {
+      log.info('selftest', 'the scheme probe found no RomM', { cause })
+      return result('fail', `probe-${last}`, { attempts })
+    }
+    const probeMs = Math.round(performance.now() - started)
+    const metrics = {
+      scheme: schemeOf(found),
+      importedScheme: schemeOf(imported),
+      attempts,
+      probeMs
+    }
+    try {
+      await client.heartbeat(found)
+    } catch (cause) {
+      return result('fail', `heartbeat-${failure(cause)}`, metrics)
+    }
+    return result('pass', null, metrics)
+  }
+}
+
+function schemeOf(url: string): string {
+  return /^https:/i.test(url) ? 'https' : 'http'
 }
 
 /**

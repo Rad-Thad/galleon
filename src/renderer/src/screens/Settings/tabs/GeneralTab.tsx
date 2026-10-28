@@ -12,6 +12,7 @@ import {
   uiScaleOptions,
   type UiScaleChoice
 } from '../../../components'
+import { schemeNote } from '@shared/serverscheme'
 import { useApp, useI18n, type SettingsTarget } from '../../../state'
 
 /**
@@ -38,6 +39,7 @@ export function GeneralTab({ open }: { open?: SettingsTarget }): JSX.Element {
   const { t, locale } = useI18n()
   const { status, offline, settings, saveSettings, replace, notify } = useApp()
   const [supporting, setSupporting] = useState(false)
+  const note = schemeNote({ t }, status?.baseUrl ?? null)
 
   const disconnect = async (): Promise<void> => {
     await window.rommix.server.disconnect()
@@ -80,7 +82,10 @@ export function GeneralTab({ open }: { open?: SettingsTarget }): JSX.Element {
       ) : null}
       <dl className="kv">
         <dt>{t('settings.address')}</dt>
-        <dd>{status?.baseUrl ?? t('value.notConfigured')}</dd>
+        <dd>
+          {status?.baseUrl ?? t('value.notConfigured')}
+          {note ? ` · ${note}` : null}
+        </dd>
         <dt>{t('settings.signedInAs')}</dt>
         <dd>{status?.user?.username ?? '—'}</dd>
         <dt>{t('settings.rommVersion')}</dt>

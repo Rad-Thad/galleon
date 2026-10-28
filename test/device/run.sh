@@ -291,7 +291,8 @@ if [ -n "$home_ok" ] && rm -rf -- "$app_results" "$handshake" &&
     --check grid.scroll --check server.heartbeat --check download.small \
     --check update.verify --check report.bundle --check storage.sdcard \
     --check focus.return --check focus.no-new-window --check steam.list \
-    --check power.read --check power.hint --check download.progress "$@" \
+    --check power.read --check power.hint --check download.progress \
+    --check server.scheme-probe "$@" \
     --screenshot settings --screenshot bios --screenshot emulators 2>>"$log"; then
   selftest_ok=1
 fi

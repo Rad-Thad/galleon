@@ -570,6 +570,36 @@ test('signed in, server.heartbeat reads the server and nothing but reads reach i
   }
 })
 
+test('server.scheme-probe finds plain http for the imported address, with reads only', async () => {
+  const server = await startFakeRomm()
+  try {
+    const { code, results } = await runWithRequest(
+      { ...REQUEST, checks: [RUN_CHECKS.complete, 'server.scheme-probe'] },
+      server
+    )
+    assert.equal(code, 0)
+    const summary = JSON.parse(readFileSync(join(results, SUMMARY_FILE), 'utf8')) as Summary
+    assert.deepEqual(summaryErrors(summary), [])
+    const check = summary.checks.find((c) => c.id === 'server.scheme-probe')
+    assert.equal(check?.result, 'pass', String(check?.reason))
+    // The fake RomM is plain http, as the owner's is: https was asked first
+    // and failed in the handshake, so it never reached the server's log.
+    assert.equal(check?.metrics.scheme, 'http')
+    assert.equal(check?.metrics.importedScheme, 'http')
+    assert.equal(check?.metrics.attempts, 2)
+    const verdicts = new Map(summary.checks.map((c) => [c.id, c.result]))
+    assert.equal(verdicts.get(RUN_CHECKS.serverReadOnly), 'pass')
+    assert.ok(server.asked.some((a) => a.path === '/api/heartbeat' && a.authorization === null))
+    assert.deepEqual(
+      server.asked.filter((a) => a.method !== 'GET' && a.method !== 'HEAD'),
+      []
+    )
+    assert.ok(!JSON.stringify(summary).includes(new URL(server.baseUrl).host))
+  } finally {
+    await server.close()
+  }
+})
+
 test('download.small fetches the GBA game into the test home, verifies it and removes it', async () => {
   const server = await startFakeRomm({ gba: true })
   try {
