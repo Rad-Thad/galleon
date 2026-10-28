@@ -1165,7 +1165,11 @@ describe('reading the manual of a game', () => {
     // say: a frame Chromium refused to load asks the main process for nothing,
     // and the main process asks the server for nothing in turn. Waited for
     // here rather than read once, because the frame fetches on its own time.
-    assert.ok(await asked(manual()), 'nothing ever asked the server for the manual')
+    // Under RomM's resources root: RomM 5.2.0 hands the manual out relative to it.
+    assert.ok(
+      await asked(`/assets/romm/resources/${manual()}`),
+      'nothing ever asked the server for the manual'
+    )
   })
 
   test('and the two buttons beside it turn the page', async () => {

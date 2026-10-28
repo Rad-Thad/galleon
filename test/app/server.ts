@@ -375,9 +375,12 @@ const PLAY_SESSIONS = new Map<number, number[]>()
  * viewer's walk from one to the next has somewhere to go. */
 const SHOTS_PER_ROM = 3
 
-/** And where its manual lives, which RomM serves as a PDF beside the artwork. */
-function manualPath(romId: number): string {
-  return `/assets/romm/resources/roms/${romId}/manual/manual.pdf`
+/**
+ * And where its manual lives, as RomM 5.2.0 hands it out: relative to its
+ * resources folder, which its static mount serves under `/assets/romm/resources/`.
+ */
+function manualPath(platformId: number, romId: number): string {
+  return `roms/${platformId}/${romId}/manual/${romId}.pdf`
 }
 
 /** How many pages that manual has. More than one, for the same reason. */
@@ -526,7 +529,7 @@ function rom(
     // On whatever has artwork, so a library has games with a manual and games
     // without — the tab is drawn for one and not the other.
     has_manual: art,
-    path_manual: art ? manualPath(id) : null,
+    path_manual: art ? manualPath(host.id, id) : null,
     url_manual: null,
     regions: ['USA'],
     languages: ['en'],
@@ -1096,7 +1099,7 @@ export async function startFakeRomm(options: FakeRommOptions = {}): Promise<Fake
       // content type is the point of the route: the bytes arrive at Chromium's
       // viewer through the same authenticated protocol as a cover, and a
       // manual sent as an image draws a blank frame and nothing else.
-      const manual = /^\/assets\/romm\/resources\/roms\/(\d+)\/manual\/manual\.pdf$/.exec(
+      const manual = /^\/assets\/romm\/resources\/roms\/\d+\/(\d+)\/manual\/\1\.pdf$/.exec(
         url.pathname
       )
       if (manual) {
