@@ -3,7 +3,7 @@ import { describe, test } from 'node:test'
 import { binaryVdf, type Field, shortcut } from '../fixtures/steam/binaryvdf.ts'
 import { type BinaryVdfField, findField, readBinaryVdf, writeBinaryVdf } from './binaryvdf.ts'
 
-/** A shortcut with every field Steam's client writes today, in its order and with its types. */
+/** A shortcut with every field Steam's client writes, in its order and with its types. */
 function steamShortcut(appid: number, name: string): Record<string, Field> {
   return {
     appid: appid | 0,
@@ -117,7 +117,8 @@ describe('readBinaryVdf and writeBinaryVdf', () => {
   test('a list that cannot be written back exactly is null', () => {
     const whole = realShaped()
     for (let length = 0; length < whole.length; length++) {
-      assert.equal(readBinaryVdf(whole.subarray(0, length)), null, `cut at ${length}`)
+      // A copy, so no field can be read from bytes past the cut.
+      assert.equal(readBinaryVdf(whole.slice(0, length)), null, `cut at ${length}`)
     }
     // Text that is not UTF-8, an unknown type, and bytes after the end.
     assert.equal(readBinaryVdf(Uint8Array.from([0x01, 0x6e, 0x00, 0xff, 0x00, 0x08])), null)
