@@ -39,6 +39,7 @@ describe('upsertShortcut', () => {
     const theirs = entryBytes(before)
     const result = upsertShortcut(readBinaryVdf(ownersList())!, GALLEON)
     assert.equal(result?.change, 'added')
+    assert.equal(result?.appid, shortcutAppid(GALLEON.exe, GALLEON.name))
     const after = readBinaryVdf(writeBinaryVdf(result!.fields))!
     assert.deepEqual(entryBytes(after).slice(0, 2), theirs)
 
@@ -63,6 +64,7 @@ describe('upsertShortcut', () => {
     const moved = { ...GALLEON, name: 'Galleon Nightly', launchOptions: '%command%' }
     const result = upsertShortcut(readBinaryVdf(writeBinaryVdf(first))!, moved)!
     assert.equal(result.change, 'updated')
+    assert.equal(result.appid, appid)
     const list = entries(result.fields)
     assert.equal(list.length, 3)
     assert.deepEqual(entryBytes(result.fields).slice(0, 2), theirs)

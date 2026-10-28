@@ -32,7 +32,8 @@ export function shortcutAppid(exe: string, name: string): number {
 }
 
 /**
- * The list with Galleon's entry added or updated, and which. An entry whose
+ * The list with Galleon's entry added or updated, which, and the entry's
+ * appid (unsigned, as its art is named). An entry whose
  * Exe matches is updated in place, keeping its appid (its art is filed under
  * it), its play time, its tags and any field Steam adds later. Returns null
  * when the list has no `shortcuts` map, which is not a list to change.
@@ -41,7 +42,7 @@ export function shortcutAppid(exe: string, name: string): number {
 export function upsertShortcut(
   fields: BinaryVdfField[],
   shortcut: GalleonShortcut
-): { fields: BinaryVdfField[]; change: 'added' | 'updated' } | null {
+): { fields: BinaryVdfField[]; change: 'added' | 'updated'; appid: number } | null {
   const list = findField(fields, 'shortcuts')
   if (list?.type !== 'map') return null
   const set: [string, string][] = [
@@ -61,7 +62,13 @@ export function upsertShortcut(
       if (field?.type === 'string') field.value = value
       else if (!field) existing.fields.push({ type: 'string', name, value })
     }
-    return { fields, change: 'updated' }
+    const appid = findField(existing.fields, 'appid')
+    return {
+      fields,
+      change: 'updated',
+      appid:
+        appid?.type === 'int32' ? appid.value >>> 0 : shortcutAppid(shortcut.exe, shortcut.name)
+    }
   }
 
   const index = list.fields.reduce((next, entry) => {
@@ -70,11 +77,12 @@ export function upsertShortcut(
   }, 0)
   const string = (name: string, value: string): BinaryVdfField => ({ type: 'string', name, value })
   const int = (name: string, value: number): BinaryVdfField => ({ type: 'int32', name, value })
+  const appid = shortcutAppid(shortcut.exe, shortcut.name)
   list.fields.push({
     type: 'map',
     name: String(index),
     fields: [
-      int('appid', shortcutAppid(shortcut.exe, shortcut.name)),
+      int('appid', appid),
       string('AppName', shortcut.name),
       string('Exe', shortcut.exe),
       string('StartDir', shortcut.startDir),
@@ -93,7 +101,7 @@ export function upsertShortcut(
       { type: 'map', name: 'tags', fields: [] }
     ]
   })
-  return { fields, change: 'added' }
+  return { fields, change: 'added', appid }
 }
 
 function textOf(field: BinaryVdfField | undefined): string | undefined {

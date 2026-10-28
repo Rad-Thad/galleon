@@ -75,6 +75,8 @@ const ALLOWED: Record<string, string> = {
   'main/selftestshots.ts': "the screenshots in the request's results folder",
   'main/selftestupdate.ts': "the update rehearsal's folder in the test home",
   'main/settingsedits.ts': "the staged copy of an emulator's own settings file, beside it",
+  'main/steam/registersteam.ts':
+    "each Steam user's shortcuts.vdf, its backups beside it, and Galleon's art in config/grid/",
   'main/store.ts': 'the settings file',
   'main/update.ts': 'the downloaded AppImage, and the rehearsal copies in the folder it is given',
   'main/zip.ts': 'a staging folder or archive the caller names'
