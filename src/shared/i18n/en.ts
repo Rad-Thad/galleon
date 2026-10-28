@@ -226,6 +226,7 @@ export const en = {
   'connect.connecting': 'Connecting…',
   'connect.connect': 'Connect',
   'connect.connectedAs': 'Connected to RomM as {user}',
+  'connect.connectedOverHttp': 'Connected over http (not encrypted)',
   'connect.someone': 'user',
   'connect.pairTitle': 'Approve this device',
   'connect.pairExplainer':
@@ -1133,6 +1134,18 @@ export const en = {
   'error.serverAddressEmpty': 'Server address is empty',
   'error.noServerConfigured': 'No RomM server configured',
   'error.cannotReach': 'Cannot reach {url}: {reason}',
+  'error.httpNotHttps':
+    '{url} did not answer, but {http} is a RomM server without encryption. Type the address with ' +
+    'http:// to use it.',
+  'error.nothingAnswered': 'Nothing answered at {url}: {reason}',
+  'error.nothingAnsweredEither': 'Nothing answered at {https} or at {http}: {reason}',
+  'error.notRomm': '{url} answered, but it is not a RomM server',
+  'error.certificate':
+    '{url} answered, but its certificate was refused: {reason}. Galleon does not switch to http ' +
+    'for it; type http:// in front of the address only if you trust this network.',
+  'error.neitherScheme': 'Tried {https} ({first}) and {http} ({second}).',
+  'error.attemptNothing': 'nothing answered: {reason}',
+  'error.attemptNotRomm': 'answered, but not as a RomM server',
   'error.readOnly':
     'The self-test only reads from the server, so it did not send this {method} request.',
   'error.savesNotFetched_one': '{count} save could not be fetched from RomM.',

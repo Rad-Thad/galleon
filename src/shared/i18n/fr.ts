@@ -219,6 +219,7 @@ export const fr: Catalog = {
   'connect.connecting': 'Connexion…',
   'connect.connect': 'Se connecter',
   'connect.connectedAs': 'Connecté à RomM en tant que {user}',
+  'connect.connectedOverHttp': 'Connecté en http (non chiffré)',
   'connect.someone': 'utilisateur',
   'connect.pairTitle': 'Approuver cet appareil',
   'connect.pairExplainer':
@@ -1152,6 +1153,18 @@ export const fr: Catalog = {
   'error.serverAddressEmpty': 'L’adresse du serveur est vide',
   'error.noServerConfigured': 'Aucun serveur RomM configuré',
   'error.cannotReach': 'Impossible de joindre {url} : {reason}',
+  'error.httpNotHttps':
+    '{url} n’a pas répondu, mais {http} est un serveur RomM sans chiffrement. Saisissez ' +
+    'l’adresse avec http:// pour l’utiliser.',
+  'error.nothingAnswered': 'Rien n’a répondu à {url} : {reason}',
+  'error.nothingAnsweredEither': 'Rien n’a répondu à {https} ni à {http} : {reason}',
+  'error.notRomm': '{url} a répondu, mais ce n’est pas un serveur RomM',
+  'error.certificate':
+    '{url} a répondu, mais son certificat a été refusé : {reason}. Galleon ne passe pas en ' +
+    'http pour autant ; saisissez http:// devant l’adresse seulement si vous faites confiance à ce réseau.',
+  'error.neitherScheme': 'Essayé {https} ({first}) et {http} ({second}).',
+  'error.attemptNothing': 'rien n’a répondu : {reason}',
+  'error.attemptNotRomm': 'a répondu, mais pas comme un serveur RomM',
   'error.readOnly':
     "L'autotest ne fait que lire le serveur : cette requête {method} n'a pas été envoyée.",
   'error.savesNotFetched_one': '{count} sauvegarde n’a pas pu être récupérée depuis RomM.',

@@ -5,15 +5,18 @@
  * client says what to ask the server for, `transfer.ts` owns what happens to
  * bytes on their way to the disk, `checksums.ts` decides which hash — if any —
  * describes what is arriving, `devices.ts` keeps what RomM knows this machine
- * as, `version.ts` says which servers this build can read at all, and
- * `errors.ts` holds the failures the rest of RomMix branches on.
+ * as, `scheme.ts` turns a typed address into the one to save, `version.ts`
+ * says which servers this build can read at all, and `errors.ts` holds the
+ * failures the rest of RomMix branches on.
  *
  * One import for the lot, because every caller wants the client and at least
  * one of the error types: a download that has to tell an outage from a
  * refusal, a screen that has to tell a refusal from a bad hash.
  */
 
-export { MIN_PLAY_SECONDS, RommClient, REQUIRED_SCOPES, normaliseBaseUrl } from './client.ts'
+export { MIN_PLAY_SECONDS, RommClient, REQUIRED_SCOPES } from './client.ts'
+export { hasScheme, normaliseBaseUrl, resolveBaseUrl } from './scheme.ts'
+export type { Probe, ProbeAnswer } from './scheme.ts'
 export type { UploadSaveOptions } from './client.ts'
 export {
   CorruptDownloadError,

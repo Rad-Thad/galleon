@@ -224,6 +224,7 @@ export const de: Catalog = {
   'connect.connecting': 'Verbindung…',
   'connect.connect': 'Verbinden',
   'connect.connectedAs': 'Mit RomM verbunden als {user}',
+  'connect.connectedOverHttp': 'Über http verbunden (unverschlüsselt)',
   'connect.someone': 'Benutzer',
   'connect.pairTitle': 'Dieses Gerät bestätigen',
   'connect.pairExplainer':
@@ -1163,6 +1164,19 @@ export const de: Catalog = {
   'error.serverAddressEmpty': 'Die Serveradresse ist leer',
   'error.noServerConfigured': 'Kein RomM-Server eingerichtet',
   'error.cannotReach': '{url} ist nicht erreichbar: {reason}',
+  'error.httpNotHttps':
+    '{url} hat nicht geantwortet, aber {http} ist ein RomM-Server ohne Verschlüsselung. Geben ' +
+    'Sie die Adresse mit http:// ein, um ihn zu verwenden.',
+  'error.nothingAnswered': 'Unter {url} hat nichts geantwortet: {reason}',
+  'error.nothingAnsweredEither':
+    'Weder unter {https} noch unter {http} hat etwas geantwortet: {reason}',
+  'error.notRomm': '{url} hat geantwortet, ist aber kein RomM-Server',
+  'error.certificate':
+    '{url} hat geantwortet, aber sein Zertifikat wurde abgelehnt: {reason}. Galleon wechselt ' +
+    'deshalb nicht zu http; geben Sie http:// nur vor der Adresse ein, wenn Sie diesem Netz vertrauen.',
+  'error.neitherScheme': 'Versucht: {https} ({first}) und {http} ({second}).',
+  'error.attemptNothing': 'nichts hat geantwortet: {reason}',
+  'error.attemptNotRomm': 'hat geantwortet, aber nicht als RomM-Server',
   'error.readOnly':
     'Der Selbsttest liest nur vom Server, daher wurde diese {method}-Anfrage nicht gesendet.',
   'error.savesNotFetched_one': '{count} Spielstand konnte nicht von RomM geladen werden.',

@@ -2,7 +2,7 @@ import type { ConnectPayload } from '@shared/api'
 import type { ConnectionStatus } from '@shared/types'
 import type { RomMixApp } from '../app.ts'
 import { log } from '../log.ts'
-import { RommError, normaliseBaseUrl } from '../romm/index.ts'
+import { RommError, hasScheme, normaliseBaseUrl, resolveBaseUrl } from '../romm/index.ts'
 import { t } from '../i18n.ts'
 import type { Handle } from './handler.ts'
 
@@ -22,8 +22,15 @@ export function registerServerIpc(rommix: RomMixApp, handle: Handle): void {
 
   handle('server:status', status)
 
+  /**
+   * The address to save for what was typed, its scheme found if none was. See
+   * `resolveBaseUrl`.
+   */
+  const resolve = (typed: string): Promise<string> =>
+    resolveBaseUrl(typed, (baseUrl) => client.probe(baseUrl))
+
   handle('server:connect', async (payload: ConnectPayload): Promise<ConnectionStatus> => {
-    const baseUrl = normaliseBaseUrl(payload.baseUrl)
+    const baseUrl = await resolve(payload.baseUrl)
     const previousServer = store.server
     /**
      * What was signed in before this attempt, kept whole.
@@ -83,7 +90,7 @@ export function registerServerIpc(rommix: RomMixApp, handle: Handle): void {
   })
 
   handle('server:startPairing', async (baseUrl: string) => {
-    const normalised = normaliseBaseUrl(baseUrl)
+    const normalised = await resolve(baseUrl)
     const previousServer = store.server
     const previousCredentials = store.credentials
     await client.heartbeat(normalised)
@@ -107,7 +114,22 @@ export function registerServerIpc(rommix: RomMixApp, handle: Handle): void {
     }
   })
 
-  handle('server:pollPairing', async (deviceCode: string, baseUrl: string) =>
-    client.pollDevicePairing(deviceCode, normaliseBaseUrl(baseUrl))
-  )
+  /**
+   * Polled at the address pairing started on.
+   *
+   * The screen sends back what was typed, and for an address without a scheme
+   * that is not yet the address: `server:startPairing` found the scheme and
+   * saved the result, and polling over the other one would never see the
+   * pairing approved.
+   */
+  handle('server:pollPairing', async (deviceCode: string, baseUrl: string) => {
+    const typed = normaliseBaseUrl(baseUrl)
+    const started = store.server?.baseUrl
+    const sameHost = (url: string): string => url.replace(/^https?:/, '')
+    const address =
+      !hasScheme(baseUrl) && started !== undefined && sameHost(started) === sameHost(typed)
+        ? started
+        : typed
+    return client.pollDevicePairing(deviceCode, address)
+  })
 }

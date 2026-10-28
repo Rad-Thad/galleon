@@ -51,6 +51,7 @@ import {
   syntheticRom
 } from '../selftestlibrary.ts'
 import { atLeast, isComparable, MINIMUM_SERVER_VERSION } from './version.ts'
+import { failureOf, type ProbeAnswer } from './scheme.ts'
 import {
   fetchToFile,
   partialPathOf,
@@ -150,30 +151,6 @@ export const MIN_PLAY_SECONDS = 5
  * `transfer.ts` owns those instead, and can resume.
  */
 const REQUEST_TIMEOUT_MS = 30_000
-
-/** Strip trailing slashes so we can concatenate paths safely. */
-export function normaliseBaseUrl(input: string): string {
-  let url = input.trim()
-  if (!url) throw new RommError(t('error.serverAddressEmpty'))
-  if (!/^https?:\/\//i.test(url)) url = `https://${url}`
-  const parsed = new URL(url)
-  // A user pasting the RomM web UI URL often includes a path; keep it, but drop
-  // a trailing /api which we add ourselves.
-  parsed.pathname = parsed.pathname.replace(/\/+$/, '').replace(/\/api$/, '')
-  // `https://user:password@host` is a realistic paste, since RomM accepts HTTP
-  // basic — and this string is written to settings.json, which `store.ts` says
-  // holds no secrets, and printed beside every request. RomMix authenticates
-  // with a token, so there is nothing here to keep.
-  parsed.username = ''
-  parsed.password = ''
-  // Request paths are concatenated onto what this returns, so anything the URL
-  // carries after the path would sit between the base and `/api/...`. A pasted
-  // web UI address is the realistic source of both: a fragment is never sent,
-  // so every call would fetch `/`.
-  parsed.search = ''
-  parsed.hash = ''
-  return parsed.toString().replace(/\/+$/, '')
-}
 
 /** How `RommClient.uploadSave` asks RomM to treat the slot it uploads into. */
 export interface UploadSaveOptions {
@@ -328,9 +305,12 @@ export class RommClient {
         if (init.signal?.aborted) throw cause
         log.error('romm', `${method} ${path} could not be sent`, cause, { baseUrl: base })
         this.report(base, false, (cause as Error).message)
-        throw new UnreachableError(
+        const unreachable = new UnreachableError(
           t('error.cannotReach', { url: base, reason: (cause as Error).message })
         )
+        // Kept so `failureOf` can tell a refused certificate from no answer.
+        unreachable.cause = cause
+        throw unreachable
       }
     }
 
@@ -393,6 +373,34 @@ export class RommClient {
   }
 
   // -- authentication -------------------------------------------------------
+
+  /**
+   * GET /api/heartbeat at an address being typed in, read as what answered.
+   *
+   * Never throws for the address itself: whether nothing answered, a
+   * certificate was refused or something other than RomM answered is the
+   * answer `resolveBaseUrl` decides on. Only the read-only guard's own refusal
+   * gets through, since that is no fact about the server.
+   */
+  async probe(baseUrl: string): Promise<ProbeAnswer> {
+    let res: Response
+    try {
+      res = await this.request('/api/heartbeat', {}, { baseUrl, retryOn401: false })
+    } catch (cause) {
+      if (cause instanceof UnreachableError) return failureOf(cause.cause)
+      throw cause
+    }
+    if (!res.ok) return { kind: 'not-romm' }
+    try {
+      const body = (await res.json()) as RommHeartbeat | null
+      return body && typeof body.SYSTEM === 'object' && body.SYSTEM !== null
+        ? { kind: 'romm' }
+        : { kind: 'not-romm' }
+    } catch {
+      // A web page where a heartbeat should be.
+      return { kind: 'not-romm' }
+    }
+  }
 
   /**
    * GET /api/heartbeat — also the "is this a RomM server we can read" probe.
