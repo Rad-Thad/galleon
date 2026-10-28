@@ -253,12 +253,12 @@ function acceptServer(value: unknown): ServerConfig | null {
   }
 }
 
-/** Atomic JSON write, so a crash mid-write cannot truncate the file. */
 /** The credential file's bytes: a marker saying how to read the rest, then it. */
 function plainCredentials(credentials: StoredCredentials): Buffer {
   return Buffer.concat([Buffer.from('RAW1'), Buffer.from(JSON.stringify(credentials))])
 }
 
+/** Atomic JSON write, so a crash mid-write cannot truncate the file. */
 function writeJsonAtomic(path: string, value: unknown): void {
   const tmp = `${path}.tmp`
   writeFileSync(tmp, JSON.stringify(value, null, 2), 'utf8')
@@ -542,8 +542,16 @@ export class Store {
       // session has the keyring. Rewritten plain at once, or the next session
       // without one — the next time Game Mode starts — finds it unreadable.
       if (magic === 'ENC1') {
-        this.writeCredentials(plainCredentials(loaded))
-        log.info('store', 'credentials written by the keyring were moved to the file')
+        try {
+          this.writeCredentials(plainCredentials(loaded))
+          log.info('store', 'credentials written by the keyring were moved to the file')
+        } catch (cause) {
+          // The tokens were read, so this session stays signed in; the
+          // encrypted file is left as it was and the next start tries again.
+          log.warn('store', 'credentials written by the keyring could not be moved', {
+            reason: (cause as Error).message
+          })
+        }
       }
       // The kind, never the token: it is what most sign-in questions turn on.
       log.info('store', 'credentials loaded', {

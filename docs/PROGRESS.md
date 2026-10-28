@@ -3876,7 +3876,8 @@ Lines the tooling reads (exact forms):
   - `src/main/store.ts`: the folder is created 0700 and the file written 0600; `holdMode` puts both back at every start when loosened, and logs it. An `ENC1` file from an earlier build is opened with the keyring when this session has one and rewritten as `RAW1` at once. `Store` takes the keyring as an optional argument (Electron's `safeStorage` by default) so tests can play a session with one.
   - README and SECURITY.md say where the token is, that it is not encrypted, who can read it, and to revoke it in RomM if the device is lost.
 - Evidence: `src/main/store.test.ts` 57/57, five new: "the file is 0600 in a folder that is 0700", "both are put back at start when something loosened them", "a token written in a session with a keyring is read in one without", "… without a keyring is read in one with", "a file an earlier build encrypted is moved to the plain file when opened". Against the old `store.ts` three fail (folder mode, start-up correction, `ENC1` move). `scripts/agent/check.sh` green. No renderer change: no shots.
-- Evaluator: see the PR.
+- Also: `npm run test:app` 284/284 (Electron through a `--no-sandbox` wrapper as root).
+- Evaluator: FAIL on f66fb81: `plainCredentials` landed between `writeJsonAtomic` and its doc comment. Fixed, with its notes: the driver comment rewrapped, and a failed `ENC1` move no longer reads as signed out (logged; the next start retries). PASS: see the PR.
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet. M1-24 stays false.
 - Next: M1-24 part 2, Settings → Account says where the token is kept and how to revoke it (line 3); then part 3, device check `auth.storage` (line 4).
