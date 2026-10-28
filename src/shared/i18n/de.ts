@@ -1099,6 +1099,7 @@ export const de: Catalog = {
   'system.foundByBundled': "{name}: ES-DE's {rule} rule, {entry}", // TODO(i18n)
   'system.foundByCustom': '{name}: custom_systems {rule} rule, {entry}', // TODO(i18n)
   'system.foundByRoute': '{name}: {path}', // TODO(i18n)
+  'system.power': 'Power', // TODO(i18n)
   'system.controller': 'Controller',
   'system.noController': 'keiner gesehen — drücken Sie eine seiner Tasten',
   'system.logFile': 'Protokolldatei',

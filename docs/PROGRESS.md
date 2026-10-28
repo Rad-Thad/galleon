@@ -3687,3 +3687,18 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: READY-FOR-DEVICE M1-14 (`steam.list`, `steam.launch`). M1-14 stays false until both pass on the device. Whether Steam names the prompt's window 'Launch Multiple Games' is unknown until a device run. If it does not, the log's window outlines will show what to match.
 - Next: M1-14 waits on the device. The next eligible feature from `next.mjs`.
+
+## 2026-10-28 02:26 UTC session 0178hDCB8CVLDtDa4JKzYg6v (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. No open PRs; M1-14 waits on the device. `init.sh` stopped at Docker (daemon not answering); nothing in this unit needs RomM.
+- Worked on: M1-16 part 1 (tracking issue #344): acceptance line 3, the pre-flight check shows the current profile, governor and clocks.
+- Result: PR (this one).
+  - `DiagnosticsReport.power`: `preflight` reads the power state with `armada-power status` asked, so the profile is Armada's own word when it answers. The pre-flight log line carries it too.
+  - Settings → System → Pre-flight check has a "Power" row (`data-power`): the profile (and the one Armada starts in), then CPU and GPU governor and clocks in MHz. New key `system.power` in all four catalogues (`// TODO(i18n)` in fr/de/es).
+  - `powerLines` (`src/renderer/src/perf/power.ts`) words the state for both the row and the performance overlay, so the two cannot drift. The preview bridge shares one all-unknown state between `diagnostics` and `perfState`.
+  - Line 1's parsers are M0-22's `src/main/powerstate.ts`, already tested against Balanced, Performance, missing files and unreadable formats. M1-16 stays false.
+- Evidence: `src/renderer/src/perf/power.test.ts` 2/2 (Balanced's clocks in MHz; unknown values in en and fr). `test/app/interface.test.ts` "and the pre-flight check shows the power profile, governor and clocks": three lines, profile first, governors equal to `system.diagnostics()`'s. `interface.test.ts` + `perf.test.ts` 106/106. Electron ran through a `--no-sandbox` wrapper as root. `scripts/agent/check.sh` green. `npm run shots:nova` 27 screens. I opened `report.png`: the Power row sits between Found by and Controller with its three lines, aligned and inside 1280x960. `settings-system.png` is unchanged above the fold.
+- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet.
+- Next: M1-16 part 2, the hint (line 2): at most once per profile change, dismissable for good, only on Armada, never changing the profile. Then `power.read` and `power.hint`.

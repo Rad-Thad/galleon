@@ -12,7 +12,7 @@ import type {
 import type { RomMixApp } from '../app.ts'
 import { drivesOf } from '../disk.ts'
 import { power, powerActions } from '../power.ts'
-import { readPowerState } from '../powerstate.ts'
+import { readArmadaStatus, readPowerState } from '../powerstate.ts'
 import { commandVersion, flatpakAvailable, flathubConfigured, isWritable } from '../host.ts'
 import { setLanguage, t } from '../i18n.ts'
 import { log } from '../log.ts'
@@ -180,6 +180,10 @@ export function registerSystemIpc(rommix: RomMixApp, handle: Handle): void {
     }
     const romsWritable = writable.every((entry) => entry.ok)
 
+    // Armada's own report names the profile; the check runs once per press,
+    // so it can afford the process the overlay cannot.
+    const powerNow = await readPowerState('/', { status: readArmadaStatus })
+
     // The one setup step shared storage adds, and the one that makes it look
     // broken when it is skipped: the game downloads, RomMix reports it as
     // installed, and the emulator's own list is empty because nobody told it
@@ -203,6 +207,7 @@ export function registerSystemIpc(rommix: RomMixApp, handle: Handle): void {
           .map((emulator) => [emulator.id, emulator.install?.foundBy ?? emulator.install?.kind])
       ),
       romsWritable,
+      power: powerNow,
       notes
     })
 
@@ -212,6 +217,7 @@ export function registerSystemIpc(rommix: RomMixApp, handle: Handle): void {
       emulators,
       romsWritable,
       drives: await drivesOf(await romFolders()),
+      power: powerNow,
       logPath: log.path(),
       notes
     }

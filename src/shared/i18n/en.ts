@@ -1075,6 +1075,7 @@ export const en = {
   'system.foundByBundled': "{name}: ES-DE's {rule} rule, {entry}",
   'system.foundByCustom': '{name}: custom_systems {rule} rule, {entry}',
   'system.foundByRoute': '{name}: {path}',
+  'system.power': 'Power',
   'system.controller': 'Controller',
   'system.noController': 'none seen — press a button on it',
   'system.logFile': 'Log file',

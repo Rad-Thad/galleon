@@ -2,6 +2,7 @@ import { type JSX, useState } from 'react'
 import type { DiagnosticsReport, RootLocation } from '@shared/types'
 import { FocusButton, ReportProblemButton, Spinner, TextField, Toggle } from '../../../components'
 import { useGamepadName } from '../../../input/focus'
+import { powerLines } from '../../../perf/power'
 import { useApp, useI18n } from '../../../state'
 import { UpdatePanel } from '../UpdatePanel'
 
@@ -29,6 +30,7 @@ export function SystemTab({
   const [rootDraft, setRootDraft] = useState<string | null>(null)
   const [rechecking, setRechecking] = useState(false)
   const controller = useGamepadName()
+  const power = diagnostics ? powerLines(t, diagnostics.power) : null
 
   // Null until the field is touched, so the value shown follows the folder RomMix
   // reports rather than a draft captured before it had answered.
@@ -197,6 +199,18 @@ export function SystemTab({
                       </div>
                     )
                   )}
+                </dd>
+              </>
+            ) : null}
+            {/* The profile first: on the Nova it is what decides whether
+                browsing feels smooth, and the clocks are its evidence. */}
+            {power ? (
+              <>
+                <dt>{t('system.power')}</dt>
+                <dd data-power>
+                  {[power.profile, power.cpu, power.gpu].map((line) => (
+                    <div key={line}>{line}</div>
+                  ))}
                 </dd>
               </>
             ) : null}

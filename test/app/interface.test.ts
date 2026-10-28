@@ -1552,6 +1552,22 @@ describe('the folder RomMix keeps everything in', () => {
       drives[0].volume?.mountPoint
     )
   })
+
+  test('and the pre-flight check shows the power profile, governor and clocks', async () => {
+    // The suite's machine is no Nova, so most of these read unknown; what is
+    // asked is that the panel shows what the main process read, profile first.
+    await app.waitFor(`document.querySelector('[data-power]')`, 'the power row')
+    const { power } = await app.read<{ power: { cpuGovernor: string; gpuGovernor: string } }>(
+      `await window.rommix.system.diagnostics()`
+    )
+    const lines = await app.read<string[]>(
+      `[...document.querySelectorAll('[data-power] > div')].map((line) => line.textContent)`
+    )
+    assert.equal(lines.length, 3)
+    assert.match(lines[0], /^Armada profile: /)
+    assert.match(lines[1], new RegExp(`^CPU ${power.cpuGovernor} `))
+    assert.match(lines[2], new RegExp(`^GPU ${power.gpuGovernor} `))
+  })
 })
 
 /**

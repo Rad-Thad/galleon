@@ -21,6 +21,7 @@ import type {
   BiosPlatform,
   DownloadItem,
   InstalledRom,
+  PowerState,
   RommCollection,
   RommCollectionBase,
   RommVirtualCollection,
@@ -72,6 +73,22 @@ import type {
  * answer contradicted by the thing that is supposed to be showing it.
  */
 const PREVIEW_ROOT = '~/galleon'
+
+/**
+ * A browser tab has no sysfs to read, so every value is "unknown", which is
+ * what a desktop without these files shows too.
+ */
+const UNKNOWN_POWER: PowerState = {
+  cpuGovernor: 'unknown',
+  cpuCurKHz: null,
+  cpuMaxKHz: null,
+  gpuGovernor: 'unknown',
+  gpuCurHz: null,
+  gpuMaxHz: null,
+  profile: 'unknown',
+  defaultProfile: 'unknown',
+  perf: 'unknown'
+}
 
 // ---------------------------------------------------------------------------
 // The library
@@ -1125,6 +1142,7 @@ const bridge: RomMixBridge = {
         // The path the real app would print, though nothing writes to it here:
         // the panel shows it so a bug report can quote it, and a demo quoting a
         // folder RomMix does not use teaches the wrong one.
+        power: UNKNOWN_POWER,
         logPath: `${PREVIEW_ROOT}/logs/app.log`,
         notes: [say('demo.nothingChecked')]
       }),
@@ -1151,22 +1169,10 @@ const bridge: RomMixBridge = {
     // dialog draws only what comes back from here.
     powerActions: () => later([]),
     power: () => refuse(),
-    // A browser tab has no sysfs to read, so every value is the overlay's
-    // "unknown", which is what a desktop without these files shows too.
     perfState: () =>
       later({
         displayHz: 60,
-        power: {
-          cpuGovernor: 'unknown',
-          cpuCurKHz: null,
-          cpuMaxKHz: null,
-          gpuGovernor: 'unknown',
-          gpuCurHz: null,
-          gpuMaxHz: null,
-          profile: 'unknown',
-          defaultProfile: 'unknown',
-          perf: 'unknown'
-        }
+        power: UNKNOWN_POWER
       }),
     perfSummary: () => later(undefined),
     // The preview is already in a browser, so the desktop's link handler is

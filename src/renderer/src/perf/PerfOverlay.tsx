@@ -1,6 +1,7 @@
 import { type JSX, useEffect, useRef, useState } from 'react'
 import type { PerfState } from '@shared/types'
 import { useI18n } from '../state'
+import { powerLines } from './power'
 import { type FrameStats, FrameWindow } from '@shared/frames'
 
 /**
@@ -110,9 +111,8 @@ export function PerfOverlay({ screen }: { screen: string }): JSX.Element {
   }, [screen, recent, summary])
 
   const word = (value: string): string => (value === 'unknown' ? t('perf.unknown') : value)
-  const mhz = (value: number | null, perMhz: number): string =>
-    value === null ? t('perf.unknown') : String(Math.round(value / perMhz))
   const power = perf?.power
+  const lines = power ? powerLines(t, power) : null
 
   return (
     <aside className="perf-overlay" aria-hidden="true" data-perf-overlay>
@@ -133,28 +133,11 @@ export function PerfOverlay({ screen }: { screen: string }): JSX.Element {
       ) : (
         <div>{t('perf.measuring')}</div>
       )}
-      {power && (
+      {power && lines && (
         <>
-          <div>
-            {t('perf.cpu', {
-              governor: word(power.cpuGovernor),
-              cur: mhz(power.cpuCurKHz, 1000),
-              max: mhz(power.cpuMaxKHz, 1000)
-            })}
-          </div>
-          <div>
-            {t('perf.gpu', {
-              governor: word(power.gpuGovernor),
-              cur: mhz(power.gpuCurHz, 1_000_000),
-              max: mhz(power.gpuMaxHz, 1_000_000)
-            })}
-          </div>
-          <div>
-            {t('perf.profile', {
-              profile: word(power.profile),
-              start: word(power.defaultProfile)
-            })}
-          </div>
+          <div>{lines.cpu}</div>
+          <div>{lines.gpu}</div>
+          <div>{lines.profile}</div>
           <div>{t('perf.armadaPerf', { state: word(power.perf) })}</div>
         </>
       )}

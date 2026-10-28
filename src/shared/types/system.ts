@@ -83,6 +83,11 @@ export interface DiagnosticsReport {
    * says about a drive that will not answer: nothing.
    */
   drives: DriveSpace[]
+  /**
+   * The power profile, governor and clocks in force when the check ran: on
+   * the Nova the profile is what decides whether browsing feels smooth.
+   */
+  power: PowerState
   /** The log file, so a bug report can name the file rather than hunt for it. */
   logPath: string
   notes: string[]
