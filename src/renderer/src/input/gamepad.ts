@@ -110,6 +110,28 @@ const SUSPENDED_HOLD_MS = 1500
 export const SUSPENDED_POLL_MS = 100
 
 /**
+ * How long after the last press the pad is still read on every frame.
+ *
+ * A frame asked for wakes the compositor and the GPU as well as the page, and
+ * an idle launcher left on Home for an hour would pay that every refresh for
+ * nothing (M1-27). Reading on every frame matters only while someone is
+ * pressing, for a held direction to repeat smoothly; once nobody has for this
+ * long, the pad is read on a timer instead (see `IDLE_POLL_MS`), and the next
+ * press brings the frames back.
+ */
+export const IDLE_AFTER_MS = 5000
+
+/**
+ * How often the pad is read once nobody has pressed for `IDLE_AFTER_MS`.
+ *
+ * The first press after a quiet spell waits for this read, so it is short
+ * enough that the press still moves the highlight within a frame and a little
+ * (M1-27's latency check), and long enough that the wakes cost a fraction of
+ * a frame loop's.
+ */
+export const IDLE_POLL_MS = 30
+
+/**
  * How long L3 and R3 must be held together to show or hide the performance
  * overlay. Long enough that no ordinary press makes it: both sticks clicked at
  * once is rare, and held is rarer still.
@@ -148,6 +170,8 @@ export function useGamepad(
     /** The same for the performance chord, which is read only when the interface has the pad. */
     let chordSince: number | null = null
     let chordFired = false
+    /** When any control was last seen in use, which decides how soon the pad is read again. */
+    let lastPress = performance.now()
 
     const edge = (
       key: string,
@@ -194,6 +218,13 @@ export function useGamepad(
         const hatX = mapped ? 0 : (pad.axes[UNMAPPED.HAT_X] ?? 0)
         const hatY = mapped ? 0 : (pad.axes[UNMAPPED.HAT_Y] ?? 0)
         const start = button(BUTTON.START) || (!mapped && button(UNMAPPED.START))
+        // Any control, not only the ones read below: the chord and an unmapped
+        // pad's buttons are presses too, and must keep the reads on frames.
+        if (
+          pad.buttons.some((entry) => entry.pressed) ||
+          pad.axes.some((value) => Math.abs(value) > AXIS_DEADZONE)
+        )
+          lastPress = performance.now()
 
         /**
          * An emulator owns the screen, so the pad is the emulator's.
@@ -285,9 +316,14 @@ export function useGamepad(
       next()
     }
 
-    /** The next read: on the next frame while the interface has the pad, on a timer while a game does. */
+    /**
+     * The next read: on the next frame while someone is using the interface,
+     * on a timer while nobody has pressed for a while or a game has the pad.
+     */
     const next = (): void => {
       if (suspendedRef.current) timer = window.setTimeout(poll, SUSPENDED_POLL_MS)
+      else if (performance.now() - lastPress >= IDLE_AFTER_MS)
+        timer = window.setTimeout(poll, IDLE_POLL_MS)
       else frame = requestAnimationFrame(poll)
     }
 
