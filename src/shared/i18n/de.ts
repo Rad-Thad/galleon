@@ -763,7 +763,7 @@ export const de: Catalog = {
   'settings.tokenKeptValue':
     'In einer Datei, die nur Ihr Benutzer lesen kann (nicht verschlüsselt)',
   'settings.tokenRevoke':
-    'Wenn dieses Gerät verloren geht, widerrufen Sie sein Token in RomM unter Administration → Client tokens oder ändern Sie Ihr Passwort, falls Sie sich damit angemeldet haben.',
+    'Wenn dieses Gerät verloren geht, widerrufen Sie sein Token in RomM unter Administration → Client tokens.',
   'settings.missingScopes':
     'Dieser Anmeldung fehlen Berechtigungen, die Galleon braucht: {scopes}. Melde dich erneut an, um sie zu erteilen.',
   'settings.disconnect': 'Verbindung trennen',

@@ -3888,9 +3888,9 @@ Lines the tooling reads (exact forms):
 - Previous unit: #360 (M1-24 part 1) merged at c7b3ebb. CI wall time on its head: x64 9:16, arm64 1:19.
 - Worked on: M1-24 part 2 (tracking issue #358), acceptance line 3.
 - Result: PR (this one).
-  - Settings, General, Server: a "Sign-in kept" row reads 'In a file only your user can read (not encrypted)' (ADR 0009 keeps one backend, so the text is fixed), and under it: revoke the token in RomM under Administration → Client tokens, or change the password if signed in with one, when the device is lost. Keys `settings.tokenKept`, `settings.tokenKeptValue`, `settings.tokenRevoke` in all four catalogues.
+  - Settings, General, Server: a "Sign-in kept" row reads 'In a file only your user can read (not encrypted)' (ADR 0009 keeps one backend, so the text is fixed), and under it: revoke the token in RomM under Administration → Client tokens when the device is lost (not a password change: whether RomM ends a password sign-in on one was not checked). Keys `settings.tokenKept`, `settings.tokenKeptValue`, `settings.tokenRevoke` in all four catalogues.
 - Evidence: `test/app/interface.test.ts` "it says where the token is kept and how to revoke it"; interface + setup 119/119 (Electron through a `--no-sandbox` wrapper as root). `scripts/agent/check.sh` green. `npm run shots:nova` 28 screens; opened `settings-general.png`: the row sits under RomM version, the revoke line on one line above Disconnect, nothing clipped.
-- Evaluator: see the PR.
+- Evaluator: PASS on 8d32383. Its note that "change your password" was an unchecked claim about RomM is fixed: the sentence names only the client-tokens path.
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet. M1-24 stays false.
 - Next: M1-24 part 3, device check `auth.storage` (line 4); flaky #359 falls due after it.

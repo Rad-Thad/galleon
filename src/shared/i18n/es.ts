@@ -748,7 +748,7 @@ export const es: Catalog = {
   'settings.tokenKept': 'Sesión guardada',
   'settings.tokenKeptValue': 'En un archivo que solo tu usuario puede leer (sin cifrar)',
   'settings.tokenRevoke':
-    'Si pierdes este dispositivo, revoca su token en RomM en Administration → Client tokens, o cambia tu contraseña si iniciaste sesión con ella.',
+    'Si pierdes este dispositivo, revoca su token en RomM en Administration → Client tokens.',
   'settings.missingScopes':
     'A esta sesión le faltan permisos que Galleon necesita: {scopes}. Vuelve a iniciar sesión para concederlos.',
   'settings.disconnect': 'Desconectar',
