@@ -3744,3 +3744,19 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: READY-FOR-DEVICE M1-16 (`power.read`); `power.hint` still to come. M1-16 stays false. Whether `armada-power status` names the profile by name or by label, and how `cpu_caps` keys its dict, a first device run will show in the metrics.
 - Next: M1-16 part 3b, device check `power.hint` (line 5).
+
+## 2026-10-28 04:49 UTC session 0178hDCCHDVuY6WNHNpFdpQT (hourly heartbeat, second unit)
+
+- First unit: #347 (M1-16 part 3a, `power.read`) merged at 125bc69. CI x64 9:04, arm64 1:08. Evaluator PASS.
+- Worked on: M1-16 part 3b (tracking issue #344), acceptance line 5: device check `power.hint`.
+- Result: PR (this one).
+  - `powerHintScenario` (`src/main/selftesthint.ts`). On each profile in `profiles`, switched through the profile handshake when needed, it clears the test home's hint dismissal and `powerProfileSeen`. It asks for the hint as a return to the front does (a `focus` event in the page) and waits `HINT_WAIT_MS`. The hint must show on `SLOW_PROFILES` (Balanced, Eco) and on no other. A shown hint is closed with OK. Only its dialog panel is captured (`capturePage` with the panel's rect) into `shots/power-hint-<profile>.png`, never Home around it, which draws the owner's library. Both settings are put back afterwards. Fails `<profile>:shown`, `:not-shown`, `:not-captured`; skips `profile-not-set`, `no-profiles`, `not-armada`.
+  - `PowerHint.tsx` no longer checks the dismissal from the page's copy of the settings. `decidePowerHint` already weighs it, from the settings on disk, so "Don't show again" still holds, and a dismissal lifted in the main process is seen at the next ask.
+  - The capture is written by `writeWhole`, now exported from `selftestshots.ts`, so no new module writes to disk.
+  - run.sh requests `power.hint` after `power.read`. TESTING.md describes it.
+- Evidence: `src/main/selftesthint.test.ts` 8/8 (shown on Balanced and captured, not on Performance; settings put back; a hint on Performance fails; no hint on Balanced fails; capture failure; profile not set; no profiles and off Armada; stopped). `test/app/selftest.test.ts` 18/18, new: "power.hint shows over Home on Balanced, not on Performance, and its panel is captured" (fake `armada-power`, the handshake answered, the PNG narrower than the window, the dismissal back in `settings.json`). `test/app/powerhint.test.ts` 3/3 with the gate change. I opened the captured `power-hint-balanced.png`: the panel only, title, the Quick Access → Armada Control line, OK focused beside "Don't show again", and no library behind it.
+- Found: with `armada-power status` answering, the title reads "Armada is on balanced": status names the profile by name, not label. It is cosmetic. Next to fix: name the profile by its conf label in `powerState`.
+- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: READY-FOR-DEVICE M1-16 (`power.read`, `power.hint`). Lines 1 to 3 are met in CI. M1-16 stays false until both checks pass on the device.
+- Next: the hint title's profile label; then the next eligible feature from `next.mjs`.

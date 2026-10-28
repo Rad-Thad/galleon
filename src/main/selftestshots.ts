@@ -201,7 +201,7 @@ async function capture(
 }
 
 /** Whole or not at all: the bridge publishes whatever it finds in the folder. */
-function writeWhole(path: string, data: Buffer): void {
+export function writeWhole(path: string, data: Buffer): void {
   mkdirSync(join(path, '..'), { recursive: true })
   const part = `${path}.part`
   writeFileSync(part, data)

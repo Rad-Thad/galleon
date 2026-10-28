@@ -19,10 +19,9 @@ export function PowerHint(): JSX.Element | null {
   const [profile, setProfile] = useState<string | null>(null)
 
   const dismissed = settings?.dismissedNotices ?? []
-  const ready =
-    !!settings?.setupComplete &&
-    dismissed.includes(THEMES_NOTICE) &&
-    !dismissed.includes(POWER_HINT_NOTICE)
+  // Dismissal for good is weighed by `decidePowerHint` with the rest, so the
+  // answer follows the settings on disk rather than this page's copy of them.
+  const ready = !!settings?.setupComplete && dismissed.includes(THEMES_NOTICE)
 
   useEffect(() => {
     if (!ready) return
