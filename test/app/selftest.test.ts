@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import {
+  chmodSync,
+  copyFileSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -10,14 +12,15 @@ import {
   writeFileSync
 } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { after, test } from 'node:test'
 import { SETTLE_TIMEOUT_MS, atHome, electronBinary, seed, startApp } from './driver.ts'
 import { GBA_ROM, startFakeRomm } from './server.ts'
 import { binaryVdf, shortcut } from '../../src/main/fixtures/steam/binaryvdf.ts'
 import { SYNTHETIC_GAMES } from '../../src/main/selftestlibrary.ts'
 import { STEAM_LIST_CHECK, TEST_SHORTCUT } from '../../src/main/selfteststeam.ts'
-import { IDLE_MS, SCROLL_MS } from '../../src/main/selftestscroll.ts'
+import { IDLE_MS, PROFILE_SET, SCROLL_MS, WANT_PROFILE } from '../../src/main/selftestscroll.ts'
+import { POWER_READ_CHECK } from '../../src/main/selftestpower.ts'
 import {
   REQUEST_FILE,
   RUN_CHECKS,
@@ -95,7 +98,7 @@ const REQUEST = {
   sha: 'b'.repeat(40),
   budgetSeconds: 600,
   handshakeDir: null,
-  checks: [RUN_CHECKS.complete, 'power.read'],
+  checks: [RUN_CHECKS.complete, 'graphics.modes'],
   profiles: ['performance'],
   payloads: {},
   fakeRomm: null,
@@ -113,12 +116,12 @@ test('a self-test request is taken, answered in summary.json, and the app quits 
   const summary = JSON.parse(readFileSync(join(results, SUMMARY_FILE), 'utf8')) as Summary
   assert.deepEqual(summaryErrors(summary), [])
   assert.equal(summary.sha, REQUEST.sha)
-  // `power.read` has no scenario in this build, so not every check ran.
+  // `graphics.modes` has no scenario in this build, so not every check ran.
   assert.equal(summary.status, 'partial')
   assert.equal(summary.safety.serverWritesAttempted, 0)
   const checks = new Map(summary.checks.map((c) => [c.id, c]))
   assert.equal(checks.get(RUN_CHECKS.serverReadOnly)?.result, 'pass')
-  assert.equal(checks.get('power.read')?.reason, 'not-implemented')
+  assert.equal(checks.get('graphics.modes')?.reason, 'not-implemented')
   assert.ok(checks.has(RUN_CHECKS.complete))
 })
 
@@ -383,6 +386,100 @@ test("steam.list reads the owner's Steam files from HOME and publishes counts on
   for (const secret of ['Hades', 'Owner Game', owner]) {
     assert.ok(!raw.includes(secret), `${secret} was published`)
   }
+})
+
+/** A Nova's power files and an `armada-power` that reads them, switched on request. */
+function armada(): { root: string; bin: string; setProfile: (name: string) => void } {
+  const root = mkdtempSync(join(tmpdir(), 'galleon-selftest-power-'))
+  homes.push(root)
+  const write = (path: string, body: string): void => {
+    mkdirSync(dirname(join(root, path)), { recursive: true })
+    writeFileSync(join(root, path), body)
+  }
+  const policy = 'sys/devices/system/cpu/cpufreq/policy7'
+  const conf = join(import.meta.dirname, '..', '..', 'src', 'main', 'fixtures', 'armada')
+  mkdirSync(join(root, 'usr/share/armada'), { recursive: true })
+  copyFileSync(
+    join(conf, 'power-profiles.conf'),
+    join(root, 'usr/share/armada/power-profiles.conf')
+  )
+  write('sys/class/devfreq/3d00000.gpu/governor', 'msm-adreno-tz\n')
+  write('sys/class/devfreq/3d00000.gpu/cur_freq', '220000000\n')
+  write('sys/class/devfreq/3d00000.gpu/max_freq', '680000000\n')
+  const setProfile = (name: string): void => {
+    const balanced = name === 'balanced'
+    write(`${policy}/scaling_governor`, balanced ? 'conservative\n' : 'performance\n')
+    write(`${policy}/scaling_cur_freq`, balanced ? '595200\n' : '2956800\n')
+    write(`${policy}/scaling_max_freq`, balanced ? '2092800\n' : '2956800\n')
+    write('profile', `${name}\n`)
+  }
+  const bin = join(root, 'bin')
+  write(
+    'bin/armada-power',
+    [
+      '#!/bin/sh',
+      '[ "$1" = status ] || exit 2',
+      "printf 'profile=%s\\ncpu_caps={0: 2016000, 7: %s}\\n' \\",
+      `  "$(cat '${root}/profile')" "$(cat '${root}/${policy}/scaling_max_freq')"`
+    ].join('\n') + '\n'
+  )
+  chmodSync(join(bin, 'armada-power'), 0o755)
+  return { root, bin, setProfile }
+}
+
+test('power.read agrees with armada-power and sysfs on both profiles run.sh sets', async () => {
+  const machine = armada()
+  machine.setProfile('performance')
+  const handshake = join(machine.root, 'handshake')
+  mkdirSync(handshake)
+  // run.sh's half (powerprofile.py answer), as the harness serves it.
+  const asked: string[] = []
+  const answering = setInterval(() => {
+    const want = join(handshake, WANT_PROFILE)
+    if (!existsSync(want) || existsSync(join(handshake, PROFILE_SET))) return
+    const name = readFileSync(want, 'utf8').trim()
+    asked.push(name)
+    machine.setProfile(name)
+    writeFileSync(join(handshake, PROFILE_SET), `${name}\n`)
+  }, 50)
+  try {
+    const { code, results } = await runWithRequest(
+      {
+        ...REQUEST,
+        checks: [POWER_READ_CHECK],
+        handshakeDir: handshake,
+        profiles: ['performance', 'balanced']
+      },
+      undefined,
+      EXIT_TIMEOUT_MS,
+      {
+        GALLEON_POWER_ROOT: machine.root,
+        PATH: `${machine.bin}:${process.env.PATH ?? ''}`
+      }
+    )
+    assert.equal(code, 0)
+    const summary = JSON.parse(readFileSync(join(results, SUMMARY_FILE), 'utf8')) as Summary
+    assert.deepEqual(summaryErrors(summary), [])
+    const check = summary.checks.find((c) => c.id === POWER_READ_CHECK)
+    assert.equal(check?.result, 'pass', JSON.stringify(check))
+    assert.deepEqual(asked, ['balanced'])
+    assert.equal(check.metrics['performance.profile'], 'performance')
+    assert.equal(check.metrics['performance.cpuGovernor'], 'performance')
+    assert.equal(check.metrics['balanced.profile'], 'balanced')
+    assert.equal(check.metrics['balanced.cpuMaxKHz'], 2_092_800)
+    assert.equal(check.metrics['balanced.statusCapKHz'], 2_092_800)
+    assert.equal(check.metrics['balanced.sysfsGpuGovernor'], 'msm-adreno-tz')
+  } finally {
+    clearInterval(answering)
+  }
+})
+
+test('off Armada, power.read is a skip', async () => {
+  const { code, results } = await runWithRequest({ ...REQUEST, checks: [POWER_READ_CHECK] })
+  assert.equal(code, 0)
+  const summary = JSON.parse(readFileSync(join(results, SUMMARY_FILE), 'utf8')) as Summary
+  const check = summary.checks.find((c) => c.id === POWER_READ_CHECK)
+  assert.deepEqual([check?.result, check?.reason], ['skip', 'not-armada'])
 })
 
 test('a request without privacy is refused with an error summary and exit 1', async () => {

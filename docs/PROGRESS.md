@@ -3728,3 +3728,19 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet. M1-16 stays false.
 - Next: M1-16 part 3, the device checks `power.read` and `power.hint` (lines 4 and 5).
+
+## 2026-10-28 04:26 UTC session 0178hDCCHDVuY6WNHNpFdpQT (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. No open PRs, no lock. `init.sh` stopped at Docker (daemon not answering); nothing in this unit needs RomM.
+- Previous unit: #346 (M1-16 part 2, the hint) merged at ef77b7b. CI x64 8:05, arm64 1:08.
+- Worked on: M1-16 part 3a (tracking issue #344), acceptance line 4: device check `power.read`.
+- Result: PR (this one).
+  - `powerReadScenario` (`src/main/selftestpower.ts`). On each profile in `profiles`, switched through the existing profile handshake when `armada-power status` names another, it holds Galleon's reading (the overlay's, profile inferred from the clocks) against `armada-power status` and against sysfs found afresh (`readSysfsPower`: the highest cpufreq policy, the one devfreq device named for a GPU). Profile, governors, maximum clocks and status's policy-7 cap must agree; current clocks must be read. Fails `mismatch:<profile>:<what>`; `skip` / `profile-not-set` or `not-armada`.
+  - run.sh requests `power.read`, after `grid.scroll`, with the same `performance balanced` profiles.
+  - `powerRoot()` (`GALLEON_POWER_ROOT`) moved from `ipc/system.ts` to `powerstate.ts`, so the self-test reads the same stand-in root in the app test.
+  - TESTING.md describes the check. The app test that used `power.read` as its not-implemented example now uses `graphics.modes`.
+- Evidence: `src/main/selftestpower.test.ts` 12/12 (both profiles pass with one switch asked; inferred profile disagreeing; governor, clock and GPU max mismatches; status cap; status lost; profile not set; none named; off Armada; stopped). `test/app/selftest.test.ts` 17/17, new: "power.read agrees with armada-power and sysfs on both profiles run.sh sets" (a fake `armada-power` on PATH, Nova files under `GALLEON_POWER_ROOT`, the test answering the handshake: pass, only `balanced` asked) and "off Armada, power.read is a skip". Electron ran through a `--no-sandbox` wrapper as root. `scripts/agent/check.sh` green (device-bundle suites included). No renderer change: no shots.
+- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: READY-FOR-DEVICE M1-16 (`power.read`); `power.hint` still to come. M1-16 stays false. Whether `armada-power status` names the profile by name or by label, and how `cpu_caps` keys its dict, a first device run will show in the metrics.
+- Next: M1-16 part 3b, device check `power.hint` (line 5).

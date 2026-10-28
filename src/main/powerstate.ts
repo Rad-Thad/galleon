@@ -198,6 +198,15 @@ export function powerState(files: PowerFiles): PowerState {
   }
 }
 
+/**
+ * Where the power state is read from. `GALLEON_POWER_ROOT` stands a folder of
+ * Armada's files in for `/`, for the app tests and screenshots, which run on
+ * machines that are not armadaOS.
+ */
+export function powerRoot(): string {
+  return process.env.GALLEON_POWER_ROOT?.trim() || '/'
+}
+
 async function readText(path: string): Promise<string | null> {
   try {
     return await readFile(path, 'utf8')

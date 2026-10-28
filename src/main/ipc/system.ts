@@ -15,7 +15,7 @@ import type { RomMixApp } from '../app.ts'
 import { drivesOf } from '../disk.ts'
 import { power, powerActions } from '../power.ts'
 import { decidePowerHint } from '../powerhint.ts'
-import { readArmadaStatus, readPowerState } from '../powerstate.ts'
+import { powerRoot, readArmadaStatus, readPowerState } from '../powerstate.ts'
 import { commandVersion, flatpakAvailable, flathubConfigured, isWritable } from '../host.ts'
 import { setLanguage, t } from '../i18n.ts'
 import { log } from '../log.ts'
@@ -31,15 +31,6 @@ import { RommError } from '../romm/index.ts'
 import { writeReport } from '../report.ts'
 import { isWebAddress } from '../weblink.ts'
 import type { Handle } from './handler.ts'
-
-/**
- * Where the power state is read from. `GALLEON_POWER_ROOT` stands a folder of
- * Armada's files in for `/`, for the app tests and screenshots, which run on
- * machines that are not armadaOS.
- */
-function powerRoot(): string {
-  return process.env.GALLEON_POWER_ROOT?.trim() || '/'
-}
 
 /** Settings, the pre-flight check, and the app itself. */
 export function registerSystemIpc(rommix: RomMixApp, handle: Handle): void {
