@@ -600,6 +600,41 @@ test('server.scheme-probe finds plain http for the imported address, with reads 
   }
 })
 
+test('auth.storage finds the token owner-only in the test home and signs in again from it', async () => {
+  const server = await startFakeRomm()
+  try {
+    const { code, results } = await runWithRequest(
+      { ...REQUEST, checks: [RUN_CHECKS.complete, 'auth.storage'] },
+      server
+    )
+    assert.equal(code, 0)
+    const summary = JSON.parse(readFileSync(join(results, SUMMARY_FILE), 'utf8')) as Summary
+    assert.deepEqual(summaryErrors(summary), [])
+    const check = summary.checks.find((c) => c.id === 'auth.storage')
+    assert.equal(check?.result, 'pass', String(check?.reason))
+    assert.equal(check?.metrics.fileMode, '600')
+    assert.equal(check?.metrics.folderMode, '700')
+    assert.equal(check?.metrics.backend, 'file')
+    assert.equal(check?.metrics.tokenKind, 'client')
+    const verdicts = new Map(summary.checks.map((c) => [c.id, c.result]))
+    assert.equal(verdicts.get(RUN_CHECKS.serverReadOnly), 'pass')
+    assert.ok(
+      server.asked.some(
+        (a) => a.path === '/api/users/me' && a.authorization === `Bearer ${server.token}`
+      )
+    )
+    assert.deepEqual(
+      server.asked.filter((a) => a.method !== 'GET' && a.method !== 'HEAD'),
+      []
+    )
+    const published = JSON.stringify(summary)
+    assert.ok(!published.includes(server.token))
+    assert.ok(!published.includes(new URL(server.baseUrl).host))
+  } finally {
+    await server.close()
+  }
+})
+
 test('download.small fetches the GBA game into the test home, verifies it and removes it', async () => {
   const server = await startFakeRomm({ gba: true })
   try {
