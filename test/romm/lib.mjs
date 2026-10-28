@@ -41,6 +41,26 @@ export const TOKEN_SCOPES = [
   'firmware.read'
 ]
 
+/**
+ * The game provisioning gives a manual, uploaded the way RomM's own interface
+ * uploads one, so the suites can fetch it as the Manual tab does.
+ */
+export const MANUAL_ROM = 'Galleon Test Cartridge (USA).sfc'
+
+/**
+ * That manual: a one-page PDF written here, so the fixture holds no one
+ * else's bytes. Readers rebuild the missing cross-reference table.
+ */
+export const MANUAL_PDF = [
+  '%PDF-1.4',
+  '1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj',
+  '2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj',
+  '3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 200]>>endobj',
+  'trailer<</Root 1 0 R>>',
+  '%%EOF',
+  ''
+].join('\n')
+
 /** Engine.IO joins the packets of one polling response with a record separator. */
 const RECORD_SEPARATOR = '\x1e'
 

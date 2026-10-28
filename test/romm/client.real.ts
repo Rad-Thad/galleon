@@ -14,7 +14,9 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import { join } from 'node:path'
+import { assetRequestPath } from '../../src/main/app.ts'
 import type { RommRom } from '../../src/shared/types/romm.ts'
+import { MANUAL_PDF, MANUAL_ROM } from './lib.mjs'
 import { ROMS } from './make-library.mjs'
 import {
   assertFitsSchema,
@@ -143,4 +145,28 @@ test(`GET /api/roms/{id}/files/content/{name} serves the file on RomM ${state.ve
   const bytes = Buffer.from(await res.arrayBuffer())
   assert.equal(bytes.length, file.file_size_bytes)
   assert.equal(createHash('md5').update(bytes).digest('hex'), file.md5_hash)
+})
+
+/**
+ * The manual provisioning uploaded, fetched the way the Manual tab's picture
+ * protocol fetches it: `path_manual` as the server hands it out, mapped by
+ * `assetRequestPath`, through the client. Not held to the schema: RomM's
+ * static mount is outside its OpenAPI document.
+ */
+test(`a game's manual opens through the client on RomM ${state.version}`, async () => {
+  const rom = await romNamed(MANUAL_ROM)
+  assert.equal(rom.has_manual, true)
+  assert.ok(rom.path_manual, 'the provisioned manual has no path')
+  const served = assetRequestPath(rom.path_manual)
+  assert.ok(served, `${rom.path_manual} is refused`)
+
+  const sent = watch()
+  const res = await client().asset(served)
+  assert.equal(res.status, 200)
+  assert.match(res.headers.get('content-type') ?? '', /^application\/pdf/)
+  assert.equal(Buffer.from(await res.arrayBuffer()).toString('latin1'), MANUAL_PDF)
+  assert.deepEqual(
+    sent.map((s) => [s.method, new URL(s.url).pathname]),
+    [['GET', served]]
+  )
 })

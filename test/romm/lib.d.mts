@@ -32,6 +32,8 @@ export const ADMIN: Credentials
 export const TOKEN_NAME: string
 export const DEVICE_NAME: string
 export const TOKEN_SCOPES: string[]
+export const MANUAL_ROM: string
+export const MANUAL_PDF: string
 
 export function splitPackets(body: string): string[]
 export function parsePacket(packet: string): Packet

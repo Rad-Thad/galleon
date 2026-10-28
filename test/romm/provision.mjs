@@ -2,7 +2,7 @@
 /**
  * Bring a fresh Docker RomM (test/romm/compose.yml) to the state the
  * real-server suites start from: a first admin, the fixture library scanned,
- * a client token and a registered device.
+ * a client token, a registered device and one game's manual.
  *
  *   node test/romm/provision.mjs --profile v520
  *
@@ -24,6 +24,8 @@ import { dirname } from 'node:path'
 import {
   ADMIN,
   DEVICE_NAME,
+  MANUAL_PDF,
+  MANUAL_ROM,
   PROFILES,
   TOKEN_NAME,
   TOKEN_SCOPES,
@@ -202,6 +204,33 @@ async function ensureDevice(baseUrl) {
   return (await res.json()).device_id
 }
 
+/**
+ * A manual for `MANUAL_ROM`, unless it has one. RomM reads the upload as a
+ * multipart form whose one file field is named by the `X-Upload-Filename`
+ * header, and stores it as `<rom id>.pdf` whatever that name is.
+ */
+async function ensureManual(baseUrl) {
+  const query = new URLSearchParams({
+    search_term: MANUAL_ROM.replace(/\.[^.]+$/, ''),
+    limit: '50'
+  })
+  const listed = await check(await basicFetch(baseUrl, `/api/roms?${query}`), 'find the manual ROM')
+  const rom = (await listed.json()).items.find((item) => item.fs_name === MANUAL_ROM)
+  if (!rom) throw new Error(`${MANUAL_ROM} is not in the library`)
+  if (rom.path_manual) return
+  const filename = 'manual.pdf'
+  const form = new FormData()
+  form.append(filename, new Blob([MANUAL_PDF], { type: 'application/pdf' }), filename)
+  await check(
+    await basicFetch(baseUrl, `/api/roms/${rom.id}/manuals`, {
+      method: 'POST',
+      headers: { 'X-Upload-Filename': filename },
+      body: form
+    }),
+    'upload a manual'
+  )
+}
+
 function readState(profile) {
   try {
     return JSON.parse(readFileSync(statePath(profile), 'utf8'))
@@ -237,6 +266,7 @@ export async function provision(profile) {
     ? previous.clientToken
     : await mintToken(baseUrl)
   const deviceId = await ensureDevice(baseUrl)
+  await ensureManual(baseUrl)
 
   const state = {
     profile,
