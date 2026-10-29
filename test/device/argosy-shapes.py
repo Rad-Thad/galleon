@@ -63,6 +63,8 @@ QUERY_KEYS = ("platform_id", "rom_id")
 # A serial followed by a suffix the game chose, which may be a word of its
 # title: the serial is kept, the suffix replaced.
 SERIAL_SUFFIX = re.compile(r"^((?:B[AEI])?[A-Z]{4}[-_]?\d{5}).+$")
+# What may follow the last dot of a name to count as its extension.
+EXTENSION = re.compile(r"^[A-Za-z0-9]{1,4}$")
 TIMESTAMP_TAG = re.compile(r"\s*\[\d{4}-\d{2}-\d{2}[^\]]*\]")
 
 
@@ -97,6 +99,16 @@ def find_signin(home):
     return (server["baseUrl"].rstrip("/"), token)
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """A redirect is refused, so the token is only ever sent to the address signed in to."""
+
+    def redirect_request(self, *args, **kwargs):
+        return None
+
+
+_OPENER = urllib.request.build_opener(_NoRedirect)
+
+
 def _get(base, token, path, query=None, step="read"):
     """The one request this file makes: a GET, its query only from QUERY_KEYS."""
     query = dict(query or {})
@@ -105,7 +117,7 @@ def _get(base, token, path, query=None, step="read"):
     url = base + path + ("?" + urllib.parse.urlencode(query) if query else "")
     request = urllib.request.Request(url, method="GET", headers={"Authorization": f"Bearer {token}"})
     try:
-        with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:
+        with _OPENER.open(request, timeout=TIMEOUT_SECONDS) as response:
             return response.read(MAX_SAVE_BYTES + 1)
     except urllib.error.HTTPError as error:
         raise ReadError(step, error.code) from None
@@ -114,8 +126,9 @@ def _get(base, token, path, query=None, step="read"):
 
 
 def _json(base, token, path, query=None, step="read"):
+    body = _get(base, token, path, query, step)
     try:
-        return json.loads(_get(base, token, path, query, step))
+        return json.loads(body)
     except ValueError:
         raise ReadError(step, "not-json") from None
 
@@ -131,23 +144,42 @@ def romm_hash(data):
     if zipfile.is_zipfile(stream):
         try:
             with zipfile.ZipFile(stream) as archive:
-                lines = sorted(f"{info.filename}:{hashlib.md5(archive.read(info)).hexdigest()}"
-                               for info in archive.infolist() if not info.is_dir())
+                # By name, as RomM does: a repeated name is read as its last
+                # entry, and the sort is of names, not of the joined lines.
+                lines = [f"{name}:{hashlib.md5(archive.read(name)).hexdigest()}"
+                         for name in sorted(archive.namelist()) if not name.endswith("/")]
         except (zipfile.BadZipFile, OSError, RuntimeError, NotImplementedError):
             return None
         return hashlib.md5("\n".join(lines).encode("utf-8")).hexdigest()
     return hashlib.md5(data).hexdigest()
 
 
-def name_pattern(save, slot):
-    """The save's file name with RomM's timestamp tag and the game's own name replaced."""
+class Channels:
+    """Slots as published: `autosave` and none as they are, a channel the player
+    named (which may hold a title or a name) as `<channel-N>`, the same N for
+    the same name throughout the report."""
+
+    def __init__(self):
+        self.named = {}
+
+    def __call__(self, slot):
+        if slot is None or slot == "autosave":
+            return slot
+        return self.named.setdefault(slot, f"<channel-{len(self.named) + 1}>")
+
+
+def name_pattern(save, slot, channels):
+    """The save's file name with RomM's timestamp tag, the game's own name and
+    a named channel replaced."""
     name = TIMESTAMP_TAG.sub(" [<timestamp>]", str(save.get("file_name") or ""))
     stem, dot, extension = name.rpartition(".")
-    if not dot:
-        stem, extension = name, ""
+    if not dot or not EXTENSION.match(extension):
+        stem, dot, extension = name, "", ""
     tagged = stem.endswith(" [<timestamp>]")
     base = stem[: -len(" [<timestamp>]")] if tagged else stem
-    if base not in FIXED_NAMES and base != slot:
+    if slot is not None and base == slot:
+        base = channels(slot)
+    elif base not in FIXED_NAMES:
         base = "<rom>" if base else ""
     return base + (" [<timestamp>]" if tagged else "") + (f".{extension}" if dot else "")
 
@@ -157,7 +189,7 @@ def entry_pattern(name):
     parts = []
     for part in name.split("/"):
         stem, dot, extension = part.rpartition(".")
-        if not dot or len(extension) > 4:
+        if not dot or not EXTENSION.match(extension):
             stem, dot, extension = part, "", ""
         suffixed = SERIAL_SUFFIX.match(stem)
         if ID_PART.match(stem) or not stem:
@@ -170,14 +202,15 @@ def entry_pattern(name):
     return "/".join(parts)
 
 
-def shape_of(save, data):
+def shape_of(save, data, channels):
     """What one save is made of, from its row and, when read, its bytes."""
     slot = save.get("slot")
+    extension = save.get("file_extension")
     shape = {
-        "slot": slot,
+        "slot": channels(slot),
         "emulator": save.get("emulator"),
-        "namePattern": name_pattern(save, slot),
-        "extension": save.get("file_extension"),
+        "namePattern": name_pattern(save, slot, channels),
+        "extension": extension if EXTENSION.match(str(extension)) else "<other>",
         "sizeBytes": save.get("file_size_bytes"),
         "updatedAt": save.get("updated_at"),
         "hasContentHash": bool(save.get("content_hash")),
@@ -213,6 +246,7 @@ def report(base, token):
               and "argosy" in str(d.get("client") or "").lower()}
     platforms = _json(base, token, "/api/platforms", step="platforms")
     systems = []
+    channels = Channels()
     for platform in sorted((p for p in platforms if isinstance(p, dict)), key=lambda p: p.get("id") or 0):
         listed = _json(base, token, "/api/saves", {"platform_id": platform.get("id")}, step="saves-by-platform")
         roms = sorted({s.get("rom_id") for s in listed
@@ -230,7 +264,7 @@ def report(base, token):
                     data = _get(base, token, f"/api/saves/{int(save['id'])}/content", step="save-content")
                     if len(data) > MAX_SAVE_BYTES:
                         data = None
-                shapes.append(shape_of(save, data))
+                shapes.append(shape_of(save, data, channels))
                 data = None
             slots = {}
             for shape in shapes:

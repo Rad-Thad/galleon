@@ -24,6 +24,7 @@ _spec.loader.exec_module(shapes)
 
 TOKEN = "rmm_secret_token_value"
 TITLE = "Chrono Trigger"
+CHANNEL = "Zelda 100 run"
 ACCOUNT = "owner-account-name"
 
 
@@ -50,6 +51,7 @@ class FakeRomm:
 
     def __init__(self):
         self.requests = []
+        self.redirect = False
         argosy, other = 7, 8
         self.devices = [
             {"id": argosy, "name": ACCOUNT, "client": "Argosy", "hostname": "argosy-phone"},
@@ -68,17 +70,24 @@ class FakeRomm:
                    hashed=hashlib.md5(RAW).hexdigest()),
             2: row(2, 11, "autosave.srm", RAW, argosy, hashed="0" * 32),
             3: row(3, 12, f"{TITLE}.srm", RAW, other),
+            # Another device's save on a game that is looked at.
+            8: row(8, 11, f"{TITLE}.srm", RAW, other),
+            9: row(9, 11, f"{CHANNEL}.srm", RAW, argosy, slot=CHANNEL),
             4: row(4, 21, f"{TITLE} [2026-10-02_09-00-00].zip", PS2, argosy, slot="autosave",
                    emulator="nethersx2", hashed=_zip_hash(PS2_ENTRIES)),
         }
         # Three more SNES games, so one is past the per-system limit.
         for n, rom in enumerate((13, 14, 15), start=5):
             self.saves[n] = row(n, rom, "autosave.srm", RAW, argosy, slot=None)
-        self.content = {1: RAW, 2: RAW, 3: RAW, 4: PS2, 5: RAW, 6: RAW, 7: RAW}
+        self.content = {1: RAW, 2: RAW, 3: RAW, 4: PS2, 5: RAW, 6: RAW, 7: RAW, 8: RAW, 9: RAW}
         self.platform_of = {11: 1, 12: 1, 13: 1, 14: 1, 15: 1, 21: 2}
 
     def answer(self, method, path, query):
         self.requests.append((method, path, query))
+        if path == "/api/moved":
+            return []
+        if path == "/api/devices" and self.redirect:
+            return ("redirect", "/api/moved")
         if path == "/api/devices":
             return self.devices
         if path == "/api/platforms":
@@ -99,6 +108,11 @@ def _serve(fake):
         def _any(self):
             parsed = urllib.parse.urlparse(self.path)
             body = fake.answer(self.command, parsed.path, urllib.parse.parse_qs(parsed.query))
+            if isinstance(body, tuple):
+                self.send_response(302)
+                self.send_header("Location", body[1])
+                self.end_headers()
+                return
             if body is None or self.headers.get("Authorization") != f"Bearer {TOKEN}":
                 self.send_response(404 if body is None else 401)
                 self.end_headers()
@@ -136,7 +150,8 @@ class StaticTest(unittest.TestCase):
         self.assertIsNone(re.search(r"(?<!origin_)device_id", self.source))
 
     def test_one_request_and_it_is_a_get(self):
-        self.assertEqual(len(re.findall(r"\burlopen\(", self.source)), 1)
+        self.assertNotRegex(self.source, r"\burlopen\(")
+        self.assertEqual(len(re.findall(r"\b_OPENER\.open\(", self.source)), 1)
         self.assertEqual(re.findall(r"method=\"(\w+)\"", self.source), ["GET"])
         self.assertEqual(len(re.findall(r"urllib\.request\.Request\(", self.source)), 1)
 
@@ -147,6 +162,23 @@ class StaticTest(unittest.TestCase):
             self.assertEqual(shapes.entry_pattern(kept), kept, kept)
         for word in ("ZELDA", "MARIOS", "Chrono Trigger", "facade", "cardigan", "Pokemon.sav"):
             self.assertTrue(shapes.entry_pattern(word).startswith("<name>"), word)
+
+    def test_a_name_without_a_real_extension_is_replaced_whole(self):
+        channels = shapes.Channels()
+        self.assertEqual(shapes.name_pattern({"file_name": "Dr. Mario"}, "autosave", channels), "<rom>")
+        self.assertEqual(shapes.name_pattern({"file_name": "Dr. Mario.srm"}, "autosave", channels),
+                         "<rom>.srm")
+
+    def test_the_zip_hash_sorts_names_not_lines(self):
+        # ':' sorts after '.', so sorting the joined lines would put these the other way round.
+        entries = [("BASLUS-20312/BASLUS-20312", b"a"), ("BASLUS-20312/BASLUS-20312.bin", b"b"),
+                   ("BASLUS-20312/", b"")]
+        names = sorted(name for name, _ in entries if not name.endswith("/"))
+        md5 = {name: hashlib.md5(data).hexdigest() for name, data in entries}
+        expected = hashlib.md5("\n".join(f"{n}:{md5[n]}" for n in names).encode("utf-8")).hexdigest()
+        self.assertEqual(shapes.romm_hash(_zip(entries)), expected)
+        lines = sorted(f"{n}:{md5[n]}" for n in names)
+        self.assertNotEqual(expected, hashlib.md5("\n".join(lines).encode("utf-8")).hexdigest())
 
     def test_a_query_key_outside_the_list_is_refused(self):
         with self.assertRaises(ValueError):
@@ -195,8 +227,10 @@ class ReportTest(unittest.TestCase):
         self.assertEqual(snes["gamesWithArgosySaves"], 4)
         self.assertEqual(len(snes["games"]), shapes.GAMES_PER_SYSTEM)
         first = snes["games"][0]
-        self.assertEqual(first["savesPerSlot"], {"autosave": 2})
-        tagged, fixed = first["saves"]
+        self.assertEqual(first["savesPerSlot"], {"autosave": 2, "<channel-1>": 1})
+        tagged, fixed, channel = first["saves"]
+        self.assertEqual(channel["slot"], "<channel-1>")
+        self.assertEqual(channel["namePattern"], "<channel-1>.srm")
         self.assertEqual(tagged["namePattern"], "<rom> [<timestamp>].srm")
         self.assertEqual(fixed["namePattern"], "autosave.srm")
         self.assertIs(tagged["contentHashFollowsRomm"], True)
@@ -215,14 +249,36 @@ class ReportTest(unittest.TestCase):
         self.assertEqual([e["sizeBytes"] for e in save["entries"]], [64, 128])
 
     def test_another_device_s_saves_are_not_read(self):
-        self.run_report()
+        _, raw = self.run_report()
         read = [path for _, path, _ in self.fake.requests if path.endswith("/content")]
         self.assertNotIn("/api/saves/3/content", read)
+        self.assertNotIn("/api/saves/8/content", read)
+        first = json.loads(raw)["systems"][0]["games"][0]
+        self.assertEqual(len(first["saves"]), 3)
+
+    def test_a_save_s_shape_holds_only_the_known_keys(self):
+        _, raw = self.run_report()
+        allowed = {"slot", "emulator", "namePattern", "extension", "sizeBytes", "updatedAt",
+                   "hasContentHash", "read", "readBytes", "zipByRomm", "zipByArgosy",
+                   "contentHashFollowsRomm", "hardcoreTrailer", "entries"}
+        for system in json.loads(raw)["systems"]:
+            for game in system["games"]:
+                for save in game["saves"]:
+                    self.assertLessEqual(set(save), allowed)
+        for form in (RAW[:16].hex(), PS2[:16].hex(), "UEsDB"):
+            self.assertNotIn(form, raw)
+
+    def test_a_redirect_is_refused_and_not_followed(self):
+        self.fake.redirect = True
+        code, raw = self.run_report()
+        self.assertEqual(code, 1)
+        self.assertEqual(json.loads(raw)["error"], {"step": "devices", "status": 302})
+        self.assertNotIn("/api/moved", [path for _, path, _ in self.fake.requests])
 
     def test_no_title_account_address_token_or_bytes(self):
         _, raw = self.run_report()
         base = f"127.0.0.1:{self.server.server_address[1]}"
-        for secret in (TITLE, ACCOUNT, "argosy-phone", base, TOKEN, "/romm/assets", "SRAM",
+        for secret in (TITLE, CHANNEL, ACCOUNT, "argosy-phone", base, TOKEN, "/romm/assets", "SRAM",
                        "Super Nintendo"):
             self.assertNotIn(secret, raw, secret)
 
