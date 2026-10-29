@@ -36,6 +36,7 @@ import { POWER_READ_CHECK, powerReadScenario, readSysfsPower } from './selftestp
 import { POWER_HINT_CHECK, hintPage, powerHintScenario } from './selftesthint.ts'
 import { IDLE_CHECK, idlePage, idleScenario, readTicks } from './selftestidle.ts'
 import { SHORTCUT_ROUNDTRIP_CHECK, shortcutRoundtripScenario } from './selftestshortcut.ts'
+import { FAKE_SERVER_CHECK, fakeServerScenario } from './selftestfakeromm.ts'
 import { MANUAL_CHECK, manualPage, manualScenario } from './selftestmanual.ts'
 import { STARTUP_CHECK, startupScenario, startupStart, watchHome } from './selfteststartup.ts'
 import { UPDATE_CHECK, updateScenario } from './selftestupdate.ts'
@@ -311,6 +312,7 @@ if (process.argv.includes(ADD_TO_STEAM_FLAG)) {
           [STEAM_LIST_CHECK, steamListScenario()],
           [STEAM_LAUNCH_CHECK, steamLaunchScenario()],
           [SHORTCUT_ROUNDTRIP_CHECK, shortcutRoundtripScenario({ work: resolveRoot() })],
+          [FAKE_SERVER_CHECK, fakeServerScenario({ work: resolveRoot() })],
           ...emulatorScenarios(selfTest.request.checks, {
             home: resolveRoot(),
             payloads: selfTest.request.payloads,

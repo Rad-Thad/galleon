@@ -68,8 +68,8 @@ export interface SelfTestRequest {
 
 /**
  * Where the save checks find the fake RomM: its address, on loopback only,
- * and the file run.sh keeps its token in, so the token is held in that one
- * private file and is never copied into another.
+ * and the file run.sh keeps its token in, so the token never passes through
+ * the request, which is copied into the run's records.
  */
 export interface FakeRomm {
   baseUrl: string
@@ -224,10 +224,12 @@ export function parseRequest(raw: unknown): Taken {
   if (steamTarget !== null && (typeof steamTarget !== 'string' || !/^\d+$/.test(steamTarget))) {
     return refuse('request-steam-target')
   }
-  const fakeRomm = r.fakeRomm ?? null
+  const rawFake = r.fakeRomm ?? null
   // The save checks write to this address, so it is held to loopback here,
   // whatever the harness wrote.
-  if (fakeRomm !== null && !isFakeRomm(fakeRomm)) return refuse('request-fake-romm')
+  if (rawFake !== null && !isFakeRomm(rawFake)) return refuse('request-fake-romm')
+  // Only the two fields, so nothing else the harness put beside them travels on.
+  const fakeRomm = rawFake && { baseUrl: rawFake.baseUrl, tokenFile: rawFake.tokenFile }
   return {
     kind: 'request',
     request: {

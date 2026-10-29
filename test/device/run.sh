@@ -251,7 +251,7 @@ if grep -q '"saves\.fake-server"' "$here/harness-request.json" 2>/dev/null; then
     fake=$(python3 "$here/fakeromm.py" start --dir "$fake_state" --appimage "$GALLEON_APPIMAGE" \
       --program "$here/fake-romm/fake-romm.cjs" --rom-ids "$FAKE_ROMM_ROM_IDS" 2>>"$log")
     fake_url=$(printf '%s' "$fake" |
-      sed -n 's|.*"baseUrl": *"\(http://127\.0\.0\.1:[0-9][0-9]*\)".*|\1|p')
+      sed -n 's|.*"baseUrl": *"\(http://127\.0\.0\.1:[1-9][0-9]*\)".*|\1|p')
   fi
   echo "fake RomM: ${fake_url:-not started}" >>"$log"
 fi
@@ -344,6 +344,11 @@ if [ -n "$payloads_ok" ] && printf '%s\n' "$payload_list" | grep -qxF "$nds_payl
 fi
 if [ -n "$target_gameid" ]; then
   set -- "$@" --check steam.launch --steam-target "$target_gameid"
+fi
+# Asked for whether or not the fake started: without it the check fails,
+# which is the answer the run should give.
+if grep -q '"saves\.fake-server"' "$here/harness-request.json" 2>/dev/null; then
+  set -- "$@" --check saves.fake-server
 fi
 app_budget=$((deadline - $(date +%s) - STOP_RESERVE_SECONDS))
 selftest_ok=

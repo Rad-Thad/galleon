@@ -172,6 +172,7 @@ describe('taking the request', () => {
     assert.equal(request().fakeRomm, null)
     const fake = { baseUrl: 'http://127.0.0.1:40123', tokenFile: '/tmp/fake-romm/token' }
     assert.deepEqual(request({ fakeRomm: fake }).fakeRomm, fake)
+    assert.deepEqual(request({ fakeRomm: { ...fake, token: 'secret' } }).fakeRomm, fake)
   })
 
   test('a malformed request is refused with a reason', () => {
