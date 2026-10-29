@@ -4279,7 +4279,7 @@ Lines the tooling reads (exact forms):
 - Device / acceptance: none yet. M2-20 stays false.
 - Next: M2-20 part 4b. A self-test scenario `saves.fake-server` uploads one save and downloads it again through the app's own client against `fakeRomm`. The read-only guard must allow writes only to that loopback address, and `safety.server-readonly` must still pass for the real server. Then `harness-request.json` asks for it, and READY-FOR-DEVICE.
 
-## 2026-10-29 13:44 UTC session 0178hDCAp3LcTzQ76HqYPW3T (hourly heartbeat)
+## 2026-10-29 13:44 UTC session 0178hDCBcDTmYyAQ4qsL4JsE (hourly heartbeat)
 
 - Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. No lock. `init.sh` stopped at Docker; `dockerd` started by hand; Docker Hub answered 429 for the MariaDB image again, so the Docker side is CI's.
 - Previous unit: #395 (M2-20 part 4a) merged at 9132f26 (CI: x64 8:39, arm64 1:07).
