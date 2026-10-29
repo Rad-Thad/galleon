@@ -4162,3 +4162,15 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: READY-FOR-DEVICE M2-02. M2-02 stays false until a device run reports `argosy.shapes` passing and every difference from SPEC.md is resolved in a PR.
 - Next: Dependabot #384, #385, #386 (non-Electron). #383 (Electron 45, a major) needs `shots:nova` looked at and the release notes read; then the next feature from `next.mjs`.
+
+## 2026-10-29 08:06 UTC session 0178hDCD68HLYq8ZtoN2Qby7 (hourly heartbeat, second unit)
+
+- Device results: unchanged since the entry above. No lock.
+- Previous unit: #387 (M2-02 part 2c) merged at 2c7aff3. CI wall time (its PR run on dce80e8): x64 9:23, arm64 0:58. #379's claim released; it stays open for the device run and the SPEC.md PR.
+- Worked on: Dependabot triage (CLAUDE.md rule 8, docs/MAINTENANCE.md "Other dependencies").
+- Result: merged #386 (happy-dom 21.0.3 -> 21.0.4) at e45f509, #385 (runtime: lucide-react 1.59.0 -> 1.61.0) at 56c73f4 and #384 (tooling: oxlint 1.88.0 -> 1.89.0) at d2f4718. Each touched only its own package.json line and lockfile entries, so they squash-merged onto `main` without conflict. #383 (Electron 44.9.0 -> 45.0.0, electron-builder) is held: it is a major, so MAINTENANCE.md step 7 needs `shots:nova` looked at and the release notes read for removed switches. The device has been away since 2026-10-25, so step 6 could not follow it soon.
+- Evidence: both `build` legs green on each head (based on 5e9c0e7). The evaluator ran `scripts/agent/check.sh` green on each branch. Licence guard: all permitted; lucide-react 1.61.0 is ISC. All 67 icons the renderer imports exist in 1.61.0, and `npm run build` is green. `docs/DEPENDENCIES.md` records none of these.
+- Evaluator: PASS (#384), PASS (#385), PASS (#386). Its note: with a worktree under `os.tmpdir()`, `savewriter.test.ts` "only staging can be discarded this way" fails because the path is under tmpdir, and a very long `TMPDIR` hangs the core-socket test. Neither happens in CI or a normal checkout.
+- CI wall time: as in Evidence; this docs-only PR's own are recorded in the next entry.
+- Device / acceptance: none.
+- Stopped: the run's time is up. Next: #383 (Electron 45: release notes, `shots:nova`), then the next feature from `next.mjs`.
