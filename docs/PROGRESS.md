@@ -4077,3 +4077,17 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet; M1-29 stays false. The grid art waits for the Settings part: the only art there is the square icon.
 - Next: M1-29 part 3, a Settings button when Steam is not running; then device check `steam.shortcut-roundtrip`.
+
+## 2026-10-29 00:27 UTC session 0178hDCBjs6HFZoRRTcgtWyd (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. No open PRs, no lock, no `needs-human`. Main green. `init.sh` stopped at Docker (daemon not answering); `npm ci` and `npx install-electron` by hand. Nothing here needs Docker RomM.
+- Previous unit: #377 (M1-29 part 2c) merged at 4345c91. CI wall time (its run on `main`): x64 8:03, arm64 0:57.
+- Worked on: M1-29 part 3 (tracking issue #373), acceptance line 4, device check `steam.shortcut-roundtrip`.
+- Result: PR (this one).
+  - `src/main/selftestshortcut.ts`: each user's `shortcuts.vdf` is copied into `$GALLEON_HOME/shortcut-roundtrip/` (named by its place, never the account number) and only the copy is changed: read and written back byte for byte, a Galleon entry added, then updated, with every top-level field and owner entry checked byte for byte after each write. The copies go in a `finally`. Counts and reason codes only.
+  - The app runs it, not run.sh as the catalogue first said: the writer under test is the app's own TypeScript, and run.sh has only Python. TESTING.md's row and PLAN.md 5.3 step 10 updated; run.sh asks for it.
+- Evidence: `selftestshortcut.test.ts` 10/10 (every reason reached through a faulty writer or upsert; originals' bytes and mtime unchanged; nothing identifying published; a stopped run removes the copies). The built app's test (`test/app/selftest.test.ts`, "steam.shortcut-roundtrip changes only copies…") passes under Xvfb. `scripts/agent/check.sh` green.
+- Evaluator: PASS on abd128b (check.sh, unit and app tests, device and bridge Python suites re-run). Its notes: this entry was owed; the Settings button is description, not acceptance.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: READY-FOR-DEVICE M1-29 (all four lines met in CI; `steam.shortcut-roundtrip` waits on the device). M1-29 stays false.
+- Next: the Settings button M1-29's description names (when Steam is not running), then the next feature from `next.mjs`.
