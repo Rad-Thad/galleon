@@ -45,7 +45,8 @@ import {
   writtenPid,
   profileAskingApp,
   runHarness,
-  running
+  running,
+  pythonServer
 } from './device-bundle-harness.ts'
 
 /**
@@ -222,10 +223,11 @@ describe('device-bundle', () => {
       [
         ['harness.run', 'pass'],
         ['safety.owner-state', 'pass'],
+        ['argosy.shapes', 'skip'],
         ['selftest.complete', 'pass']
       ]
     )
-    assert.deepEqual(summary.checks[2].evidence, ['app/logs/selftest.log'])
+    assert.deepEqual(summary.checks[3].evidence, ['app/logs/selftest.log'])
     assert.ok(summary.notes.includes('app summary: complete'), summary.notes.join('; '))
     // Only the merged summary is left for the bridge to publish.
     assert.ok(!existsSync(join(testDir, 'harness-summary.json')))
@@ -520,9 +522,93 @@ describe('device-bundle', () => {
       ]),
       [
         ['harness.run', 'fail', 'the owner-state manifest could not be taken'],
-        ['safety.owner-state', 'skip', 'the owner-state manifest could not be taken']
+        ['safety.owner-state', 'skip', 'the owner-state manifest could not be taken'],
+        ['argosy.shapes', 'skip', 'the test home could not be made']
       ]
     )
+  })
+
+  test("run.sh reads Argosy's save shapes with the imported sign-in, GET only, and publishes the report", () => {
+    const { home, server, requests } = argosyServer('ok')
+    try {
+      const { run, results, testDir } = runHarness(unpackLikeTheBridge(built()), SHA, true, {
+        HOME: home
+      })
+      assert.equal(run.status, 0, run.stderr)
+      const summary = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8'))
+      const check = summary.checks.find((c: { id: string }) => c.id === 'argosy.shapes')
+      assert.deepEqual(
+        [check.result, check.reason, check.evidence],
+        ['pass', null, ['logs/argosy-shapes.json']]
+      )
+      const report = JSON.parse(readFileSync(join(results, 'logs/argosy-shapes.json'), 'utf8'))
+      assert.deepEqual(report, { schema: 1, argosyDevices: 1, systems: [] })
+      const seen = readFileSync(requests, 'utf8').trim().split('\n')
+      assert.deepEqual(seen, [
+        'GET /api/devices',
+        'GET /api/platforms',
+        'GET /api/saves?platform_id=1'
+      ])
+      assert.ok(existsSync(join(testDir, 'argosy-shapes.err')))
+      assertNothingNamesTheServer(results, server.port)
+    } finally {
+      server.server.kill()
+    }
+  })
+
+  test('run.sh fails argosy.shapes, with no address or token in the results, when the server cannot be read', () => {
+    const { home, server } = argosyServer('error')
+    try {
+      const { run, results } = runHarness(unpackLikeTheBridge(built()), SHA, true, { HOME: home })
+      assert.equal(run.status, 0, run.stderr)
+      const summary = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8'))
+      const check = summary.checks.find((c: { id: string }) => c.id === 'argosy.shapes')
+      assert.deepEqual([check.result, check.reason], ['fail', 'the server could not be read'])
+      const report = JSON.parse(readFileSync(join(results, 'logs/argosy-shapes.json'), 'utf8'))
+      assert.deepEqual(report.error, { step: 'devices', status: 500 })
+      assert.equal(summary.checks[0].result, 'pass')
+      assertNothingNamesTheServer(results, server.port)
+    } finally {
+      server.server.kill()
+    }
+  })
+
+  test("argosy-shapes.py's own errors stay on the device, and argosy.shapes fails without a report", () => {
+    const { home, server } = argosyServer('crash')
+    try {
+      const { run, results, testDir } = runHarness(unpackLikeTheBridge(built()), SHA, true, {
+        HOME: home
+      })
+      assert.equal(run.status, 0, run.stderr)
+      const summary = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8'))
+      const check = summary.checks.find((c: { id: string }) => c.id === 'argosy.shapes')
+      assert.deepEqual(
+        [check.result, check.reason, check.evidence],
+        ['fail', 'the script stopped with an error', []]
+      )
+      assert.ok(!existsSync(join(results, 'logs/argosy-shapes.json')))
+      assert.match(readFileSync(join(testDir, 'argosy-shapes.err'), 'utf8'), /Traceback/)
+      assert.doesNotMatch(readFileSync(join(results, 'logs/harness.log'), 'utf8'), /Traceback/)
+      assertNothingNamesTheServer(results, server.port)
+    } finally {
+      server.server.kill()
+    }
+  })
+
+  test('run.sh neither reads the server nor reports argosy.shapes when the request does not ask for it', () => {
+    const { home, server, requests } = argosyServer('ok')
+    try {
+      const bundle = unpackLikeTheBridge(built())
+      writeFileSync(join(bundle, 'harness-request.json'), '{"checks": []}\n')
+      const { run, results } = runHarness(bundle, SHA, true, { HOME: home })
+      assert.equal(run.status, 0, run.stderr)
+      const summary = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8'))
+      assert.ok(!summary.checks.some((c: { id: string }) => c.id === 'argosy.shapes'))
+      assert.ok(!existsSync(join(results, 'logs/argosy-shapes.json')))
+      assert.ok(!existsSync(requests) || readFileSync(requests, 'utf8') === '')
+    } finally {
+      server.server.kill()
+    }
   })
 
   test('run.sh writes the launch request for this build while it runs, and removes it', () => {
@@ -871,7 +957,7 @@ describe('device-bundle', () => {
     assert.equal(run.status, 0, run.stderr)
     const summary = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8'))
     assert.equal(summary.status, 'partial')
-    assert.equal(summary.checks.length, 2)
+    assert.equal(summary.checks.length, 3)
     assert.ok(
       summary.notes.includes('app summary: summary is for another commit'),
       summary.notes.join('; ')
@@ -902,7 +988,8 @@ describe('device-bundle', () => {
       summary.checks.map((check: { id: string; result: string }) => [check.id, check.result]),
       [
         ['harness.run', 'pass'],
-        ['safety.owner-state', 'pass']
+        ['safety.owner-state', 'pass'],
+        ['argosy.shapes', 'skip']
       ]
     )
     assert.ok(summary.notes.includes('app: not started'), summary.notes.join('; '))
@@ -998,7 +1085,8 @@ describe('device-bundle', () => {
       summary.checks.map((check: { id: string; result: string }) => [check.id, check.result]),
       [
         ['harness.run', 'pass'],
-        ['safety.owner-state', 'pass']
+        ['safety.owner-state', 'pass'],
+        ['argosy.shapes', 'skip']
       ]
     )
     assert.ok(summary.notes.includes('app: not started'), summary.notes.join('; '))
@@ -1445,3 +1533,60 @@ describe('device-bundle', () => {
     assert.match(bad.stderr, /40-character/)
   })
 })
+
+/**
+ * A RomM on loopback holding one Argosy device and one system with no saves,
+ * or answering every request with a server error, or holding a save whose id
+ * the script cannot read and stops on, that logs each request's
+ * method and path; and an owner's home whose stock RomMix is signed in to it.
+ */
+function argosyServer(mode: 'ok' | 'error' | 'crash') {
+  const requests = join(mkdtempSync(join(tmpdir(), 'bundle-romm-')), 'requests')
+  const server = pythonServer(
+    'import http.server, json, sys\n' +
+      'class H(http.server.BaseHTTPRequestHandler):\n' +
+      '    def answer(self):\n' +
+      '        open(sys.argv[2], "a").write(self.command + " " + self.path + "\\n")\n' +
+      '        bodies = {"/api/devices": [{"id": 7, "client": "argosy"}],\n' +
+      '                  "/api/platforms": [{"id": 1, "slug": "gba"}]}\n' +
+      '        if sys.argv[3] == "crash":\n' +
+      '            bodies["/api/saves"] = [{"id": "x", "rom_id": 9, "origin_device_id": 7}]\n' +
+      '        body = json.dumps(bodies.get(self.path.split("?")[0], [])).encode()\n' +
+      '        self.send_response(500 if sys.argv[3] == "error" else 200)\n' +
+      '        self.send_header("Content-Length", str(len(body)))\n' +
+      '        self.end_headers(); self.wfile.write(body)\n' +
+      '    do_GET = do_POST = do_PUT = do_DELETE = answer\n' +
+      '    def log_message(self, *args): pass\n' +
+      's = http.server.HTTPServer(("127.0.0.1", 0), H)\n' +
+      'open(sys.argv[1] + ".tmp", "w").write(str(s.server_address[1]))\n' +
+      'import os; os.rename(sys.argv[1] + ".tmp", sys.argv[1])\n' +
+      's.serve_forever()\n',
+    requests,
+    mode
+  )
+  const home = mkdtempSync(join(tmpdir(), 'bundle-owner-'))
+  const config = join(home, 'rommix/config')
+  mkdirSync(config, { recursive: true })
+  writeFileSync(
+    join(config, 'settings.json'),
+    JSON.stringify({ server: { baseUrl: `http://127.0.0.1:${server.port}`, authMode: 'token' } })
+  )
+  writeFileSync(
+    join(config, 'credentials.bin'),
+    Buffer.concat([Buffer.from('RAW1'), Buffer.from(JSON.stringify({ accessToken: ARGOSY_TOKEN }))])
+  )
+  return { home, server, requests }
+}
+
+const ARGOSY_TOKEN = 'argosy-shapes-test-token'
+
+/** No published file names the server's address or the token. */
+function assertNothingNamesTheServer(results: string, port: number) {
+  for (const name of readdirSync(results, { recursive: true, encoding: 'utf8' })) {
+    const path = join(results, name)
+    if (!statSync(path).isFile()) continue
+    const text = readFileSync(path, 'utf8')
+    assert.ok(!text.includes(`:${port}`), name)
+    assert.ok(!text.includes(ARGOSY_TOKEN), name)
+  }
+}

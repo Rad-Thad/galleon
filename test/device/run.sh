@@ -11,7 +11,10 @@
 # launched.py in $GALLEON_TEST_ROOT; holds
 # the owner state (ownerstate.py, in $GALLEON_TEST_DIR/owner-state), reported
 # as `safety.owner-state`; and makes the test home with its read-only sign-in
-# (signin.py, $GALLEON_TEST_DIR/home) with the app's self-test request
+# (signin.py, $GALLEON_TEST_DIR/home), with which, when the bundle's
+# harness-request.json asks, it reads the shape of Argosy's saves on the
+# server, GET only (argosy-shapes.py), reported as `argosy.shapes`; with the
+# app's self-test request
 # (selftestrequest.py), removed before it finishes, the bundle's homebrew
 # payloads in its ROM folder (payloads.py), removed with anything the app
 # downloaded, and an empty handshake folder ($GALLEON_TEST_DIR/handshake).
@@ -229,6 +232,47 @@ if [ -n "$home_ok" ]; then
     10) echo "payloads: none in the bundle" >>"$log" ;;
     *) payloads_ok= ;;
   esac
+fi
+
+# The shape of Argosy's saves on the owner's server (argosy-shapes.py, M2-02),
+# read only while the bundle's harness-request.json asks for it, since it is
+# wanted until SPEC.md has been checked against it, not on every build. Its
+# stderr stays on the device: an unforeseen error could print the address.
+# It runs before the app's budget is counted, so its time comes out of the
+# harness's share, and it is cut off at ARGOSY_SHAPES_SECONDS.
+ARGOSY_SHAPES_SECONDS=300
+argosy_report="$RESULTS_DIR/logs/argosy-shapes.json"
+argosy_result=
+argosy_reason=null
+argosy_evidence=
+if grep -q '"argosy\.shapes"' "$here/harness-request.json" 2>/dev/null; then
+  if [ -z "$home_ok" ]; then
+    argosy_result=skip
+    argosy_reason='"the test home could not be made"'
+  else
+    timeout "$ARGOSY_SHAPES_SECONDS" python3 "$here/argosy-shapes.py" report \
+      --home "$GALLEON_HOME" --out "$argosy_report" \
+      >"$GALLEON_TEST_DIR/argosy-shapes.err" 2>&1
+    case $? in
+      0) argosy_result=pass ;;
+      10)
+        argosy_result=skip
+        argosy_reason='"no-importable-credentials"'
+        ;;
+      # The script also exits 1 when Python stops on an error it did not
+      # foresee; only its own report says the server was the cause.
+      1) if [ -f "$argosy_report" ]; then
+        argosy_result=fail argosy_reason='"the server could not be read"'
+      else
+        argosy_result=fail argosy_reason='"the script stopped with an error"'
+      fi ;;
+      124) argosy_result=fail argosy_reason='"the report did not finish in time"' ;;
+      *) argosy_result=fail argosy_reason='"the script stopped with an error"' ;;
+    esac
+    # Only a report the script finished is evidence; a cut-off one leaves none.
+    [ -f "$argosy_report" ] && argosy_evidence='"logs/argosy-shapes.json"'
+  fi
+  echo "argosy.shapes: $argosy_result" >>"$log"
 fi
 
 # build-info.json is written by scripts/device-bundle.mjs and holds no quote
@@ -688,6 +732,19 @@ elif [ -n "$stopped" ]; then
   status=partial
 fi
 
+argosy_check=
+if [ -n "$argosy_result" ]; then
+  argosy_check=",
+    {
+      \"id\": \"argosy.shapes\",
+      \"result\": \"$argosy_result\",
+      \"metrics\": {},
+      \"thresholds\": {},
+      \"reason\": $argosy_reason,
+      \"evidence\": [$argosy_evidence]
+    }"
+fi
+
 tmp="$RESULTS_DIR/.summary.json.tmp"
 cat >"$tmp" <<JSON
 {
@@ -714,7 +771,7 @@ cat >"$tmp" <<JSON
       "thresholds": {},
       "reason": $owner_reason,
       "evidence": ["logs/owner-state.txt"]
-    }
+    }$argosy_check
   ],
   "notes": [
     "harness checks: harness.run and safety.owner-state; the app's follow once it has started",
