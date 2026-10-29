@@ -26,6 +26,7 @@ TOKEN = "rmm_secret_token_value"
 TITLE = "Chrono Trigger"
 CHANNEL = "Zelda 100 run"
 ACCOUNT = "owner-account-name"
+PAIRED = "argosy-chosen-identifier"
 
 
 def _zip(entries):
@@ -54,8 +55,9 @@ class FakeRomm:
         self.redirect = False
         argosy, other = 7, 8
         self.devices = [
-            {"id": argosy, "name": ACCOUNT, "client": "Argosy", "hostname": "argosy-phone"},
-            {"id": other, "name": "desk", "client": "Galleon"},
+            {"id": argosy, "name": ACCOUNT, "client": "Argosy", "hostname": "argosy-phone",
+             "client_device_identifier": PAIRED},
+            {"id": other, "name": "desk", "client": "Galleon", "client_device_identifier": None},
         ]
         self.platforms = [{"id": 1, "slug": "snes", "name": "Super Nintendo"},
                           {"id": 2, "slug": "ps2", "name": "PlayStation 2"},
@@ -75,11 +77,15 @@ class FakeRomm:
             9: row(9, 11, f"{CHANNEL}.srm", RAW, argosy, slot=CHANNEL),
             4: row(4, 21, f"{TITLE} [2026-10-02_09-00-00].zip", PS2, argosy, slot="autosave",
                    emulator="nethersx2", hashed=_zip_hash(PS2_ENTRIES)),
+            # Made before pairing, so named by the identifier Argosy chose.
+            10: row(10, 21, "autosave.zip", PS2, PAIRED, slot="autosave", emulator="nethersx2"),
+            # No device at all, which another device's empty identifier must not match.
+            11: row(11, 21, "autosave.zip", PS2, None, slot="autosave", emulator="nethersx2"),
         }
         # Three more SNES games, so one is past the per-system limit.
         for n, rom in enumerate((13, 14, 15), start=5):
             self.saves[n] = row(n, rom, "autosave.srm", RAW, argosy, slot=None)
-        self.content = {1: RAW, 2: RAW, 3: RAW, 4: PS2, 5: RAW, 6: RAW, 7: RAW, 8: RAW, 9: RAW}
+        self.content = {1: RAW, 2: RAW, 3: RAW, 4: PS2, 10: PS2, 11: PS2, 5: RAW, 6: RAW, 7: RAW, 8: RAW, 9: RAW}
         self.platform_of = {11: 1, 12: 1, 13: 1, 14: 1, 15: 1, 21: 2}
 
     def answer(self, method, path, query):
@@ -146,8 +152,10 @@ class StaticTest(unittest.TestCase):
             self.assertNotRegex(self.source, rf"(?i)method\s*=\s*['\"]{method}", method)
 
     def test_no_device_id_is_ever_sent(self):
-        # `origin_device_id` is a field read from a save's row, never sent.
-        self.assertIsNone(re.search(r"(?<!origin_)device_id", self.source))
+        # `origin_device_id` and `client_device_identifier` are fields read
+        # from rows, never sent; `device_id` alone is the parameter.
+        self.assertIsNone(re.search(r"\bdevice_id\b", self.source))
+        self.assertIsNotNone(re.search(r"\bdevice_id\b", "?device_id=1"))
 
     def test_one_request_and_it_is_a_get(self):
         self.assertNotRegex(self.source, r"\burlopen\(")
@@ -255,6 +263,21 @@ class ReportTest(unittest.TestCase):
         self.assertNotIn("/api/saves/8/content", read)
         first = json.loads(raw)["systems"][0]["games"][0]
         self.assertEqual(len(first["saves"]), 3)
+
+    def test_a_save_named_by_the_paired_identifier_is_argosy_s(self):
+        _, raw = self.run_report()
+        read = [path for _, path, _ in self.fake.requests if path.endswith("/content")]
+        self.assertIn("/api/saves/10/content", read)
+        self.assertNotIn("/api/saves/11/content", read)
+        ps2 = json.loads(raw)["systems"][1]
+        self.assertEqual(len(ps2["games"][0]["saves"]), 2)
+
+    def test_a_device_without_an_identifier_matches_no_unowned_save(self):
+        self.fake.devices[0]["client_device_identifier"] = None
+        self.run_report()
+        read = [path for _, path, _ in self.fake.requests if path.endswith("/content")]
+        self.assertNotIn("/api/saves/10/content", read)
+        self.assertNotIn("/api/saves/11/content", read)
 
     def test_a_save_s_shape_holds_only_the_known_keys(self):
         _, raw = self.run_report()
