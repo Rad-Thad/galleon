@@ -239,7 +239,7 @@ fi
 # wanted until SPEC.md has been checked against it, not on every build. Its
 # stderr stays on the device: an unforeseen error could print the address.
 # It runs before the app's budget is counted, so its time comes out of the
-# harness's share, and it is cut off at ARGOSY_SHAPES_SECONDS.
+# app's share, and it is cut off at ARGOSY_SHAPES_SECONDS.
 ARGOSY_SHAPES_SECONDS=300
 argosy_report="$RESULTS_DIR/logs/argosy-shapes.json"
 argosy_result=
