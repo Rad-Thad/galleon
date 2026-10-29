@@ -296,6 +296,19 @@ export function profileAskingApp(seen: string, profiles: string[]) {
   )
 }
 
+/**
+ * The stub app, refusing `--appimage-extract` unless it answers that itself:
+ * the bundle asks for the fake RomM, and a stub run for extraction would
+ * otherwise be a whole run of the app while run.sh waits to start the fake.
+ */
+function cannotExtract(script: string): string {
+  if (script.includes('--appimage-extract')) return script
+  const refuse = '[ "$1" = --appimage-extract ] && exit 1\n'
+  if (!script.startsWith('#!')) return refuse + script
+  const end = script.indexOf('\n') + 1
+  return script.slice(0, end) + refuse + script.slice(end)
+}
+
 export function runHarness(
   bundle: string,
   sha: string,
@@ -308,7 +321,7 @@ export function runHarness(
   const image = join(results, 'Galleon-arm64.AppImage')
   if (appimage !== false) {
     // An empty file runs as an empty script: the app starts and quits.
-    writeFileSync(image, appimage === true ? '' : appimage)
+    writeFileSync(image, cannotExtract(appimage === true ? '' : appimage))
     chmodSync(image, 0o755)
   }
   const path = env.PATH ?? process.env.PATH

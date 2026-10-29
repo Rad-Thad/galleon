@@ -707,14 +707,16 @@ describe('device-bundle', () => {
       'fi\n' +
       "python3 -I -c 'import json, os, sys, urllib.request\n" +
       'home = os.environ["GALLEON_HOME"]\n' +
-      'fake = json.load(open(os.path.join(home, "self-test-request.json")))["fakeRomm"]\n' +
+      'asked = json.load(open(os.path.join(home, "self-test-request.json")))\n' +
+      'fake = asked["fakeRomm"]\n' +
       'state = os.path.join(os.path.dirname(home), "fake-romm")\n' +
       'ready = json.load(open(os.path.join(state, "ready.json")))\n' +
       'token = open(fake["tokenFile"]).read().strip()\n' +
       'req = urllib.request.Request(fake["baseUrl"] + "/api/saves?rom_id=1",\n' +
       '    headers={"Authorization": "Bearer " + token})\n' +
       'status = urllib.request.urlopen(req).status\n' +
-      'json.dump({"status": status, "requested": fake["baseUrl"], **ready}, open(sys.argv[1], "w"))' +
+      'json.dump({"status": status, "requested": fake["baseUrl"], "checks": asked["checks"],\n' +
+      '    **ready}, open(sys.argv[1], "w"))' +
       `' '${seen}'\n` +
       selfTestApp().slice('#!/bin/sh\n'.length)
     const { run, results, testDir } = runHarness(bundle, SHA, appimage)
@@ -725,6 +727,7 @@ describe('device-bundle', () => {
     assert.equal(fake.status, 200)
     assert.match(fake.baseUrl, /^http:\/\/127\.0\.0\.1:\d+$/)
     assert.equal(fake.requested, fake.baseUrl, 'the request names the fake it started')
+    assert.ok(fake.checks.includes('saves.fake-server'), 'the app is asked for the check')
     assert.ok(!running(fake.pid), 'the fake is stopped')
     assert.ok(!existsSync(join(testDir, 'fake-romm')), 'its state and the extracted AppImage go')
     const summary = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8'))
@@ -833,6 +836,8 @@ describe('device-bundle', () => {
       [true, true, true, null]
     )
     assert.ok(request?.checks.includes('selftest.complete'))
+    // The bundle asks for it, and with no fake started the app fails it.
+    assert.ok(request?.checks.includes('saves.fake-server'))
     // Only the app can report these, so a request without them leaves the
     // features that name them unable to pass on the device.
     for (const id of ['build.identity', 'update.verify']) {

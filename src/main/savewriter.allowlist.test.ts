@@ -63,6 +63,8 @@ const ALLOWED: Record<string, string> = {
   'main/romm/transfer.ts': 'the staged file a caller names, which for a save is `stageBeside`',
   'main/root.ts': 'moving the app root',
   'main/selftest.ts': 'the taken self-test request and the summary in the results folder',
+  'main/selftestfakeromm.ts':
+    "the scratch folder below the test home for saves.fake-server's own client and save",
   'main/selftestemulators.ts':
     "a placed save beside a payload in the test home's ROM folder, and only that save's removal",
   'main/selftestreport.ts': "the report bundle's copy in the request's results folder",
