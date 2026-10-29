@@ -51,6 +51,25 @@ class SelfTestRequestTest(unittest.TestCase):
         self.assertIsNone(record["fakeRomm"])
         self.assertEqual(os.stat(os.path.join(self.home, selftestrequest.NAME)).st_mode & 0o777, 0o600)
 
+    def test_the_fake_romm_is_written_with_its_token_file(self):
+        code, err = self.write("--fake-romm-url", "http://127.0.0.1:40123",
+                               "--fake-romm-token-file", "/tmp/fake-romm/token")
+        self.assertEqual(code, 0, err)
+        self.assertEqual(self.read()["fakeRomm"],
+                         {"baseUrl": "http://127.0.0.1:40123", "tokenFile": "/tmp/fake-romm/token"})
+
+    def test_a_fake_romm_off_loopback_or_half_given_is_refused(self):
+        for extra in (("--fake-romm-url", "http://192.168.1.2:80", "--fake-romm-token-file", "/t"),
+                      ("--fake-romm-url", "http://127.0.0.1:80/x", "--fake-romm-token-file", "/t"),
+                      ("--fake-romm-url", "http://127.0.0.1:70000", "--fake-romm-token-file", "/t"),
+                      ("--fake-romm-url", "http://127.0.0.1:80", "--fake-romm-token-file", "t"),
+                      ("--fake-romm-url", "http://127.0.0.1:80"),
+                      ("--fake-romm-token-file", "/t")):
+            with self.subTest(extra=extra):
+                code, _ = self.write(*extra)
+                self.assertEqual(code, selftestrequest.ERROR_EXIT)
+                self.assertFalse(os.path.exists(os.path.join(self.home, selftestrequest.NAME)))
+
     def test_no_version_leaves_the_field_out(self):
         self.assertEqual(self.write()[0], 0)
         self.assertNotIn("version", self.read())

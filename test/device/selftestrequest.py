@@ -12,7 +12,7 @@ asked for: they are what keep a device run from leaving a trace.
   selftestrequest.py write --home H --sha S [--version V] --budget SECONDS
       [--deadline EPOCH_SECONDS] --results D [--handshake D] --check ID ... [--profile NAME ...]
       [--payload EMULATOR=PATH ...] [--saving EMULATOR ...] [--screenshot NAME ...]
-      [--steam-target GAMEID]
+      [--steam-target GAMEID] [--fake-romm-url URL --fake-romm-token-file PATH]
   selftestrequest.py remove --home H    the request and the app's taken copy
 
 Exits ERROR_EXIT when the request cannot be written or would be refused.
@@ -33,6 +33,8 @@ ERROR_EXIT = 3
 # The same patterns the app holds the request to (selftest.ts, SHA and VERSION).
 SHA = re.compile(r"[0-9a-f]{40}")
 VERSION = re.compile(r"[0-9A-Za-z][0-9A-Za-z.+-]{0,63}")
+# The fake RomM's address as the app takes it (selftest.ts, LOOPBACK_URL).
+LOOPBACK_URL = re.compile(r"http://127\.0\.0\.1:([1-9][0-9]{0,4})")
 
 
 class RequestError(ValueError):
@@ -40,11 +42,12 @@ class RequestError(ValueError):
 
 
 def request(sha, version, budget, results, handshake, checks, profiles, payloads, saving, screenshots,
-            deadline=None, steam_target=None):
+            deadline=None, steam_target=None, fake_romm=None):
     """The request as the app expects it, or RequestError naming what is wrong.
 
     `deadline` is when the app's run must end, in seconds since the epoch; the
     app writes its summary by whichever comes first of it and the budget.
+    `fake_romm` is the fake RomM's (base URL, token file), or None.
     """
     if not SHA.fullmatch(sha):
         raise RequestError("the sha is not a full commit")
@@ -65,6 +68,13 @@ def request(sha, version, budget, results, handshake, checks, profiles, payloads
     unknown = [emulator for emulator in saving if emulator not in payloads]
     if unknown:
         raise RequestError(f"saving payloads without a payload: {', '.join(unknown)}")
+    if fake_romm is not None:
+        url, token_file = fake_romm
+        port = LOOPBACK_URL.fullmatch(url or "")
+        if port is None or int(port.group(1)) > 65535:
+            raise RequestError("the fake RomM is not on loopback")
+        if not token_file or not os.path.isabs(token_file) or "\0" in token_file:
+            raise RequestError("the fake RomM's token file is not absolute")
     record = {
         "schema": 1,
         "sha": sha,
@@ -75,7 +85,8 @@ def request(sha, version, budget, results, handshake, checks, profiles, payloads
         "profiles": list(profiles),
         "payloads": dict(payloads),
         "savingPayloads": list(saving),
-        "fakeRomm": None,
+        "fakeRomm": None if fake_romm is None else {"baseUrl": fake_romm[0],
+                                                     "tokenFile": fake_romm[1]},
         "readOnlyServer": True,
         "privacy": True,
         "abortOnInput": True,
@@ -144,6 +155,8 @@ def main(argv=None):
     put.add_argument("--saving", action="append", default=[])
     put.add_argument("--screenshot", action="append", default=[])
     put.add_argument("--steam-target")
+    put.add_argument("--fake-romm-url")
+    put.add_argument("--fake-romm-token-file")
     for command in (put, commands.add_parser("remove")):
         command.add_argument("--home", required=True)
     args = parser.parse_args(argv)
@@ -152,9 +165,12 @@ def main(argv=None):
         if args.command == "remove":
             remove(args.home)
             return 0
+        fake_romm = None
+        if args.fake_romm_url is not None or args.fake_romm_token_file is not None:
+            fake_romm = (args.fake_romm_url, args.fake_romm_token_file)
         record = request(args.sha, args.version, args.budget, args.results, args.handshake,
                          args.check, args.profile, dict(args.payload), args.saving, args.screenshot,
-                         args.deadline, args.steam_target)
+                         args.deadline, args.steam_target, fake_romm)
         write(args.home, record)
     except (RequestError, OSError) as error:
         print(f"selftestrequest.py: {error}", file=sys.stderr)

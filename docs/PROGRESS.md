@@ -4259,3 +4259,22 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet. M2-20 stays false.
 - Next: M2-20 part 4: the self-test request carries the fake's address and token file (`fakeRomm`), the app uploads and downloads one save against it, run.sh reports `saves.fake-server`, `harness-request.json` asks for it, and READY-FOR-DEVICE.
+
+## 2026-10-29 13:10 UTC session 0178hDCDHEWzTFcEbBudcqfL (hourly heartbeat, second unit)
+
+- Previous unit: #394 (M2-20 part 3b) merged at a8aa58b. CI wall time (its PR run): x64 9:08, arm64 1:06. Evaluator PASS on 64925f0. Its notes, a TESTING.md paragraph for `fakeromm.py` and the request's `fakeRomm`, are taken here.
+- Worked on: M2-20 part 4a (tracking issue #390): the self-test request names the fake.
+- Result: PR (this one).
+  - `src/main/selftest.ts`: `fakeRomm` is null or `{ baseUrl, tokenFile }`. The address must be `http://127.0.0.1:<port>` and nothing more, and the token file an absolute path; anything else is refused as `request-fake-romm`, because the save checks write there.
+  - `test/device/selftestrequest.py`: `--fake-romm-url` and `--fake-romm-token-file`. It refuses the same things, and one given without the other.
+  - `test/device/run.sh`: passes the address of the fake it started and its token file.
+  - `docs/TESTING.md`: the fake's start and stop as run.sh does them, and the request field.
+- Evidence:
+  - `selftest.test.ts` 28/28: nine refused shapes, among them `localhost`, https, a userinfo trick, port 70000, a trailing slash, a relative token file and a missing token file.
+  - `test_selftestrequest.py`: two new tests.
+  - `device-bundle.test.ts`: the request the bundle writes, fake included, is the one `parseRequest` takes; in the run.sh test the app finds the fake and its token only through its request (200).
+  - `scripts/agent/check.sh` green.
+- Evaluator: (on the PR).
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet. M2-20 stays false.
+- Next: M2-20 part 4b. A self-test scenario `saves.fake-server` uploads one save and downloads it again through the app's own client against `fakeRomm`. The read-only guard must allow writes only to that loopback address, and `safety.server-readonly` must still pass for the real server. Then `harness-request.json` asks for it, and READY-FOR-DEVICE.

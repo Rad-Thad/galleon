@@ -706,13 +706,15 @@ describe('device-bundle', () => {
       '  chmod 0755 squashfs-root/galleon; exit 0\n' +
       'fi\n' +
       "python3 -I -c 'import json, os, sys, urllib.request\n" +
-      'state = os.path.join(os.path.dirname(os.environ["GALLEON_HOME"]), "fake-romm")\n' +
+      'home = os.environ["GALLEON_HOME"]\n' +
+      'fake = json.load(open(os.path.join(home, "self-test-request.json")))["fakeRomm"]\n' +
+      'state = os.path.join(os.path.dirname(home), "fake-romm")\n' +
       'ready = json.load(open(os.path.join(state, "ready.json")))\n' +
-      'token = open(os.path.join(state, "token")).read().strip()\n' +
-      'req = urllib.request.Request(ready["baseUrl"] + "/api/saves?rom_id=1",\n' +
+      'token = open(fake["tokenFile"]).read().strip()\n' +
+      'req = urllib.request.Request(fake["baseUrl"] + "/api/saves?rom_id=1",\n' +
       '    headers={"Authorization": "Bearer " + token})\n' +
       'status = urllib.request.urlopen(req).status\n' +
-      'json.dump({"status": status, **ready}, open(sys.argv[1], "w"))' +
+      'json.dump({"status": status, "requested": fake["baseUrl"], **ready}, open(sys.argv[1], "w"))' +
       `' '${seen}'\n` +
       selfTestApp().slice('#!/bin/sh\n'.length)
     const { run, results, testDir } = runHarness(bundle, SHA, appimage)
@@ -722,6 +724,7 @@ describe('device-bundle', () => {
     const fake = JSON.parse(readFileSync(seen, 'utf8'))
     assert.equal(fake.status, 200)
     assert.match(fake.baseUrl, /^http:\/\/127\.0\.0\.1:\d+$/)
+    assert.equal(fake.requested, fake.baseUrl, 'the request names the fake it started')
     assert.ok(!running(fake.pid), 'the fake is stopped')
     assert.ok(!existsSync(join(testDir, 'fake-romm')), 'its state and the extracted AppImage go')
     const summary = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8'))
@@ -1641,7 +1644,11 @@ describe('device-bundle', () => {
       '--saving',
       'retroarch',
       '--screenshot',
-      'settings'
+      'settings',
+      '--fake-romm-url',
+      'http://127.0.0.1:40123',
+      '--fake-romm-token-file',
+      join(home, 'fake-romm/token')
     ])
     const taken = parseRequest(JSON.parse(readFileSync(join(home, REQUEST_FILE), 'utf8')))
     assert.deepEqual(taken, {
@@ -1659,7 +1666,7 @@ describe('device-bundle', () => {
         payloads: { retroarch: 'payloads/snes/hello.sfc' },
         savingPayloads: ['retroarch'],
         steamTarget: null,
-        fakeRomm: null,
+        fakeRomm: { baseUrl: 'http://127.0.0.1:40123', tokenFile: join(home, 'fake-romm/token') },
         readOnlyServer: true,
         privacy: true,
         abortOnInput: true,
