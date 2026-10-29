@@ -558,12 +558,20 @@ export function saveContract(server: string, find: () => Promise<ContractTarget>
       '0 created',
       '1 error'
     ])
-    const again = await complete([span])
-    assert.equal(again.created_count, 0)
-    assert.deepEqual(
-      again.results.map((r) => `${r.index} ${r.status}`),
-      ['0 duplicate']
-    )
+    // The same span again, as a completion retried after a lost reply would
+    // send it, beside another span of the same game.
+    const next = {
+      ...span,
+      start_time: span.end_time,
+      end_time: new Date(endedAt.getTime() + 30_000).toISOString(),
+      duration_ms: 30_000
+    }
+    const again = await complete([span, next])
+    assert.equal(again.created_count, 1)
+    assert.deepEqual(again.results.map((r) => `${r.index} ${r.status}`).sort(), [
+      '0 duplicate',
+      '1 created'
+    ])
 
     const { sessionId } = await negotiate(fork, [], () => false)
     await assert.rejects(
