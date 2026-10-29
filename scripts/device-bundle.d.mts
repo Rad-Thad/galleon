@@ -17,3 +17,4 @@ export function writeBundle(options: {
   sha: string
   builtAt?: string
 }): BuildInfo
+export const FAKE_ROMM: string

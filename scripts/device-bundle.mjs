@@ -8,8 +8,9 @@
 //
 // Writes `<out>/galleon-device-tests.tar.gz` and `<out>/build-info.json`. The
 // bundle holds `test/device/` at its root, the same `build-info.json`,
-// `bridge/`, the device bridge from the same commit for its self-update, and,
-// with `--payloads`, `payloads/`: the homebrew of test/fixtures/roms/
+// `bridge/`, the device bridge from the same commit for its self-update,
+// `fake-romm/fake-romm.cjs`, the fake RomM built into one file, and, with
+// `--payloads`, `payloads/`: the homebrew of test/fixtures/roms/
 // manifest.json as scripts/agent/fetch-fixtures.mjs put it in that folder.
 import { execFileSync } from 'node:child_process'
 import {
@@ -24,6 +25,7 @@ import {
 import { tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { buildSync } from 'esbuild'
 import { loadManifest, sha256 } from './agent/fetch-fixtures.mjs'
 
 export const BUNDLE_NAME = 'galleon-device-tests.tar.gz'
@@ -45,7 +47,28 @@ export const BRIDGE_FILES = [
   'systemd'
 ]
 
+export const FAKE_ROMM = 'fake-romm/fake-romm.cjs'
+
 const SHA = /^[0-9a-f]{40}$/
+
+/**
+ * The fake RomM (M2-20) as one CommonJS file with everything it imports,
+ * the app's save hash and yauzl among them: the Nova has no Node and no
+ * node_modules, only the AppImage's Electron run as Node. CommonJS because
+ * yauzl is, and an ES module cannot `require` Node's own modules.
+ */
+export function buildFakeRomm({ root, to }) {
+  buildSync({
+    entryPoints: [join(root, 'test/device/fake-romm/main.ts')],
+    outfile: to,
+    bundle: true,
+    platform: 'node',
+    format: 'cjs',
+    target: 'node22',
+    legalComments: 'inline',
+    logLevel: 'error'
+  })
+}
 
 /** The build-info.json the bridge reads the tested commit from. */
 export function buildInfo({ sha, version, builtAt, bundleContract }) {
@@ -123,11 +146,15 @@ export function writeBundle({
 
   const stage = mkdtempSync(join(tmpdir(), 'device-bundle-'))
   try {
-    // The helpers' own tests run in CI, never on the device.
+    // The helpers' own tests run in CI, never on the device, and the fake's
+    // sources travel only as the one file built from them.
     cpSync(join(root, 'test/device'), stage, {
       recursive: true,
-      filter: (source) => !/^(test_.*\.py|__pycache__)$/.test(basename(source))
+      filter: (source) =>
+        !/^(test_.*\.py|__pycache__)$/.test(basename(source)) &&
+        !(basename(dirname(source)) === 'fake-romm' && source.endsWith('.ts'))
     })
+    buildFakeRomm({ root, to: join(stage, FAKE_ROMM) })
     for (const name of BRIDGE_FILES) {
       cpSync(join(root, 'tools/device-bridge', name), join(stage, 'bridge', name), {
         recursive: true
