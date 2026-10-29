@@ -4192,3 +4192,23 @@ Lines the tooling reads (exact forms):
   - Electron 45 deprecates the synchronous `safeStorage.decryptString` (`src/main/store.ts`), and Electron 46 removes it. Move to `decryptStringAsync` before taking 46, or sign-in breaks.
   - As root, Electron 45 refuses even `--version` without `--no-sandbox`. `scripts/headless.sh` then falls back to borrowing nixpkgs' Electron. On the VM, run `test:app` and `shots:nova` with `ELECTRON_EXEC_PATH` set to a `--no-sandbox` wrapper. CI and the Nova are not root.
   - This entry's PR (#389) first went up without a `Feature:` line, and the x64 leg failed at "Check the pull-request body". Dependabot-triage PRs carry `Feature: none (<why>)`, like any work outside features.json.
+
+## 2026-10-29 09:26 UTC session 0178hDCBWaPBdrNWqf7fLUKB (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. No lock. `init.sh` stopped at Docker; `dockerd` started by hand, then `npm ci` and `npx install-electron`.
+- Previous unit: #389 (docs) merged at c076ddd; main green.
+- Worked on: M2-20 part 1 (tracking issue #390), acceptance line 2. Every other eligible feature is READY-FOR-DEVICE; M2-20 is the first one not started.
+- Result: PR (this one).
+  - `test/device/fake-romm/saves.ts`: RomM 5.2.0's saves for the calls the engine makes (SPEC.md sections 3, 6 and 7):
+    - a slot is a history of copies stamped with the time;
+    - a save under no slot is replaced in place;
+    - a device's record decides a 409, and `overwrite` skips it and the same-hash shortcut;
+    - `optimistic` reads record the device, and `/downloaded` does too;
+    - a listing that names a device fills in its record.
+  - `test/device/fake-romm/server.ts`: the HTTP side, on 127.0.0.1 and a port the system picks. It wants the token, knows only the ROM ids it is given, registers devices, and answers 404 to anything else. The hash is the app's own `localContentHash`: `hash.real.ts` holds that to RomM's on every edge case. A second zip reader I first wrote disagreed with RomM on a bad CRC and a repeated name, and the unit test caught both.
+  - `test/saves/contract.ts`: ten scenarios, run against Docker RomM 5.2.0 (`contract.real.ts`, in `test:saves`) and against the fake (`contract-fake.test.ts`, in `npm test`).
+- Evidence: `contract.real.ts` 10/10 against Docker RomM 5.2.0 on the VM; `contract-fake.test.ts` 10/10; `fake-saves.test.ts` 2/2. The contract's first run against Docker failed 2 of 7. The cause was the contract, not the fake: the app registers with `allow_existing`, so RomM gave every client on one host the same device. The contract now registers each device itself. Fault injection on the fake: dropping the slot's 409 fails one scenario; recording a non-optimistic download fails two; a no-slot upload filed as a new row fails two; the same-hash shortcut taken under `overwrite` fails one; a no-slot 409 without a record fails one. `scripts/agent/check.sh` green.
+- Evaluator: FAIL on c5b5bc8, for one reason: the shared contract left out uploads under no slot. The engine makes those for every save file but a game's primary one (`savepairing.ts`), and only the fake's own unit test covered them. Those two scenarios moved into the contract, with a third, a "keep this device's save" whose bytes match an older copy, which its fault injection had shown nothing caught. Its 15 mutations otherwise all failed the contract. Its note on a misplaced doc comment in `server.ts` was taken. Its other note: the fake's device registration ignores `allow_existing`, which matters once part 3 points the app's own registration at it. Second run: (on the PR).
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet. M2-20 stays false.
+- Next: M2-20 part 2: negotiate and sync sessions in the fake, added to the contract. Then part 3: the bundle (the fake built into one file with the app's hash, run with the AppImage's Electron as Node, stopped on exit and in `--cleanup`). Then part 4: device check `saves.fake-server` and READY-FOR-DEVICE.
