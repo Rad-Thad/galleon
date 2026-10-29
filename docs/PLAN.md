@@ -292,7 +292,7 @@ The program and its operation are documented in [tools/device-bridge/README.md](
    - **screenshot:** `gamescopectl screenshot` into `RESULTS_DIR/shots/` when available;
    - **sampling:** governor, clocks, GPU frequency and battery every 5 s into `logs/power.csv`.
 9. **Stop.** At the end of the budget write `stop` into the handshake folder and wait 30 s; then SIGTERM, and after a grace SIGKILL, only the pids `launch.sh` recorded. The run is then `partial`.
-10. **Collect.** Merge the app's `summary.json` with the harness checks (`harness.run`, `safety.owner-state`, `install.script`, and `argosy.shapes` or `saves.fake-server` when requested) into `RESULTS_DIR/summary.json`; copy logs and screenshots; apply the same sanitiser rules as the bridge.
+10. **Collect.** Merge the app's `summary.json` with the harness checks (`harness.run`, `safety.owner-state`, `install.script`, and `argosy.shapes` (while `test/device/harness-request.json` lists it) or `saves.fake-server` when requested) into `RESULTS_DIR/summary.json`; copy logs and screenshots; apply the same sanitiser rules as the bridge.
 11. **Restore.** Delete every downloaded ROM and payload copy, stop the fake RomM, restore the power profile, the volume and any changed emulator config, remove `current.json`, relaunch the owner's Galleon if step 8 closed it, leave Steam at its library, compare the owner-state manifest (any difference fails `safety.owner-state`), and exit.
 
 **Rules for `run.sh` and everything it starts:** never `pgrep -f` or any match on command lines (it once killed an SSH session); signal only pids it recorded; never write `/usr` or `/etc`; never write to the RomM server; stay within the budget; any controller input aborts (the app watches and exits 20 through `run.sh`).

@@ -30,12 +30,12 @@ class MergeSummaryTest(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
-    def write_harness(self, status="complete", owner="pass"):
+    def write_harness(self, status="complete", owner="pass", extra=()):
         with open(self.harness, "w", encoding="utf-8") as handle:
             json.dump({"schema": 1, "sha": SHA, "version": "0.21.0", "status": status,
                        "reason": None, "startedAt": "2026-10-13T10:00:00Z",
                        "finishedAt": "2026-10-13T10:20:00Z",
-                       "checks": [check("harness.run"), check("safety.owner-state", owner)],
+                       "checks": [check("harness.run"), check("safety.owner-state", owner), *extra],
                        "notes": ["app: exited 0"]}, handle)
 
     def write_app(self, **fields):
@@ -180,6 +180,19 @@ class MergeSummaryTest(unittest.TestCase):
         self.assertEqual(merged["status"], "partial")
         self.assertIn("aborted by the player, reported for the harness's failed checks",
                       merged["notes"])
+
+    def test_an_abort_with_a_skipped_harness_check_is_still_an_abort(self):
+        # A skip found nothing wrong, so the retry the abort brings loses nothing.
+        self.write_harness(extra=[check("argosy.shapes", "skip", "no-importable-credentials")])
+        self.write_app(status="aborted-by-user", reason="aborted-by-user")
+        self.assertEqual(self.run_cli()[0], mergesummary.ABORTED_EXIT)
+        self.assertEqual(self.merged()["status"], "aborted-by-user")
+
+    def test_an_abort_with_a_failed_argosy_report_is_published_as_partial(self):
+        self.write_harness(extra=[check("argosy.shapes", "fail", "the server could not be read")])
+        self.write_app(status="aborted-by-user")
+        self.assertEqual(self.run_cli()[0], 0)
+        self.assertEqual(self.merged()["status"], "partial")
 
     def test_it_refuses_a_short_sha_or_another_run_s_harness_summary(self):
         self.write_app()

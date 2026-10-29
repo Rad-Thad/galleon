@@ -4133,3 +4133,44 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet; M2-02 stays false.
 - Next: M2-02 part 2c: the run.sh step (the script's stderr kept out of results, its report into `logs/`), and `argosy.shapes` in the harness summary (pass with a report, skip with `no-importable-credentials`, fail by step and code), with its run.sh tests in `scripts/device-bundle.test.ts`; then READY-FOR-DEVICE M2-02.
+
+## 2026-10-29 07:26 UTC session 0178hDCD68HLYq8ZtoN2Qby7 (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. No lock: #379's claim was last updated over three hours earlier, with #382 open. `init.sh` stopped at Docker; `npm ci` and `npx install-electron` by hand. Nothing here needs Docker RomM.
+- Previous unit: #382 (M2-02 part 2b) merged at cefe7c1. Its first arm64 leg died at the Docker Hub pull (network unreachable) before any test ran. It was re-run once and passed. CI wall time: x64 9:27, arm64 2:28 (the re-run).
+- Worked on: M2-02 part 2c (tracking issue #379), acceptance line 3, device check `argosy.shapes`.
+- Result: PR (this one).
+  - `test/device/run.sh`: while `test/device/harness-request.json` lists `argosy.shapes`, run.sh runs `argosy-shapes.py report` with the test home's imported sign-in. It runs under `timeout` (`ARGOSY_SHAPES_SECONDS`) and before the app's budget is counted. It publishes `logs/argosy-shapes.json` and reports the check:
+    - pass: a report was written;
+    - skip: `no-importable-credentials`, or no test home;
+    - fail: the server could not be read, the report did not finish in time, or the script stopped with an error.
+  - The script's stdout and stderr go to `$GALLEON_TEST_DIR/argosy-shapes.err`, never into the results.
+  - `mergesummary.py`: an aborted run is published as partial only when a harness check failed. A skip found nothing wrong. `safety.owner-state` is skipped only when `harness.run` fails.
+  - The request file is how the agent stops the reads once SPEC.md has been checked against a report.
+- Evidence: `scripts/device-bundle.test.ts` 63/63, with four new tests against a loopback fake RomM:
+  - GET only, and the report published;
+  - a server error;
+  - the script's traceback kept on the device;
+  - a request without the check reads nothing.
+
+  No published file names the port or the token. Sending stderr to `harness.log` fails the traceback test. `test_mergesummary.py` has two new tests; putting the old rule back fails one. `python3 -B -m unittest discover -s test/device` OK. `scripts/agent/check.sh` green.
+
+- Evaluator: FAIL on 732f204 for one reason: this entry was missing. It found no code issue. Its fault injections were the old merge rule and a timed-out report: the timeout gave a valid summary with `the report did not finish in time`. Its note on the comment was taken: the report's time comes out of the app's share. Its other notes:
+  - no CI test covers the timeout branch;
+  - no controller watch runs during the report, which only reads the network;
+  - `passes` flips only after the SPEC.md PR, not on the check's pass alone.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: READY-FOR-DEVICE M2-02. M2-02 stays false until a device run reports `argosy.shapes` passing and every difference from SPEC.md is resolved in a PR.
+- Next: Dependabot #384, #385, #386 (non-Electron). #383 (Electron 45, a major) needs `shots:nova` looked at and the release notes read; then the next feature from `next.mjs`.
+
+## 2026-10-29 08:06 UTC session 0178hDCD68HLYq8ZtoN2Qby7 (hourly heartbeat, second unit)
+
+- Device results: unchanged since the entry above. No lock.
+- Previous unit: #387 (M2-02 part 2c) merged at 2c7aff3. CI wall time (its PR run on dce80e8): x64 9:23, arm64 0:58. #379's claim released; it stays open for the device run and the SPEC.md PR.
+- Worked on: Dependabot triage (CLAUDE.md rule 8, docs/MAINTENANCE.md "Other dependencies").
+- Result: merged #386 (happy-dom 21.0.3 -> 21.0.4) at e45f509, #385 (runtime: lucide-react 1.59.0 -> 1.61.0) at 56c73f4 and #384 (tooling: oxlint 1.88.0 -> 1.89.0) at d2f4718. Each touched only its own package.json line and lockfile entries, so they squash-merged onto `main` without conflict. #383 (Electron 44.9.0 -> 45.0.0, electron-builder) is held: it is a major, so MAINTENANCE.md step 7 needs `shots:nova` looked at and the release notes read for removed switches. The device has been away since 2026-10-25, so step 6 could not follow it soon.
+- Evidence: both `build` legs green on each head (based on 5e9c0e7). The evaluator ran `scripts/agent/check.sh` green on each branch. Licence guard: all permitted; lucide-react 1.61.0 is ISC. All 67 icons the renderer imports exist in 1.61.0, and `npm run build` is green. `docs/DEPENDENCIES.md` records none of these.
+- Evaluator: PASS (#384), PASS (#385), PASS (#386). Its note: with a worktree under `os.tmpdir()`, `savewriter.test.ts` "only staging can be discarded this way" fails because the path is under tmpdir, and a very long `TMPDIR` hangs the core-socket test. Neither happens in CI or a normal checkout.
+- CI wall time: as in Evidence; this docs-only PR's own are recorded in the next entry.
+- Device / acceptance: none.
+- Stopped: the run's time is up. Next: #383 (Electron 45: release notes, `shots:nova`), then the next feature from `next.mjs`.
