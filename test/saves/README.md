@@ -102,3 +102,22 @@ token appears in it. Saves and devices are listed per user, so the other files
 here, which change saves of the same games at the same time, do not reach it.
 It also holds what the script relies on: an uploaded save's `origin_device_id`
 is the id registration returned.
+
+## The save contract
+
+`contract.ts` is one set of scenarios for the save calls the engine makes:
+a slotted upload stored under its stamped name with RomM's hash and read back
+byte for byte, a zip's hash over its entries, another device's upload refused
+with a 409 until it holds the slot's newest save (a download with
+`optimistic=false` is not holding it; `/downloaded` is), the player's "keep
+this device's save" going in regardless, identical bytes adding no copy, a
+listing that names a device reading its records, and deletion.
+
+It runs against two servers: Docker RomM 5.2.0 as `contract.real.ts` (in
+`npm run test:saves`), and the fake RomM the device bundle carries
+(`test/device/fake-romm/`, M2-20) as `contract-fake.test.ts` (in `npm test`).
+The fake is what the engine meets on the Nova while the owner's server may
+only be read, so a behaviour of RomM's that the fake lacks, or one it invents,
+fails here first. Each scenario registers devices of its own (the app's own
+registration would make every client on one host the same device) and empties
+its own slot afterwards.
