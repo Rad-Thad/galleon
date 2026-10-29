@@ -4228,3 +4228,20 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet. M2-20 stays false.
 - Next: M2-20 part 3: the bundle (the fake built into one file with the app's hash, run with the AppImage's Electron as Node, stopped on exit and in `--cleanup`; registration honouring `allow_existing`). Then part 4: device check `saves.fake-server` and READY-FOR-DEVICE.
+
+## 2026-10-29 11:30 UTC session 0178hDCAp3LcTzQ76HqYPW3T (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. No lock. `init.sh` stopped at Docker; `dockerd` started by hand, then `npm ci`.
+- Previous unit: #392 (M2-20 part 2) merged at 37eba2a; main green.
+- Worked on: M2-20 part 3a (tracking issue #390), acceptance lines 1 and 2: the fake as a program in the device bundle.
+- Result: PR #393.
+  - `test/device/fake-romm/main.ts`: token from `FAKE_ROMM_TOKEN`, `--rom-ids`, `--scratch`, `--ready` (`{ baseUrl, pid }`, written by rename for run.sh to record the pid); SIGTERM or SIGINT closes it and exits 0.
+  - `scripts/device-bundle.mjs`: esbuild (already a devDependency) builds it into `fake-romm/fake-romm.cjs`, the app's hash and yauzl inside; the `.ts` sources stay out of the bundle. CommonJS because yauzl is.
+  - `test/device/fake-romm/server.ts`: registration as RomM 5.2.0's `endpoints/device.py` decides (read as specification): the fingerprint is the MAC address alone, else IP address and platform, else hostname and platform; a match is a 200 with that device under `allow_existing`, else a 409 whose `detail` carries `device_exists` and the id.
+  - `test/saves/contract.ts`: a registration scenario (15 in all).
+  - `package.json`: coverage leaves out `fake-romm.cjs`, the built copy the bundle test runs from a temp folder; its sources are covered in-process.
+- Evidence: `contract-fake.test.ts` 15/15. The bundle test runs `fake-romm.cjs` from the unpacked bundle with no node_modules near it: 401 without the token, a zip upload hashed as the app does, exit 0 on SIGTERM with the port closed. By hand under Electron 45 with `ELECTRON_RUN_AS_NODE=1`: heartbeat 5.2.0, stopped on SIGTERM. `scripts/agent/check.sh` green. Docker Hub answered 429 again, so the Docker side is CI's `test:saves`. Its first run (190dab7) failed the new scenario: RomM puts the 409's id under `detail`, which the fake did not. The contract caught it, which is its point. RomM's source then showed the fingerprint order too; both fixed.
+- Evaluator: (on the PR).
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet. M2-20 stays false.
+- Next: M2-20 part 3b: run.sh extracts the AppImage (`--appimage-extract` into the test folder), starts `fake-romm.cjs` with its Electron as Node and a fresh token, records the pid from the ready file, and stops it on exit and in `--cleanup`. Then part 4: device check `saves.fake-server` and READY-FOR-DEVICE.

@@ -610,6 +610,7 @@ export function saveContract(server: string, find: () => Promise<ContractTarget>
 
     const refusedOne = await register(false)
     assert.equal(refusedOne.status, 409)
-    assert.equal(((await refusedOne.json()) as { device_id: string }).device_id, id)
+    const { detail } = (await refusedOne.json()) as { detail: { error: string; device_id: string } }
+    assert.deepEqual([detail.error, detail.device_id], ['device_exists', id])
   })
 }

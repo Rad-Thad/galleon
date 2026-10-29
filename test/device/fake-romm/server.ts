@@ -38,6 +38,7 @@ interface Device {
   name: string | null
   platform: string | null
   mac_address: string | null
+  ip_address: string | null
   hostname: string | null
   client_device_identifier: string | null
   created_at: string
@@ -47,6 +48,7 @@ interface Registration {
   name?: string | null
   platform?: string | null
   mac_address?: string | null
+  ip_address?: string | null
   hostname?: string | null
   client_device_identifier?: string | null
   allow_existing?: boolean
@@ -54,21 +56,24 @@ interface Registration {
 }
 
 /**
- * The device a registration names, as RomM finds it: by the fingerprint of
- * MAC address, hostname and platform, and only when there is a MAC address or
- * a hostname to go on. This is what makes the app's `allow_existing`
- * registration hand a machine its own device back rather than a second one.
+ * The device a registration names, as RomM 5.2.0 finds it: by MAC address
+ * alone when there is one, else by IP address and platform, else by hostname
+ * and platform. This is what hands the app, which registers with
+ * `allow_existing`, its own device back rather than a second one.
  */
 function sameMachine(devices: readonly Device[], asked: Registration): Device | undefined {
-  const mac = asked.mac_address ?? null
-  const host = asked.hostname ?? null
-  if (mac === null && host === null) return undefined
-  return devices.find(
-    (device) =>
-      device.mac_address === mac &&
-      device.hostname === host &&
-      device.platform === (asked.platform ?? null)
-  )
+  const { mac_address: mac, ip_address: ip, hostname: host, platform } = asked
+  if (mac) {
+    const found = devices.find((device) => device.mac_address === mac)
+    if (found) return found
+  }
+  if (ip && platform) {
+    return devices.find((device) => device.ip_address === ip && device.platform === platform)
+  }
+  if (host && platform) {
+    return devices.find((device) => device.hostname === host && device.platform === platform)
+  }
+  return undefined
 }
 
 function body(req: IncomingMessage): Promise<Buffer> {
@@ -136,7 +141,17 @@ export async function startFakeRomm(options: FakeRommOptions): Promise<FakeRomm>
       const asked = JSON.parse(sent.toString() || '{}') as Registration
       const existing = asked.allow_duplicate ? undefined : sameMachine(devices, asked)
       if (existing && asked.allow_existing === false) {
-        return json(res, { error: 'device_exists', device_id: existing.id }, 409)
+        return json(
+          res,
+          {
+            detail: {
+              error: 'device_exists',
+              message: 'A device with this fingerprint already exists',
+              device_id: existing.id
+            }
+          },
+          409
+        )
       }
       if (existing) {
         return json(res, {
@@ -150,6 +165,7 @@ export async function startFakeRomm(options: FakeRommOptions): Promise<FakeRomm>
         name: asked.name ?? null,
         platform: asked.platform ?? null,
         mac_address: asked.mac_address ?? null,
+        ip_address: asked.ip_address ?? null,
         hostname: asked.hostname ?? null,
         client_device_identifier: asked.client_device_identifier ?? null,
         created_at: new Date().toISOString()
