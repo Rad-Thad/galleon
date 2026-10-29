@@ -115,10 +115,13 @@ def _get(base, token, path, query=None, step="read"):
     if not set(query) <= set(QUERY_KEYS):
         raise ValueError("a query key outside QUERY_KEYS")
     url = base + path + ("?" + urllib.parse.urlencode(query) if query else "")
-    request = urllib.request.Request(url, method="GET", headers={"Authorization": f"Bearer {token}"})
     try:
+        request = urllib.request.Request(url, method="GET", headers={"Authorization": f"Bearer {token}"})
         with _OPENER.open(request, timeout=TIMEOUT_SECONDS) as response:
             return response.read(MAX_SAVE_BYTES + 1)
+    except ValueError:
+        # Its message holds the address, which is never written anywhere.
+        raise ReadError(step, "bad-url") from None
     except urllib.error.HTTPError as error:
         raise ReadError(step, error.code) from None
     except (urllib.error.URLError, OSError) as error:

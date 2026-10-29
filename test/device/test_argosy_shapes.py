@@ -288,6 +288,15 @@ class ReportTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertEqual(json.loads(raw)["error"], {"step": "devices", "status": 404})
 
+    def test_an_address_that_is_not_a_url_is_reported_without_it(self):
+        signin.write_test_home(self.home, {"baseUrl": "owner-host.example", "authMode": "token"},
+                               {"clientToken": TOKEN, "accessToken": None, "refreshToken": None,
+                                "deviceId": None})
+        code, raw = self.run_report()
+        self.assertEqual(code, 1)
+        self.assertEqual(json.loads(raw)["error"], {"step": "devices", "status": "bad-url"})
+        self.assertNotIn("owner-host", raw)
+
     def test_without_a_sign_in_it_is_a_skip(self):
         os.remove(os.path.join(self.home, "config", "credentials.bin"))
         code = shapes.main(["report", "--home", self.home, "--out", self.out])
