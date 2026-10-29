@@ -4174,3 +4174,21 @@ Lines the tooling reads (exact forms):
 - CI wall time: as in Evidence; this docs-only PR's own are recorded in the next entry.
 - Device / acceptance: none.
 - Stopped: the run's time is up. Next: #383 (Electron 45: release notes, `shots:nova`), then the next feature from `next.mjs`.
+
+## 2026-10-29 08:47 UTC session cse_0178hDCCAgqCEt7kBnej1Qi2 (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. No lock. `init.sh` stopped at Docker; nothing here needed it.
+- Previous unit: #388 (docs) merged at 862f991; main green.
+- Worked on: #383, Dependabot's `electron` group (docs/MAINTENANCE.md "Electron updates").
+- Result: merged #383 at ba55763. ELECTRON 44.9.0 -> 45.0.0 merged at ba55763, waiting for device. electron-builder 26.15.3 -> 26.18.0 rode along.
+  - Step 1's baseline: `results/1ac4cb4` is `complete`, and 1ac4cb4 ships 44.9.0.
+  - Release notes read against the code. The preload imports only `contextBridge` and `ipcRenderer`, so losing `Buffer`, `setImmediate`, `events`, `timers` and `url` there changes nothing. The two switches in `src/main/index.ts` are not removed. `setWindowOpenHandler` always denies and the permission handler refuses everything, so the `window.open` process change and the `display-capture` rename change nothing. The only `openSync` opens save files on disk, not inside the asar.
+- Evidence: `scripts/agent/check.sh` green on 1bb18c2 with Electron 45.0.0. `npm run test:app` 288/288. `npm run shots:nova` 28 screens, each pixel-compared with ImageMagick against the same shots from main on 44.9.0. The only differences are the clock, the commit hash, the port, temp paths, save timestamps and free space. I opened `library.png` and the diffs of `home`, `report`, `game-saves-states` and `settings-general`.
+- CI wall time: x64 9:48, arm64 1:04 (#383 on 1bb18c2).
+- Evaluator: PASS on 1bb18c2. It checked the baseline, licences (MIT, BSD-3-Clause) and both legs, and corrected my first claim that src/main had no window-open or permission handler (above).
+- Device / acceptance: none. Step 6 at the first device run on a nightly built from ba55763 or later: revert first thing if "Newly failing" names any check, otherwise record `ELECTRON 45.0.0 device:<sha> no new failures`.
+- Next: the next feature from `next.mjs`.
+- Notes:
+  - Electron 45 deprecates the synchronous `safeStorage.decryptString` (`src/main/store.ts`), and Electron 46 removes it. Move to `decryptStringAsync` before taking 46, or sign-in breaks.
+  - As root, Electron 45 refuses even `--version` without `--no-sandbox`. `scripts/headless.sh` then falls back to borrowing nixpkgs' Electron. On the VM, run `test:app` and `shots:nova` with `ELECTRON_EXEC_PATH` set to a `--no-sandbox` wrapper. CI and the Nova are not root.
+  - This entry's PR (#389) first went up without a `Feature:` line, and the x64 leg failed at "Check the pull-request body". Dependabot-triage PRs carry `Feature: none (<why>)`, like any work outside features.json.
