@@ -4088,6 +4088,6 @@ Lines the tooling reads (exact forms):
   - The app runs it, not run.sh as the catalogue first said: the writer under test is the app's own TypeScript, and run.sh has only Python. TESTING.md's row and PLAN.md 5.3 step 10 updated; run.sh asks for it.
 - Evidence: `selftestshortcut.test.ts` 10/10 (every reason reached through a faulty writer or upsert; originals' bytes and mtime unchanged; nothing identifying published; a stopped run removes the copies). The built app's test (`test/app/selftest.test.ts`, "steam.shortcut-roundtrip changes only copies…") passes under Xvfb. `scripts/agent/check.sh` green.
 - Evaluator: PASS on abd128b (check.sh, unit and app tests, device and bridge Python suites re-run). Its notes: this entry was owed; the Settings button is description, not acceptance.
-- CI wall time: recorded in the next entry (this entry rides the PR).
+- CI wall time: recorded in the next entry (this entry rides the PR). The first x64 leg failed at `pr-body.mjs` only: the body had no `Feature:` line.
 - Device / acceptance: READY-FOR-DEVICE M1-29 (all four lines met in CI; `steam.shortcut-roundtrip` waits on the device). M1-29 stays false.
 - Next: the Settings button M1-29's description names (when Steam is not running), then the next feature from `next.mjs`.
