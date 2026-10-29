@@ -4212,3 +4212,18 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet. M2-20 stays false.
 - Next: M2-20 part 2: negotiate and sync sessions in the fake, added to the contract. Then part 3: the bundle (the fake built into one file with the app's hash, run with the AppImage's Electron as Node, stopped on exit and in `--cleanup`). Then part 4: device check `saves.fake-server` and READY-FOR-DEVICE.
+
+## 2026-10-29 10:27 UTC session 0178hDCiRy4J9qqi2XDfWus (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. No lock. `init.sh` stopped at Docker; `dockerd` started by hand, then `npm ci`.
+- Previous unit: #391 (M2-20 part 1) merged at 18e0efc. CI wall time (its PR run): x64 9:59, arm64 2:33.
+- Worked on: M2-20 part 2 (tracking issue #390), acceptance line 2: negotiate and sync sessions.
+- Result: PR (this one).
+  - `test/device/fake-romm/saves.ts`: `negotiate`, as RomM 5.2.0 decides (SPEC.md section 5, and RomM's `endpoints/sync.py` and `handler/sync/comparison.py` read as specification). It pairs on game and slot against each slot's newest copy across the library, never under no slot. The device's record is looked up for that newest copy, so after another device's upload a device has no record and the newer side wins.
+  - `test/device/fake-romm/sync.ts`: a negotiate's session. A later negotiate by the same device cancels it; completing an ended session is a 400, an unknown one a 404. Play rides the completion: one span per device, game and start; a span ending too far ahead is an `error` result; one ending before it starts is a 422 for the whole request.
+  - `test/saves/contract.ts`: four new scenarios (14 in all), run against the fake and Docker RomM 5.2.0.
+- Evidence: `contract-fake.test.ts` 14/14. Fault injection on the fake, each failing the contract: no record path; saves under no slot paired (it first survived, so the scenario now puts a same-bytes save under no slot on the server); no cancel on negotiate; no play dedupe; a held, unmentioned save offered again; no conflict at the same time; the oldest copy paired; an ended session a 404. `scripts/agent/check.sh` green. Docker RomM could not start on the VM (Docker Hub answered 429 for the MariaDB image), so the contract's Docker side is proven by the x64 leg's `test:saves` step, which the `test/saves/` change turns on.
+- Evaluator: (on the PR).
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet. M2-20 stays false.
+- Next: M2-20 part 3: the bundle (the fake built into one file with the app's hash, run with the AppImage's Electron as Node, stopped on exit and in `--cleanup`; registration honouring `allow_existing`). Then part 4: device check `saves.fake-server` and READY-FOR-DEVICE.

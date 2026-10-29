@@ -3,9 +3,9 @@
  *
  * Only on 127.0.0.1 and on a port the system picks, so nothing on the Nova's
  * network can reach it and no two runs meet. It answers the calls the save
- * engine makes, with RomM 5.2.0's behaviour from `saves.ts`; anything else is
- * a 404, so a call the engine starts making shows up as a failure here before
- * it shows up on the owner's server.
+ * engine makes, with RomM 5.2.0's behaviour from `saves.ts` and `sync.ts`;
+ * anything else is a 404, so a call the engine starts making shows up as a
+ * failure here before it shows up on the owner's server.
  */
 import { randomUUID } from 'node:crypto'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
@@ -13,7 +13,8 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import type { AddressInfo } from 'node:net'
 import { join } from 'node:path'
 import { localContentHash } from '../../../src/main/savehash.ts'
-import { SaveStore } from './saves.ts'
+import { SaveStore, type ClientSave } from './saves.ts'
+import { SyncSessions, type Completion } from './sync.ts'
 
 export const VERSION = '5.2.0'
 const USER_ID = 1
@@ -86,6 +87,7 @@ export async function startFakeRomm(options: FakeRommOptions): Promise<FakeRomm>
   const saves = new SaveStore(USER_ID)
   const devices: Device[] = []
   const roms = new Set(options.romIds)
+  const sessions = new SyncSessions(USER_ID, roms)
 
   async function answer(req: IncomingMessage, res: ServerResponse): Promise<void> {
     const url = new URL(req.url ?? '/', 'http://fake')
@@ -141,6 +143,39 @@ export async function startFakeRomm(options: FakeRommOptions): Promise<FakeRomm>
     if (path === '/api/saves/delete' && req.method === 'POST') {
       const { saves: ids = [] } = JSON.parse(sent.toString() || '{}') as { saves?: number[] }
       return json(res, saves.delete(ids))
+    }
+
+    if (path === '/api/sync/negotiate' && req.method === 'POST') {
+      const asked = JSON.parse(sent.toString() || '{}') as {
+        device_id?: string | null
+        saves?: ClientSave[]
+      }
+      if (!asked.device_id) return json(res, { detail: 'device_id is required' }, 400)
+      const holder = asked.device_id
+      if (!devices.some((device) => device.id === holder)) {
+        return json(res, { detail: `Device with ID ${holder} not found` }, 404)
+      }
+      const operations = saves.negotiate(holder, asked.saves ?? [])
+      const total = (action: string): number =>
+        operations.filter((op) => op.action === action).length
+      return json(res, {
+        session_id: sessions.open(holder, operations.length - total('no_op')),
+        operations,
+        total_upload: total('upload'),
+        total_download: total('download'),
+        total_conflict: total('conflict'),
+        total_no_op: total('no_op')
+      })
+    }
+    const complete = /^\/api\/sync\/sessions\/(\d+)\/complete$/.exec(path)
+    if (complete && req.method === 'POST') {
+      const result = sessions.complete(
+        Number(complete[1]),
+        JSON.parse(sent.toString() || '{}') as Completion
+      )
+      return result.status === 200
+        ? json(res, result.body)
+        : json(res, { detail: result.detail }, result.status)
     }
 
     const content = /^\/api\/saves\/(\d+)\/content(?:\/[^/]*)?$/.exec(path)
