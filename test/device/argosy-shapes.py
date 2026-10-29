@@ -54,10 +54,17 @@ HARDCORE_MAGIC = b"ARGOSY\x01\x00"
 # File names Argosy gives a save that are not the game's own (SPEC.md 3.2).
 FIXED_NAMES = ("autosave", "argosy-latest")
 
-# An id inside an archive: a PS2 or PSP serial (with its region prefix or save suffix), a GameCube or Wii game id, a
-# hex title id, a memory card. Anything else may be a title and is replaced.
-ID_PART = re.compile(r"^(?:(?:B[AEI])?[A-Z]{4}[-_]?\d{5}(?:DATA)?\d*|(?=[A-Z0-9]*\d)[A-Z0-9]{6}|[0-9a-fA-F]{8,16}"
-                     r"|Mcd\d{3}|card\d*|DATA|SAVEDATA|title|private|wii)$")
+# An id inside an archive: a PS2 or PSP serial (with its region prefix or save suffix), a
+# hex title id, a memory card, a folder name Argosy's archives use. Anything else may be a
+# title and is replaced.
+ID_PART = re.compile(r"^(?:(?:B[AEI])?[A-Z]{4}[-_]?\d{5}(?:DATA)?\d*|[0-9a-fA-F]{8,16}"
+                     r"|Mcd\d{3}|card\d*|DATA|data|SAVEDATA|title|private|wii)$")
+# A GameCube or Wii game id (console, game, region, maker), kept only as the
+# root folder of a save on those systems: that is where SPEC.md section 12
+# asks which id names a save, while six letters and digits anywhere else
+# could as well be a title.
+DISC_ID = re.compile(r"^[DGHPRSUW][A-Z0-9]{2}[ADEFHIJKPRSUWXYZ](?=[A-Z0-9]?\d)[A-Z0-9]{2}$")
+DISC_ID_PLATFORMS = ("gc", "ngc", "wii")
 # The only query keys a request may carry.
 QUERY_KEYS = ("platform_id", "rom_id")
 # A serial followed by a suffix the game chose, which may be a word of its
@@ -187,15 +194,16 @@ def name_pattern(save, slot, channels):
     return base + (" [<timestamp>]" if tagged else "") + (f".{extension}" if dot else "")
 
 
-def entry_pattern(name):
+def entry_pattern(name, platform=None):
     """An archive entry's path with each part that is not an id replaced."""
     parts = []
-    for part in name.split("/"):
+    for index, part in enumerate(name.split("/")):
         stem, dot, extension = part.rpartition(".")
         if not dot or not EXTENSION.match(extension):
             stem, dot, extension = part, "", ""
         suffixed = SERIAL_SUFFIX.match(stem)
-        if ID_PART.match(stem) or not stem:
+        disc_id = index == 0 and platform in DISC_ID_PLATFORMS and DISC_ID.match(stem)
+        if ID_PART.match(stem) or disc_id or not stem:
             kept = part
         elif suffixed:
             kept = suffixed.group(1) + "<suffix>" + (f".{extension}" if dot else "")
@@ -205,7 +213,7 @@ def entry_pattern(name):
     return "/".join(parts)
 
 
-def shape_of(save, data, channels):
+def shape_of(save, data, channels, platform=None):
     """What one save is made of, from its row and, when read, its bytes."""
     slot = save.get("slot")
     extension = save.get("file_extension")
@@ -235,7 +243,7 @@ def shape_of(save, data, channels):
     if is_zip:
         try:
             with zipfile.ZipFile(io.BytesIO(data)) as archive:
-                shape["entries"] = [{"name": entry_pattern(info.filename), "sizeBytes": info.file_size,
+                shape["entries"] = [{"name": entry_pattern(info.filename, platform), "sizeBytes": info.file_size,
                                      "dir": info.is_dir()} for info in archive.infolist()]
         except (zipfile.BadZipFile, OSError):
             shape["entries"] = None
@@ -269,7 +277,7 @@ def report(base, token):
                     data = _get(base, token, f"/api/saves/{int(save['id'])}/content", step="save-content")
                     if len(data) > MAX_SAVE_BYTES:
                         data = None
-                shapes.append(shape_of(save, data, channels))
+                shapes.append(shape_of(save, data, channels, platform.get("slug")))
                 data = None
             slots = {}
             for shape in shapes:

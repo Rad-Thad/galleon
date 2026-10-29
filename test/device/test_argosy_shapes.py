@@ -7,6 +7,7 @@ import json
 import os
 import re
 import shutil
+import sys
 import tempfile
 import threading
 import unittest
@@ -15,6 +16,9 @@ import zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import signin
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "tools", "device-bridge"))
+import galleon_device_bridge as bridge  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCRIPT = os.path.join(HERE, "argosy-shapes.py")
@@ -45,6 +49,8 @@ def _zip_hash(entries):
 RAW = b"\x00\x01SRAM" * 100 + shapes.HARDCORE_MAGIC
 PS2_ENTRIES = [("BASLUS-20312/icon.sys", b"i" * 64), (f"BASLUS-20312/{TITLE}.bin", b"s" * 128)]
 PS2 = _zip(PS2_ENTRIES)
+WII_ENTRIES = [("RMGE01/data/banner.bin", b"b" * 32), (f"RMGE01/data/{TITLE}.dat", b"d" * 48)]
+WII = _zip(WII_ENTRIES)
 
 
 class FakeRomm:
@@ -61,7 +67,8 @@ class FakeRomm:
         ]
         self.platforms = [{"id": 1, "slug": "snes", "name": "Super Nintendo"},
                           {"id": 2, "slug": "ps2", "name": "PlayStation 2"},
-                          {"id": 3, "slug": "gba", "name": "Game Boy Advance"}]
+                          {"id": 3, "slug": "gba", "name": "Game Boy Advance"},
+                          {"id": 4, "slug": "wii", "name": "Wii"}]
         row = lambda id, rom, name, data, origin, slot="autosave", emulator="snes9x", hashed=None: {
             "id": id, "rom_id": rom, "file_name": name, "file_extension": name.rsplit(".", 1)[-1],
             "file_size_bytes": len(data), "updated_at": "2026-10-01T10:00:00Z", "emulator": emulator,
@@ -81,12 +88,15 @@ class FakeRomm:
             10: row(10, 21, "autosave.zip", PS2, PAIRED, slot="autosave", emulator="nethersx2"),
             # No device at all, which another device's empty identifier must not match.
             11: row(11, 21, "autosave.zip", PS2, None, slot="autosave", emulator="nethersx2"),
+            12: row(12, 41, f"{TITLE}.zip", WII, argosy, slot="autosave", emulator="dolphin",
+                    hashed=_zip_hash(WII_ENTRIES)),
         }
         # Three more SNES games, so one is past the per-system limit.
         for n, rom in enumerate((13, 14, 15), start=5):
             self.saves[n] = row(n, rom, "autosave.srm", RAW, argosy, slot=None)
-        self.content = {1: RAW, 2: RAW, 3: RAW, 4: PS2, 10: PS2, 11: PS2, 5: RAW, 6: RAW, 7: RAW, 8: RAW, 9: RAW}
-        self.platform_of = {11: 1, 12: 1, 13: 1, 14: 1, 15: 1, 21: 2}
+        self.content = {1: RAW, 2: RAW, 3: RAW, 4: PS2, 10: PS2, 11: PS2, 5: RAW, 6: RAW, 7: RAW, 8: RAW, 9: RAW,
+                        12: WII}
+        self.platform_of = {11: 1, 12: 1, 13: 1, 14: 1, 15: 1, 21: 2, 41: 4}
 
     def answer(self, method, path, query):
         self.requests.append((method, path, query))
@@ -165,11 +175,23 @@ class StaticTest(unittest.TestCase):
 
     def test_ids_are_kept_and_words_are_not(self):
         self.assertEqual(shapes.entry_pattern("BASLUS-20312ZELDA"), "BASLUS-20312<suffix>")
-        for kept in ("BASLUS-20312", "BESLES-5036601", "ULUS10041DATA00", "GALE01", "GZLE8P",
+        for kept in ("BASLUS-20312", "BESLES-5036601", "ULUS10041DATA00",
                      "0001000157414c45", "Mcd001", "card1", "title", "private"):
             self.assertEqual(shapes.entry_pattern(kept), kept, kept)
-        for word in ("ZELDA", "MARIOS", "Chrono Trigger", "facade", "cardigan", "Pokemon.sav"):
+        for word in ("ZELDA", "MARIOS", "ZELDA2", "MARIO64", "Chrono Trigger", "facade", "cardigan",
+                     "Pokemon.sav"):
             self.assertTrue(shapes.entry_pattern(word).startswith("<name>"), word)
+
+    def test_a_disc_id_is_kept_only_as_a_gamecube_or_wii_root(self):
+        for platform in ("ngc", "gc", "wii"):
+            for kept in ("GALE01", "GZLE8P", "RMGE01", "SB4P01"):
+                self.assertEqual(shapes.entry_pattern(f"{kept}/data/x.bin", platform),
+                                 f"{kept}/data/<name>.bin", (platform, kept))
+            for word in ("ZELDA2", "MARIOS", "GALEON", "SUPER1X"):
+                self.assertTrue(shapes.entry_pattern(word, platform).startswith("<name>"), word)
+        for platform in (None, "snes", "ps2", "psp"):
+            self.assertEqual(shapes.entry_pattern("GALE01/x.bin", platform), "<name>/<name>.bin", platform)
+        self.assertEqual(shapes.entry_pattern("title/GALE01", "wii"), "title/<name>")
 
     def test_a_name_without_a_real_extension_is_replaced_whole(self):
         channels = shapes.Channels()
@@ -229,8 +251,8 @@ class ReportTest(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertEqual(report["schema"], shapes.SCHEMA)
         self.assertEqual(report["argosyDevices"], 1)
-        self.assertEqual([s["platform"] for s in report["systems"]], ["snes", "ps2"])
-        snes, ps2 = report["systems"]
+        self.assertEqual([s["platform"] for s in report["systems"]], ["snes", "ps2", "wii"])
+        snes, ps2, wii = report["systems"]
         # Four SNES games hold an Argosy save (one only another device's); three are looked at.
         self.assertEqual(snes["gamesWithArgosySaves"], 4)
         self.assertEqual(len(snes["games"]), shapes.GAMES_PER_SYSTEM)
@@ -255,6 +277,24 @@ class ReportTest(unittest.TestCase):
         self.assertEqual([e["name"] for e in save["entries"]],
                          ["BASLUS-20312/<name>.sys", "BASLUS-20312/<name>.bin"])
         self.assertEqual([e["sizeBytes"] for e in save["entries"]], [64, 128])
+        save = wii["games"][0]["saves"][0]
+        self.assertEqual([e["name"] for e in save["entries"]],
+                         ["RMGE01/data/<name>.bin", "RMGE01/data/<name>.dat"])
+        self.assertIs(save["contentHashFollowsRomm"], True)
+
+    def test_the_bridge_s_sanitiser_publishes_it_unchanged(self):
+        # The bridge's own sanitiser, with this run's literals as the Nova's
+        # would name them: nothing withheld, and nothing in it redacted.
+        _, raw = self.run_report()
+        results = os.path.join(self.dir, "results")
+        published = os.path.join(self.dir, "published")
+        os.makedirs(os.path.join(results, "logs"))
+        shutil.copy(self.out, os.path.join(results, "logs", "argosy-shapes.json"))
+        redactor = bridge.Redactor([ACCOUNT, "argosy-phone", "127.0.0.1", "owner-host.example", TITLE])
+        outcome = bridge.sanitize_tree(bridge.Path(results), bridge.Path(published), redactor)
+        self.assertEqual(outcome, {"published": ["logs/argosy-shapes.json"], "dropped": [], "withheld": []})
+        with open(os.path.join(published, "logs", "argosy-shapes.json"), encoding="utf-8") as handle:
+            self.assertEqual(handle.read(), raw)
 
     def test_another_device_s_saves_are_not_read(self):
         _, raw = self.run_report()
