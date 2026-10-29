@@ -49,6 +49,65 @@ export interface Upload {
   overwrite: boolean
 }
 
+/** One save as a client reports it to negotiate (`ClientSaveState`). */
+export interface ClientSave {
+  rom_id: number
+  file_name: string
+  slot: string | null
+  emulator: string | null
+  content_hash: string | null
+  updated_at: string
+  file_size_bytes: number
+}
+
+export type SyncAction = 'upload' | 'download' | 'conflict' | 'no_op'
+
+/** One decision of a negotiate (`SyncOperationSchema`). */
+export interface SyncOperation {
+  action: SyncAction
+  rom_id: number
+  save_id: number | null
+  file_name: string
+  slot: string | null
+  emulator: string | null
+  reason: string
+  server_updated_at: string | null
+  server_content_hash: string | null
+}
+
+/**
+ * Microseconds since the epoch, as RomM compares times. A client's
+ * `updated_at` may carry more digits than `Date` keeps, and a time with no
+ * offset is UTC there. Not the engine's `instant`: that one's module needs
+ * Electron, and the fake runs under plain Node.
+ */
+function micros(iso: string): number {
+  const zoned = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(iso) ? iso : `${iso}Z`
+  const fraction = /T[\d:]+\.(\d+)/.exec(iso)?.[1] ?? ''
+  return Date.parse(zoned) * 1000 + Number(fraction.slice(3, 6).padEnd(3, '0'))
+}
+
+/**
+ * RomM's `compare_save_state`: equal hashes first, then which side moved
+ * since the device's record, and with no record the newer side.
+ */
+function compare(client: ClientSave, server: Save, synced: string | undefined): SyncAction {
+  if (client.content_hash && server.content_hash && client.content_hash === server.content_hash) {
+    return 'no_op'
+  }
+  const clientAt = micros(client.updated_at)
+  const serverAt = micros(server.updated_at)
+  if (synced !== undefined) {
+    const clientMoved = clientAt > micros(synced)
+    const serverMoved = serverAt > micros(synced)
+    if (clientMoved && serverMoved) return 'conflict'
+    if (clientMoved) return 'upload'
+    return serverMoved ? 'download' : 'no_op'
+  }
+  if (clientAt !== serverAt) return clientAt > serverAt ? 'upload' : 'download'
+  return client.content_hash === server.content_hash ? 'no_op' : 'conflict'
+}
+
 /** What an upload came to: the row RomM answers with, or its refusal. */
 export type UploadResult = { status: 200; save: Save } | { status: 409; detail: string }
 
@@ -192,6 +251,66 @@ export class SaveStore {
     if (!row) return null
     this.record(row.save, deviceId)
     return row.save
+  }
+
+  /**
+   * `POST /api/sync/negotiate`'s decisions, as RomM 5.2.0 makes them
+   * (docs/save-sync/SPEC.md section 5).
+   *
+   * Paired on game and slot against the newest save of each slot, across the
+   * whole library: 5.2.0 reads no `rom_ids`, so a device is offered every
+   * slotted save it has not held whatever game it asked about. A save under no
+   * slot never pairs. The order is RomM's: the client's saves as sent, then
+   * the server's it did not mention.
+   */
+  negotiate(deviceId: string, client: readonly ClientSave[]): SyncOperation[] {
+    const newest = new Map<string, Save>()
+    for (const { save } of this.rows.values()) {
+      if (save.slot === null) continue
+      const key = `${save.rom_id}\u0000${save.slot}`
+      const held = newest.get(key)
+      if (!held || micros(save.updated_at) > micros(held.updated_at)) newest.set(key, save)
+    }
+    const fromServer = (save: Save, action: SyncAction, reason: string): SyncOperation => ({
+      action,
+      rom_id: save.rom_id,
+      save_id: save.id,
+      file_name: save.file_name,
+      slot: save.slot,
+      emulator: save.emulator,
+      reason,
+      server_updated_at: save.updated_at,
+      server_content_hash: save.content_hash
+    })
+
+    const mentioned = new Set<number>()
+    const operations = client.map((local): SyncOperation => {
+      const save =
+        local.slot === null ? undefined : newest.get(`${local.rom_id}\u0000${local.slot}`)
+      if (!save) {
+        return {
+          action: 'upload',
+          rom_id: local.rom_id,
+          save_id: null,
+          file_name: local.file_name,
+          slot: local.slot,
+          emulator: local.emulator,
+          reason: 'no save on the server in this slot',
+          server_updated_at: null,
+          server_content_hash: null
+        }
+      }
+      mentioned.add(save.id)
+      const action = compare(local, save, this.syncs.get(save.id)?.get(deviceId))
+      return fromServer(save, action, `compared: ${action}`)
+    })
+    for (const save of newest.values()) {
+      if (mentioned.has(save.id)) continue
+      const synced = this.syncs.get(save.id)?.get(deviceId)
+      if (synced !== undefined && micros(save.updated_at) <= micros(synced)) continue
+      operations.push(fromServer(save, 'download', 'not held by this device'))
+    }
+    return operations
   }
 
   /** `POST /api/saves/delete`: the ids that were there. */

@@ -22,7 +22,7 @@ import { app } from 'electron'
 import { RommClient } from '../../src/main/romm/client.ts'
 import { RommError } from '../../src/main/romm/errors.ts'
 import type { Store } from '../../src/main/store.ts'
-import type { RommSave } from '../../src/shared/types/romm.ts'
+import type { RommSave, RommSyncOperation, RommSyncSave } from '../../src/shared/types/romm.ts'
 import { contentHash, zip } from './fixtures.mjs'
 
 /** A server the contract runs against, and a game on it to save for. */
@@ -99,6 +99,52 @@ async function nextSecond(): Promise<void> {
 function isConflict(error: unknown): boolean {
   return error instanceof RommError && error.status === 409
 }
+
+const refused =
+  (status: number) =>
+  (error: unknown): boolean =>
+    error instanceof RommError && error.status === status
+
+/** A time `seconds` after `iso`, as a client reporting a later change would. */
+const later = (iso: string, seconds: number): string =>
+  new Date(Date.parse(iso) + seconds * 1000).toISOString()
+
+/** How a device reports a save it holds to negotiate. */
+function reported(
+  romId: number,
+  slot: string | null,
+  hash: string,
+  updatedAt: string,
+  fileName = 'c.srm'
+): RommSyncSave {
+  return {
+    rom_id: romId,
+    file_name: fileName,
+    slot,
+    emulator: 'snes9x',
+    content_hash: hash,
+    updated_at: updatedAt,
+    file_size_bytes: 1024
+  }
+}
+
+/**
+ * A device's negotiate, cut down to the operations a scenario owns: 5.2.0
+ * answers for the whole library, and the other suites share the server.
+ */
+async function negotiate(
+  who: RommClient,
+  saves: RommSyncSave[],
+  owns: (op: RommSyncOperation) => boolean
+): Promise<{ sessionId: number; operations: RommSyncOperation[] }> {
+  const deviceId = await who.deviceId()
+  assert.ok(deviceId, 'the device registered')
+  const answer = await who.negotiate({ device_id: deviceId, saves })
+  return { sessionId: answer.session_id, operations: answer.operations.filter(owns) }
+}
+
+const actions = (operations: RommSyncOperation[]): string[] =>
+  operations.map((op) => `${op.action} ${op.save_id ?? '-'}`)
 
 export function saveContract(server: string, find: () => Promise<ContractTarget>): void {
   /** A slot of the scenario's own, emptied after it. */
@@ -335,5 +381,206 @@ export function saveContract(server: string, find: () => Promise<ContractTarget>
     const mine = file(t, randomBytes(1024), 'mine.srm')
     await assert.rejects(first.uploadSave(target.romId, mine, name, 'snes9x', null), isConflict)
     await first.uploadSave(target.romId, mine, name, 'snes9x', null, { keepThisDevice: true })
+  })
+
+  test(`${server}: negotiate pairs on game and slot, and never pairs a save under no slot`, async (t) => {
+    const { target, slot } = await setUp(t)
+    const { name: unslotted } = await setUpNamed(t)
+    const empty = fresh('empty')
+    const bytes = randomBytes(1024)
+    const uploader = await device(target)
+    const theirs = await uploader.uploadSave(target.romId, file(t, bytes), 'c.srm', 'snes9x', slot)
+    // The same bytes under no slot, which a save under no slot must not pair with.
+    await uploader.uploadSave(target.romId, file(t, bytes, 'u.srm'), unslotted, 'snes9x', null)
+
+    const now = new Date().toISOString()
+    const { operations } = await negotiate(
+      await device(target),
+      [
+        reported(target.romId, empty, md5(randomBytes(8)), now),
+        reported(target.romId, null, md5(bytes), now, unslotted)
+      ],
+      (op) => op.slot === slot || op.slot === empty || op.file_name === unslotted
+    )
+    assert.deepEqual(actions(operations), ['upload -', 'upload -', `download ${theirs.id}`])
+    assert.equal(operations[2].server_content_hash, md5(bytes))
+    assert.equal(operations[2].file_name, theirs.file_name)
+  })
+
+  test(`${server}: negotiate decides by what moved since the device's record`, async (t) => {
+    const { target, slot, inSlot } = await setUp(t)
+    // A time as RomM stores it: an upload's answer can carry more of the
+    // second than the row keeps, which would make that time newer than itself.
+    const listed = async (id: number): Promise<string> => {
+      const row = (await inSlot()).find((save) => save.id === id)
+      assert.ok(row, `save ${id} is listed`)
+      return row.updated_at
+    }
+    const first = await device(target)
+    const saved = await first.uploadSave(
+      target.romId,
+      file(t, randomBytes(1024)),
+      'c.srm',
+      'snes9x',
+      slot
+    )
+    const mine = (who: RommClient, saves: RommSyncSave[]) =>
+      negotiate(who, saves, (op) => op.slot === slot)
+    const hash = saved.content_hash ?? ''
+    const changed = md5(randomBytes(8))
+
+    assert.deepEqual(
+      actions(
+        (await mine(first, [reported(target.romId, slot, hash, later(saved.updated_at, 60))]))
+          .operations
+      ),
+      [`no_op ${saved.id}`],
+      'the same bytes'
+    )
+    assert.deepEqual(
+      actions(
+        (await mine(first, [reported(target.romId, slot, changed, later(saved.updated_at, -60))]))
+          .operations
+      ),
+      [`no_op ${saved.id}`],
+      'different bytes, but older than the record'
+    )
+    assert.deepEqual(
+      actions(
+        (await mine(first, [reported(target.romId, slot, changed, later(saved.updated_at, 60))]))
+          .operations
+      ),
+      [`upload ${saved.id}`]
+    )
+    assert.deepEqual(actions((await mine(first, [])).operations), [], 'held and not mentioned')
+
+    await nextSecond()
+    const second = await device(target)
+    const newer = await second.uploadSave(
+      target.romId,
+      file(t, randomBytes(1024), 'newer.srm'),
+      'c.srm',
+      'snes9x',
+      slot,
+      { keepThisDevice: true }
+    )
+    assert.deepEqual(
+      actions(
+        (await mine(first, [reported(target.romId, slot, hash, saved.updated_at)])).operations
+      ),
+      [`download ${newer.id}`]
+    )
+    assert.deepEqual(
+      actions(
+        (await mine(first, [reported(target.romId, slot, changed, later(newer.updated_at, 60))]))
+          .operations
+      ),
+      [`upload ${newer.id}`],
+      'its record is of an older copy, so the newer side wins, and nothing is a conflict'
+    )
+    assert.deepEqual(actions((await mine(first, [])).operations), [`download ${newer.id}`])
+    assert.deepEqual(actions((await mine(second, [])).operations), [])
+
+    const stranger = await device(target)
+    assert.deepEqual(
+      actions(
+        (
+          await mine(stranger, [
+            reported(target.romId, slot, changed, later(newer.updated_at, -60))
+          ])
+        ).operations
+      ),
+      [`download ${newer.id}`]
+    )
+    assert.deepEqual(
+      actions(
+        (await mine(stranger, [reported(target.romId, slot, changed, await listed(newer.id))]))
+          .operations
+      ),
+      [`conflict ${newer.id}`],
+      'no record, the same time, different bytes'
+    )
+  })
+
+  test(`${server}: a negotiate ends the device's open session, and an ended session is refused`, async (t) => {
+    const { target } = await setUp(t)
+    const fork = await device(target)
+    const none = (): boolean => false
+    const first = await negotiate(fork, [], none)
+    const second = await negotiate(fork, [], none)
+    assert.notEqual(first.sessionId, second.sessionId)
+
+    const done = { operations_completed: 0, operations_failed: 0 }
+    await assert.rejects(fork.completeSyncSession(first.sessionId, done), refused(400))
+    const answer = await fork.completeSyncSession(second.sessionId, done)
+    assert.equal(answer.play_session_ingest ?? null, null)
+    await assert.rejects(fork.completeSyncSession(second.sessionId, done), refused(400))
+    await assert.rejects(fork.completeSyncSession(second.sessionId + 1_000_000, done), refused(404))
+    // Another device's negotiate leaves this device's session open.
+    const third = await negotiate(fork, [], none)
+    await negotiate(await device(target), [], none)
+    await fork.completeSyncSession(third.sessionId, done)
+  })
+
+  test(`${server}: play sent with a completion is taken once`, async (t) => {
+    const { target } = await setUp(t)
+    const fork = await device(target)
+    // Whole seconds and in the past: RomM drops the fraction, and refuses an
+    // end too far ahead of its own clock.
+    const endedAt = new Date(Math.floor(Date.now() / 1000) * 1000 - 60_000)
+    const span = {
+      rom_id: target.romId,
+      start_time: new Date(endedAt.getTime() - 300_000).toISOString(),
+      end_time: endedAt.toISOString(),
+      duration_ms: 300_000
+    }
+    const ahead = {
+      ...span,
+      start_time: new Date(Date.now() + 3_600_000).toISOString(),
+      end_time: new Date(Date.now() + 3_660_000).toISOString(),
+      duration_ms: 60_000
+    }
+    const complete = async (play: (typeof span)[]) => {
+      const { sessionId } = await negotiate(fork, [], () => false)
+      const answer = await fork.completeSyncSession(sessionId, {
+        operations_completed: 0,
+        operations_failed: 0,
+        play_sessions: play
+      })
+      assert.ok(answer.play_session_ingest)
+      return answer.play_session_ingest
+    }
+
+    const first = await complete([span, ahead])
+    assert.equal(first.created_count, 1)
+    assert.equal(first.skipped_count, 1)
+    assert.deepEqual(first.results.map((r) => `${r.index} ${r.status}`).sort(), [
+      '0 created',
+      '1 error'
+    ])
+    // The same span again, as a completion retried after a lost reply would
+    // send it, beside another span of the same game.
+    const next = {
+      ...span,
+      start_time: span.end_time,
+      end_time: new Date(endedAt.getTime() + 30_000).toISOString(),
+      duration_ms: 30_000
+    }
+    const again = await complete([span, next])
+    assert.equal(again.created_count, 1)
+    assert.deepEqual(again.results.map((r) => `${r.index} ${r.status}`).sort(), [
+      '0 duplicate',
+      '1 created'
+    ])
+
+    const { sessionId } = await negotiate(fork, [], () => false)
+    await assert.rejects(
+      fork.completeSyncSession(sessionId, {
+        operations_completed: 0,
+        operations_failed: 0,
+        play_sessions: [{ ...span, end_time: span.start_time }]
+      }),
+      refused(422)
+    )
   })
 }

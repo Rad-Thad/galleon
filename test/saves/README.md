@@ -114,7 +114,12 @@ this device's save" going in regardless, and adding a copy even when older
 bytes in the slot match, identical bytes adding no copy, a listing that names
 a device reading its records, deletion, and a save under no slot (the engine's
 uploads of every file but a game's primary one) replaced in place and refused
-only to a device whose record is older.
+only to a device whose record is older. Then negotiate and its sessions:
+pairing on game and slot against the slot's newest copy and never under no
+slot, each decision by what moved since the device's record of that copy (and
+with no record, the newer side, a conflict only at the same time), a negotiate
+ending the device's open session and an ended session refused, and play sent
+with a completion taken once.
 
 It runs against two servers: Docker RomM 5.2.0 as `contract.real.ts` (in
 `npm run test:saves`), and the fake RomM the device bundle carries
