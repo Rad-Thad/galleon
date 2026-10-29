@@ -408,7 +408,14 @@ export function saveContract(server: string, find: () => Promise<ContractTarget>
   })
 
   test(`${server}: negotiate decides by what moved since the device's record`, async (t) => {
-    const { target, slot } = await setUp(t)
+    const { target, slot, inSlot } = await setUp(t)
+    // A time as RomM stores it: an upload's answer can carry more of the
+    // second than the row keeps, which would make that time newer than itself.
+    const listed = async (id: number): Promise<string> => {
+      const row = (await inSlot()).find((save) => save.id === id)
+      assert.ok(row, `save ${id} is listed`)
+      return row.updated_at
+    }
     const first = await device(target)
     const saved = await first.uploadSave(
       target.romId,
@@ -432,10 +439,11 @@ export function saveContract(server: string, find: () => Promise<ContractTarget>
     )
     assert.deepEqual(
       actions(
-        (await mine(first, [reported(target.romId, slot, changed, saved.updated_at)])).operations
+        (await mine(first, [reported(target.romId, slot, changed, later(saved.updated_at, -60))]))
+          .operations
       ),
       [`no_op ${saved.id}`],
-      'different bytes, but no newer than the record'
+      'different bytes, but older than the record'
     )
     assert.deepEqual(
       actions(
@@ -486,7 +494,8 @@ export function saveContract(server: string, find: () => Promise<ContractTarget>
     )
     assert.deepEqual(
       actions(
-        (await mine(stranger, [reported(target.romId, slot, changed, newer.updated_at)])).operations
+        (await mine(stranger, [reported(target.romId, slot, changed, await listed(newer.id))]))
+          .operations
       ),
       [`conflict ${newer.id}`],
       'no record, the same time, different bytes'
