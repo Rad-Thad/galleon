@@ -38,7 +38,6 @@ interface Device {
   name: string | null
   platform: string | null
   mac_address: string | null
-  ip_address: string | null
   hostname: string | null
   client_device_identifier: string | null
   created_at: string
@@ -48,7 +47,6 @@ interface Registration {
   name?: string | null
   platform?: string | null
   mac_address?: string | null
-  ip_address?: string | null
   hostname?: string | null
   client_device_identifier?: string | null
   allow_existing?: boolean
@@ -56,19 +54,16 @@ interface Registration {
 }
 
 /**
- * The device a registration names, as RomM 5.2.0 finds it: by MAC address
- * alone when there is one, else by IP address and platform, else by hostname
- * and platform. This is what hands the app, which registers with
- * `allow_existing`, its own device back rather than a second one.
+ * The device a registration names, as RomM 5.2.0's registration finds it: by
+ * MAC address alone when there is one, else by hostname and platform. This
+ * is what hands the app, which registers with `allow_existing`, its own
+ * device back rather than a second one.
  */
 function sameMachine(devices: readonly Device[], asked: Registration): Device | undefined {
-  const { mac_address: mac, ip_address: ip, hostname: host, platform } = asked
+  const { mac_address: mac, hostname: host, platform } = asked
   if (mac) {
     const found = devices.find((device) => device.mac_address === mac)
     if (found) return found
-  }
-  if (ip && platform) {
-    return devices.find((device) => device.ip_address === ip && device.platform === platform)
   }
   if (host && platform) {
     return devices.find((device) => device.hostname === host && device.platform === platform)
@@ -165,7 +160,6 @@ export async function startFakeRomm(options: FakeRommOptions): Promise<FakeRomm>
         name: asked.name ?? null,
         platform: asked.platform ?? null,
         mac_address: asked.mac_address ?? null,
-        ip_address: asked.ip_address ?? null,
         hostname: asked.hostname ?? null,
         client_device_identifier: asked.client_device_identifier ?? null,
         created_at: new Date().toISOString()

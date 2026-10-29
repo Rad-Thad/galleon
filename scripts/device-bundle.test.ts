@@ -21,6 +21,7 @@ import {
   BUILD_INFO_NAME,
   BUNDLE_NAME,
   FAKE_ROMM,
+  FAKE_ROMM_NOTICES,
   buildInfo,
   payloadNotices,
   writeBundle
@@ -109,6 +110,7 @@ describe('device-bundle', () => {
       './mergesummary.py',
       './payloads.py',
       './fake-romm/fake-romm.cjs',
+      './fake-romm/THIRD_PARTY.md',
       './bridge/galleon_device_bridge.py',
       './bridge/install.sh',
       './bridge/VERSION.json',
@@ -118,6 +120,11 @@ describe('device-bundle', () => {
     }
     assert.ok(!listing.some((file) => file.includes('test_')), 'no bridge or helper tests')
     assert.ok(!listing.some((file) => file.endsWith('.ts')), "the fake's sources stay behind")
+    const notices = readFileSync(join(bundle, FAKE_ROMM_NOTICES), 'utf8')
+    for (const name of ['yauzl', 'pend']) {
+      assert.match(notices, new RegExp(`^## ${name} \\S+ \\(MIT\\)$`, 'm'), `${name}'s licence`)
+    }
+    assert.match(notices, /Permission is hereby granted/)
     assert.equal(JSON.parse(readFileSync(join(bundle, 'bundle.json'), 'utf8')).minBridge, 1)
   })
 

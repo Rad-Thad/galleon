@@ -9,7 +9,8 @@
 // Writes `<out>/galleon-device-tests.tar.gz` and `<out>/build-info.json`. The
 // bundle holds `test/device/` at its root, the same `build-info.json`,
 // `bridge/`, the device bridge from the same commit for its self-update,
-// `fake-romm/fake-romm.cjs`, the fake RomM built into one file, and, with
+// `fake-romm/fake-romm.cjs`, the fake RomM built into one file with the
+// licences of what it carries beside it, and, with
 // `--payloads`, `payloads/`: the homebrew of test/fixtures/roms/
 // manifest.json as scripts/agent/fetch-fixtures.mjs put it in that folder.
 import { execFileSync } from 'node:child_process'
@@ -19,6 +20,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readdirSync,
   rmSync,
   writeFileSync
 } from 'node:fs'
@@ -48,6 +50,7 @@ export const BRIDGE_FILES = [
 ]
 
 export const FAKE_ROMM = 'fake-romm/fake-romm.cjs'
+export const FAKE_ROMM_NOTICES = 'fake-romm/THIRD_PARTY.md'
 
 const SHA = /^[0-9a-f]{40}$/
 
@@ -56,9 +59,14 @@ const SHA = /^[0-9a-f]{40}$/
  * the app's save hash and yauzl among them: the Nova has no Node and no
  * node_modules, only the AppImage's Electron run as Node. CommonJS because
  * yauzl is, and an ES module cannot `require` Node's own modules.
+ *
+ * The bundle is published, so every package built into the file brings its
+ * licence along in `notices`, found from what esbuild actually pulled in
+ * rather than from a list that could fall behind; the packages carry no
+ * licence comment for `legalComments` to keep. Returns the package names.
  */
-export function buildFakeRomm({ root, to }) {
-  buildSync({
+export function buildFakeRomm({ root, to, notices }) {
+  const { metafile } = buildSync({
     entryPoints: [join(root, 'test/device/fake-romm/main.ts')],
     outfile: to,
     bundle: true,
@@ -66,8 +74,28 @@ export function buildFakeRomm({ root, to }) {
     format: 'cjs',
     target: 'node22',
     legalComments: 'inline',
+    metafile: true,
     logLevel: 'error'
   })
+  const packages = [
+    ...new Set(
+      Object.keys(metafile.inputs)
+        .map((input) => /(?:^|\/)node_modules\/((?:@[^/]+\/)?[^/]+)\//.exec(input)?.[1])
+        .filter((name) => name !== undefined)
+    )
+  ].sort()
+  const parts = ['# Third-party code in fake-romm.cjs\n']
+  for (const name of packages) {
+    const dir = join(root, 'node_modules', name)
+    const licence = readdirSync(dir).find((file) => /^licen[cs]e(\.(md|txt))?$/i.test(file))
+    if (!licence) throw new Error(`${name} is built into the fake RomM but ships no licence file`)
+    const { version, license } = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'))
+    parts.push(
+      `## ${name} ${version} (${license})\n\n\`\`\`\n${readFileSync(join(dir, licence), 'utf8').trimEnd()}\n\`\`\`\n`
+    )
+  }
+  writeFileSync(notices, parts.join('\n'))
+  return packages
 }
 
 /** The build-info.json the bridge reads the tested commit from. */
@@ -154,7 +182,7 @@ export function writeBundle({
         !/^(test_.*\.py|__pycache__)$/.test(basename(source)) &&
         !(basename(dirname(source)) === 'fake-romm' && source.endsWith('.ts'))
     })
-    buildFakeRomm({ root, to: join(stage, FAKE_ROMM) })
+    buildFakeRomm({ root, to: join(stage, FAKE_ROMM), notices: join(stage, FAKE_ROMM_NOTICES) })
     for (const name of BRIDGE_FILES) {
       cpSync(join(root, 'tools/device-bridge', name), join(stage, 'bridge', name), {
         recursive: true

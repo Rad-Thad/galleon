@@ -18,3 +18,4 @@ export function writeBundle(options: {
   builtAt?: string
 }): BuildInfo
 export const FAKE_ROMM: string
+export const FAKE_ROMM_NOTICES: string
