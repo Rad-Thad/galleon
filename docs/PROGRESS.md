@@ -4245,3 +4245,17 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet. M2-20 stays false.
 - Next: M2-20 part 3b: run.sh extracts the AppImage (`--appimage-extract` into the test folder), starts `fake-romm.cjs` with its Electron as Node and a fresh token, records the pid from the ready file, and stops it on exit and in `--cleanup`. Then part 4: device check `saves.fake-server` and READY-FOR-DEVICE.
+
+## 2026-10-29 12:46 UTC session 0178hDCDHEWzTFcEbBudcqfL (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. No lock. `init.sh` stopped at Docker; `dockerd` started by hand, then `npm ci` (one ECONNRESET, retried).
+- Previous unit: #393 (M2-20 part 3a) merged at bafa6e9. CI wall time (its PR run): x64 11:12, arm64 2:27. x64 is over the 10-minute target, under the 20-minute limit; the median over the last 10 PRs is 9:25.
+- Worked on: M2-20 part 3b (tracking issue #390), acceptance line 1: run.sh starts and stops the fake.
+- Result: PR (this one).
+  - `test/device/fakeromm.py`: `start` extracts the AppImage (`--appimage-extract`) into `$GALLEON_TEST_DIR/fake-romm`, makes a fresh token (in `token`, mode 0600, passed through the environment), runs `fake-romm.cjs` with the extracted `galleon` and `ELECTRON_RUN_AS_NODE=1`, records the pid with the boot id and start time (`launched.identity`), and accepts only a ready file naming that pid and `http://127.0.0.1:`; anything else is killed. `stop` signals only that recorded process (TERM, then KILL) and removes the state folder, never following a link.
+  - `test/device/run.sh`: starts it after the payloads while `harness-request.json` lists `saves.fake-server` (it does not yet; part 4 adds the check and the request), logs only its loopback address, stops it after the app whether or not it was asked for, and fails `harness.run` when it cannot. `--cleanup` stops one a killed run left.
+- Evidence: `test_fakeromm.py` 11/11 (loopback only, fresh token kept off the command line, TERM then KILL, a pid now another process left alone, a linked state folder not followed, an AppImage without Electron or that cannot be extracted starts nothing, the Electron name matches `electron-builder.yml`). Three run.sh tests in `device-bundle.test.ts`: the bundle's real `fake-romm.cjs` started from an "extracted AppImage" whose `galleon` is Node, called by the app with the token (200), stopped and removed after it, no token in the published logs; nothing started unless asked; `--cleanup` stops a recorded fake. Fault injection: without the stop after the app, the first fails ("the fake is stopped"). `scripts/agent/check.sh` green.
+- Evaluator: (on the PR).
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet. M2-20 stays false.
+- Next: M2-20 part 4: the self-test request carries the fake's address and token file (`fakeRomm`), the app uploads and downloads one save against it, run.sh reports `saves.fake-server`, `harness-request.json` asks for it, and READY-FOR-DEVICE.
