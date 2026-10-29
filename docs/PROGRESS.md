@@ -4091,3 +4091,16 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR). The first x64 leg failed at `pr-body.mjs` only: the body had no `Feature:` line.
 - Device / acceptance: READY-FOR-DEVICE M1-29 (all four lines met in CI; `steam.shortcut-roundtrip` waits on the device). M1-29 stays false.
 - Next: the Settings button M1-29's description names (when Steam is not running), then the next feature from `next.mjs`.
+
+## 2026-10-29 01:00 UTC session 0178hDCBjs6HFZoRRTcgtWyd (hourly heartbeat, second unit)
+
+- Device results: unchanged since the entry above. No lock.
+- Previous unit: #378 (M1-29 part 3) merged at a6cbd76. CI wall time (its PR run on 349d1f8): x64 9:07, arm64 1:07.
+- Worked on: M2-02 part 1 (tracking issue #379). M2-02 is the first feature `next.mjs` lists that is not yet READY-FOR-DEVICE.
+- Result: PR (this one).
+  - `test/device/argosy-shapes.py report --home TEST_HOME --out FILE`: with the test home's imported sign-in, reads `GET /api/devices`, `/api/platforms`, `/api/saves` by platform and then by game (up to `GAMES_PER_SYSTEM` a system), and each Argosy save's content into memory. It writes only shapes: slot (a channel the player named is `<channel-N>`), emulator tag, a file-name pattern without the game's name, archive entries with anything not an id replaced, sizes, whether `content_hash` follows RomM's rule (names sorted, as `savehash.ts`), a hardcore trailer, updated_at. Every request goes through `_get`: a GET whose query takes only `QUERY_KEYS`, with redirects refused. A URL error is reported as `bad-url` and never with the address.
+- Evidence: `test_argosy_shapes.py` 16/16. The static check finds no write method, no device id sent and one opener call. Against a fake RomM in the test, every request was a GET with no device id; another device's saves were never read; save shapes held only the allowed keys; and no title, channel, account, address, token, or save byte (raw or hex) appeared. A redirect was refused; a prefix-pair zip hashes by name. `python3 -B -m unittest discover -s test/device` OK. `scripts/agent/check.sh` green.
+- Evaluator: FAIL on e0bc005, with three blockers. The zip hash sorted lines rather than names. A named channel was published as typed. The per-game origin filter had no test. All three were fixed. PASS on 8f6b218, with every fault injection caught. Its note about a URL error printing the address was taken after the PASS (`bad-url`, tested).
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet; M2-02 stays false.
+- Next: M2-02 part 2. It needs the Docker 5.2.0 test seeded as an Argosy device, which should confirm how Argosy's saves name their device (`id` or `client_device_identifier`) and its `client` value. It also needs the run.sh step (stderr kept out of results), the sanitiser test with nothing withheld, and `argosy.shapes` in the summary. The 6-character id rule keeps `ZELDA2`-like tokens; narrow it to where SPEC.md expects an id.
