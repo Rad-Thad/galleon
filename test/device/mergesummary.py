@@ -13,7 +13,7 @@ read, or a check that does not keep the schema is left out, and the run is
 then `partial` with a note saying why, never `complete`.
 
 The app stopped by the player makes the run `aborted-by-user`, which the
-bridge does not publish, unless a harness check did not pass: the bridge
+bridge does not publish, unless a harness check failed: the bridge
 retries an aborted run later, so a failure found in this one, above all
 `safety.owner-state`, would otherwise never reach the results.
 
@@ -125,7 +125,7 @@ def merge(harness, app_file, sha):
     merged = dict(harness)
     checks = list(harness.get("checks", []))
     notes = list(harness.get("notes", []))
-    harness_passed = all(c.get("result") == "pass" for c in checks)
+    harness_failed = any(c.get("result") == "fail" for c in checks)
     status = harness.get("status")
     try:
         app = read_app(app_file, sha)
@@ -157,7 +157,7 @@ def merge(harness, app_file, sha):
     if dropped:
         notes.append(f"app summary: {dropped} check(s) left out, not keeping the schema or repeating an id")
 
-    if app_status == "aborted-by-user" and harness_passed and status == "complete":
+    if app_status == "aborted-by-user" and not harness_failed and status == "complete":
         status = "aborted-by-user"
         merged["reason"] = reason or "aborted-by-user"
     elif app_status == "aborted-by-user" and status == "complete":
