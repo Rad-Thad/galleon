@@ -1,7 +1,7 @@
 /**
  * What the fake RomM's save store does beyond the shared contract
- * (`contract.ts`): RomM 5.2.0's rules for saves under no slot, the optimistic
- * read, and what the server refuses.
+ * (`contract.ts`): the optimistic read, which the engine never makes, and what
+ * the server refuses.
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -26,35 +26,6 @@ function ticking(): () => Date {
   let at = Date.parse('2026-10-29T10:00:00Z')
   return () => new Date((at += 1000))
 }
-
-test('a save under no slot keeps its name and is replaced in place', () => {
-  const store = new SaveStore(1, ticking())
-  const first = store.upload(upload({ deviceId: 'a' }))
-  const second = store.upload(upload({ deviceId: 'a', bytes: Buffer.from('second') }))
-  assert.equal(first.status, 200)
-  assert.equal(second.status, 200)
-  if (first.status !== 200 || second.status !== 200) return
-  assert.equal(second.save.id, first.save.id)
-  assert.equal(second.save.file_name, 'game.srm')
-  assert.equal(store.list(1).length, 1)
-  assert.deepEqual(store.content(first.save.id, null, false), Buffer.from('second'))
-})
-
-test('under no slot, only a device with an older record is refused', () => {
-  const store = new SaveStore(1, ticking())
-  const theirs = store.upload(upload({ deviceId: 'a' }))
-  assert.equal(theirs.status, 200)
-  if (theirs.status !== 200) return
-  // No record at all is not refused.
-  assert.equal(store.upload(upload({ deviceId: 'b', bytes: Buffer.from('b') })).status, 200)
-  // 'a' now holds an older copy than the one 'b' put there.
-  assert.equal(store.upload(upload({ deviceId: 'a', bytes: Buffer.from('a') })).status, 409)
-  assert.equal(
-    store.upload(upload({ deviceId: 'a', bytes: Buffer.from('a'), overwrite: true })).status,
-    200
-  )
-  assert.equal(store.upload(upload({ bytes: Buffer.from('no device') })).status, 200)
-})
 
 test('an optimistic read records the device; a read that says otherwise does not', () => {
   const store = new SaveStore(1, ticking())

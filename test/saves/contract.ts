@@ -261,4 +261,79 @@ export function saveContract(server: string, find: () => Promise<ContractTarget>
     await fork.deleteSaves([saved.id])
     assert.deepEqual(await inSlot(), [])
   })
+
+  /** A name of the scenario's own under no slot, its save removed after it. */
+  async function setUpNamed(t: TestContext): Promise<{ target: ContractTarget; name: string }> {
+    const found = await find()
+    const name = `${fresh('named')}.srm`
+    const reader = await device(found)
+    t.after(async () => {
+      const rows = (await reader.saves(found.romId)).filter((save) => save.file_name === name)
+      await reader.deleteSaves(rows.map((save) => save.id))
+    })
+    return { target: found, name }
+  }
+
+  test(`${server}: the player's 'keep this device's save' adds a copy even when older bytes in the slot match`, async (t) => {
+    const { target, slot, inSlot } = await setUp(t)
+    const first = await device(target)
+    const old = file(t, randomBytes(1024), 'old.srm')
+    const before = await first.uploadSave(target.romId, old, 'c.srm', 'snes9x', slot)
+    await nextSecond()
+    await first.uploadSave(
+      target.romId,
+      file(t, randomBytes(1024), 'new.srm'),
+      'c.srm',
+      'snes9x',
+      slot
+    )
+    await nextSecond()
+    const kept = await (
+      await device(target)
+    ).uploadSave(target.romId, old, 'c.srm', 'snes9x', slot, {
+      keepThisDevice: true
+    })
+    assert.notEqual(kept.id, before.id)
+    assert.equal((await inSlot()).length, 3)
+  })
+
+  test(`${server}: a save under no slot keeps its name and is replaced in place`, async (t) => {
+    const { target, name } = await setUpNamed(t)
+    const fork = await device(target)
+    const first = await fork.uploadSave(
+      target.romId,
+      file(t, randomBytes(1024)),
+      name,
+      'snes9x',
+      null
+    )
+    await nextSecond()
+    const bytes = randomBytes(1024)
+    const second = await fork.uploadSave(
+      target.romId,
+      file(t, bytes, 'b.srm'),
+      name,
+      'snes9x',
+      null
+    )
+    assert.equal(second.id, first.id)
+    assert.equal(second.file_name, name)
+    assert.equal(second.slot, null)
+    const back = join(scratch(t), 'back.srm')
+    await fork.downloadSave(second.id, back)
+    assert.deepEqual(readFileSync(back), bytes)
+  })
+
+  test(`${server}: under no slot, only a device whose record is older is refused`, async (t) => {
+    const { target, name } = await setUpNamed(t)
+    const first = await device(target)
+    const second = await device(target)
+    await first.uploadSave(target.romId, file(t, randomBytes(1024)), name, 'snes9x', null)
+    await nextSecond()
+    await second.uploadSave(target.romId, file(t, randomBytes(1024), 'b.srm'), name, 'snes9x', null)
+    await nextSecond()
+    const mine = file(t, randomBytes(1024), 'mine.srm')
+    await assert.rejects(first.uploadSave(target.romId, mine, name, 'snes9x', null), isConflict)
+    await first.uploadSave(target.romId, mine, name, 'snes9x', null, { keepThisDevice: true })
+  })
 }

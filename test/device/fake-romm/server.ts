@@ -53,7 +53,6 @@ function json(res: ServerResponse, value: unknown, status = 200): void {
   res.end(JSON.stringify(value))
 }
 
-/** The multipart upload's one file, parsed the way `fetch` built it. */
 /**
  * RomM's `content_hash`, by the app's own reader: `hash.real.ts` holds that to
  * what RomM 5.2.0 stores on every edge case, so a second reader here could only
@@ -70,6 +69,7 @@ async function hashOf(bytes: Buffer, scratch: string): Promise<string | null> {
   }
 }
 
+/** The multipart upload's one file, parsed the way `fetch` built it. */
 async function uploaded(
   req: IncomingMessage,
   bytes: Buffer

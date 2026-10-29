@@ -110,8 +110,11 @@ a slotted upload stored under its stamped name with RomM's hash and read back
 byte for byte, a zip's hash over its entries, another device's upload refused
 with a 409 until it holds the slot's newest save (a download with
 `optimistic=false` is not holding it; `/downloaded` is), the player's "keep
-this device's save" going in regardless, identical bytes adding no copy, a
-listing that names a device reading its records, and deletion.
+this device's save" going in regardless, and adding a copy even when older
+bytes in the slot match, identical bytes adding no copy, a listing that names
+a device reading its records, deletion, and a save under no slot (the engine's
+uploads of every file but a game's primary one) replaced in place and refused
+only to a device whose record is older.
 
 It runs against two servers: Docker RomM 5.2.0 as `contract.real.ts` (in
 `npm run test:saves`), and the fake RomM the device bundle carries
