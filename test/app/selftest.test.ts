@@ -15,6 +15,7 @@ import { EXIT_TIMEOUT_MS, REQUEST, armada, homes, runWithRequest } from './selft
 import { BIG_ROM, GBA_ROM, startFakeRomm } from './server.ts'
 import { binaryVdf, shortcut } from '../../src/main/fixtures/steam/binaryvdf.ts'
 import { SYNTHETIC_GAMES } from '../../src/main/selftestlibrary.ts'
+import { ROUNDTRIP_DIR, SHORTCUT_ROUNDTRIP_CHECK } from '../../src/main/selftestshortcut.ts'
 import { STEAM_LIST_CHECK, TEST_SHORTCUT } from '../../src/main/selfteststeam.ts'
 import { IDLE_MS, PROFILE_SET, SCROLL_MS, WANT_PROFILE } from '../../src/main/selftestscroll.ts'
 import { POWER_READ_CHECK } from '../../src/main/selftestpower.ts'
@@ -319,6 +320,45 @@ test("steam.list reads the owner's Steam files from HOME and publishes counts on
   assert.equal(check.metrics.shortcutsWithCover, 1)
   assert.equal(check.metrics.testShortcuts, 1)
   for (const secret of ['Hades', 'Owner Game', owner]) {
+    assert.ok(!raw.includes(secret), `${secret} was published`)
+  }
+})
+
+test("steam.shortcut-roundtrip changes only copies of the owner's shortcut lists", async () => {
+  const owner = mkdtempSync(join(tmpdir(), 'galleon-selftest-roundtrip-'))
+  homes.push(owner)
+  const list = join(
+    owner,
+    '.local',
+    'share',
+    'Steam',
+    'userdata',
+    '1001',
+    'config',
+    'shortcuts.vdf'
+  )
+  mkdirSync(join(list, '..'), { recursive: true })
+  const bytes = binaryVdf({
+    shortcuts: { '0': shortcut(3000000000, TEST_SHORTCUT), '1': shortcut(1234, 'Owner Game') }
+  })
+  writeFileSync(list, bytes)
+  const { code, home, results } = await runWithRequest(
+    { ...REQUEST, checks: [SHORTCUT_ROUNDTRIP_CHECK] },
+    undefined,
+    EXIT_TIMEOUT_MS,
+    { HOME: owner }
+  )
+  assert.equal(code, 0)
+  const raw = readFileSync(join(results, SUMMARY_FILE), 'utf8')
+  const summary = JSON.parse(raw) as Summary
+  assert.deepEqual(summaryErrors(summary), [])
+  const check = summary.checks.find((c) => c.id === SHORTCUT_ROUNDTRIP_CHECK)
+  assert.equal(check?.result, 'pass', JSON.stringify(check))
+  assert.equal(check.metrics.lists, 1)
+  assert.equal(check.metrics.entries, 2)
+  assert.deepEqual(new Uint8Array(readFileSync(list)), bytes)
+  assert.ok(!existsSync(join(home, ROUNDTRIP_DIR)), 'the copies are removed')
+  for (const secret of ['1001', 'Owner Game', owner]) {
     assert.ok(!raw.includes(secret), `${secret} was published`)
   }
 })

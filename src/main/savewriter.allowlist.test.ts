@@ -71,6 +71,7 @@ const ALLOWED: Record<string, string> = {
   'main/selftestscroll.ts': "the profile handshake files in the request's handshake folder",
   'main/selftestsdcard.ts':
     "the run's own folder on the SD card, made and removed by storage.sdcard",
+  'main/selftestshortcut.ts': 'copies of the Steam shortcut lists in the test home',
   'main/selfteststeam.ts': "the Steam launch handshake files in the request's handshake folder",
   'main/selftestshots.ts': "the screenshots in the request's results folder",
   'main/selftestupdate.ts': "the update rehearsal's folder in the test home",
