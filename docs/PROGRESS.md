@@ -4191,3 +4191,4 @@ Lines the tooling reads (exact forms):
 - Notes:
   - Electron 45 deprecates the synchronous `safeStorage.decryptString` (`src/main/store.ts`), and Electron 46 removes it. Move to `decryptStringAsync` before taking 46, or sign-in breaks.
   - As root, Electron 45 refuses even `--version` without `--no-sandbox`. `scripts/headless.sh` then falls back to borrowing nixpkgs' Electron. On the VM, run `test:app` and `shots:nova` with `ELECTRON_EXEC_PATH` set to a `--no-sandbox` wrapper. CI and the Nova are not root.
+  - This entry's PR (#389) first went up without a `Feature:` line, and the x64 leg failed at "Check the pull-request body". Dependabot-triage PRs carry `Feature: none (<why>)`, like any work outside features.json.
