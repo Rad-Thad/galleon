@@ -36,8 +36,39 @@ export interface FakeRomm {
 interface Device {
   id: string
   name: string | null
+  platform: string | null
+  mac_address: string | null
   hostname: string | null
   client_device_identifier: string | null
+  created_at: string
+}
+
+interface Registration {
+  name?: string | null
+  platform?: string | null
+  mac_address?: string | null
+  hostname?: string | null
+  client_device_identifier?: string | null
+  allow_existing?: boolean
+  allow_duplicate?: boolean
+}
+
+/**
+ * The device a registration names, as RomM 5.2.0's registration finds it: by
+ * MAC address alone when there is one, else by hostname and platform. This
+ * is what hands the app, which registers with `allow_existing`, its own
+ * device back rather than a second one.
+ */
+function sameMachine(devices: readonly Device[], asked: Registration): Device | undefined {
+  const { mac_address: mac, hostname: host, platform } = asked
+  if (mac) {
+    const found = devices.find((device) => device.mac_address === mac)
+    if (found) return found
+  }
+  if (host && platform) {
+    return devices.find((device) => device.hostname === host && device.platform === platform)
+  }
+  return undefined
 }
 
 function body(req: IncomingMessage): Promise<Buffer> {
@@ -102,15 +133,43 @@ export async function startFakeRomm(options: FakeRommOptions): Promise<FakeRomm>
 
     if (path === '/api/devices' && req.method === 'GET') return json(res, devices)
     if (path === '/api/devices' && req.method === 'POST') {
-      const asked = JSON.parse(sent.toString() || '{}') as Partial<Device> & { name?: string }
+      const asked = JSON.parse(sent.toString() || '{}') as Registration
+      const existing = asked.allow_duplicate ? undefined : sameMachine(devices, asked)
+      if (existing && asked.allow_existing === false) {
+        return json(
+          res,
+          {
+            detail: {
+              error: 'device_exists',
+              message: 'A device with this fingerprint already exists',
+              device_id: existing.id
+            }
+          },
+          409
+        )
+      }
+      if (existing) {
+        return json(res, {
+          device_id: existing.id,
+          name: existing.name,
+          created_at: existing.created_at
+        })
+      }
       const device: Device = {
         id: randomUUID(),
         name: asked.name ?? null,
+        platform: asked.platform ?? null,
+        mac_address: asked.mac_address ?? null,
         hostname: asked.hostname ?? null,
-        client_device_identifier: asked.client_device_identifier ?? null
+        client_device_identifier: asked.client_device_identifier ?? null,
+        created_at: new Date().toISOString()
       }
       devices.push(device)
-      return json(res, { device_id: device.id }, 201)
+      return json(
+        res,
+        { device_id: device.id, name: device.name, created_at: device.created_at },
+        201
+      )
     }
 
     const deviceId = query.get('device_id')

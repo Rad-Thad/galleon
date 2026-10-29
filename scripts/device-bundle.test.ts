@@ -20,11 +20,15 @@ import { describe, test } from 'node:test'
 import {
   BUILD_INFO_NAME,
   BUNDLE_NAME,
+  FAKE_ROMM,
+  FAKE_ROMM_NOTICES,
   buildInfo,
   payloadNotices,
   writeBundle
 } from './device-bundle.mjs'
 import { sha256 } from './agent/fetch-fixtures.mjs'
+import { parseArgs as parseFakeArgs } from '../test/device/fake-romm/main.ts'
+import { contentHash, zip } from '../test/saves/fixtures.mjs'
 import { REQUEST_FILE, parseRequest } from '../src/main/selftest.ts'
 import {
   ROOT,
@@ -105,6 +109,8 @@ describe('device-bundle', () => {
       './selftestrequest.py',
       './mergesummary.py',
       './payloads.py',
+      './fake-romm/fake-romm.cjs',
+      './fake-romm/THIRD_PARTY.md',
       './bridge/galleon_device_bridge.py',
       './bridge/install.sh',
       './bridge/VERSION.json',
@@ -113,6 +119,12 @@ describe('device-bundle', () => {
       assert.ok(listing.includes(file), `${file} is in the bundle`)
     }
     assert.ok(!listing.some((file) => file.includes('test_')), 'no bridge or helper tests')
+    assert.ok(!listing.some((file) => file.endsWith('.ts')), "the fake's sources stay behind")
+    const notices = readFileSync(join(bundle, FAKE_ROMM_NOTICES), 'utf8')
+    for (const name of ['yauzl', 'pend']) {
+      assert.match(notices, new RegExp(`^## ${name} \\S+ \\(MIT\\)$`, 'm'), `${name}'s licence`)
+    }
+    assert.match(notices, /Permission is hereby granted/)
     assert.equal(JSON.parse(readFileSync(join(bundle, 'bundle.json'), 'utf8')).minBridge, 1)
   })
 
@@ -171,6 +183,74 @@ describe('device-bundle', () => {
       )
       assert.ok(!existsSync(join(out, BUNDLE_NAME)), `${name}: no bundle`)
     }
+  })
+
+  test('the fake RomM runs from the bundle alone, hashes a zip, and stops on SIGTERM', async (t) => {
+    const bundle = unpackLikeTheBridge(built())
+    const home = mkdtempSync(join(tmpdir(), 'fake-romm-run-'))
+    t.after(() => rmSync(home, { recursive: true, force: true }))
+    const ready = join(home, 'ready.json')
+    // From a folder with no node_modules above it, as on the Nova; the
+    // variable is what run.sh sets for Electron and plain Node ignores.
+    const child = spawn(
+      process.execPath,
+      [join(bundle, FAKE_ROMM), '--rom-ids', '5,9', '--scratch', home, '--ready', ready],
+      {
+        cwd: home,
+        env: { PATH: process.env.PATH, ELECTRON_RUN_AS_NODE: '1', FAKE_ROMM_TOKEN: 'tok' },
+        stdio: 'ignore'
+      }
+    )
+    t.after(() => child.kill('SIGKILL'))
+    const exited = new Promise<number | null>((resolve) => child.on('exit', resolve))
+    const pid = (() => {
+      const by = Date.now() + 10_000
+      while (!existsSync(ready)) {
+        assert.ok(Date.now() < by, 'the fake wrote its ready file')
+        execFileSync('sleep', ['0.05'])
+      }
+      return JSON.parse(readFileSync(ready, 'utf8')) as { baseUrl: string; pid: number }
+    })()
+    assert.equal(pid.pid, child.pid)
+    assert.match(pid.baseUrl, /^http:\/\/127\.0\.0\.1:\d+$/)
+
+    assert.equal((await fetch(`${pid.baseUrl}/api/saves?rom_id=5`)).status, 401)
+    const entries = [
+      { name: 'b.bin', data: Buffer.from('second') },
+      { name: 'a.bin', data: Buffer.from('first') }
+    ]
+    const form = new FormData()
+    form.append('saveFile', new Blob([zip(entries)]), 'card.zip')
+    const saved = await fetch(`${pid.baseUrl}/api/saves?rom_id=5`, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer tok' },
+      body: form
+    })
+    assert.equal(saved.status, 200)
+    assert.equal(
+      ((await saved.json()) as { content_hash: string }).content_hash,
+      contentHash(entries)
+    )
+
+    child.kill('SIGTERM')
+    assert.equal(await exited, 0)
+    await assert.rejects(fetch(`${pid.baseUrl}/api/heartbeat`))
+  })
+
+  test('the fake RomM refuses to start without a token, ROM ids or its files', () => {
+    const env = { FAKE_ROMM_TOKEN: 'tok' }
+    const args = ['--rom-ids', '3', '--scratch', '/s', '--ready', '/r']
+    assert.deepEqual(parseFakeArgs(args, env), {
+      token: 'tok',
+      romIds: [3],
+      scratch: '/s',
+      ready: '/r'
+    })
+    assert.throws(() => parseFakeArgs(args, {}), /FAKE_ROMM_TOKEN/)
+    assert.throws(() => parseFakeArgs(['--rom-ids', '3,x', ...args.slice(2)], env), /rom-ids/)
+    assert.throws(() => parseFakeArgs(['--rom-ids', '', ...args.slice(2)], env), /rom-ids/)
+    assert.throws(() => parseFakeArgs(args.slice(0, 4), env), /required/)
+    assert.throws(() => parseFakeArgs(['--token', 'x', ...args], env), /unknown option --token/)
   })
 
   test("the payload notices are THIRD_PARTY.md's test payloads part, licence text and all", () => {

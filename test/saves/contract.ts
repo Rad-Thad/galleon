@@ -583,4 +583,34 @@ export function saveContract(server: string, find: () => Promise<ContractTarget>
       refused(422)
     )
   })
+
+  test(`${server}: a registration from the same machine gets its own device back, or a 409 without allow_existing`, async () => {
+    const target = await find()
+    const host = fresh('host')
+    const register = async (allowExisting: boolean): Promise<Response> =>
+      fetch(`${target.baseUrl}/api/devices`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${target.token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: host,
+          hostname: host,
+          client: 'galleon-contract',
+          platform: 'linux',
+          client_version: '0.0.0',
+          allow_existing: allowExisting
+        })
+      })
+
+    const first = await register(true)
+    assert.ok(first.ok, `register: ${first.status}`)
+    const { device_id: id } = (await first.json()) as { device_id: string }
+    const again = await register(true)
+    assert.ok(again.ok, `register again: ${again.status}`)
+    assert.equal(((await again.json()) as { device_id: string }).device_id, id)
+
+    const refusedOne = await register(false)
+    assert.equal(refusedOne.status, 409)
+    const { detail } = (await refusedOne.json()) as { detail: { error: string; device_id: string } }
+    assert.deepEqual([detail.error, detail.device_id], ['device_exists', id])
+  })
 }
