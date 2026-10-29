@@ -17,7 +17,9 @@
 # app's self-test request
 # (selftestrequest.py), removed before it finishes, the bundle's homebrew
 # payloads in its ROM folder (payloads.py), removed with anything the app
-# downloaded, and an empty handshake folder ($GALLEON_TEST_DIR/handshake).
+# downloaded, an empty handshake folder ($GALLEON_TEST_DIR/handshake), and,
+# while harness-request.json asks, the fake RomM (fakeromm.py, in
+# $GALLEON_TEST_DIR/fake-romm), stopped and removed once the app has quit.
 # Outside RESULTS_DIR and those places it writes only an emulator config it
 # restores, Steam's shortcut list through
 # Steam itself, the record that steam.launch waits for an attended run
@@ -42,7 +44,8 @@ set -u
 # a build once the run is over, an app a killed run left running, the
 # self-test request, so the app runs no checks unless a run asked, the ROMs
 # in the test home, payloads and downloads alike, the power
-# profile and the sound a stopped run left changed, and an emulator config
+# profile and the sound a stopped run left changed, the fake RomM it left
+# running with its state, and an emulator config
 # that changed after the backup, from the backup this run left behind.
 # Each step is tried whatever became of the other, so one that fails never
 # leaves the owner's configs unrestored.
@@ -56,6 +59,7 @@ if [ "${1:-}" = --cleanup ]; then
   # only while it is still the process launch.sh recorded (launched.py).
   if [ -n "${GALLEON_TEST_DIR:-}" ]; then
     python3 "$(dirname -- "$0")/launched.py" stop --state "$GALLEON_TEST_DIR/home/launch" || cleaned=1
+    python3 "$(dirname -- "$0")/fakeromm.py" stop --dir "$GALLEON_TEST_DIR/fake-romm" || cleaned=1
   fi
   if [ -n "${GALLEON_TEST_ROOT:-}" ]; then
     python3 "$(dirname -- "$0")/powerprofile.py" restore --state "$GALLEON_TEST_ROOT/profile.json" || cleaned=1
@@ -232,6 +236,24 @@ if [ -n "$home_ok" ]; then
     10) echo "payloads: none in the bundle" >>"$log" ;;
     *) payloads_ok= ;;
   esac
+fi
+
+# The fake RomM (fakeromm.py, M2-20) on 127.0.0.1, run by the AppImage's own
+# Electron as Node, while the bundle's harness-request.json asks for
+# saves.fake-server. Its state, the extracted AppImage with it, lives in the
+# test folder and goes when it is stopped, after the app or in --cleanup.
+# It knows only the ROM ids it is given, the ones the self-test saves under.
+FAKE_ROMM_ROM_IDS=1
+fake_state="$GALLEON_TEST_DIR/fake-romm"
+fake_url=
+if grep -q '"saves\.fake-server"' "$here/harness-request.json" 2>/dev/null; then
+  if [ -x "${GALLEON_APPIMAGE:-}" ]; then
+    fake=$(python3 "$here/fakeromm.py" start --dir "$fake_state" --appimage "$GALLEON_APPIMAGE" \
+      --program "$here/fake-romm/fake-romm.cjs" --rom-ids "$FAKE_ROMM_ROM_IDS" 2>>"$log")
+    fake_url=$(printf '%s' "$fake" |
+      sed -n 's|.*"baseUrl": *"\(http://127\.0\.0\.1:[0-9][0-9]*\)".*|\1|p')
+  fi
+  echo "fake RomM: ${fake_url:-not started}" >>"$log"
 fi
 
 # The shape of Argosy's saves on the owner's server (argosy-shapes.py, M2-02),
@@ -652,6 +674,10 @@ python3 "$here/selftestrequest.py" remove --home "$GALLEON_HOME" 2>>"$log" || re
 # (PLAN.md 5.3 step 11); nothing of them is left in the test home.
 roms_gone=1
 python3 "$here/payloads.py" remove --home "$GALLEON_HOME" 2>>"$log" || roms_gone=
+# Stopped whether or not it was asked for: a state folder a killed run left
+# goes too.
+fake_gone=1
+python3 "$here/fakeromm.py" stop --dir "$fake_state" 2>>"$log" || fake_gone=
 
 result=pass
 reason=null
@@ -688,6 +714,9 @@ elif [ -z "$request_gone" ]; then
 elif [ -z "$roms_gone" ]; then
   result=fail
   reason='"the payloads and downloaded ROMs could not be removed"'
+elif [ -z "$fake_gone" ]; then
+  result=fail
+  reason='"the fake RomM could not be stopped"'
 elif [ -z "$profile_restored" ]; then
   result=fail
   reason='"the power profile could not be put back as it was"'

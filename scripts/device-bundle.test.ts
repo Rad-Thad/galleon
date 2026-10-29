@@ -109,6 +109,7 @@ describe('device-bundle', () => {
       './selftestrequest.py',
       './mergesummary.py',
       './payloads.py',
+      './fakeromm.py',
       './fake-romm/fake-romm.cjs',
       './fake-romm/THIRD_PARTY.md',
       './bridge/galleon_device_bridge.py',
@@ -689,6 +690,75 @@ describe('device-bundle', () => {
     } finally {
       server.server.kill()
     }
+  })
+
+  test("run.sh starts the fake RomM on the AppImage's Electron when asked, and stops it after the app", () => {
+    const bundle = unpackLikeTheBridge(built())
+    writeFileSync(join(bundle, 'harness-request.json'), '{"checks": ["saves.fake-server"]}\n')
+    const seen = join(mkdtempSync(join(tmpdir(), 'bundle-seen-')), 'fake.json')
+    // Extracted, the AppImage holds an "Electron" that is this Node; run, it
+    // is an app that calls the fake with the token run.sh made.
+    const appimage =
+      '#!/bin/sh\n' +
+      'if [ "$1" = --appimage-extract ]; then\n' +
+      '  mkdir -p squashfs-root\n' +
+      `  printf '#!/bin/sh\\nexec "%s" "$@"\\n' '${process.execPath}' >squashfs-root/galleon\n` +
+      '  chmod 0755 squashfs-root/galleon; exit 0\n' +
+      'fi\n' +
+      "python3 -I -c 'import json, os, sys, urllib.request\n" +
+      'state = os.path.join(os.path.dirname(os.environ["GALLEON_HOME"]), "fake-romm")\n' +
+      'ready = json.load(open(os.path.join(state, "ready.json")))\n' +
+      'token = open(os.path.join(state, "token")).read().strip()\n' +
+      'req = urllib.request.Request(ready["baseUrl"] + "/api/saves?rom_id=1",\n' +
+      '    headers={"Authorization": "Bearer " + token})\n' +
+      'status = urllib.request.urlopen(req).status\n' +
+      'json.dump({"status": status, **ready}, open(sys.argv[1], "w"))' +
+      `' '${seen}'\n` +
+      selfTestApp().slice('#!/bin/sh\n'.length)
+    const { run, results, testDir } = runHarness(bundle, SHA, appimage)
+    assert.equal(run.status, 0, run.stderr)
+    const log = readFileSync(join(results, 'logs/harness.log'), 'utf8')
+    assert.match(log, /^fake RomM: http:\/\/127\.0\.0\.1:\d+$/m)
+    const fake = JSON.parse(readFileSync(seen, 'utf8'))
+    assert.equal(fake.status, 200)
+    assert.match(fake.baseUrl, /^http:\/\/127\.0\.0\.1:\d+$/)
+    assert.ok(!running(fake.pid), 'the fake is stopped')
+    assert.ok(!existsSync(join(testDir, 'fake-romm')), 'its state and the extracted AppImage go')
+    const summary = JSON.parse(readFileSync(join(results, 'summary.json'), 'utf8'))
+    assert.equal(summary.checks[0].result, 'pass')
+    // The token stays on the device.
+    const token = /[0-9a-f]{64}/
+    for (const name of readdirSync(join(results, 'logs'))) {
+      assert.doesNotMatch(readFileSync(join(results, 'logs', name), 'utf8'), token, name)
+    }
+  })
+
+  test('run.sh starts no fake RomM unless asked', () => {
+    const bundle = unpackLikeTheBridge(built())
+    writeFileSync(join(bundle, 'harness-request.json'), '{"checks": []}\n')
+    const { run, results, testDir } = runHarness(bundle, SHA, true)
+    assert.equal(run.status, 0, run.stderr)
+    assert.doesNotMatch(readFileSync(join(results, 'logs/harness.log'), 'utf8'), /fake RomM/)
+    assert.ok(!existsSync(join(testDir, 'fake-romm')))
+  })
+
+  test('run.sh --cleanup stops a fake RomM a killed run left, and removes its state', () => {
+    const bundle = unpackLikeTheBridge(built())
+    const testDir = join(mkdtempSync(join(tmpdir(), 'bundle-testroot-')), SHA)
+    const state = join(testDir, 'fake-romm')
+    mkdirSync(join(state, 'squashfs-root'), { recursive: true })
+    const left = spawn('/bin/sh', ['-c', 'while :; do sleep 0.1; done'], { stdio: 'ignore' })
+    const start = readFileSync(`/proc/${left.pid}/stat`, 'utf8').split(') ')[1].split(' ')[19]
+    const boot = readFileSync('/proc/sys/kernel/random/boot_id', 'utf8').trim()
+    writeFileSync(join(state, 'fake-romm.id'), `${left.pid} ${boot} ${start}\n`)
+    const run = spawnSync('/bin/sh', [join(bundle, 'run.sh'), '--cleanup'], {
+      env: { PATH: process.env.PATH, GALLEON_TEST_DIR: testDir }
+    })
+    const exited = left.exitCode !== null || left.signalCode !== null || !running(left.pid!)
+    left.kill('SIGKILL')
+    assert.equal(run.status, 0, String(run.stderr))
+    assert.ok(exited, 'the recorded fake is stopped')
+    assert.ok(!existsSync(state))
   })
 
   test('run.sh writes the launch request for this build while it runs, and removes it', () => {
