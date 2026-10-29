@@ -4119,3 +4119,17 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet; M2-02 stays false.
 - Next: M2-02 part 2b: the run.sh step (stderr kept out of results), the sanitiser test with nothing withheld, `argosy.shapes` in the summary, and the 6-character id rule narrowed to where SPEC.md expects an id.
+
+## 2026-10-29 03:27 UTC session 0178hDCAN87erixH7ira29Qx (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. No open PRs, no lock, no `needs-human`. `init.sh` stopped at Docker; `dockerd` started by hand; `npm ci` and `npx install-electron` by hand.
+- Previous unit: #381 (M2-02 part 2a) merged at 5e9c0e7. CI wall time: x64 10:47, arm64 2:30 (from #379's comment).
+- Worked on: M2-02 part 2b (tracking issue #379), acceptance line 2's "passes the sanitiser with nothing withheld", and the id rule the last entry asked to narrow.
+- Result: PR (this one).
+  - `argosy-shapes.py`: a six-character GameCube or Wii game id (`DISC_ID`: console, game, region, maker with a digit) is kept only as the root folder of a save on `gc`, `ngc` or `wii`, where SPEC.md section 12 question 7 asks which id names the folder. Anywhere else, or on any other system, six letters and digits are replaced, so `ZELDA2`-like names never reach the report. `data`, the fixed folder in Wii saves (SPEC.md, Wii), is kept.
+  - The test's fake RomM holds a Wii save with a title inside it; the report shows `RMGE01/data/<name>.dat`.
+- Evidence: `test_argosy_shapes.py` 21/21. `test_the_bridge_s_sanitiser_publishes_it_unchanged` runs the bridge's own `sanitize_tree` with a `Redactor` given the account, host, address and a title as literals: published `logs/argosy-shapes.json`, nothing dropped or withheld, and the bytes are the report's unchanged. `test_a_disc_id_is_kept_only_as_a_gamecube_or_wii_root` covers four ids on three systems, four look-alikes, four other systems and a non-root part. `npm run test:saves` against Docker RomM 5.2.0 (the real-server shapes test). `scripts/agent/check.sh` green.
+- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet; M2-02 stays false.
+- Next: M2-02 part 2c: the run.sh step (the script's stderr kept out of results, its report into `logs/`), and `argosy.shapes` in the harness summary (pass with a report, skip with `no-importable-credentials`, fail by step and code), with its run.sh tests in `scripts/device-bundle.test.ts`; then READY-FOR-DEVICE M2-02.
