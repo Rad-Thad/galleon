@@ -245,8 +245,10 @@ def shape_of(save, data, channels):
 def report(base, token):
     """The whole report, reading the server through `_get` only."""
     devices = _json(base, token, "/api/devices", step="devices")
-    argosy = {d.get("id") for d in devices if isinstance(d, dict)
-              and "argosy" in str(d.get("client") or "").lower()}
+    found = [d for d in devices if isinstance(d, dict) and "argosy" in str(d.get("client") or "").lower()]
+    # A save names its device by the id RomM issued or, for a device that paired
+    # first, by the identifier the device chose (see RommDevice in the app).
+    argosy = {key for d in found for key in (d.get("id"), d.get("client_device_identifier")) if key}
     platforms = _json(base, token, "/api/platforms", step="platforms")
     systems = []
     channels = Channels()
@@ -275,7 +277,7 @@ def report(base, token):
                 slots[key] = slots.get(key, 0) + 1
             games.append({"game": len(games) + 1, "saves": shapes, "savesPerSlot": slots})
         systems.append({"platform": platform.get("slug"), "gamesWithArgosySaves": len(roms), "games": games})
-    return {"schema": SCHEMA, "argosyDevices": len(argosy), "systems": systems}
+    return {"schema": SCHEMA, "argosyDevices": len(found), "systems": systems}
 
 
 def main(argv=None):

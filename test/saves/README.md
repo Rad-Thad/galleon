@@ -86,3 +86,19 @@ identical bytes itself only for an upload with `overwrite=false`; the player's
 alike it is, so `RommClient.uploadSave` checks the slot's newest copy first
 and the test covers both. A changed save after a retry is the slot's second
 row. It passes on 5.2.0, 5.3.1 and 5.4.0 (run it alone there, as above).
+
+## Argosy's save shapes
+
+`argosy-shapes.real.ts` runs the device check's reader,
+`test/device/argosy-shapes.py` (M2-02), against Docker RomM 5.2.0 seeded as an
+Argosy device: a user made for the test registers an Argosy client and
+another one, uploads every fixture as Argosy to `autosave` (and one to a
+channel named after its game), and gives the script a test home signed in with
+its token. The report must cover exactly the seeded systems, with each save
+read, its `content_hash` following RomM's rule and its archive entries the
+fixture's; the other client's save is left out; the devices and save rows are
+the same before and after; and no title, channel name, account, address or
+token appears in it. Saves and devices are listed per user, so the other files
+here, which change saves of the same games at the same time, do not reach it.
+It also holds what the script relies on: an uploaded save's `origin_device_id`
+is the id registration returned.

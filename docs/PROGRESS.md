@@ -4104,3 +4104,18 @@ Lines the tooling reads (exact forms):
 - CI wall time: recorded in the next entry (this entry rides the PR).
 - Device / acceptance: none yet; M2-02 stays false.
 - Next: M2-02 part 2. It needs the Docker 5.2.0 test seeded as an Argosy device, which should confirm how Argosy's saves name their device (`id` or `client_device_identifier`) and its `client` value. It also needs the run.sh step (stderr kept out of results), the sanitiser test with nothing withheld, and `argosy.shapes` in the summary. The 6-character id rule keeps `ZELDA2`-like tokens; narrow it to where SPEC.md expects an id.
+
+## 2026-10-29 02:26 UTC session 0178hDCA8b244AhMkE5B9vku (hourly heartbeat)
+
+- Device results: none new since 1ac4cb4 (bridge last seen 2026-10-25 14:02 UTC, "not on the charger"); no safety failures, no regressions. No open PRs, no lock, no `needs-human`. `init.sh` stopped at Docker; `dockerd` started by hand answered, and after one Docker Hub 429 the images pulled.
+- Previous unit: #380 (M2-02 part 1) merged at e4ed3d1. CI wall time: x64 9:27, arm64 1:09 (from #379's comment).
+- Worked on: M2-02 part 2a (tracking issue #379), acceptance line 1's "a CI test runs it against Docker 5.2.0 seeded as an Argosy device and validates the report layout".
+- Result: PR (this one).
+  - `test/saves/argosy-shapes.real.ts` (in `npm run test:saves`): a user made for the test registers an Argosy client and another, uploads every fixture as Argosy to `autosave` and one to a channel named after its game, and runs the script with a test home signed in with that user's token. The report must cover exactly the seeded systems by RomM slug, every save read with `content_hash` following RomM's rule and archive entry sizes the fixture's; the other client's save left out; devices and save rows unchanged; no title, channel, account, address or token. Saves and devices are per user, so the suite's other files changing the same games in parallel do not reach it.
+  - Confirmed on 5.2.0: an uploaded save's `origin_device_id` is the id registration returns. The script now also matches an Argosy device's `client_device_identifier` (a save made before pairing names it), never an empty one.
+  - CI's `changes` step runs the save suite when `test/device/argosy-shapes.py` changes.
+- Evidence: `ROMM_PROFILE=v520 npm run test:saves-real` 43/43 locally (32 s). Fault injections against the real server: a `device_id` on content reads fails "the script changed a device or a save"; a raw file name in the report fails. `test_argosy_shapes.py` 19/19; dropping the identifier match, or the empty-identifier guard, or allowing `device_id` in the query fails a test. `scripts/agent/check.sh` green.
+- Evaluator: see the PR.
+- CI wall time: recorded in the next entry (this entry rides the PR).
+- Device / acceptance: none yet; M2-02 stays false.
+- Next: M2-02 part 2b: the run.sh step (stderr kept out of results), the sanitiser test with nothing withheld, `argosy.shapes` in the summary, and the 6-character id rule narrowed to where SPEC.md expects an id.

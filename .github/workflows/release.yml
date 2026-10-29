@@ -96,7 +96,7 @@ jobs:
             romm=true
           fi
           saves=false
-          if grep -qE '^(src/main/romm/|src/main/saves[^/]*\.ts$|src/main/saves-compat/|test/romm/|test/saves/|test/fixtures/saves/|schema/)' <<<"$changed"; then
+          if grep -qE '^(src/main/romm/|src/main/saves[^/]*\.ts$|src/main/saves-compat/|test/romm/|test/saves/|test/fixtures/saves/|test/device/argosy-shapes\.py$|schema/)' <<<"$changed"; then
             saves=true
           fi
           if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
