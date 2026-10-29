@@ -58,11 +58,22 @@ export interface SelfTestRequest {
    * takes it, or null when the harness made none.
    */
   steamTarget: string | null
-  fakeRomm: unknown
+  /** The on-device fake RomM run.sh started (M2-20), or null when it started none. */
+  fakeRomm: FakeRomm | null
   readOnlyServer: true
   privacy: true
   abortOnInput: boolean
   screenshots: string[]
+}
+
+/**
+ * Where the save checks find the fake RomM: its address, on loopback only,
+ * and the file run.sh keeps its token in, so the token is held in that one
+ * private file and is never copied into another.
+ */
+export interface FakeRomm {
+  baseUrl: string
+  tokenFile: string
 }
 
 export interface CheckResult {
@@ -213,6 +224,10 @@ export function parseRequest(raw: unknown): Taken {
   if (steamTarget !== null && (typeof steamTarget !== 'string' || !/^\d+$/.test(steamTarget))) {
     return refuse('request-steam-target')
   }
+  const fakeRomm = r.fakeRomm ?? null
+  // The save checks write to this address, so it is held to loopback here,
+  // whatever the harness wrote.
+  if (fakeRomm !== null && !isFakeRomm(fakeRomm)) return refuse('request-fake-romm')
   return {
     kind: 'request',
     request: {
@@ -228,13 +243,28 @@ export function parseRequest(raw: unknown): Taken {
       payloads: payloads as Record<string, string>,
       savingPayloads: r.savingPayloads ?? [],
       steamTarget,
-      fakeRomm: r.fakeRomm ?? null,
+      fakeRomm,
       readOnlyServer: true,
       privacy: true,
       abortOnInput: r.abortOnInput !== false,
       screenshots: r.screenshots ?? []
     }
   }
+}
+
+const LOOPBACK_URL = /^http:\/\/127\.0\.0\.1:[1-9][0-9]{0,4}$/
+
+function isFakeRomm(value: unknown): value is FakeRomm {
+  if (typeof value !== 'object' || value === null) return false
+  const { baseUrl, tokenFile } = value as Record<string, unknown>
+  return (
+    typeof baseUrl === 'string' &&
+    LOOPBACK_URL.test(baseUrl) &&
+    Number(baseUrl.slice(baseUrl.lastIndexOf(':') + 1)) <= 65535 &&
+    typeof tokenFile === 'string' &&
+    isAbsolute(tokenFile) &&
+    !tokenFile.includes('\0')
+  )
 }
 
 function isStringArray(value: unknown): value is string[] {

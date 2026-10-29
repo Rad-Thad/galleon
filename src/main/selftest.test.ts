@@ -168,6 +168,12 @@ describe('taking the request', () => {
     )
   })
 
+  test('the fake RomM is an address on loopback with an absolute token file, or none', () => {
+    assert.equal(request().fakeRomm, null)
+    const fake = { baseUrl: 'http://127.0.0.1:40123', tokenFile: '/tmp/fake-romm/token' }
+    assert.deepEqual(request({ fakeRomm: fake }).fakeRomm, fake)
+  })
+
   test('a malformed request is refused with a reason', () => {
     for (const [overrides, reason] of [
       [{ schema: 2 }, 'request-schema'],
@@ -185,6 +191,18 @@ describe('taking the request', () => {
       [{ steamTarget: 1 }, 'request-steam-target'],
       [{ steamTarget: '123 ; rm' }, 'request-steam-target'],
       [{ steamTarget: '' }, 'request-steam-target'],
+      [{ fakeRomm: 'romm.example:8080' }, 'request-fake-romm'],
+      [{ fakeRomm: { baseUrl: 'http://192.168.1.2:80', tokenFile: '/t' } }, 'request-fake-romm'],
+      [{ fakeRomm: { baseUrl: 'http://localhost:80', tokenFile: '/t' } }, 'request-fake-romm'],
+      [{ fakeRomm: { baseUrl: 'https://127.0.0.1:80', tokenFile: '/t' } }, 'request-fake-romm'],
+      [
+        { fakeRomm: { baseUrl: 'http://127.0.0.1:80@owner.example', tokenFile: '/t' } },
+        'request-fake-romm'
+      ],
+      [{ fakeRomm: { baseUrl: 'http://127.0.0.1:70000', tokenFile: '/t' } }, 'request-fake-romm'],
+      [{ fakeRomm: { baseUrl: 'http://127.0.0.1:80/', tokenFile: '/t' } }, 'request-fake-romm'],
+      [{ fakeRomm: { baseUrl: 'http://127.0.0.1:80', tokenFile: 'token' } }, 'request-fake-romm'],
+      [{ fakeRomm: { baseUrl: 'http://127.0.0.1:80' } }, 'request-fake-romm'],
       [{ version: 21 }, 'request-version'],
       [{ version: '0.21.0 at owners-server.example' }, 'request-version']
     ] as const) {
